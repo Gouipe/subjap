@@ -20,6 +20,17 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("previous", 15)).toBe(10);
   });
 
+  it("returns an unseen previous cue remembered from an authoritative track", () => {
+    const navigator = new CueNavigator();
+    const previous = cue("previous", 105, 110.778);
+    const current = cue("current", 110.778, 114);
+
+    navigator.remember([previous, current]);
+    navigator.observe([current]);
+
+    expect(navigator.getSeekTime("previous", 111.2)).toBe(105);
+  });
+
   it("returns the latest observed cue from a gap after subtitles", () => {
     const navigator = new CueNavigator();
     navigator.observe([cue("last", 10, 12)]);

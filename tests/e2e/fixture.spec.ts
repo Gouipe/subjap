@@ -613,6 +613,26 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 105);
   });
 
+  test("Q utilise la phrase précédente de la piste Netflix après un rechargement", async ({
+    page,
+  }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+
+    await page.getByTestId("official-history-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-scenario",
+      "official-history-complete",
+    );
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "困るんですよ生徒に示しがつかないから",
+    );
+
+    await page.locator("body").press("q");
+    await expect(video).toHaveJSProperty("currentTime", 105);
+  });
+
   test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({
     page,
   }) => {

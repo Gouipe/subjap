@@ -26,6 +26,13 @@ export class CueNavigator {
     }
   }
 
+  /** Add authoritative track cues to navigation without rendering them. */
+  remember(cues: SubtitleCue[]): void {
+    for (const cue of cues) {
+      this.observedCues.set(this.keyFor(cue), cue);
+    }
+  }
+
   reset(): void {
     this.currentCues = [];
     this.observedCues.clear();

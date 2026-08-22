@@ -364,6 +364,7 @@ function ensureOverlay(): OverlayRenderer | null {
 }
 
 function render(cues: SubtitleCue[]): void {
+  cueNavigator.remember(adapter.getNavigationCues());
   currentCues = cues;
   const japaneseCues = cues.filter((cue) => /^ja(?:[-_]|$)/i.test(cue.language ?? ""));
   status.dataset.cue = japaneseCues[0]?.text ?? "";
@@ -632,6 +633,41 @@ document.querySelector<HTMLButtonElement>("#authoritative-timing")!.addEventList
   setTimeout(() => {
     status.dataset.scenario = "authoritative-timing-complete";
   }, 300);
+});
+
+document.querySelector<HTMLButtonElement>("#official-history")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  const video = document.querySelector<HTMLVideoElement>("#video")!;
+
+  // Simulate a freshly reloaded content script: only the current DOM cue was
+  // observed, but Netflix's official track already contains its predecessor.
+  video.currentTime = 111.2;
+  nativeSubtitles.replaceChildren(
+    nativeLine("困るんですよ生徒に示しがつかないから", null, null),
+  );
+  setTimeout(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window,
+        data: {
+          source: "subjap",
+          type: "subjap:netflix-timed-text",
+          payload: {
+            url: "https://cdn.example/timedtext/ja-history.vtt",
+            language: "ja",
+            body:
+              "WEBVTT\n\n00:01:45.000 --> 00:01:50.778\n" +
+              "廊下を走らないって言ってるでしょう\n\n" +
+              "00:01:50.778 --> 00:01:54.000\n" +
+              "困るんですよ生徒に示しがつかないから",
+          },
+        },
+      }),
+    );
+  }, 100);
+  setTimeout(() => {
+    status.dataset.scenario = "official-history-complete";
+  }, 200);
 });
 
 document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click", () => {
