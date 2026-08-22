@@ -149,6 +149,11 @@ export interface MessageMap {
   "dict:download": { url?: string };
   "dict:downloadResult": { count: number };
 
+  // Netflix official timed-text retrieval. The service worker performs the
+  // request outside the page context so page-level blockers cannot replace it.
+  "netflix:timedTextFetch": { url: string; language: string };
+  "netflix:timedTextFetchResult": { url: string; language: string; body: string };
+
   // Word state
   "word:get": { key: string };
   "word:getResult": { state: WordState | null };

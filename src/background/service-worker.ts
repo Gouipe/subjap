@@ -7,6 +7,7 @@ import { onMessage } from "@/core/messaging";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import { fetchJapaneseFrequencyRanks } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
+import { fetchNetflixTimedText } from "./netflix-timed-text";
 import { synthesizeVoicevox, warmupVoicevox } from "@/mining/voicevox";
 import {
   extractAnkiWordStates,
@@ -120,6 +121,8 @@ async function ensureFrequencyRanks(): Promise<void> {
 // ---------------------------------------------------------------------------
 // Message handler registration
 // ---------------------------------------------------------------------------
+
+onMessage("netflix:timedTextFetch", fetchNetflixTimedText);
 
 // ── dict:lookup ───────────────────────────────────────────────────────────
 
