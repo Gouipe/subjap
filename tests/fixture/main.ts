@@ -78,8 +78,60 @@ const yabaiDictionaryEntry: DictionaryEntry = {
   common: true,
 };
 
+const longDictionaryEntry: DictionaryEntry = {
+  headword: "為る",
+  reading: "する",
+  partOfSpeech: ["動詞"],
+  senses: [
+    {
+      glosses: [
+        "to carry out",
+        "to perform",
+        "to cause to become",
+        "to make (into)",
+        "to turn (into)",
+        "to serve as",
+        "to act as",
+        "to work as",
+        "to wear (clothes, a facial expression, etc.)",
+        "to judge as being",
+        "to view as being",
+        "to think of as",
+        "to treat as",
+        "to use as",
+        "to decide on",
+        "to choose",
+        "to be sensed (of a smell, noise, etc.)",
+        "to be (in a state, condition, etc.)",
+        "to be worth",
+        "to cost",
+        "to pass (of time)",
+        "to elapse",
+        "to place, or raise, person A to a post or status B",
+        "to transform A to B",
+        "to make A into B",
+        "to exchange A for B",
+        "to make use of A for B",
+        "to view A as B",
+        "to handle A as if it were B",
+        "to feel A about B",
+        "verbalizing suffix",
+        "creates a humble verb",
+        "to be just about to",
+        "to be just starting to",
+        "to try to",
+        "to attempt to",
+      ],
+    },
+  ],
+  common: true,
+};
+
 const dictionaryEntries = new Map(
-  [dictionaryEntry, yabaiDictionaryEntry].map((entry) => [entry.headword, entry]),
+  [dictionaryEntry, yabaiDictionaryEntry, longDictionaryEntry].map((entry) => [
+    entry.headword,
+    entry,
+  ]),
 );
 
 const tokens: Token[] = [
@@ -89,6 +141,9 @@ const tokens: Token[] = [
   { surface: "し", lemma: "する", reading: "し", partOfSpeech: ["動詞"] },
   { surface: "ます", lemma: "ます", reading: "ます", partOfSpeech: ["助動詞"] },
   { surface: "。", lemma: "。", reading: "。", partOfSpeech: ["記号"] },
+];
+const longDefinitionTokens: Token[] = [
+  { surface: "する", lemma: "為る", reading: "する", partOfSpeech: ["動詞"] },
 ];
 let activeTokens: Token[] = [];
 
@@ -455,6 +510,11 @@ document.querySelector<HTMLButtonElement>("#mixed-adjective")!.addEventListener(
 document.querySelector<HTMLButtonElement>("#explanatory")!.addEventListener("click", () => {
   activeTokens = explanatoryTokens;
   nativeSubtitles.replaceChildren(nativeLine("孫なんです", "20", "24"));
+});
+
+document.querySelector<HTMLButtonElement>("#long-definition")!.addEventListener("click", () => {
+  activeTokens = longDefinitionTokens;
+  nativeSubtitles.replaceChildren(nativeLine("する", "20", "24"));
 });
 
 document.querySelector<HTMLButtonElement>("#mine")!.addEventListener("click", () => {

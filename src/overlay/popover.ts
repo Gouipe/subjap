@@ -138,13 +138,17 @@ export class WordPopover {
     el.className = "subjap-popover";
     el.setAttribute("role", "tooltip");
     el.innerHTML = `
-      <div class="subjap-popover__surface"></div>
-      <div class="subjap-popover__reading"></div>
-      <div class="subjap-popover__pos"></div>
-      <div class="subjap-popover__defs"></div>
-      <div class="subjap-popover__freq"></div>
-      <div class="subjap-popover__anki"></div>
-      <div class="subjap-popover__pitch"></div>
+      <div class="subjap-popover__header">
+        <div class="subjap-popover__surface"></div>
+        <div class="subjap-popover__reading"></div>
+        <div class="subjap-popover__pos"></div>
+      </div>
+      <div class="subjap-popover__content">
+        <div class="subjap-popover__defs"></div>
+        <div class="subjap-popover__freq"></div>
+        <div class="subjap-popover__anki"></div>
+        <div class="subjap-popover__pitch"></div>
+      </div>
       <div class="subjap-popover__actions">
         <button class="subjap-btn subjap-btn--toggle-known"></button>
         <button class="subjap-btn subjap-btn--toggle-ignored"></button>
@@ -178,8 +182,14 @@ export class WordPopover {
       .subjap-popover {
         position: fixed;
         z-index: 2147483647;
-        min-width: 220px;
-        max-width: 340px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        min-width: min(248px, calc(100vw - 16px));
+        max-width: min(370px, calc(100vw - 16px));
+        max-height: calc(100vh - 16px);
+        max-height: calc(100dvh - 16px);
+        overflow: hidden;
         background: #1e1e2e;
         color: #e2e8f0;
         border: 1px solid #334155;
@@ -190,19 +200,27 @@ export class WordPopover {
         line-height: 1.5;
         box-shadow: 0 8px 32px rgba(0,0,0,0.55);
         opacity: 0;
-        transform: translateY(4px);
-        transition: opacity 0.18s, transform 0.18s;
+        transition: opacity 0.18s;
         pointer-events: none;
       }
       .subjap-popover--visible {
         opacity: 1;
-        transform: translateY(0);
         pointer-events: auto;
       }
       .subjap-popover__surface {
         font-size: 22px;
         font-weight: 700;
         color: #fff;
+      }
+      .subjap-popover__header,
+      .subjap-popover__actions {
+        flex: none;
+      }
+      .subjap-popover__content {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
       }
       .subjap-popover__reading {
         font-size: 14px;
@@ -279,6 +297,11 @@ export class WordPopover {
       }
       .subjap-btn--mine:hover {
         background: #2563eb;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .subjap-popover {
+          transition: none;
+        }
       }
     `;
     document.head.appendChild(s);
@@ -388,6 +411,7 @@ export class WordPopover {
     // Center horizontally over the anchor, then clamp to viewport
     let left = anchorRect.left + anchorRect.width / 2 - popoverWidth / 2;
     const viewW = window.innerWidth;
+    const viewH = window.innerHeight;
     const margin = 8;
     left = Math.max(margin, Math.min(left, viewW - popoverWidth - margin));
 
@@ -395,10 +419,12 @@ export class WordPopover {
     let top = anchorRect.top - popoverHeight - margin;
     if (top < margin) {
       top = anchorRect.bottom + margin;
-      if (top + popoverHeight > window.innerHeight - margin) {
-        top = window.innerHeight - popoverHeight - margin;
+      if (top + popoverHeight > viewH - margin) {
+        top = viewH - popoverHeight - margin;
       }
     }
+    const maxTop = Math.max(margin, viewH - popoverHeight - margin);
+    top = Math.max(margin, Math.min(top, maxTop));
 
     this.el.style.left = `${Math.round(left)}px`;
     this.el.style.top = `${Math.round(top)}px`;

@@ -159,6 +159,70 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("garde une longue définition dans le viewport avec le contenu défilable", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 960, height: 500 });
+    await page.getByTestId("long-definition-cue").click();
+    await page.getByTestId("video-stage").scrollIntoViewIfNeeded();
+
+    const token = page.locator(".subjap-token").first();
+    await token.click();
+
+    const popover = page.locator("#subjap-popover");
+    const header = page.locator(".subjap-popover__header");
+    const content = page.locator(".subjap-popover__content");
+    const actions = page.locator(".subjap-popover__actions");
+    await expect(popover).toBeVisible();
+    await expect(header).toContainText("する");
+    await expect(actions).toBeVisible();
+
+    const layout = await popover.evaluate((element) => {
+      const popoverRect = element.getBoundingClientRect();
+      const headerRect = element
+        .querySelector<HTMLElement>(".subjap-popover__header")!
+        .getBoundingClientRect();
+      const contentElement = element.querySelector<HTMLElement>(
+        ".subjap-popover__content",
+      )!;
+      const actionsRect = element
+        .querySelector<HTMLElement>(".subjap-popover__actions")!
+        .getBoundingClientRect();
+      return {
+        popoverTop: popoverRect.top,
+        popoverBottom: popoverRect.bottom,
+        viewportHeight: window.innerHeight,
+        headerTop: headerRect.top,
+        actionsBottom: actionsRect.bottom,
+        contentClientHeight: contentElement.clientHeight,
+        contentScrollHeight: contentElement.scrollHeight,
+      };
+    });
+
+    expect(layout.popoverTop).toBeGreaterThanOrEqual(7);
+    expect(layout.popoverBottom).toBeLessThanOrEqual(layout.viewportHeight - 7);
+    expect(layout.headerTop).toBeGreaterThanOrEqual(layout.popoverTop);
+    expect(layout.actionsBottom).toBeLessThanOrEqual(layout.popoverBottom);
+    expect(layout.contentScrollHeight).toBeGreaterThan(layout.contentClientHeight);
+
+    const headerBeforeScroll = await header.boundingBox();
+    const actionsBeforeScroll = await actions.boundingBox();
+    await content.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() => content.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+
+    const headerAfterScroll = await header.boundingBox();
+    const actionsAfterScroll = await actions.boundingBox();
+    expect(headerAfterScroll!.y).toBeCloseTo(headerBeforeScroll!.y, 1);
+    expect(actionsAfterScroll!.y).toBeCloseTo(actionsBeforeScroll!.y, 1);
+
+    await page.locator(".subjap-btn--toggle-known").click();
+    await expect(page.getByTestId("status")).toContainText("為る");
+  });
+
   test("affiche un message quand la définition est introuvable", async ({
     page,
   }) => {
