@@ -25,3 +25,5 @@ la fixture et le scénario E2E correspondant selon le skill, puis conserver la
 régression dans le dépôt.
 
 Les commandes Node s’exécutent avec `npm.cmd` / `npx.cmd` sous Windows.
+
+Quand je mets un imprim ecran dans la conversation, c'est de l'existant, souvent que je veux modifier. Ce n'est pas la cible que je souhaite.
