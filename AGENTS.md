@@ -7,6 +7,8 @@ Quand je te demande de modifier/ajouter une fonctionnalité, brainstormons ensem
 
 Aborde une question à la fois. Sinon c'est trop compliqué pour moi. Donne une recommandation pour me faciliter la tâche.
 
+Tu as accès à Chrome via l'extension. Tu as aussi les droits de lancer des commandes. Quand tu peux sois autonome, ne me demande vraiment que ce tu ne peux pas savoir/faire par toi-même ou que c'est des questions fonctionnelles qui dépendent de la préférence de l'utilisateur de l'extension.
+
 Pour tout changement du content script, des adaptateurs, de l’overlay, de la
 popover, du mining, du popup ou des Options, utiliser `$subjap-ux-harness`.
 Son `SKILL.md` est la source de vérité pour le harnais, les commandes de
