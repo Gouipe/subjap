@@ -2,7 +2,12 @@ import { NetflixAdapter } from "../../src/adapters/netflix";
 import { getFrequencyHighlight } from "../../src/core/frequency";
 import { OverlayRenderer } from "../../src/overlay/renderer";
 import { getPopover, hidePopover, showPopover } from "../../src/overlay/popover";
-import { CueNavigator, installPlaybackShortcuts } from "../../src/content/shortcuts";
+import {
+  CueNavigator,
+  installPlaybackShortcuts,
+  installSubtitleCopyShortcut,
+  subtitleTextForClipboard,
+} from "../../src/content/shortcuts";
 import { MiningModal } from "../../src/mining/modal";
 import { groupTokens } from "../../src/tokenizer/group";
 import type {
@@ -391,7 +396,13 @@ furiganaToggle.addEventListener("change", () => {
 });
 
 getPopover(popoverCallbacks);
-installPlaybackShortcuts(document, adapter, cueNavigator);
+const removePlaybackShortcuts = installPlaybackShortcuts(document, adapter, cueNavigator);
+const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
+  getText: () =>
+    subtitleTextForClipboard(
+      currentCues.filter((cue) => /^ja(?:[-_]|$)/i.test(cue.language ?? "")),
+    ),
+});
 installSimulatedMediaClock(document.querySelector<HTMLVideoElement>("#video")!);
 
 adapter.subscribeCues((cues) => {
@@ -408,6 +419,8 @@ nativeSubtitles.replaceChildren(nativeLine("待ってください。", "0", "4")
 
 window.addEventListener("beforeunload", () => {
   clearTimers();
+  removePlaybackShortcuts();
+  removeSubtitleCopyShortcut();
   overlay?.destroy();
   miningModal?.destroy();
   adapter.destroy();

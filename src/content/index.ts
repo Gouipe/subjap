@@ -25,7 +25,12 @@ import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay
 import { normalizeCueText, splitIntoSentences } from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
 import { groupTokens } from "@/tokenizer/group";
-import { CueNavigator, installPlaybackShortcuts } from "./shortcuts";
+import {
+  CueNavigator,
+  installPlaybackShortcuts,
+  installSubtitleCopyShortcut,
+  subtitleTextForClipboard,
+} from "./shortcuts";
 import { WordStateCache } from "./word-state-cache";
 import type {
   DictionaryEntry,
@@ -670,10 +675,15 @@ getPopover({
 });
 
 const removePlaybackShortcuts = installPlaybackShortcuts(document, adapter, cueNavigator);
+const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
+  getText: () =>
+    subtitleTextForClipboard(lastRenderedCues.map((rendered) => rendered.cue)),
+});
 window.addEventListener(
   "pagehide",
   () => {
     removePlaybackShortcuts();
+    removeSubtitleCopyShortcut();
     document.removeEventListener("pointerdown", resumeTabAudio, true);
     document.removeEventListener("keydown", resumeTabAudio, true);
     audioCapture?.destroy();

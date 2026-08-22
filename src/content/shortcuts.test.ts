@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SubtitleCue } from "@/core/types";
-import { CueNavigator, installPlaybackShortcuts } from "./shortcuts";
+import {
+  CueNavigator,
+  installPlaybackShortcuts,
+  installSubtitleCopyShortcut,
+  subtitleTextForClipboard,
+} from "./shortcuts";
 
 function cue(id: string, start: number, end: number): SubtitleCue {
   return { id, start, end, text: id, language: "ja" };
@@ -132,5 +137,110 @@ describe("CueNavigator", () => {
     await vi.waitFor(() => expect(seekTo).toHaveBeenCalledTimes(2));
     expect(seekTo).toHaveBeenLastCalledWith(5, true);
     removeShortcuts();
+  });
+});
+
+describe("subtitle copy shortcut", () => {
+  it("normalizes displayed cues onto one line", () => {
+    expect(
+      subtitleTextForClipboard([
+        { text: "<i>日本語を</i>\n勉強します。" },
+        { text: "  次です。  " },
+      ]),
+    ).toBe("日本語を 勉強します。 次です。");
+  });
+
+  it("copies with plain C and shows confirmation", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const removeShortcut = installSubtitleCopyShortcut(document, {
+      getText: () => "待ってください。",
+      writeText,
+      feedbackDurationMs: 10,
+    });
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+
+    await vi.waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("待ってください。"),
+    );
+    expect(document.querySelector("#subjap-copy-feedback")?.textContent).toBe(
+      "Copié",
+    );
+    removeShortcut();
+  });
+
+  it("ignores modifiers, repeats, and editable targets", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const removeShortcut = installSubtitleCopyShortcut(document, {
+      getText: () => "日本語",
+      writeText,
+    });
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+
+    for (const init of [
+      { key: "c", ctrlKey: true },
+      { key: "c", altKey: true },
+      { key: "c", metaKey: true },
+      { key: "C", shiftKey: true },
+      { key: "c", repeat: true },
+    ]) {
+      document.dispatchEvent(new KeyboardEvent("keydown", init));
+    }
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true }));
+    await Promise.resolve();
+
+    expect(writeText).not.toHaveBeenCalled();
+    input.remove();
+    removeShortcut();
+  });
+
+  it("serializes rapid copies", async () => {
+    let releaseFirstCopy: (() => void) | undefined;
+    const writeText = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseFirstCopy = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const removeShortcut = installSubtitleCopyShortcut(document, {
+      getText: () => "日本語",
+      writeText,
+    });
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    releaseFirstCopy?.();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    removeShortcut();
+  });
+
+  it("continues after a rejected clipboard write", async () => {
+    const writeText = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("denied"))
+      .mockResolvedValue(undefined);
+    const removeShortcut = installSubtitleCopyShortcut(document, {
+      getText: () => "日本語",
+      writeText,
+    });
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(document.querySelector("#subjap-copy-feedback")?.textContent).toBe(
+        "Copié",
+      ),
+    );
+    removeShortcut();
   });
 });

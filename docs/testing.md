@@ -52,6 +52,7 @@ Scénarios disponibles dans la page :
 6. effacer les cues ;
 7. remplacer le lecteur pour simuler une navigation SPA ;
 8. désactiver le furigana à chaud.
+9. copier avec `C` la phrase japonaise affichée sur une seule ligne.
 
 Cette fixture est volontairement déterministe. Elle vérifie les interactions
 et le positionnement sans dépendre d’un compte Netflix, du DRM ou de changements

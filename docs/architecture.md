@@ -146,6 +146,8 @@ pour éviter de faire passer le rendu de chaque token par React. Le conteneur :
 
 Les événements sont délégués depuis le document :
 
+- touche `C` seule : copie la phrase japonaise affichée sur une ligne et confirme
+  brièvement l'action ; le raccourci est ignoré dans les champs éditables ;
 - survol d’un token : ouverture de la popover après 350 ms ;
 - sortie : fermeture après une grâce de 200 ms pour rejoindre la popover ;
 - clic : popover épinglée jusqu’à `Escape` ou clic extérieur ;

@@ -2,7 +2,67 @@ import { expect, test } from "@playwright/test";
 
 test.describe("SubJap UX fixture", () => {
   test.beforeEach(async ({ page }) => {
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: "http://127.0.0.1:4173",
+    });
     await page.goto("/tests/fixture/index.html");
+  });
+
+  test("copie avec C la phrase japonaise affichée sur une seule ligne", async ({
+    page,
+  }) => {
+    const pageBody = page.locator("body");
+    const feedback = page.locator("#subjap-copy-feedback");
+
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-cue",
+      "待ってください。",
+    );
+    await pageBody.press("c");
+    await expect(feedback).toHaveText("Copié");
+    await expect(feedback).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("待ってください。");
+
+    await page.getByTestId("bilingual-cue").click();
+    await expect(page.locator(".subjap-translation-line")).toHaveText(
+      "J’étudie le japonais.",
+    );
+    await pageBody.press("c");
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("日本語を勉強します。");
+
+    await page.getByTestId("rolling-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-cue",
+      "生徒が起こした騒動については\n不問ということにいたしましょう",
+    );
+    await pageBody.press("c");
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("生徒が起こした騒動については 不問ということにいたしましょう");
+    await expect(feedback).toBeHidden({ timeout: 2_000 });
+  });
+
+  test("ignore C dans un champ et lorsqu'aucune phrase n'est affichée", async ({
+    page,
+  }) => {
+    await page.evaluate(() => navigator.clipboard.writeText("inchangé"));
+    await page.getByLabel("Afficher le furigana").focus();
+    await page.keyboard.press("c");
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("inchangé");
+
+    await page.getByTestId("clear-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute("data-cue", "");
+    await page.locator("body").press("c");
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("inchangé");
+    await expect(page.locator("#subjap-copy-feedback")).toHaveCount(0);
   });
 
   test("affiche les cues au-dessus des contrôles et masque les natifs", async ({

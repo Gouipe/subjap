@@ -12,6 +12,7 @@ const manifest: ManifestV3Export = {
     "nativeMessaging",
     "tabCapture",
     "offscreen",
+    "clipboardWrite",
   ],
   host_permissions: [
     // Required by tabs.captureVisibleTab; the extension only captures the
