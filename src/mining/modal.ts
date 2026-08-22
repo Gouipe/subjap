@@ -97,12 +97,11 @@ export class MiningModal {
     };
     const modalState = this.state;
     this.render();
+    this.show();
     this.registerKeyboard();
     void this.generateAudio();
     this.phraseAudioPromise = this.capturePhraseAudio(modalState);
-    void this.captureScreenshot().finally(() => {
-      if (this.state === modalState) this.show();
-    });
+    void this.captureScreenshot();
   }
 
   close(): void {
@@ -310,6 +309,13 @@ export class MiningModal {
   private async captureScreenshot(): Promise<void> {
     const state = this.state;
     if (!state) return;
+    const wasVisible = this.container.style.display !== "none";
+    if (wasVisible) {
+      // Capture the Netflix frame without the SubJap mining dialog covering
+      // it. Restore the dialog as soon as the browser capture has completed.
+      this.hide();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     try {
       const tabVideo = await this.audioCapture?.getTabVideo();
       const screenshotDataUrl = await captureFrame(this.video, undefined, tabVideo);
@@ -317,9 +323,11 @@ export class MiningModal {
       // different card while the video frame was being read.
       if (this.state !== state) return;
       state.screenshotDataUrl = screenshotDataUrl;
-      this.render();
     } catch (err) {
       console.error("[SubJap] Screenshot capture failed:", err);
+    } finally {
+      if (wasVisible && this.state === state) this.show();
+      if (this.state === state) this.render();
     }
   }
 
