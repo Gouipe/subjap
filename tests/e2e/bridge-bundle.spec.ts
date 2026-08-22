@@ -103,3 +103,55 @@ test("the page-world bridge forwards an official timed-text URL", async ({
     url: "https://cdn.example/timedtext/fr.vtt",
   });
 });
+
+test("the page-world bridge inspects JSON metadata returned by fetch", async ({
+  page,
+}) => {
+  const bundle = await readFile(
+    resolve(process.cwd(), "dist/netflix-bridge.js"),
+    "utf8",
+  );
+  await page.goto("/tests/fixture/index.html");
+  await page.evaluate(() => {
+    window.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          timedtexttracks: [
+            {
+              bcp47: "en",
+              ttDownloadables: {
+                webvtt: "https://cdn.example/timedtext/en.vtt",
+              },
+            },
+          ],
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+  });
+  await page.addScriptTag({ content: bundle });
+
+  const payload = await page.evaluate(async () => {
+    const received = new Promise<Record<string, unknown>>((resolve) => {
+      window.addEventListener(
+        "message",
+        (event) => {
+          if (
+            event.source === window &&
+            event.data?.source === "subjap" &&
+            event.data?.type === "subjap:netflix-timed-text-url"
+          ) {
+            resolve(event.data.payload as Record<string, unknown>);
+          }
+        },
+        { once: true },
+      );
+    });
+    await fetch("https://cdn.example/metadata");
+    return received;
+  });
+
+  expect(payload).toEqual({
+    language: "en",
+    url: "https://cdn.example/timedtext/en.vtt",
+  });
+});
