@@ -73,6 +73,7 @@ const TIMED_TEXT_URL_PATTERN =
   /nflxvideo\.net|timedtext|subtitle|caption|dfxp|ttml|webvtt|vtt|imsc/i;
 const JSON_METADATA_PATTERN =
   /json|api|metadata|manifest|playback|session|shakti|pathevaluator/i;
+const SUBTITLE_CONTENT_TYPE_PATTERN = /ttml|vtt|dfxp|subtitle|caption|xml/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -273,6 +274,8 @@ function installTimedTextCapture(page: Window): void {
   let pendingSecondaryLanguage = "";
   let pendingNativeTrack: NetflixTimedTextTrackOption | null = null;
   let pendingSecondaryRestore: number | null = null;
+  let uiProbeAttempted = false;
+  let uiNativeRestore: number | null = null;
   const probedSessions = new WeakSet<object>();
   const loggedTrackLists = new WeakSet<object>();
 
@@ -320,6 +323,11 @@ function installTimedTextCapture(page: Window): void {
       language: language || pendingSecondaryLanguage,
     });
   };
+  const inspectSubtitleBody = (url: string, body: string, contentType: string): void => {
+    if (!SUBTITLE_CONTENT_TYPE_PATTERN.test(contentType) && !pendingSecondaryLanguage) return;
+    if (!looksLikeSubtitleBody(body)) return;
+    emitTimedTextUrl(url, inferLanguage(url) || pendingSecondaryLanguage);
+  };
   const inspectTimedTextValue = (value: unknown): void => {
     for (const track of collectNetflixTimedTextTracks(value)) fetchTrack(track);
   };
@@ -351,8 +359,16 @@ function installTimedTextCapture(page: Window): void {
   if (fetchImpl) {
     const inspectJsonResponse = (response: Response, url: string): void => {
       const contentType = response.headers.get("content-type") ?? "";
-      if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) return;
+      if (
+        !JSON_METADATA_PATTERN.test(`${contentType} ${url}`) &&
+        !SUBTITLE_CONTENT_TYPE_PATTERN.test(contentType) &&
+        !pendingSecondaryLanguage
+      ) {
+        return;
+      }
       void response.clone().text().then((body) => {
+        inspectSubtitleBody(url, body, contentType);
+        if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) return;
         const trimmed = body.trim().replace(/^\)\]\}',?\s*/, "");
         if (trimmed[0] !== "{" && trimmed[0] !== "[") return;
         try {
@@ -417,6 +433,11 @@ function installTimedTextCapture(page: Window): void {
           }
         }
         const contentType = this.getResponseHeader("content-type") ?? "";
+        const responseBody =
+          this.responseType === "" || this.responseType === "text"
+            ? this.responseText
+            : "";
+        inspectSubtitleBody(url, responseBody, contentType);
         if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) {
           return;
         }
@@ -440,7 +461,11 @@ function installTimedTextCapture(page: Window): void {
 
   const probeSecondaryTimedTextTrack = (): void => {
     const session = resolveNetflixTimedTextSession(page);
-    if (!session || probedSessions.has(session)) return;
+    if (!session) {
+      probeSecondaryTrackThroughUi();
+      return;
+    }
+    if (probedSessions.has(session)) return;
     let tracks: NetflixTimedTextTrackOption[] = [];
     try {
       tracks = session.getTimedTextTrackList?.() ?? [];
@@ -481,6 +506,50 @@ function installTimedTextCapture(page: Window): void {
       pendingNativeTrack = null;
     }
   };
+
+  const restoreNativeTrackThroughUi = (): void => {
+    if (uiNativeRestore !== null) {
+      page.clearTimeout(uiNativeRestore);
+      uiNativeRestore = null;
+    }
+    const audioButton = findNetflixUiElement(page, "Audio & Subtitles");
+    if (!audioButton) {
+      pendingSecondaryLanguage = "";
+      return;
+    }
+    audioButton.click();
+    page.setTimeout(() => {
+      const nativeTrack =
+        findNetflixUiElement(page, "Japanese (CC)") ??
+        findNetflixUiElement(page, "Japanese");
+      nativeTrack?.click();
+      pendingSecondaryLanguage = "";
+    }, 250);
+  };
+
+  function probeSecondaryTrackThroughUi(): void {
+    if (uiProbeAttempted) return;
+    const audioButton = findNetflixUiElement(page, "Audio & Subtitles");
+    if (!audioButton) return;
+    uiProbeAttempted = true;
+    pendingSecondaryLanguage = "fr";
+    audioButton.click();
+    page.setTimeout(() => {
+      const secondaryTrack =
+        findNetflixUiElement(page, "French") ??
+        (() => {
+          pendingSecondaryLanguage = "en";
+          return findNetflixUiElement(page, "English");
+        })();
+      if (!secondaryTrack) {
+        pendingSecondaryLanguage = "";
+        return;
+      }
+      secondaryTrack.click();
+      uiNativeRestore = page.setTimeout(restoreNativeTrackThroughUi, 1800);
+      console.log(`[SubJap] Netflix probing secondary track through UI: ${pendingSecondaryLanguage}`);
+    }, 250);
+  }
 
   let trackProbeCount = 0;
   const setInterval = page.setInterval?.bind(page);
@@ -563,6 +632,35 @@ function resolveNetflixTimedTextSession(page: Window): NetflixTimedTextSession |
       }
     } catch {
       // A stale session can disappear while Netflix navigates between episodes.
+      continue;
+    }
+  }
+  return null;
+}
+
+function looksLikeSubtitleBody(body: string): boolean {
+  const head = body.trim().slice(0, 12000);
+  return (
+    /^WEBVTT(?:\s|$)/i.test(head) ||
+    /<tt(?:\s|>|\/)/i.test(head) ||
+    /<p\s[^>]*(?:begin|start)=/i.test(head)
+  );
+}
+
+function findNetflixUiElement(page: Window, label: string): HTMLElement | null {
+  const wanted = label.trim().replace(/\s+/g, " ").toLowerCase();
+  const visited = new WeakSet<object>();
+  const roots: Array<Document | ShadowRoot | Element> = [page.document];
+
+  while (roots.length > 0) {
+    const root = roots.shift();
+    if (!root || visited.has(root)) continue;
+    visited.add(root);
+    for (const element of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+      const aria = element.getAttribute("aria-label")?.trim().toLowerCase();
+      const text = (element.textContent ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+      if (aria === wanted || text === wanted) return element;
+      if (element.shadowRoot) roots.push(element.shadowRoot);
     }
   }
   return null;
