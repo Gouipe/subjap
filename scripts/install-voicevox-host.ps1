@@ -42,7 +42,39 @@ function Find-VoicevoxEngine {
   } | Select-Object -First 1
 }
 
+function Install-VoicevoxViaWinget {
+  $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+  if (-not $winget) { return $null }
+
+  Write-Host "VOICEVOX absent : installation du paquet CPU officiel via winget..."
+  & $winget.Source install `
+    --id HiroshibaKazuyuki.VOICEVOX.CPU `
+    --silent `
+    --accept-package-agreements `
+    --accept-source-agreements
+  if ($LASTEXITCODE -ne 0) {
+    throw "winget n'a pas pu installer VOICEVOX (code $LASTEXITCODE)."
+  }
+
+  $deadline = [DateTime]::UtcNow.AddMinutes(2)
+  do {
+    $path = Find-VoicevoxEngine
+    if ($path) { return $path }
+    Start-Sleep -Milliseconds 500
+  } while ([DateTime]::UtcNow -lt $deadline)
+
+  throw "VOICEVOX est installé via winget mais son moteur vv-engine/run.exe est introuvable."
+}
+
 function Install-Voicevox {
+  try {
+    $wingetPath = Install-VoicevoxViaWinget
+    if ($wingetPath) { return $wingetPath }
+  } catch {
+    Write-Warning "Installation winget échouée : $($_.Exception.Message)"
+    Write-Host "Tentative avec l'installateur GitHub officiel..."
+  }
+
   Write-Host "VOICEVOX absent : récupération de la dernière version CPU officielle..."
   $release = Invoke-RestMethod `
     -Headers $githubApiHeaders `
