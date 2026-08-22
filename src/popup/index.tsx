@@ -157,14 +157,6 @@ const Popup: React.FC = () => {
             <span style={styles.statLabel}>Mots connus</span>
             <span style={styles.statValue}>{stats.knownWords}</span>
           </div>
-          <div style={styles.statRow}>
-            <span style={styles.statLabel}>Cartes</span>
-            <span style={styles.statValue}>{stats.totalCards}</span>
-          </div>
-          <div style={styles.statRow}>
-            <span style={styles.statLabel}>À réviser</span>
-            <span style={styles.statValue}>{stats.cardsDue}</span>
-          </div>
         </div>
       )}
 
