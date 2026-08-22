@@ -265,24 +265,44 @@ export class VideoAudioCapture {
       });
 
       const tabVideo = document.createElement("video");
-      tabVideo.muted = true;
+      tabVideo.muted = false;
+      tabVideo.volume = 1;
       tabVideo.playsInline = true;
       tabVideo.srcObject = stream;
-      tabVideo.style.display = "none";
+      tabVideo.style.position = "fixed";
+      tabVideo.style.width = "1px";
+      tabVideo.style.height = "1px";
+      tabVideo.style.opacity = "0";
+      tabVideo.style.pointerEvents = "none";
       document.body.appendChild(tabVideo);
-      await tabVideo.play();
+      let routeThroughGraph = false;
+      try {
+        // Prefer the media element itself for output: it avoids depending on
+        // an AudioContext being allowed to resume in the content script.
+        await tabVideo.play();
+      } catch {
+        // If autoplay policy rejects unmuted media, keep the stream alive and
+        // fall back to routing it through the Web Audio graph.
+        tabVideo.muted = true;
+        await tabVideo.play();
+        routeThroughGraph = true;
+      }
 
       this.destroy();
       this.tabStream = stream;
       this.tabVideo = tabVideo;
-      this.startAudioGraph(new AudioContext(), stream);
-      console.info("[SubJap] Tab media capture ready");
+      this.startAudioGraph(new AudioContext(), stream, routeThroughGraph);
+      console.info("[SubJap] Tab media capture ready", { routeThroughGraph });
     } catch (err) {
       console.warn("[SubJap] Tab media capture unavailable:", err);
     }
   }
 
-  private startAudioGraph(context: AudioContext, stream: MediaStream): void {
+  private startAudioGraph(
+    context: AudioContext,
+    stream: MediaStream,
+    routeThroughGraph = true,
+  ): void {
     this.context = context;
     this.sampleRate = context.sampleRate;
     const source = context.createMediaStreamSource(stream);
@@ -296,7 +316,7 @@ export class VideoAudioCapture {
     this.processor = processor;
     this.silentGain = silentGain;
     processor.onaudioprocess = (event) => this.collect(event);
-    source.connect(context.destination);
+    if (routeThroughGraph) source.connect(context.destination);
     source.connect(processor);
     processor.connect(silentGain);
     silentGain.connect(context.destination);
