@@ -323,13 +323,21 @@ onMessage("tabCapture:streamId", async (_payload, sender) => {
   return { streamId: await getTabCaptureStreamId(tabId) };
 });
 
-// Opening the action popup is the explicit extension invocation required by
-// Chrome. Prepare capture immediately so the rolling buffer contains the
-// complete subtitle phrase when the user mines a word later.
-onMessage("tabCapture:prepare", async ({ tabId }) => {
+/** Start tab capture from the actual action click, which grants activeTab. */
+async function activateTabCapture(tabId: number): Promise<void> {
   const streamId = await getTabCaptureStreamId(tabId);
   await chrome.tabs.sendMessage(tabId, { type: "tabCapture:stream", streamId });
-  return { ready: true };
+  await chrome.action.setBadgeText({ tabId, text: "ON" });
+  await chrome.action.setBadgeBackgroundColor({ tabId, color: "#22c55e" });
+  console.info("[SubJap] Tab capture activated from action", { tabId });
+}
+
+chrome.action.onClicked.addListener((tab) => {
+  const tabId = tab.id;
+  if (tabId == null) return;
+  void activateTabCapture(tabId).catch((err: unknown) => {
+    console.warn("[SubJap] Action tab capture unavailable:", err);
+  });
 });
 
 // ── anki:status ───────────────────────────────────────────────────────────

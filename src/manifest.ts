@@ -43,8 +43,9 @@ const manifest: ManifestV3Export = {
     },
   ],
   action: {
-    default_popup: "src/popup/index.html",
-    default_title: "SubJap",
+    // A direct action click is required by Chrome to authorize tabCapture.
+    // The click activates capture; mining itself remains popup-free.
+    default_title: "SubJap — activer la capture de l’onglet",
   },
   options_page: "src/options/index.html",
   web_accessible_resources: [
