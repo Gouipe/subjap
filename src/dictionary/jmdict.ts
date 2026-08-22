@@ -92,6 +92,12 @@ export function convertJmdictWord(word: JmdictWord): DictionaryEntry | null {
   if (!headword) return null;
 
   const reading = word.kana[0]?.text ?? headword;
+  const aliases = [
+    ...new Set([
+      ...(word.kanji ?? []).map((form) => form.text),
+      ...word.kana.map((form) => form.text),
+    ]),
+  ].filter((form) => form !== headword && form !== reading);
   const common =
     (word.kanji?.some((k) => k.common) ?? false) ||
     word.kana.some((k) => k.common);
@@ -106,6 +112,7 @@ export function convertJmdictWord(word: JmdictWord): DictionaryEntry | null {
   return {
     headword,
     reading,
+    ...(aliases.length > 0 ? { aliases } : undefined),
     partOfSpeech: word.sense?.[0]?.partOfSpeech ?? [],
     senses,
     common,

@@ -77,6 +77,24 @@ describe("convertJmdictWord", () => {
     expect(entry?.common).toBe(false);
   });
 
+  it("preserves every alternative JMdict spelling as an alias", () => {
+    const entry = convertJmdictWord({
+      id: "variants",
+      kana: [
+        { common: true, text: "やばい", tags: [] },
+        { common: false, text: "ヤバい", tags: [] },
+        { common: false, text: "ヤバイ", tags: [] },
+      ],
+      sense: [{ partOfSpeech: ["adj-i"], gloss: ["dangerous"] }],
+    });
+
+    expect(entry).toMatchObject({
+      headword: "やばい",
+      reading: "やばい",
+      aliases: ["ヤバい", "ヤバイ"],
+    });
+  });
+
   it("returns null for entries with no headword at all", () => {
     expect(convertJmdictWord({ id: "3", kana: [], sense: [] })).toBeNull();
   });

@@ -34,6 +34,15 @@ export class SubJapDb extends Dexie {
       frequencyEntries: "key,rank",
       settings: "key",
     });
+
+    this.version(3).stores({
+      wordStates: "key,status,source",
+      mineCards: "id,createdAt,targetWord,srs.state,srs.due,tags",
+      dictionaryEntries:
+        "++id,headword,reading,*aliases,partOfSpeech,common,frequencyRank",
+      frequencyEntries: "key,rank",
+      settings: "key",
+    });
   }
 }
 

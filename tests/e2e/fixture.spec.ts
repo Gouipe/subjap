@@ -171,6 +171,34 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("expose ヤバくない comme un adjectif unique lié à やばい", async ({
+    page,
+  }) => {
+    await page.getByTestId("mixed-adjective-cue").click();
+
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    await expect(tokens).toHaveCount(1);
+    await expect(tokens.first()).toHaveAttribute("data-surface", "ヤバくない");
+    await expect(tokens.first()).toHaveAttribute("data-lemma", "やばい");
+    await expect(tokens.first()).toHaveAttribute("data-reading", "やばくない");
+    await expect(tokens.first()).toHaveAttribute("data-pos", /形容詞/);
+
+    await tokens.first().hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("ヤバくない");
+    await expect(page.locator(".subjap-popover__reading")).toHaveText(
+      "読み: やばくない",
+    );
+    await expect(page.locator(".subjap-popover__pos")).toContainText("Adj (i)");
+    await expect(page.locator(".subjap-popover__defs")).toHaveText(
+      "dangerous; risky; awful; amazing",
+    );
+
+    await page.locator(".subjap-btn--toggle-known").click();
+    await expect(page.getByTestId("status")).toContainText("やばい");
+    await expect(tokens.first()).toHaveClass(/subjap-known/);
+  });
+
   test("affiche le rang de fréquence uniquement pour les mots verts et bleus", async ({
     page,
   }) => {

@@ -13,7 +13,8 @@ import DictionaryLoader from "kuromoji/src/loader/DictionaryLoader";
 import KuromojiTokenizerClass from "kuromoji/src/Tokenizer";
 import type { Token, Tokenizer } from "@/core/types";
 import { LRUCache } from "./lru-cache";
-import { toToken, type RawKuromojiToken } from "./convert";
+import type { RawKuromojiToken } from "./convert";
+import { repairKatakanaAdjectives } from "./repair";
 
 /** The built tokenizer object (kuromoji's Tokenizer class). */
 interface KuromojiTokenizerInstance {
@@ -153,7 +154,11 @@ export async function createTokenizer(): Promise<Tokenizer> {
     if (cached) return cached;
 
     const raw = kt.tokenize(sentence);
-    const tokens: Token[] = raw.map(toToken);
+    const tokens = repairKatakanaAdjectives(
+      sentence,
+      raw,
+      (normalized) => kt.tokenize(normalized),
+    );
     c.set(sentence, tokens);
     return tokens;
   };

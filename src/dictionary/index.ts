@@ -26,6 +26,9 @@ let headwordIndex: Map<string, DictionaryEntry> | null = null;
 /** Secondary index: reading → entry (useful for words looked up via kana). */
 let readingIndex: Map<string, DictionaryEntry> | null = null;
 
+/** Alternative JMdict spelling → entry. */
+let aliasIndex: Map<string, DictionaryEntry> | null = null;
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 /**
@@ -39,6 +42,7 @@ let readingIndex: Map<string, DictionaryEntry> | null = null;
 export function loadDictionary(entries: DictionaryEntry[]): void {
   const hi = new Map<string, DictionaryEntry>();
   const ri = new Map<string, DictionaryEntry>();
+  const ai = new Map<string, DictionaryEntry>();
 
   for (const e of entries) {
     // Headword index: first-write-wins (common entries come first in jmdict).
@@ -51,10 +55,22 @@ export function loadDictionary(entries: DictionaryEntry[]): void {
     if (e.reading && e.reading !== e.headword && !ri.has(e.reading)) {
       ri.set(e.reading, e);
     }
+
+    for (const alias of e.aliases ?? []) {
+      if (
+        alias &&
+        alias !== e.headword &&
+        alias !== e.reading &&
+        !ai.has(alias)
+      ) {
+        ai.set(alias, e);
+      }
+    }
   }
 
   headwordIndex = hi;
   readingIndex = ri;
+  aliasIndex = ai;
 }
 
 /**
@@ -73,10 +89,11 @@ export function lookup(lemma: string): DictionaryEntry | null {
   if (byHeadword) return byHeadword;
 
   if (readingIndex) {
-    return readingIndex.get(lemma) ?? null;
+    const byReading = readingIndex.get(lemma);
+    if (byReading) return byReading;
   }
 
-  return null;
+  return aliasIndex?.get(lemma) ?? null;
 }
 
 /**

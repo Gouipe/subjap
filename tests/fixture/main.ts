@@ -10,6 +10,8 @@ import {
 } from "../../src/content/shortcuts";
 import { MiningModal } from "../../src/mining/modal";
 import { groupTokens } from "../../src/tokenizer/group";
+import { repairKatakanaAdjectives } from "../../src/tokenizer/repair";
+import type { RawKuromojiToken } from "../../src/tokenizer/convert";
 import type {
   DictionaryEntry,
   RenderedCue,
@@ -51,6 +53,7 @@ const frequencyRanks = new Map<string, number>([
   ["する", 3],
   ["し", 3],
   ["ます", 500],
+  ["やばい", 4],
 ]);
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -65,6 +68,19 @@ const dictionaryEntry: DictionaryEntry = {
   senses: [{ glosses: ["Japanese language"] }],
   common: true,
 };
+
+const yabaiDictionaryEntry: DictionaryEntry = {
+  headword: "やばい",
+  reading: "やばい",
+  aliases: ["ヤバい", "ヤバイ"],
+  partOfSpeech: ["形容詞"],
+  senses: [{ glosses: ["dangerous; risky; awful; amazing"] }],
+  common: true,
+};
+
+const dictionaryEntries = new Map(
+  [dictionaryEntry, yabaiDictionaryEntry].map((entry) => [entry.headword, entry]),
+);
 
 const tokens: Token[] = [
   { surface: "日本語", lemma: "日本語", reading: "ニホンゴ", partOfSpeech: ["名詞"] },
@@ -88,6 +104,61 @@ const explanatoryTokens = groupTokens([
   { surface: "ん", lemma: "ん", reading: "ん", partOfSpeech: ["名詞"] },
   { surface: "です", lemma: "です", reading: "です", partOfSpeech: ["助動詞"] },
 ]);
+
+const mixedAdjectiveTokens = repairKatakanaAdjectives(
+  "ヤバくない",
+  [
+    {
+      surface_form: "ヤバ",
+      basic_form: "*",
+      reading: undefined,
+      pos: "名詞,一般,*,*",
+      word_type: "UNKNOWN",
+      word_position: 1,
+    },
+    {
+      surface_form: "く",
+      basic_form: "くい",
+      reading: "ク",
+      pos: "形容詞,自立,*,*",
+      word_type: "KNOWN",
+      word_position: 3,
+    },
+    {
+      surface_form: "ない",
+      basic_form: "ない",
+      reading: "ナイ",
+      pos: "形容詞,自立,*,*",
+      word_type: "KNOWN",
+      word_position: 4,
+    },
+  ],
+  (normalized): RawKuromojiToken[] => {
+    if (normalized !== "やばくない") return [];
+    return [
+      {
+        surface_form: "やばく",
+        basic_form: "やばい",
+        reading: "ヤバク",
+        pos: "形容詞,自立,*,*",
+        word_type: "KNOWN",
+        word_position: 1,
+        conjugated_type: "形容詞・アウオ段",
+        conjugated_form: "連用テ接続",
+      },
+      {
+        surface_form: "ない",
+        basic_form: "ない",
+        reading: "ナイ",
+        pos: "助動詞,*,*,*",
+        word_type: "KNOWN",
+        word_position: 4,
+        conjugated_type: "特殊・ナイ",
+        conjugated_form: "基本形",
+      },
+    ];
+  },
+);
 
 function installSimulatedMediaClock(video: HTMLVideoElement): void {
   let currentTime = 0;
@@ -216,7 +287,7 @@ const popoverCallbacks = {
 };
 
 function showPopoverForToken(anchor: HTMLElement, token: Token): void {
-  const entry = token.lemma === dictionaryEntry.headword ? dictionaryEntry : null;
+  const entry = dictionaryEntries.get(token.lemma) ?? null;
   const currentStatus = ignoredLemmas.has(token.lemma)
     ? "ignored"
     : knownLemmas.has(token.lemma)
@@ -381,6 +452,11 @@ document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click",
 document.querySelector<HTMLButtonElement>("#grouped")!.addEventListener("click", () => {
   activeTokens = groupedTokens;
   nativeSubtitles.replaceChildren(nativeLine("じゃなくって", "16", "20"));
+});
+
+document.querySelector<HTMLButtonElement>("#mixed-adjective")!.addEventListener("click", () => {
+  activeTokens = mixedAdjectiveTokens;
+  nativeSubtitles.replaceChildren(nativeLine("ヤバくない", "16", "20"));
 });
 
 document.querySelector<HTMLButtonElement>("#explanatory")!.addEventListener("click", () => {

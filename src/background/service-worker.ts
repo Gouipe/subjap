@@ -129,13 +129,13 @@ onMessage("netflix:timedTextFetch", fetchNetflixTimedText);
 onMessage("dict:lookup", async ({ lemma }) => {
   const entry = await db.dictionaryEntries.where("headword").equals(lemma).first();
 
-  // If not found by headword, try reading index
-  if (!entry) {
-    const byReading = await db.dictionaryEntries.where("reading").equals(lemma).first();
-    return { entry: byReading ?? null };
-  }
+  if (entry) return { entry };
 
-  return { entry };
+  const byReading = await db.dictionaryEntries.where("reading").equals(lemma).first();
+  if (byReading) return { entry: byReading };
+
+  const byAlias = await db.dictionaryEntries.where("aliases").equals(lemma).first();
+  return { entry: byAlias ?? null };
 });
 
 // ── dict:status ───────────────────────────────────────────────────────────
