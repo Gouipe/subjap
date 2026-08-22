@@ -15,7 +15,7 @@
 
 import { NetflixAdapter } from "@/adapters/netflix";
 import { adapterRegistry } from "@/core/adapters/registry";
-import { sendMessage } from "@/core/messaging";
+import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookup } from "@/dictionary";
 import { MiningModal, VideoAudioCapture } from "@/mining";
@@ -59,6 +59,15 @@ let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
 let nativeSubtitlesHidden = false;
+
+// The action popup prepares tab capture after the user invokes the extension.
+// Keeping the listener in the content script lets the rolling audio buffer
+// begin before the user chooses a word to mine.
+onMessage("tabCapture:stream", async ({ streamId }) => {
+  ensureOverlay();
+  await audioCapture?.startTabCapture(streamId);
+  return {};
+});
 
 /** Effective overlay options (loaded from storage, live-updated). */
 let overlayOptions: OverlayOptions = DEFAULT_OPTIONS;
