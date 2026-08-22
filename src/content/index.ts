@@ -19,6 +19,7 @@ import { getFrequencyHighlight } from "@/core/frequency";
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookup } from "@/dictionary";
+import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
 import { normalizeCueText, splitIntoSentences } from "@/subtitles";
@@ -501,16 +502,15 @@ function onOverlayMouseOut(event: MouseEvent): void {
  * the service worker.
  */
 async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<void> {
-  let dictEntry: DictionaryEntry | null = lookup(token.lemma);
-
-  if (!dictEntry) {
-    try {
-      const result = await sendMessage("dict:lookup", { lemma: token.lemma });
-      dictEntry = result.entry;
-    } catch (err: unknown) {
-      console.warn(`[SubJap] dict:lookup failed for "${token.lemma}":`, err);
-      dictEntry = null;
-    }
+  let dictEntry: DictionaryEntry | null = null;
+  try {
+    dictEntry = await lookupTokenDictionaryEntry(
+      token,
+      lookup,
+      async (term) => (await sendMessage("dict:lookup", { lemma: term })).entry,
+    );
+  } catch (err: unknown) {
+    console.warn(`[SubJap] dict:lookup failed for "${token.lemma}":`, err);
   }
 
   // The lookup is async: the cue may have been re-rendered (anchor gone) or
