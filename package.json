@@ -4,7 +4,7 @@
   "private": true,
   "description": "Browser extension for learning Japanese through anime streaming",
   "scripts": {
-    "dev": "vite build --watch --mode development",
+    "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
     "build": "vite build && node scripts/verify-netflix-bridge.mjs",
     "lint": "eslint src/ --ext .ts,.tsx",
     "format": "prettier --write src/",
