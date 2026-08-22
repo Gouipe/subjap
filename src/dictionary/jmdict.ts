@@ -12,12 +12,16 @@
 
 import type { DictionaryEntry } from "@/core/types";
 
-/**
- * Default source: English, "common-only" build (~22k frequent words).
- * The versioned asset name must be updated when a new release ships.
- */
-export const JMDICT_DEFAULT_URL =
-  "https://github.com/scriptin/jmdict-simplified/releases/latest/download/jmdict-eng-common-3.6.2+20260803141815.json.tgz";
+/** Pinned release: the tag and asset filename must always use this version. */
+const JMDICT_VERSION = "3.6.2+20260817122448";
+
+function jmdictReleaseUrl(asset: "jmdict-eng-common" | "jmdict-eng"): string {
+  const version = encodeURIComponent(JMDICT_VERSION);
+  return `https://github.com/scriptin/jmdict-simplified/releases/download/${version}/${asset}-${version}.json.tgz`;
+}
+
+/** Default source: English, "common-only" build (~22k frequent words). */
+export const JMDICT_DEFAULT_URL = jmdictReleaseUrl("jmdict-eng-common");
 
 /** Downloadable dictionary packs (asset names versioned per GitHub release). */
 export interface JmdictPack {
@@ -34,14 +38,14 @@ export const JMDICT_PACKS: [JmdictPack, JmdictPack] = [
     label: "Courant (~22k mots)",
     description: "jmdict-eng-common — les mots les plus fréquents, ~1,4 Mo",
     url: JMDICT_DEFAULT_URL,
-    approxEntries: 22626,
+    approxEntries: 22630,
   },
   {
     id: "full",
     label: "Complet (~218k mots)",
     description: "jmdict-eng — tout le dictionnaire, ~11 Mo à télécharger",
-    url: "https://github.com/scriptin/jmdict-simplified/releases/latest/download/jmdict-eng-3.6.2+20260803141815.json.tgz",
-    approxEntries: 218290,
+    url: jmdictReleaseUrl("jmdict-eng"),
+    approxEntries: 218461,
   },
 ];
 

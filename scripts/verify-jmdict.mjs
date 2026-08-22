@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 const DEFAULT_URL =
-  "https://github.com/scriptin/jmdict-simplified/releases/latest/download/jmdict-eng-common-3.6.2+20260803141815.json.tgz";
+  "https://github.com/scriptin/jmdict-simplified/releases/download/3.6.2%2B20260817122448/jmdict-eng-common-3.6.2%2B20260817122448.json.tgz";
 
 function parseTar(buffer) {
   const files = new Map();
