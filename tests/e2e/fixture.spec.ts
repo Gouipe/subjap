@@ -80,6 +80,25 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("affiche le rang de fréquence uniquement pour les mots verts et bleus", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    const frequency = page.locator(".subjap-popover__freq");
+
+    // 勉強 is green (rank 1), を is blue (rank 2), while ます is orange.
+    await tokens.nth(2).hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(frequency).toHaveText("Frequency rank: #1");
+
+    await tokens.nth(1).hover();
+    await expect(frequency).toHaveText("Frequency rank: #2");
+
+    await tokens.nth(4).hover();
+    await expect(frequency).toHaveText("");
+  });
+
   test("capture automatiquement le screenshot à l’ouverture du mining", async ({
     page,
   }) => {

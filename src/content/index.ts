@@ -15,6 +15,7 @@
 
 import { NetflixAdapter } from "@/adapters/netflix";
 import { adapterRegistry } from "@/core/adapters/registry";
+import { getFrequencyHighlight } from "@/core/frequency";
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookup } from "@/dictionary";
@@ -497,11 +498,23 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
   if (!anchor.isConnected) return;
   if (hoveredToken && hoveredToken.token !== token) return;
 
+  const renderedSpan = lastRenderedCues
+    .flatMap((cue) => cue.spans)
+    .find((span) => span.token === token);
+  const frequencyHighlight = renderedSpan
+    ? getFrequencyHighlight(renderedSpan.wordState, renderedSpan.frequencyRank, knownWordCount)
+    : "unknown";
+  const frequencyRank =
+    frequencyHighlight === "relevant" || frequencyHighlight === "near"
+      ? renderedSpan?.frequencyRank
+      : undefined;
+
   showPopover({
     anchor,
     token,
     entry: dictEntry,
     wordStatus: wordStatusByLemma.get(token.lemma) ?? null,
+    frequencyRank,
   });
 }
 

@@ -1,4 +1,5 @@
 import { NetflixAdapter } from "../../src/adapters/netflix";
+import { getFrequencyHighlight } from "../../src/core/frequency";
 import { OverlayRenderer } from "../../src/overlay/renderer";
 import { getPopover, hidePopover, showPopover } from "../../src/overlay/popover";
 import { CueNavigator, installPlaybackShortcuts } from "../../src/content/shortcuts";
@@ -180,7 +181,27 @@ const popoverCallbacks = {
 function showPopoverForToken(anchor: HTMLElement, token: Token): void {
   const entry = token.lemma === dictionaryEntry.headword ? dictionaryEntry : null;
   const currentStatus = knownLemmas.has(token.lemma) ? "known" : null;
-  showPopover({ anchor, token, entry, wordStatus: currentStatus });
+  const frequencyRank = frequencyRanks.get(token.lemma);
+  const wordState = knownLemmas.has(token.lemma)
+    ? { key: token.lemma, status: "known" as const, source: "manual" as const }
+    : token.lemma === "する"
+      ? { key: token.lemma, status: "learning" as const, source: "import" as const }
+      : null;
+  const frequencyHighlight = getFrequencyHighlight(
+    wordState,
+    frequencyRank,
+    knownLemmas.size,
+  );
+  showPopover({
+    anchor,
+    token,
+    entry,
+    wordStatus: currentStatus,
+    frequencyRank:
+      frequencyHighlight === "relevant" || frequencyHighlight === "near"
+        ? frequencyRank
+        : undefined,
+  });
 }
 
 function clearTimers(): void {

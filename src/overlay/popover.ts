@@ -41,6 +41,7 @@ export class WordPopover {
   private visible = false;
   private currentLemma = "";
   private currentStatus: WordStatus | null = null;
+  private currentFrequencyRank: number | undefined;
   private currentToken: Token | null = null;
   private currentEntry: DictionaryEntry | null = null;
   private boundOnKeydown: (e: KeyboardEvent) => void;
@@ -64,15 +65,25 @@ export class WordPopover {
     entry?: DictionaryEntry | null;
     pitchAccent?: PitchAccent | null;
     wordStatus?: WordStatus | null;
+    /** Rank from the subtitle frequency list, shown for green/blue words. */
+    frequencyRank?: number;
   }): void {
-    const { anchor, token, entry, pitchAccent, wordStatus } = params;
+    const {
+      anchor,
+      token,
+      entry,
+      pitchAccent,
+      wordStatus,
+      frequencyRank,
+    } = params;
 
     this.currentToken = token;
     this.currentEntry = entry ?? null;
     this.currentLemma = token.lemma;
     this.currentStatus = wordStatus ?? null;
+    this.currentFrequencyRank = frequencyRank;
 
-    this.populateContent(token, entry, pitchAccent, wordStatus);
+    this.populateContent(token, entry, pitchAccent, wordStatus, frequencyRank);
     this.positionNear(anchor);
     this.el.classList.add("subjap-popover--visible");
     this.visible = true;
@@ -253,6 +264,7 @@ export class WordPopover {
     entry: DictionaryEntry | null | undefined,
     pitchAccent: PitchAccent | null | undefined,
     wordStatus: WordStatus | null | undefined,
+    frequencyRank: number | undefined,
   ): void {
     // Surface
     const surfaceEl = this.el.querySelector(".subjap-popover__surface")!;
@@ -285,13 +297,8 @@ export class WordPopover {
 
     // Frequency
     const freqEl = this.el.querySelector(".subjap-popover__freq")!;
-    if (entry?.frequencyRank != null) {
-      freqEl.textContent = `Frequency rank: #${entry.frequencyRank}`;
-    } else if (entry?.common) {
-      freqEl.textContent = "Common word";
-    } else {
-      freqEl.textContent = "";
-    }
+    freqEl.textContent =
+      frequencyRank != null ? `Frequency rank: #${frequencyRank}` : "";
 
     // Pitch accent
     const pitchEl = this.el.querySelector(".subjap-popover__pitch")!;
@@ -355,6 +362,7 @@ export class WordPopover {
       this.currentEntry,
       null,
       this.currentStatus,
+      this.currentStatus === "known" ? undefined : this.currentFrequencyRank,
     );
   }
 
