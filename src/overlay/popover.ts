@@ -29,6 +29,8 @@ const POS_LABELS: Record<string, string> = {
 export interface PopoverCallbacks {
   /** Called when the user clicks "Mark Known" / "Mark Unknown" */
   onToggleKnown: (lemma: string, currentStatus: WordStatus | null) => void;
+  /** Called when the user clicks "Ignore" / "Unignore" */
+  onToggleIgnored: (lemma: string, currentStatus: WordStatus | null) => void;
   /** Called when the user clicks "Mine this" */
   onMine: (token: Token, entry: DictionaryEntry | null) => void;
 }
@@ -132,6 +134,7 @@ export class WordPopover {
       <div class="subjap-popover__pitch"></div>
       <div class="subjap-popover__actions">
         <button class="subjap-btn subjap-btn--toggle-known"></button>
+        <button class="subjap-btn subjap-btn--toggle-ignored"></button>
         <button class="subjap-btn subjap-btn--mine">⛏ Mine this</button>
       </div>
     `;
@@ -141,6 +144,8 @@ export class WordPopover {
       const target = e.target as HTMLElement;
       if (target.classList.contains("subjap-btn--toggle-known")) {
         this.handleToggleKnown();
+      } else if (target.classList.contains("subjap-btn--toggle-ignored")) {
+        this.handleToggleIgnored();
       } else if (target.classList.contains("subjap-btn--mine")) {
         this.handleMine();
       }
@@ -244,6 +249,9 @@ export class WordPopover {
       .subjap-btn--toggle-known {
         flex: 1;
       }
+      .subjap-btn--toggle-ignored {
+        flex: 1;
+      }
       .subjap-btn--mine {
         flex: 1;
         background: #3b82f6;
@@ -323,6 +331,19 @@ export class WordPopover {
       toggleBtn.style.background = "#334155";
       toggleBtn.style.borderColor = "#475569";
     }
+
+    const ignoreBtn = this.el.querySelector(
+      ".subjap-btn--toggle-ignored",
+    ) as HTMLButtonElement;
+    if (wordStatus === "ignored") {
+      ignoreBtn.textContent = "Unignore";
+      ignoreBtn.style.background = "#166534";
+      ignoreBtn.style.borderColor = "#166534";
+    } else {
+      ignoreBtn.textContent = "Ignore";
+      ignoreBtn.style.background = "#334155";
+      ignoreBtn.style.borderColor = "#475569";
+    }
   }
 
   // ── Positioning ────────────────────────────────────────────────────────
@@ -363,6 +384,20 @@ export class WordPopover {
       null,
       this.currentStatus,
       this.currentStatus === "known" ? undefined : this.currentFrequencyRank,
+    );
+  }
+
+  private handleToggleIgnored(): void {
+    this.callbacks.onToggleIgnored(this.currentLemma, this.currentStatus);
+    // Unignore always returns the word to the regular unknown state.
+    this.currentStatus =
+      this.currentStatus === "ignored" ? "unknown" : "ignored";
+    this.populateContent(
+      this.currentToken!,
+      this.currentEntry,
+      null,
+      this.currentStatus,
+      this.currentFrequencyRank,
     );
   }
 

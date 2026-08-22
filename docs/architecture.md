@@ -111,8 +111,10 @@ Le chemin principal est le suivant :
    loader XHR peut rester bloqué dans un content script.
 5. Chaque token est converti vers le type partagé `Token` : surface, lemme,
    lecture et parties du discours.
-6. Les états de mots (`known` / `unknown`) sont demandés au service worker,
-   avec déduplication des requêtes en vol.
+6. Les états de mots (`known`, `unknown`, `learning` ou `ignored`) sont
+   demandés au service worker, avec déduplication des requêtes en vol. Un mot
+   ignoré est rendu blanc comme un mot connu, mais reste exclu du compteur de
+   vocabulaire connu.
 7. Le content script récupère le nombre de mots connus et les rangs d’une
    liste de fréquence issue de sous-titres japonais. Le renderer construit des
    spans par token, ajoute éventuellement le furigana ; les mots connus restent

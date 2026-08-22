@@ -62,14 +62,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.getByTestId("native-subtitles")).toBeHidden();
   });
 
-  test("distingue connu, pertinence, apprentissage et inconnu orange", async ({
+  test("distingue connu, pertinence, apprentissage, ignoré et inconnu orange", async ({
     page,
   }) => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
 
     // N = 1: green <= N, blue in the next 300, violet for LEARNING,
-    // orange for a low-priority unknown, and white for KNOWN.
+    // orange for a low-priority unknown, and white for KNOWN/IGNORED.
     await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
     await expect(tokens.nth(2)).toHaveClass(/subjap-unknown--relevant/);
@@ -154,6 +154,37 @@ test.describe("SubJap UX fixture", () => {
 
     await page.locator(".subjap-btn--toggle-known").click();
     await expect(unknownToken).toHaveClass(/subjap-known/);
+  });
+
+  test("ignore un mot en blanc sans l’ajouter aux mots connus", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    const ignoredToken = page.locator(".subjap-token").nth(4);
+
+    await ignoredToken.hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText(
+      "Ignore",
+    );
+
+    await page.locator(".subjap-btn--toggle-ignored").click();
+    await expect(ignoredToken).toHaveClass(/subjap-known/);
+    await expect(ignoredToken).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-known-count",
+      "1",
+    );
+    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText(
+      "Unignore",
+    );
+
+    await page.locator(".subjap-btn--toggle-ignored").click();
+    await expect(ignoredToken).toHaveClass(/subjap-unknown/);
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-known-count",
+      "1",
+    );
   });
 
   test("regroupe une construction grammaticale en une seule unité", async ({
