@@ -270,6 +270,22 @@ function installTimedTextCapture(page: Window): void {
     return value;
   }) as typeof pageWithJson.JSON.parse;
 
+  const pageWithNetflix = page as Window & {
+    netflix?: {
+      appContext?: { state?: unknown };
+    };
+  };
+  const inspectNetflixState = (): void => {
+    inspectTimedTextValue(pageWithNetflix.netflix?.appContext?.state);
+  };
+  inspectNetflixState();
+  let stateInspections = 0;
+  const stateTimer = page.setInterval(() => {
+    inspectNetflixState();
+    stateInspections += 1;
+    if (stateInspections >= 120) page.clearInterval(stateTimer);
+  }, 500);
+
   const fetchImpl = page.fetch?.bind(page);
   if (fetchImpl) {
     const inspectJsonResponse = (response: Response, url: string): void => {
@@ -286,8 +302,14 @@ function installTimedTextCapture(page: Window): void {
       }).catch(() => undefined);
     };
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      const response = await fetchImpl(input, init);
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (TIMED_TEXT_URL_PATTERN.test(url)) {
+        emit(NETFLIX_TIMED_TEXT_URL_EVENT, {
+          url,
+          language: inferLanguage(url),
+        });
+      }
+      const response = await fetchImpl(input, init);
       inspectJsonResponse(response, url);
       if (TIMED_TEXT_URL_PATTERN.test(url)) {
         void response.clone().text().then((body) => {
@@ -366,7 +388,9 @@ function installTimedTextCapture(page: Window): void {
 
 function inferLanguage(url: string): string {
   const encoded = url.match(/[?&](?:lang|language|locale|bcp47)=([^&]+)/i)?.[1];
-  if (!encoded) return "";
+  if (!encoded) {
+    return url.match(/(?:^|[/_.-])((?:fr|en|ja)(?:[-_][a-z]{2,})?)(?=[/_.?&-]|$)/i)?.[1] ?? "";
+  }
   try {
     return decodeURIComponent(encoded);
   } catch {
