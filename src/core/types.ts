@@ -93,6 +93,11 @@ export interface WordState {
   source: "manual" | "frequency-list" | "import";
 }
 
+export interface AnkiWordPresence {
+  key: string; // lemme normalisé depuis le champ Anki `Mot`
+  noteCount: number;
+}
+
 export interface MineCard {
   id: string; // uuid
   createdAt: number;
@@ -159,7 +164,7 @@ export interface MessageMap {
 
   // Word state
   "word:get": { key: string };
-  "word:getResult": { state: WordState | null };
+  "word:getResult": { state: WordState | null; ankiNoteCount: number };
   "word:set": WordState;
   "word:batch": WordState[];
 
@@ -215,7 +220,12 @@ export interface MessageMap {
   "anki:status": Record<string, never>;
   "anki:statusResult": { connected: boolean; deckNames: string[] };
   "anki:syncKnown": Record<string, never>;
-  "anki:syncKnownResult": { imported: number; removed: number; changed: number };
+  "anki:syncKnownResult": {
+    imported: number;
+    removed: number;
+    changed: number;
+    presenceChanged: number;
+  };
   "anki:addNote": {
     deckName: string;
     fields: Record<string, string>;
@@ -247,6 +257,8 @@ export interface SpanToken {
   index: number;
   token: Token;
   wordState: WordState | null;
+  /** Number of existing Anki notes whose normalized `Mot` matches the lemma. */
+  ankiNoteCount?: number;
   /** Rank in the subtitle frequency list (1 = most frequent). */
   frequencyRank?: number;
 }

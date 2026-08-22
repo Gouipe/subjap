@@ -1,4 +1,4 @@
-import type { WordState, WordStatus } from "@/core/types";
+import type { AnkiWordPresence, WordState, WordStatus } from "@/core/types";
 
 export interface AnkiNoteInfoForWordStates {
   fields: Record<string, { value: string }>;
@@ -63,6 +63,33 @@ export function extractAnkiWordStates(
     }
   }
   return [...byWord].map(([key, status]) => ({ key, status }));
+}
+
+/** Count every Anki vocabulary note by its normalized `Mot` field. */
+export function extractAnkiWordPresences(
+  notes: AnkiNoteInfoForWordStates[],
+): AnkiWordPresence[] {
+  const counts = new Map<string, number>();
+  for (const note of notes) {
+    const key = normalizeAnkiWord(note.fields.Mot?.value ?? "");
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts].map(([key, noteCount]) => ({ key, noteCount }));
+}
+
+export function countAnkiWordPresenceChanges(
+  current: AnkiWordPresence[],
+  desired: AnkiWordPresence[],
+): number {
+  const currentByKey = new Map(current.map((entry) => [entry.key, entry.noteCount]));
+  const desiredByKey = new Map(desired.map((entry) => [entry.key, entry.noteCount]));
+  const keys = new Set([...currentByKey.keys(), ...desiredByKey.keys()]);
+  let changed = 0;
+  for (const key of keys) {
+    if (currentByKey.get(key) !== desiredByKey.get(key)) changed += 1;
+  }
+  return changed;
 }
 
 export function planImportedStateReconciliation(

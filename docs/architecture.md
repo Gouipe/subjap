@@ -239,13 +239,15 @@ Le paquet externe utilise un type distinct, `Migaku Memory Import`, avec ce
 même contrat de champs : cela évite le renommage automatique `Migaku Memory+`
 par Anki tout en permettant la synchronisation globale des statuts.
 
-Les tags Anki `KNOWN`, `IGNORED`, `UNKNOWN` et `LEARNING` sont recherchés dans
+Toutes les notes Anki dont le champ `Mot` est renseigné sont recherchées dans
 tous les decks au démarrage, au retour sur l’onglet et périodiquement. Le champ
-`Mot` est normalisé vers le lemme de `wordStates`, puis les imports sont
-réconciliés : retirer un tag retire l’ancien état importé. Un état manuel local
-reste prioritaire. `KNOWN` et `IGNORED` sont blancs, `LEARNING` violet,
-`UNKNOWN` orange ; les mots sans état explicite suivent la fréquence (vert,
-bleu, puis orange).
+est normalisé vers le lemme : SubJap conserve à la fois le nombre de cartes et
+les éventuels tags `KNOWN`, `IGNORED`, `UNKNOWN` ou `LEARNING`. Les imports de
+statut sont réconciliés : retirer un tag retire l’ancien état importé, tandis
+qu’un état manuel local reste prioritaire. `KNOWN` et `IGNORED` sont blancs ;
+un mot déjà présent dans Anki ou marqué `LEARNING` est violet. Un mot `UNKNOWN`
+sans carte existante suit encore la fréquence (vert, bleu, puis orange). La
+popover affiche le rang dès qu’il existe et précise `Déjà dans Anki · N cartes`.
 
 VOICEVOX est démarré localement par un Native Messaging host Windows enregistré
 une seule fois ; voir [`docs/voicevox.md`](voicevox.md). Si la capture du flux

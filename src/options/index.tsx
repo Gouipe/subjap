@@ -798,7 +798,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </Row>
             <Row
               label="Légende"
-              hint="vert : très pertinent · bleu : pertinent · orange : inconnu peu prioritaire · violet : en apprentissage · blanc : connu ou ignoré"
+              hint="vert : très pertinent · bleu : pertinent · orange : inconnu peu prioritaire · violet : dans Anki ou en apprentissage · blanc : connu ou ignoré"
             >
               <span style={s.muted}>Couleurs combinées avec les statuts Anki</span>
             </Row>

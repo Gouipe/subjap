@@ -272,6 +272,7 @@ export class OverlayRenderer {
         st.wordState,
         st.frequencyRank,
         this.knownWordCount,
+        st.ankiNoteCount,
       );
       if (highlight === "known" || highlight === "ignored") {
         span.classList.add("subjap-known");

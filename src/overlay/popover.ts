@@ -44,6 +44,7 @@ export class WordPopover {
   private currentLemma = "";
   private currentStatus: WordStatus | null = null;
   private currentFrequencyRank: number | undefined;
+  private currentAnkiNoteCount = 0;
   private currentToken: Token | null = null;
   private currentEntry: DictionaryEntry | null = null;
   private boundOnKeydown: (e: KeyboardEvent) => void;
@@ -67,8 +68,10 @@ export class WordPopover {
     entry?: DictionaryEntry | null;
     pitchAccent?: PitchAccent | null;
     wordStatus?: WordStatus | null;
-    /** Rank from the subtitle frequency list, shown for green/blue words. */
+    /** Rank from the subtitle frequency list, shown whenever it exists. */
     frequencyRank?: number;
+    /** Number of existing Anki notes whose normalized `Mot` matches the lemma. */
+    ankiNoteCount?: number;
   }): void {
     const {
       anchor,
@@ -77,6 +80,7 @@ export class WordPopover {
       pitchAccent,
       wordStatus,
       frequencyRank,
+      ankiNoteCount,
     } = params;
 
     this.currentToken = token;
@@ -84,8 +88,16 @@ export class WordPopover {
     this.currentLemma = token.lemma;
     this.currentStatus = wordStatus ?? null;
     this.currentFrequencyRank = frequencyRank;
+    this.currentAnkiNoteCount = Math.max(0, ankiNoteCount ?? 0);
 
-    this.populateContent(token, entry, pitchAccent, wordStatus, frequencyRank);
+    this.populateContent(
+      token,
+      entry,
+      pitchAccent,
+      wordStatus,
+      frequencyRank,
+      this.currentAnkiNoteCount,
+    );
     this.positionNear(anchor);
     this.el.classList.add("subjap-popover--visible");
     this.visible = true;
@@ -131,6 +143,7 @@ export class WordPopover {
       <div class="subjap-popover__pos"></div>
       <div class="subjap-popover__defs"></div>
       <div class="subjap-popover__freq"></div>
+      <div class="subjap-popover__anki"></div>
       <div class="subjap-popover__pitch"></div>
       <div class="subjap-popover__actions">
         <button class="subjap-btn subjap-btn--toggle-known"></button>
@@ -219,6 +232,12 @@ export class WordPopover {
         color: #64748b;
         margin-top: 6px;
       }
+      .subjap-popover__anki {
+        font-size: 12px;
+        font-weight: 600;
+        color: #c084fc;
+        margin-top: 6px;
+      }
       .subjap-popover__pitch {
         font-size: 12px;
         color: #facc15;
@@ -273,6 +292,7 @@ export class WordPopover {
     pitchAccent: PitchAccent | null | undefined,
     wordStatus: WordStatus | null | undefined,
     frequencyRank: number | undefined,
+    ankiNoteCount: number,
   ): void {
     // Surface
     const surfaceEl = this.el.querySelector(".subjap-popover__surface")!;
@@ -311,6 +331,14 @@ export class WordPopover {
     const freqEl = this.el.querySelector(".subjap-popover__freq")!;
     freqEl.textContent =
       frequencyRank != null ? `Frequency rank: #${frequencyRank}` : "";
+
+    const ankiEl = this.el.querySelector<HTMLElement>(".subjap-popover__anki");
+    if (ankiEl) {
+      ankiEl.textContent =
+        ankiNoteCount > 0
+          ? `Déjà dans Anki · ${ankiNoteCount} carte${ankiNoteCount === 1 ? "" : "s"}`
+          : "";
+    }
 
     // Pitch accent
     const pitchEl = this.el.querySelector(".subjap-popover__pitch")!;
@@ -387,7 +415,8 @@ export class WordPopover {
       this.currentEntry,
       null,
       this.currentStatus,
-      this.currentStatus === "known" ? undefined : this.currentFrequencyRank,
+      this.currentFrequencyRank,
+      this.currentAnkiNoteCount,
     );
   }
 
@@ -402,6 +431,7 @@ export class WordPopover {
       null,
       this.currentStatus,
       this.currentFrequencyRank,
+      this.currentAnkiNoteCount,
     );
   }
 

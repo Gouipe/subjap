@@ -2,11 +2,12 @@
 
 ## État
 
-SubJap recherche dans tous les decks les notes portant `KNOWN`, `IGNORED`,
-`UNKNOWN` ou `LEARNING`. Le champ `Mot` est normalisé (ruby HTML, syntaxe
-Migaku, espaces et ponctuation périphérique), puis les `WordState` de source
-`import` sont réconciliés. Retirer le dernier tag Anki d’un mot supprime donc
-l’ancien import ; une décision locale `manual` reste prioritaire.
+SubJap recherche dans tous les decks toutes les notes ayant un champ `Mot` non
+vide. Ce champ est normalisé (ruby HTML, syntaxe Migaku, espaces et ponctuation
+périphérique), puis le nombre de notes par lemme est mémorisé. Les tags
+`KNOWN`, `IGNORED`, `UNKNOWN` ou `LEARNING` alimentent en parallèle les
+`WordState` de source `import`. Retirer le dernier tag Anki d’un mot supprime
+donc l’ancien import ; une décision locale `manual` reste prioritaire.
 
 La synchronisation s’exécute au démarrage du content script, lorsque l’onglet
 redevient visible, toutes les deux minutes et depuis le bouton des Options.
@@ -14,10 +15,14 @@ redevient visible, toutes les deux minutes et depuis le bouton des Options.
 ## Couleurs
 
 - `KNOWN` et `IGNORED` : blanc ;
-- `LEARNING` : violet ;
-- `UNKNOWN` : orange ;
-- sans statut explicite : vert si très pertinent par fréquence, bleu dans la
-  fenêtre suivante de 300 rangs, puis orange.
+- `LEARNING` ou au moins une carte existante dans Anki : violet ;
+- `UNKNOWN` sans carte existante : vert si très pertinent par fréquence, bleu
+  dans la fenêtre suivante de 300 rangs, puis orange ;
+- sans statut explicite et sans carte : même règle de fréquence.
+
+La popover affiche le rang de fréquence pour toutes les couleurs lorsqu’il est
+disponible. Elle affiche aussi `Déjà dans Anki · N carte(s)` ; aucun avertissement
+supplémentaire n’est ajouté directement dans le sous-titre.
 
 ## Anki et mining
 
