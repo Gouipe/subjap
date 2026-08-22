@@ -477,8 +477,10 @@ function OnboardingWizard(props: {
           </div>
           <div style={s.row}>
             <div style={s.rowLabel}>
-              <span>Surligner les mots connus</span>
-              <span style={s.rowHint}>couleur dédiée pour les mots marqués connus</span>
+              <span>Surligner les mots pertinents</span>
+              <span style={s.rowHint}>
+                inconnus jusqu’à ton vocabulaire connu
+              </span>
             </div>
             <div style={s.rowControl}>
               <Toggle
@@ -489,7 +491,7 @@ function OnboardingWizard(props: {
           </div>
           <div style={s.row}>
             <div style={s.rowLabel}>
-              <span>Couleur des mots connus</span>
+              <span>Couleur des mots pertinents</span>
             </div>
             <div style={s.rowControl}>
               <input
@@ -771,13 +773,13 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 onChange={(v) => void updateOptions({ showFurigana: v })}
               />
             </Row>
-            <Row label="Surligner les mots connus">
+            <Row label="Surligner les mots pertinents">
               <Toggle
                 checked={options.highlightKnown}
                 onChange={(v) => void updateOptions({ highlightKnown: v })}
               />
             </Row>
-            <Row label="Couleur des mots connus">
+            <Row label="Couleur des mots pertinents">
               <input
                 type="color"
                 value={options.knownColor}

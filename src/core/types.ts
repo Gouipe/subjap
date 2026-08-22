@@ -149,6 +149,10 @@ export interface MessageMap {
   "word:set": WordState;
   "word:batch": WordState[];
 
+  // Frequency ranks
+  "frequency:batch": { terms: string[] };
+  "frequency:batchResult": { ranks: Record<string, number> };
+
   // Mining
   "mine:create": CreateMineCardPayload;
   "mine:createResult": { id: string };
@@ -197,6 +201,8 @@ export interface SpanToken {
   index: number;
   token: Token;
   wordState: WordState | null;
+  /** Rank in the subtitle frequency list (1 = most frequent). */
+  frequencyRank?: number;
 }
 
 export interface RenderedCue {
@@ -208,7 +214,9 @@ export interface OverlayOptions {
   fontSize: number;
   fontFamily: string;
   showFurigana: boolean;
+  /** Legacy option name; controls highlighting of frequency-relevant unknowns. */
   highlightKnown: boolean;
+  /** Colour for unknown words within the learner's known-vocabulary rank. */
   knownColor: string;
   /** Hide the platform's native Japanese subtitle track (the overlay replaces it). */
   hideNativeSubtitles: boolean;

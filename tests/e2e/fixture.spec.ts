@@ -19,6 +19,9 @@ test.describe("SubJap UX fixture", () => {
     await expect(overlay.locator(".subjap-token--punctuation")).toHaveCount(1);
     await expect(overlay.locator(".subjap-furigana").first()).toHaveText("にほんご");
     await expect(nativeSubtitles).toBeHidden();
+    await expect(overlay.locator(".subjap-token").first()).toHaveClass(
+      /subjap-known/,
+    );
 
     const cueLine = overlay.locator(".subjap-cue-line");
     await expect(cueLine).toHaveCSS("align-items", "flex-end");
@@ -41,6 +44,22 @@ test.describe("SubJap UX fixture", () => {
     expect(overlayBox!.y + overlayBox!.height).toBeGreaterThan(
       controlsBox!.y,
     );
+  });
+
+  test("distingue les inconnus pertinents, proches et éloignés", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+
+    // The fixture simulates N = 2 known words: rank <= N is green, the next
+    // 300 ranks are blue, and more distant words stay white.
+    await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
+    await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
+    await expect(tokens.nth(2)).toHaveClass(/subjap-unknown--relevant/);
+    await expect(tokens.nth(3)).toHaveClass(/subjap-unknown--near/);
+    await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
+    await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
   });
 
   test("ouvre la popover au survol et modifie l’état connu", async ({ page }) => {

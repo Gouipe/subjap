@@ -5,6 +5,7 @@
 import { db } from "@/core/db";
 import { onMessage } from "@/core/messaging";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
+import { fetchJapaneseFrequencyRanks } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
 import type { MineCard, SrsState } from "@/core/types";
 
@@ -82,6 +83,29 @@ db.open().catch((err) => {
   console.error("[SubJap] Failed to open database:", err);
 });
 
+// Frequency data is loaded lazily so existing installations receive the new
+// highlighting without needing to reinstall their dictionary manually.
+let frequencyLoadPromise: Promise<void> | null = null;
+
+async function ensureFrequencyRanks(): Promise<void> {
+  if ((await db.frequencyEntries.count()) > 0) return;
+  if (frequencyLoadPromise) return frequencyLoadPromise;
+
+  frequencyLoadPromise = fetchJapaneseFrequencyRanks()
+    .then(async (entries) => {
+      await db.frequencyEntries.clear();
+      await db.frequencyEntries.bulkPut(entries);
+    })
+    .catch((err: unknown) => {
+      console.warn("[SubJap] Japanese frequency list unavailable:", err);
+    })
+    .finally(() => {
+      frequencyLoadPromise = null;
+    });
+
+  return frequencyLoadPromise;
+}
+
 // ---------------------------------------------------------------------------
 // Message handler registration
 // ---------------------------------------------------------------------------
@@ -116,7 +140,13 @@ onMessage("dict:status", async () => {
 // ── dict:download ─────────────────────────────────────────────────────────
 
 onMessage("dict:download", async ({ url }) => {
-  const entries = await fetchJmdictTgz(url ?? JMDICT_DEFAULT_URL);
+  const [entries, frequencyRanks] = await Promise.all([
+    fetchJmdictTgz(url ?? JMDICT_DEFAULT_URL),
+    fetchJapaneseFrequencyRanks().catch((err: unknown) => {
+      console.warn("[SubJap] Could not refresh frequency list:", err);
+      return null;
+    }),
+  ]);
 
   // Replace any previous dictionary data, then bulk-insert in batches to
   // avoid oversized IndexedDB transactions.
@@ -124,6 +154,11 @@ onMessage("dict:download", async ({ url }) => {
   const BATCH_SIZE = 10000;
   for (let i = 0; i < entries.length; i += BATCH_SIZE) {
     await db.dictionaryEntries.bulkPut(entries.slice(i, i + BATCH_SIZE));
+  }
+
+  if (frequencyRanks) {
+    await db.frequencyEntries.clear();
+    await db.frequencyEntries.bulkPut(frequencyRanks);
   }
 
   // Persist the "loaded" flag so popup/options/onboarding can detect it
@@ -149,6 +184,22 @@ onMessage("word:set", async (payload) => {
 
 onMessage("word:batch", async (payload) => {
   await db.wordStates.bulkPut(payload);
+});
+
+// ── frequency:batch ──────────────────────────────────────────────────────
+
+onMessage("frequency:batch", async ({ terms }) => {
+  await ensureFrequencyRanks();
+  const uniqueTerms = [...new Set(terms.filter((term) => term.length > 0))];
+  const entries = await db.frequencyEntries.bulkGet(uniqueTerms);
+  const ranks: Record<string, number> = {};
+
+  uniqueTerms.forEach((term, index) => {
+    const rank = entries[index]?.rank;
+    if (rank != null) ranks[term] = rank;
+  });
+
+  return { ranks };
 });
 
 // ── mine:create ───────────────────────────────────────────────────────────
@@ -218,6 +269,7 @@ onMessage("data:reset", async () => {
   await db.wordStates.clear();
   await db.mineCards.clear();
   await db.dictionaryEntries.clear();
+  await db.frequencyEntries.clear();
   await db.settings.clear();
   await chrome.storage.local.remove("subjap_options");
   await chrome.storage.local.remove("subjap_dictionary_loaded");

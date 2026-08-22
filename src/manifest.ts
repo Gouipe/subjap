@@ -17,6 +17,7 @@ const manifest: ManifestV3Export = {
     // versioned asset on objects/release-assets.githubusercontent.com. Both
     // hosts must be permitted or the SW fetch is CORS-blocked.
     "https://github.com/*",
+    "https://raw.githubusercontent.com/*",
     "https://objects.githubusercontent.com/*",
     "https://release-assets.githubusercontent.com/*",
   ],

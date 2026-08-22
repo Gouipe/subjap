@@ -31,7 +31,17 @@ const cueNavigator = new CueNavigator();
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let currentCues: SubtitleCue[] = [];
-let knownLemmas = new Set<string>(["日本語"]);
+// The fixture simulates two known words so the green (within vocabulary) and
+// blue (+300 words) bands can be exercised deterministically.
+let knownLemmas = new Set<string>(["日本語", "を"]);
+const frequencyRanks = new Map<string, number>([
+  ["日本語", 1],
+  ["を", 2],
+  ["勉強", 2],
+  ["する", 3],
+  ["し", 3],
+  ["ます", 500],
+]);
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 let hovered: HTMLElement | null = null;
@@ -100,6 +110,7 @@ function renderedCue(cue: SubtitleCue): RenderedCue {
       wordState: knownLemmas.has(token.lemma)
         ? { key: token.lemma, status: "known", source: "manual" }
         : null,
+      frequencyRank: frequencyRanks.get(token.lemma),
     })),
   };
 }
@@ -138,6 +149,7 @@ function render(cues: SubtitleCue[]): void {
     setStatus("Cues reçus : 0 — overlay masqué");
     return;
   }
+  renderer.setKnownWordCount(knownLemmas.size);
   renderer.updateCues(cues.map(renderedCue));
   renderer.show();
   setStatus(`Cues reçus : ${cues.length} — overlay visible`);

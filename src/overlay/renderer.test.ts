@@ -30,6 +30,7 @@ function renderedCue(): RenderedCue {
           partOfSpeech: ["助詞"],
         },
         wordState: null,
+        frequencyRank: 1,
       },
     ],
   };
@@ -71,6 +72,36 @@ describe("OverlayRenderer", () => {
 
     overlay.destroy();
     expect(document.getElementById("subjap-overlay-container")).toBeNull();
+  });
+
+  it("colore les mots inconnus selon leur rang et le vocabulaire connu", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    vi.spyOn(video, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(20, 30, 640, 360),
+    );
+
+    const cue = renderedCue();
+    cue.spans[0]!.frequencyRank = 1;
+    cue.spans[1]!.frequencyRank = 2;
+    const overlay = new OverlayRenderer(video);
+    overlay.setKnownWordCount(2);
+    overlay.updateCues([cue]);
+    overlay.show();
+
+    const tokens = document.querySelectorAll(".subjap-token");
+    expect(tokens[0]?.classList.contains("subjap-known")).toBe(true);
+    expect(tokens[0]?.classList.contains("subjap-unknown--relevant")).toBe(
+      false,
+    );
+    expect(tokens[1]?.classList.contains("subjap-unknown--relevant")).toBe(
+      true,
+    );
+
+    overlay.destroy();
   });
 
   it("affiche les lectures kuromoji en hiragana", () => {

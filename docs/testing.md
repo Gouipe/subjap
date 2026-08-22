@@ -17,6 +17,8 @@ Les tests Vitest couvrent notamment :
 - le masquage robuste des sous-titres natifs ;
 - le montage de l’overlay sur `document.body` ;
 - le rendu des tokens, du furigana et des mots connus ;
+- les couleurs de fréquence : inconnus pertinents en vert, tranche suivante de
+  300 rangs en bleu, mots connus et mots éloignés en blanc ;
 - le positionnement au-dessus de la vidéo et de sa barre de contrôle.
 
 ## Fixture navigateur

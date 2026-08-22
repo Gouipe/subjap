@@ -10,6 +10,7 @@ import type {
 } from "@/core/types";
 import { DEFAULT_OPTIONS } from "@/core/options";
 import { toHiragana } from "@/core/kana";
+import { getFrequencyHighlight } from "@/core/frequency";
 
 const CONTAINER_ID = "subjap-overlay-container";
 const STYLE_ID = "subjap-overlay-styles";
@@ -81,10 +82,16 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       margin-left: -0.16em;
     }
     #${CONTAINER_ID} .subjap-known {
-      color: ${opts.highlightKnown ? opts.knownColor : "#ffffff"};
+      color: #ffffff;
     }
     #${CONTAINER_ID} .subjap-unknown {
       color: #ffffff;
+    }
+    #${CONTAINER_ID} .subjap-unknown--relevant {
+      color: ${opts.highlightKnown ? opts.knownColor : "#22c55e"};
+    }
+    #${CONTAINER_ID} .subjap-unknown--near {
+      color: #60a5fa;
     }
     #${CONTAINER_ID} .subjap-furigana {
       display: ${opts.showFurigana ? "block" : "none"};
@@ -109,6 +116,7 @@ export class OverlayRenderer {
   private container: HTMLDivElement;
   private video: HTMLVideoElement;
   private options: OverlayOptions;
+  private knownWordCount = 0;
   private cues: RenderedCue[] = [];
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
@@ -164,6 +172,12 @@ export class OverlayRenderer {
     this.render();
   }
 
+  /** Update the learner vocabulary size used by frequency highlighting. */
+  setKnownWordCount(count: number): void {
+    this.knownWordCount = Math.max(0, Math.floor(count));
+    this.render();
+  }
+
   /** Tear down the overlay completely: cancel animation, remove DOM nodes. */
   destroy(): void {
     this.stopRepositionLoop();
@@ -216,13 +230,20 @@ export class OverlayRenderer {
     span.dataset.pos = st.token.partOfSpeech.join(",");
     span.dataset.index = String(st.index);
 
-    // Known / unknown
-    if (st.wordState) {
-      span.classList.add(
-        st.wordState.status === "known" ? "subjap-known" : "subjap-unknown",
-      );
-    } else {
-      span.classList.add("subjap-unknown");
+    // Known / unknown + frequency hint. Known words remain white; only
+    // unknown words use the green/blue learning colours.
+    span.classList.add(
+      st.wordState?.status === "known" ? "subjap-known" : "subjap-unknown",
+    );
+    const frequencyHighlight = getFrequencyHighlight(
+      st.wordState,
+      st.frequencyRank,
+      this.knownWordCount,
+    );
+    if (frequencyHighlight === "relevant") {
+      span.classList.add("subjap-unknown--relevant");
+    } else if (frequencyHighlight === "near") {
+      span.classList.add("subjap-unknown--near");
     }
 
     // Text content

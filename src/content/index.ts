@@ -107,6 +107,10 @@ const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
 /** lemma → last resolved status (synchronous reads for the popover). */
 const wordStatusByLemma = new Map<string, "known" | "unknown" | null>();
 
+/** Cached learner vocabulary size used by the frequency colour bands. */
+let knownWordCount = 0;
+let knownWordCountPromise: Promise<number> | null = null;
+
 /** Cached word-state reads, invalidated after a manual state change. */
 const wordStateCache = new WordStateCache((lemma) =>
   sendMessage("word:get", { key: lemma })
@@ -165,6 +169,35 @@ function schedulePopoverHide(): void {
 
 function getWordState(lemma: string): Promise<WordState | null> {
   return wordStateCache.get(lemma);
+}
+
+function getKnownWordCount(): Promise<number> {
+  if (knownWordCountPromise) return knownWordCountPromise;
+
+  knownWordCountPromise = sendMessage("stats:get", {})
+    .then((result) => {
+      knownWordCount = Math.max(0, result.knownWords);
+      return knownWordCount;
+    })
+    .catch((err: unknown) => {
+      console.warn("[SubJap] stats:get failed:", err);
+      return knownWordCount;
+    });
+
+  return knownWordCountPromise;
+}
+
+async function getFrequencyRanks(
+  terms: string[],
+): Promise<Record<string, number>> {
+  if (terms.length === 0) return {};
+  try {
+    const result = await sendMessage("frequency:batch", { terms });
+    return result.ranks;
+  } catch (err: unknown) {
+    console.warn("[SubJap] frequency:batch failed:", err);
+    return {};
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -245,28 +278,47 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     if (signature !== lastSignature) return;
   }
 
-  spanRegistry.clear();
-  const rendered: RenderedCue[] = [];
-  let globalIndex = 0;
+  const tokenizedCues: Array<{ cue: SubtitleCue; tokens: Token[] }> = [];
+  const allTokens: Token[] = [];
 
   for (const cue of cues) {
     // Normalize markup, then segment into sentence-sized chunks so the
     // tokenizer LRU cache hits across repeated sentences.
     const sentences = splitIntoSentences(normalizeCueText(cue.text));
-    const spans: SpanToken[] = [];
-
+    const cueTokens: Token[] = [];
     for (const sentence of sentences) {
       const tokens = groupTokens(tokenizer.tokenize(sentence));
-      const sentenceSpans = await Promise.all(
-        tokens.map(async (token): Promise<SpanToken> => {
-          const index = globalIndex++;
-          spanRegistry.set(index, { cue, token });
-          const state = await getWordState(token.lemma);
-          return { index, token, wordState: state };
-        }),
-      );
-      spans.push(...sentenceSpans);
+      cueTokens.push(...tokens);
     }
+    tokenizedCues.push({ cue, tokens: cueTokens });
+    allTokens.push(...cueTokens);
+  }
+
+  const frequencyTerms = [
+    ...new Set(
+      allTokens.flatMap((token) => [token.lemma, token.surface]),
+    ),
+  ];
+  const [frequencyRanks, resolvedKnownWordCount] = await Promise.all([
+    getFrequencyRanks(frequencyTerms),
+    getKnownWordCount(),
+  ]);
+
+  spanRegistry.clear();
+  const rendered: RenderedCue[] = [];
+  let globalIndex = 0;
+
+  for (const { cue, tokens } of tokenizedCues) {
+    const spans: SpanToken[] = await Promise.all(
+      tokens.map(async (token): Promise<SpanToken> => {
+        const index = globalIndex++;
+        spanRegistry.set(index, { cue, token });
+        const state = await getWordState(token.lemma);
+        const frequencyRank =
+          frequencyRanks[token.lemma] ?? frequencyRanks[token.surface];
+        return { index, token, wordState: state, frequencyRank };
+      }),
+    );
 
     rendered.push({ cue, spans });
   }
@@ -278,6 +330,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   // work was in flight.
   if (signature !== lastSignature) return;
 
+  overlayInstance.setKnownWordCount(resolvedKnownWordCount);
   overlayInstance.updateCues(rendered);
   overlayInstance.show();
   console.log(`[SubJap] render: shown ${rendered.length} cue(s)`);
@@ -442,16 +495,21 @@ function onToggleKnown(
     knownAt: currentStatus === "known" ? undefined : Date.now(),
   };
 
-  void sendMessage("word:set", next).catch((err) => {
-    console.warn(`[SubJap] word:set failed for "${lemma}":`, err);
-  });
+  void sendMessage("word:set", next)
+    .catch((err) => {
+      console.warn(`[SubJap] word:set failed for "${lemma}":`, err);
+    })
+    .finally(() => {
+      knownWordCountPromise = null;
+      lastSignature = "";
+      void handleCues(lastCues);
+    });
 
   wordStatusByLemma.set(lemma, next.status);
   wordStateCache.invalidate(lemma);
 
-  // Re-render immediately so known/unknown colours update.
-  lastSignature = "";
-  void handleCues(lastCues);
+  // Re-render immediately so known/unknown/frequency colours update. The
+  // persisted count is refreshed after the write completes.
 }
 
 // ---------------------------------------------------------------------------

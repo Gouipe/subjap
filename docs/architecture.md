@@ -106,8 +106,11 @@ Le chemin principal est le suivant :
    lecture et parties du discours.
 6. Les états de mots (`known` / `unknown`) sont demandés au service worker,
    avec déduplication des requêtes en vol.
-7. Le renderer construit des spans par token, ajoute éventuellement le
-   furigana et applique la couleur des mots connus.
+7. Le content script récupère le nombre de mots connus et les rangs d’une
+   liste de fréquence issue de sous-titres japonais. Le renderer construit des
+   spans par token, ajoute éventuellement le furigana ; les mots connus restent
+   blancs, les inconnus jusqu’au rang connu sont verts et les 300 rangs suivants
+   sont bleus.
 
 Le tokenizer est un singleton par content script et possède un cache LRU de
 500 phrases. Les cues identiques sont ignorés grâce à une signature de texte.
