@@ -211,6 +211,7 @@ export class WordPopover {
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 13px;
         line-height: 1.5;
+        user-select: text;
         box-shadow: 0 8px 32px rgba(0,0,0,0.55);
         opacity: 0;
         transition: opacity 0.18s;
@@ -300,6 +301,7 @@ export class WordPopover {
         color: #e2e8f0;
         font-size: 12px;
         cursor: pointer;
+        user-select: none;
         transition: background 0.15s;
         white-space: nowrap;
       }

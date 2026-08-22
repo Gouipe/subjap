@@ -194,6 +194,34 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("permet de sélectionner les informations de la popover sans ses boutons", async ({
+    page,
+  }) => {
+    await page.getByTestId("long-definition-cue").click();
+    await page.getByTestId("video-stage").scrollIntoViewIfNeeded();
+    await page.locator(".subjap-token").first().click();
+
+    const popover = page.locator("#subjap-popover");
+    const header = popover.locator(".subjap-popover__header");
+    const definitions = popover.locator(".subjap-popover__defs");
+    const button = popover.locator(".subjap-btn").first();
+
+    await expect(popover).toBeVisible();
+    await expect(header).toHaveCSS("user-select", "text");
+    await expect(definitions).toHaveCSS("user-select", "text");
+    await expect(button).toHaveCSS("user-select", "none");
+
+    await header.selectText();
+    await expect
+      .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
+      .toContain("Base: 為る");
+
+    await definitions.selectText();
+    await expect
+      .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
+      .toContain("to carry out");
+  });
+
   test("garde une longue définition défilable au-dessus des sous-titres", async ({
     page,
   }) => {
