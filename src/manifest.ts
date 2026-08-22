@@ -18,6 +18,8 @@ const manifest: ManifestV3Export = {
     // active tab after the user starts mining a card.
     "<all_urls>",
     "*://*.netflix.com/*",
+    "*://*.nflxvideo.net/*",
+    "*://*.nflxext.com/*",
     "*://*.youtube.com/*",
     "*://*.crunchyroll.com/*",
     "*://*.primevideo.com/*",
