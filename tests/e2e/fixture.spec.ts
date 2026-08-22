@@ -285,6 +285,26 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 0);
   });
 
+  test("Q revient au dernier sous-titre depuis un blanc", async ({ page }) => {
+    const video = page.locator("#video");
+    const pageBody = page.locator("body");
+
+    await page.getByTestId("next-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-cue",
+      "日本語を勉強します。",
+    );
+
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 17;
+    });
+    await page.getByTestId("clear-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute("data-cue", "");
+
+    await pageBody.press("q");
+    await expect(video).toHaveJSProperty("currentTime", 12);
+  });
+
   test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({
     page,
   }) => {

@@ -31,7 +31,17 @@ export class CueNavigator {
 
   getSeekTime(action: CueShortcutAction, currentTime: number): number | null {
     const current = this.seekAnchor ?? this.findCurrentCue(currentTime);
-    if (!current) return null;
+    if (!current) {
+      if (action !== "previous") return null;
+
+      // During the gap after a cue, Netflix exposes no current cue. Q should
+      // still replay the last subtitle that has already been observed.
+      const previous = [...this.observedCues.values()]
+        .filter((cue) => cue.start <= currentTime)
+        .sort((a, b) => b.start - a.start)[0] ?? null;
+      this.seekAnchor = previous;
+      return previous?.start ?? null;
+    }
 
     if (action === "current") {
       this.seekAnchor = current;
