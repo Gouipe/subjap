@@ -161,10 +161,10 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
-  test("garde une longue définition dans le viewport avec le contenu défilable", async ({
+  test("garde une longue définition défilable au-dessus des sous-titres", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 960, height: 500 });
+    await page.setViewportSize({ width: 960, height: 800 });
     await page.getByTestId("long-definition-cue").click();
     await page.getByTestId("video-stage").scrollIntoViewIfNeeded();
 
@@ -190,9 +190,18 @@ test.describe("SubJap UX fixture", () => {
       const actionsRect = element
         .querySelector<HTMLElement>(".subjap-popover__actions")!
         .getBoundingClientRect();
+      const subtitleTop = Math.min(
+        ...Array.from(
+          document.querySelectorAll<HTMLElement>(
+            "#subjap-overlay-container > .subjap-cue-line, #subjap-overlay-container > .subjap-translation-line",
+          ),
+          (subtitle) => subtitle.getBoundingClientRect().top,
+        ),
+      );
       return {
         popoverTop: popoverRect.top,
         popoverBottom: popoverRect.bottom,
+        subtitleTop,
         viewportHeight: window.innerHeight,
         headerTop: headerRect.top,
         actionsBottom: actionsRect.bottom,
@@ -203,6 +212,7 @@ test.describe("SubJap UX fixture", () => {
 
     expect(layout.popoverTop).toBeGreaterThanOrEqual(7);
     expect(layout.popoverBottom).toBeLessThanOrEqual(layout.viewportHeight - 7);
+    expect(layout.popoverBottom).toBeLessThanOrEqual(layout.subtitleTop - 11);
     expect(layout.headerTop).toBeGreaterThanOrEqual(layout.popoverTop);
     expect(layout.actionsBottom).toBeLessThanOrEqual(layout.popoverBottom);
     expect(layout.contentScrollHeight).toBeGreaterThan(layout.contentClientHeight);

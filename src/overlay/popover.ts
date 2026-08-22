@@ -7,6 +7,10 @@ import type { DictionaryEntry, PitchAccent, Token, WordStatus } from "@/core/typ
 // ── Constants ─────────────────────────────────────────────────────────────
 
 const POPOVER_ID = "subjap-popover";
+const VIEWPORT_MARGIN = 8;
+const SUBTITLE_GAP = 12;
+const SUBTITLE_SELECTOR =
+  ":scope > .subjap-cue-line, :scope > .subjap-translation-line";
 const POS_LABELS: Record<string, string> = {
   "名詞": "Noun",
   "動詞": "Verb",
@@ -405,6 +409,19 @@ export class WordPopover {
 
   private positionNear(anchor: HTMLElement): void {
     const anchorRect = anchor.getBoundingClientRect();
+    const subtitleTop = this.getSubtitleBlockTop(anchor);
+
+    // Reset the limit from a previous word before measuring this popover.
+    // When subtitles are available, reserve the whole area below their top.
+    this.el.style.removeProperty("max-height");
+    if (subtitleTop !== null) {
+      const availableHeight = Math.max(
+        0,
+        Math.floor(subtitleTop - SUBTITLE_GAP - VIEWPORT_MARGIN),
+      );
+      this.el.style.maxHeight = `${availableHeight}px`;
+    }
+
     const popoverHeight = this.el.offsetHeight || 180;
     const popoverWidth = this.el.offsetWidth || 260;
 
@@ -412,15 +429,21 @@ export class WordPopover {
     let left = anchorRect.left + anchorRect.width / 2 - popoverWidth / 2;
     const viewW = window.innerWidth;
     const viewH = window.innerHeight;
-    const margin = 8;
+    const margin = VIEWPORT_MARGIN;
     left = Math.max(margin, Math.min(left, viewW - popoverWidth - margin));
 
-    // Prefer above the anchor; if not enough room, place below
-    let top = anchorRect.top - popoverHeight - margin;
-    if (top < margin) {
-      top = anchorRect.bottom + margin;
-      if (top + popoverHeight > viewH - margin) {
-        top = viewH - popoverHeight - margin;
+    let top: number;
+    if (subtitleTop !== null) {
+      // Subtitles are a protected region: keep the entire popover above them.
+      top = Math.max(margin, subtitleTop - SUBTITLE_GAP - popoverHeight);
+    } else {
+      // Generic fallback for anchors outside the SubJap subtitle overlay.
+      top = anchorRect.top - popoverHeight - margin;
+      if (top < margin) {
+        top = anchorRect.bottom + margin;
+        if (top + popoverHeight > viewH - margin) {
+          top = viewH - popoverHeight - margin;
+        }
       }
     }
     const maxTop = Math.max(margin, viewH - popoverHeight - margin);
@@ -428,6 +451,17 @@ export class WordPopover {
 
     this.el.style.left = `${Math.round(left)}px`;
     this.el.style.top = `${Math.round(top)}px`;
+  }
+
+  private getSubtitleBlockTop(anchor: HTMLElement): number | null {
+    const overlay = anchor.closest<HTMLElement>("#subjap-overlay-container");
+    if (!overlay) return null;
+
+    const tops = Array.from(
+      overlay.querySelectorAll<HTMLElement>(SUBTITLE_SELECTOR),
+      (element) => element.getBoundingClientRect().top,
+    ).filter(Number.isFinite);
+    return tops.length > 0 ? Math.min(...tops) : null;
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────
