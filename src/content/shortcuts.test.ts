@@ -90,6 +90,61 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("previous", 60)).toBe(50);
   });
 
+  it("keeps the historical start when a seek rebuild overlaps the old cue", () => {
+    const navigator = new CueNavigator();
+    navigator.observe([
+      {
+        id: "real-previous",
+        start: 106,
+        end: 110.778,
+        text: "廊下を走らないって言ってるでしょう",
+        language: "ja",
+      },
+    ]);
+    navigator.observe([
+      {
+        id: "current",
+        start: 110.778,
+        end: 114,
+        text: "困るんですよ 生徒に示しがつかないから",
+        language: "ja",
+      },
+    ]);
+    navigator.observe([
+      {
+        id: "late-seek-rebuild",
+        start: 110.489,
+        end: 110.489,
+        endConfirmed: false,
+        text: "廊下を走らないって言ってるでしょう",
+        language: "ja",
+      },
+    ]);
+    navigator.observe([
+      {
+        id: "current-rebuilt",
+        start: 110.778,
+        end: 114,
+        text: "困るんですよ生徒に示しがつかないから",
+        language: "ja",
+      },
+    ]);
+
+    expect(navigator.getSeekTime("previous", 111)).toBe(106);
+  });
+
+  it("keeps distant non-overlapping repetitions as separate cues", () => {
+    const navigator = new CueNavigator();
+    navigator.observe([
+      { id: "first", start: 10, end: 11, text: "はい", language: "ja" },
+    ]);
+    navigator.observe([
+      { id: "second", start: 20, end: 21, text: "はい", language: "ja" },
+    ]);
+
+    expect(navigator.getSeekTime("previous", 20.5)).toBe(10);
+  });
+
   it("returns the next observed cue when it is known", () => {
     const navigator = new CueNavigator();
     navigator.observe([cue("one", 10, 12)]);
