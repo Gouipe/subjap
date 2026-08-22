@@ -259,7 +259,7 @@ export function installSubtitleCopyShortcut(
 /** Install q/s/d playback navigation and return the cleanup function. */
 export function installPlaybackShortcuts(
   doc: Document,
-  adapter: Pick<PlatformAdapter, "getCurrentTime" | "seekTo">,
+  adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo">,
   navigator: CueNavigator,
 ): () => void {
   let removed = false;
@@ -280,13 +280,14 @@ export function installPlaybackShortcuts(
     if (!action) return;
 
     event.preventDefault();
+    const resume = !adapter.isPaused();
     const runSeek = async (): Promise<void> => {
       if (removed) return;
       const seekTime = navigator.getSeekTime(action, adapter.getCurrentTime());
       if (seekTime === null) return;
 
       try {
-        const accepted = await adapter.seekTo(seekTime, true);
+        const accepted = await adapter.seekTo(seekTime, resume);
         if (accepted) return;
         navigator.cancelPendingSeek();
         console.warn("[SubJap] Playback seek was not accepted by the adapter");

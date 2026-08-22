@@ -24,12 +24,13 @@ const status = document.querySelector<HTMLDivElement>("#status")!;
 const furiganaToggle = document.querySelector<HTMLInputElement>("#furigana")!;
 
 const fixtureSeekTransport = {
-  seek: async (timeSeconds: number): Promise<boolean> => {
+  seek: async (timeSeconds: number, resume: boolean): Promise<boolean> => {
     const video = document.querySelector<HTMLVideoElement>("#video");
     if (!video || !Number.isFinite(timeSeconds) || timeSeconds < 0) {
       return false;
     }
     video.currentTime = timeSeconds;
+    if (resume) await video.play();
     return true;
   },
 };
@@ -90,13 +91,24 @@ const explanatoryTokens = groupTokens([
 
 function installSimulatedMediaClock(video: HTMLVideoElement): void {
   let currentTime = 0;
-  Object.defineProperty(video, "currentTime", {
-    configurable: true,
-    get: () => currentTime,
-    set: (value: number) => {
-      currentTime = value;
+  let paused = true;
+  Object.defineProperties(video, {
+    currentTime: {
+      configurable: true,
+      get: () => currentTime,
+      set: (value: number) => {
+        currentTime = value;
+      },
     },
+    paused: { configurable: true, get: () => paused },
   });
+  video.play = () => {
+    paused = false;
+    return Promise.resolve();
+  };
+  video.pause = () => {
+    paused = true;
+  };
 }
 
 function setStatus(message: string): void {

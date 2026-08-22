@@ -37,6 +37,7 @@ export interface PlatformAdapter {
   getVideoElement(): HTMLVideoElement | null;
   subscribeCues(cb: (cues: SubtitleCue[]) => void): () => void;
   getCurrentTime(): number;
+  isPaused(): boolean;
   getPlaybackRate(): number;
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
   setNativeSubtitlesVisible(v: boolean): void;

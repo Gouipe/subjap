@@ -36,6 +36,10 @@ export const GENERIC_HTML5_ADAPTER: PlatformAdapter = {
     return video?.currentTime ?? 0;
   },
 
+  isPaused(): boolean {
+    return this.getVideoElement()?.paused ?? true;
+  },
+
   getPlaybackRate(): number {
     const video = document.querySelector("video");
     return video?.playbackRate ?? 1;

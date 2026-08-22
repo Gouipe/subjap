@@ -14,8 +14,8 @@ Netflix est actif.
 
 ## Objectifs et limites
 
-- `q`, `s` et `d` conservent leur sémantique actuelle et demandent toujours une
-  lecture après le déplacement.
+- `q`, `s` et `d` conservent leur sémantique actuelle et préservent l'état de
+  lecture capturé au moment de l'appui : pause reste pause, lecture reste lecture.
 - Netflix ne reçoit plus d’affectation directe à `video.currentTime`.
 - Les lecteurs HTML5 génériques continuent d’utiliser `currentTime` et
   `play()`.
@@ -38,8 +38,9 @@ seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
 ```
 
 Le booléen indique si la commande a été acceptée. Le navigateur de raccourcis
-ne manipule plus directement l’élément vidéo : il calcule la cible puis appelle
-`adapter.seekTo(target, true)`.
+ne manipule plus directement l'élément vidéo : il capture l'état de lecture au
+`keydown`, calcule la cible puis appelle
+`adapter.seekTo(target, !adapter.isPaused())` avec l'état capturé.
 
 - `generic-html5` : borne la cible à la durée connue si nécessaire, assigne
   `video.currentTime`, puis appelle `video.play()` lorsque `resume` vaut `true`.
@@ -84,7 +85,7 @@ l’extension.
 ## Flux de données
 
 ```text
-keydown q/s/d
+keydown q/s/d + capture pause/lecture
     ↓
 CueNavigator → cible en secondes
     ↓

@@ -345,6 +345,34 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 0);
   });
 
+  test("préserve l'état pause ou lecture avec q, s et d", async ({ page }) => {
+    await page.getByTestId("next-cue").click();
+    await page.getByTestId("grouped-cue").click();
+
+    const video = page.locator("#video");
+    const pageBody = page.locator("body");
+    await expect(video).toHaveJSProperty("paused", true);
+
+    for (const key of ["q", "s", "d"]) {
+      await video.evaluate((element) => {
+        (element as HTMLVideoElement).currentTime = 11;
+      });
+      await pageBody.press(key);
+      await expect(video).toHaveJSProperty("paused", true);
+    }
+
+    await video.evaluate((element) => (element as HTMLVideoElement).play());
+    await expect(video).toHaveJSProperty("paused", false);
+
+    for (const key of ["q", "s", "d"]) {
+      await video.evaluate((element) => {
+        (element as HTMLVideoElement).currentTime = 11;
+      });
+      await pageBody.press(key);
+      await expect(video).toHaveJSProperty("paused", false);
+    }
+  });
+
   test("Q revient au dernier sous-titre depuis un blanc", async ({ page }) => {
     const video = page.locator("#video");
     const pageBody = page.locator("body");

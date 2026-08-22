@@ -105,6 +105,10 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     return this.getVideoElement()?.currentTime ?? 0;
   }
 
+  isPaused(): boolean {
+    return this.getVideoElement()?.paused ?? true;
+  }
+
   getPlaybackRate(): number {
     return this.getVideoElement()?.playbackRate ?? 1;
   }

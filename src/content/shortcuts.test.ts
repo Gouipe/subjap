@@ -87,20 +87,82 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("previous", 21)).toBeNull();
   });
 
-  it("delegates playback to the adapter instead of touching the video", async () => {
+  it.each(["q", "s", "d"])(
+    "keeps playback paused when navigating with %s",
+    async (key) => {
+      const navigator = new CueNavigator();
+      navigator.observe([cue("one", 5, 8)]);
+      navigator.observe([cue("two", 10, 13)]);
+      navigator.observe([cue("three", 15, 18)]);
+      const seekTo = vi.fn().mockResolvedValue(true);
+      const removeShortcuts = installPlaybackShortcuts(
+        document,
+        { getCurrentTime: () => 11, isPaused: () => true, seekTo },
+        navigator,
+      );
+
+      document.dispatchEvent(new KeyboardEvent("keydown", { key }));
+      await vi.waitFor(() => expect(seekTo).toHaveBeenCalledOnce());
+
+      expect(seekTo).toHaveBeenCalledWith(expect.any(Number), false);
+      removeShortcuts();
+    },
+  );
+
+  it.each(["q", "s", "d"])(
+    "keeps playback running when navigating with %s",
+    async (key) => {
+      const navigator = new CueNavigator();
+      navigator.observe([cue("one", 5, 8)]);
+      navigator.observe([cue("two", 10, 13)]);
+      navigator.observe([cue("three", 15, 18)]);
+      const seekTo = vi.fn().mockResolvedValue(true);
+      const removeShortcuts = installPlaybackShortcuts(
+        document,
+        { getCurrentTime: () => 11, isPaused: () => false, seekTo },
+        navigator,
+      );
+
+      document.dispatchEvent(new KeyboardEvent("keydown", { key }));
+      await vi.waitFor(() => expect(seekTo).toHaveBeenCalledOnce());
+
+      expect(seekTo).toHaveBeenCalledWith(expect.any(Number), true);
+      removeShortcuts();
+    },
+  );
+
+  it("captures playback state when the key is pressed", async () => {
     const navigator = new CueNavigator();
-    navigator.observe([cue("current", 10, 12)]);
-    const seekTo = vi.fn().mockResolvedValue(true);
+    navigator.observe([cue("one", 5, 8)]);
+    navigator.observe([cue("two", 10, 13)]);
+    navigator.observe([cue("three", 15, 18)]);
+
+    let paused = false;
+    let releaseFirstSeek: ((accepted: boolean) => void) | undefined;
+    const seekTo = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            releaseFirstSeek = resolve;
+          }),
+      )
+      .mockResolvedValue(true);
     const removeShortcuts = installPlaybackShortcuts(
       document,
-      { getCurrentTime: () => 11, seekTo },
+      { getCurrentTime: () => 16, isPaused: () => paused, seekTo },
       navigator,
     );
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "q" }));
+    paused = true;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "q" }));
     await Promise.resolve();
 
     expect(seekTo).toHaveBeenCalledWith(10, true);
+    releaseFirstSeek?.(true);
+    await vi.waitFor(() => expect(seekTo).toHaveBeenCalledTimes(2));
+    expect(seekTo).toHaveBeenLastCalledWith(5, false);
     removeShortcuts();
   });
 
@@ -122,7 +184,7 @@ describe("CueNavigator", () => {
       .mockResolvedValue(true);
     const removeShortcuts = installPlaybackShortcuts(
       document,
-      { getCurrentTime: () => 16, seekTo },
+      { getCurrentTime: () => 16, isPaused: () => false, seekTo },
       navigator,
     );
 
