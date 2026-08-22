@@ -4,8 +4,9 @@
 //
 // Opened from the content script when the user mines a word from the popover.
 // Shows the sentence with the target highlighted, the reading and selectable
-// definitions; the user can generate word audio and a video-frame screenshot,
-// then push the card to the local IndexedDB store and (best-effort) to Anki.
+// definitions; a video-frame screenshot is captured automatically (and can be
+// retaken), then the card is pushed to the local IndexedDB store and
+// (best-effort) to Anki.
 
 import type { RenderedCue, SpanToken, EpisodeContext } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
@@ -89,6 +90,7 @@ export class MiningModal {
     this.render();
     this.show();
     this.registerKeyboard();
+    void this.captureScreenshot();
   }
 
   close(): void {
@@ -275,9 +277,14 @@ export class MiningModal {
   }
 
   private async captureScreenshot(): Promise<void> {
-    if (!this.state) return;
+    const state = this.state;
+    if (!state) return;
     try {
-      this.state.screenshotDataUrl = await captureFrame(this.video);
+      const screenshotDataUrl = await captureFrame(this.video);
+      // Ignore a late capture if the modal was closed and reopened for a
+      // different card while the video frame was being read.
+      if (this.state !== state) return;
+      state.screenshotDataUrl = screenshotDataUrl;
       this.render();
     } catch (err) {
       console.error("[SubJap] Screenshot capture failed:", err);

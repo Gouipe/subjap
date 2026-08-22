@@ -77,6 +77,30 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("capture automatiquement le screenshot à l’ouverture du mining", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    await page.evaluate(() => {
+      const context = { drawImage: () => undefined };
+      Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+        configurable: true,
+        value: () => context,
+      });
+      Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", {
+        configurable: true,
+        value: () => "data:image/jpeg;base64,fixture",
+      });
+    });
+
+    await page.getByTestId("mine-cue").click();
+
+    await expect(page.locator("#subjap-mining-modal")).toBeVisible();
+    await expect(page.locator(".subjap-screenshot-info")).toHaveText(
+      "✓ Screenshot captured",
+    );
+  });
+
   test("met à jour la couleur quand un mot inconnu devient connu", async ({
     page,
   }) => {

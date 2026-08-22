@@ -2,6 +2,7 @@ import { NetflixAdapter } from "../../src/adapters/netflix";
 import { OverlayRenderer } from "../../src/overlay/renderer";
 import { getPopover, hidePopover, showPopover } from "../../src/overlay/popover";
 import { CueNavigator, installPlaybackShortcuts } from "../../src/content/shortcuts";
+import { MiningModal } from "../../src/mining/modal";
 import { groupTokens } from "../../src/tokenizer/group";
 import type {
   DictionaryEntry,
@@ -45,6 +46,7 @@ const frequencyRanks = new Map<string, number>([
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 let hovered: HTMLElement | null = null;
+let miningModal: MiningModal | null = null;
 
 const dictionaryEntry: DictionaryEntry = {
   headword: "日本語",
@@ -228,6 +230,27 @@ document.querySelector<HTMLButtonElement>("#explanatory")!.addEventListener("cli
   nativeSubtitles.replaceChildren(nativeLine("孫なんです", "20", "24"));
 });
 
+document.querySelector<HTMLButtonElement>("#mine")!.addEventListener("click", () => {
+  const video = adapter.getVideoElement();
+  const cue = currentCues[0];
+  if (!video || !cue || activeTokens.length === 0) return;
+
+  const rendered = renderedCue(cue);
+  miningModal?.destroy();
+  miningModal = new MiningModal(video);
+  miningModal.open({
+    cue: rendered,
+    targetToken: rendered.spans[0],
+    episodeContext: {
+      platform: "fixture",
+      title: "Fixture episode",
+      language: "ja",
+      url: window.location.href,
+    },
+    definitions: ["fixture definition"],
+  });
+});
+
 document.querySelector<HTMLButtonElement>("#clear")!.addEventListener("click", () => {
   nativeSubtitles.replaceChildren();
 });
@@ -269,5 +292,6 @@ nativeSubtitles.replaceChildren(nativeLine("待ってください。", "0", "4")
 window.addEventListener("beforeunload", () => {
   clearTimers();
   overlay?.destroy();
+  miningModal?.destroy();
   adapter.destroy();
 });
