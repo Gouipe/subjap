@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 //
 // Opened from the content script when the user mines a word from the popover.
-// Shows the sentence with the target highlighted, the reading and selectable
+// Shows the sentence with the target highlighted, the reading and editable
 // definitions; a video-frame screenshot is captured automatically (and can be
 // retaken), then the card is pushed to the local IndexedDB store and
 // (best-effort) to Anki.
@@ -23,7 +23,7 @@ interface MiningState {
   lemmaReading: string;
   episodeContext: EpisodeContext;
   definitions: string[];
-  selectedDefinitions: Set<number>;
+  definitionText: string;
   wordAudioDataUrl: string | null;
   phraseAudioDataUrl: string | null;
   phraseAudioAttempted: boolean;
@@ -41,6 +41,13 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function definitionLines(text: string): string[] {
+  return text
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 }
 
 export class MiningModal {
@@ -89,7 +96,7 @@ export class MiningModal {
       lemmaReading: state.lemmaReading,
       episodeContext: state.episodeContext,
       definitions: state.definitions,
-      selectedDefinitions: new Set(state.definitions.map((_, i) => i)),
+      definitionText: state.definitions.join("\n"),
       wordAudioDataUrl: null,
       phraseAudioDataUrl: null,
       phraseAudioAttempted: false,
@@ -182,9 +189,15 @@ export class MiningModal {
       .subjap-modal-body .subjap-sentence .subjap-target { color: #facc15; font-weight: 700; }
       .subjap-modal-body .subjap-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
       .subjap-modal-body .subjap-reading { color: #a78bfa; margin-bottom: 8px; }
-      .subjap-modal-body .subjap-def-list { list-style: none; padding: 0; margin: 4px 0 12px; }
-      .subjap-modal-body .subjap-def-list li { padding: 4px 0; display: flex; align-items: center; gap: 8px; }
-      .subjap-modal-body .subjap-def-list li input { accent-color: #a78bfa; }
+      .subjap-modal-body .subjap-definitions {
+        display: block; box-sizing: border-box; width: 100%; min-height: 132px;
+        margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
+        background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
+        border-radius: 6px; font: inherit; line-height: 1.45;
+      }
+      .subjap-modal-body .subjap-definitions:focus {
+        outline: 2px solid #8b5cf6; outline-offset: 1px;
+      }
       .subjap-modal-body .subjap-audio-info, .subjap-modal-body .subjap-screenshot-info {
         font-size: 13px; color: #22c55e; margin-top: 6px;
       }
@@ -214,7 +227,7 @@ export class MiningModal {
 
   private render(): void {
     if (!this.state) return;
-    const { cue, targetToken, definitions, selectedDefinitions } = this.state;
+    const { cue, targetToken } = this.state;
     const body = this.container.querySelector(".subjap-modal-body");
     if (!body) return;
 
@@ -226,20 +239,8 @@ export class MiningModal {
       })
       .join("");
 
-    const defListHtml =
-      definitions.length > 0
-        ? `<div class="subjap-label">Definitions</div>
-           <ul class="subjap-def-list">
-             ${definitions
-               .map(
-                 (d, i) => `<li>
-                   <input type="checkbox" id="subjap-def-${i}" ${selectedDefinitions.has(i) ? "checked" : ""}>
-                   <label for="subjap-def-${i}">${escapeHtml(d)}</label>
-                 </li>`,
-               )
-               .join("")}
-           </ul>`
-        : "";
+    const defListHtml = `<div class="subjap-label">Definitions</div>
+      <textarea class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</textarea>`;
 
     const readingHtml = this.state.lemmaReading
       ? `<div class="subjap-label">Reading</div>
@@ -275,18 +276,11 @@ export class MiningModal {
       ${ankiError}
     `;
 
-    // Wire definition checkboxes (delegated container listener does the rest).
-    body.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((input) => {
-      input.addEventListener("change", () => {
-        const idx = Number(input.id.replace("subjap-def-", ""));
-        if (Number.isInteger(idx) && this.state) {
-          if (input.checked) {
-            this.state.selectedDefinitions.add(idx);
-          } else {
-            this.state.selectedDefinitions.delete(idx);
-          }
-        }
-      });
+    const definitionsInput = body.querySelector<HTMLTextAreaElement>(
+      ".subjap-definitions",
+    );
+    definitionsInput?.addEventListener("input", () => {
+      if (this.state) this.state.definitionText = definitionsInput.value;
     });
   }
 
@@ -379,10 +373,10 @@ export class MiningModal {
   private async sendToAnki(): Promise<void> {
     if (!this.state || this.state.sending) return;
     const state = this.state;
-    const { cue, targetToken, episodeContext, definitions, selectedDefinitions } = state;
+    const { cue, targetToken, episodeContext } = state;
 
     const sentence = normalizeCueText(cue.cue.text) || targetToken.token.surface;
-    const selectedDefs = definitions.filter((_, i) => selectedDefinitions.has(i));
+    const editedDefinitions = definitionLines(state.definitionText);
     let phraseAudioDataUrl: string | undefined = this.state.phraseAudioDataUrl ?? undefined;
     if (!phraseAudioDataUrl && this.phraseAudioPromise) {
       phraseAudioDataUrl = await this.phraseAudioPromise;
@@ -418,7 +412,7 @@ export class MiningModal {
           targetWord: targetToken.token.lemma,
           targetSurface: targetToken.token.surface,
           targetReading: state.lemmaReading,
-          definitions: selectedDefs,
+          definitions: editedDefinitions,
           audioDataUrl: phraseAudioDataUrl,
           screenshotDataUrl: state.screenshotDataUrl ?? undefined,
           source: episodeContext,
@@ -460,7 +454,7 @@ export class MiningModal {
             Lecture: state.lemmaReading,
             Phrase: formatMigakuSentence(cue, targetToken),
             Traduction: "",
-            Définitions: formatMigakuDefinitions(selectedDefs),
+            Définitions: formatMigakuDefinitions(editedDefinitions),
             Notes: "",
             Image: "",
             AudioMot: "",

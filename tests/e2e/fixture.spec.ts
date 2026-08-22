@@ -368,6 +368,10 @@ test.describe("SubJap UX fixture", () => {
     await page.getByTestId("mine-cue").click();
 
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
+    const definitions = page.getByTestId("mining-definitions");
+    await expect(definitions).toHaveValue("fixture definition");
+    await definitions.fill("classroom\nmy personal note");
+    await expect(definitions).toHaveValue("classroom\nmy personal note");
     await expect(page.locator(".subjap-screenshot-info")).toHaveText(
       "✓ Screenshot captured",
     );

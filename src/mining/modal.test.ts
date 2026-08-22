@@ -87,6 +87,71 @@ describe("MiningModal", () => {
     });
   });
 
+  it("sends edited freeform definition lines to the local card and Anki", async () => {
+    sendMessageMock.mockImplementation((type: string) => {
+      if (type === "tts:generate") {
+        return Promise.resolve({ dataUrl: "data:audio/wav;base64:word" });
+      }
+      if (type === "mine:create") return Promise.resolve({ id: "local-card" });
+      if (type === "anki:setup") {
+        return Promise.resolve({ deckName: "SubJap", modelName: "Migaku Memory" });
+      }
+      if (type === "anki:addNote") {
+        return Promise.resolve({ noteId: 42, modelName: "Migaku Memory" });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const modal = new MiningModal(document.createElement("video"));
+    modal.open({
+      cue: {
+        cue: { text: "約束した", start: 1, end: 2 },
+        spans: [],
+      } as unknown as RenderedCue,
+      targetToken: {
+        token: { surface: "約束", lemma: "約束", reading: "やくそく" },
+      } as unknown as SpanToken,
+      lemmaReading: "やくそく",
+      episodeContext: {
+        platform: "fixture",
+        title: "Fixture episode",
+        language: "ja",
+        url: "https://example.test/episode",
+      } as unknown as EpisodeContext,
+      definitions: ["promise", "a commitment"],
+    });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector(".subjap-screenshot-info")).not.toBeNull();
+    });
+
+    const definitions = document.querySelector<HTMLTextAreaElement>(
+      ".subjap-definitions",
+    );
+    expect(definitions?.value).toBe("promise\na commitment");
+    if (!definitions) throw new Error("Definitions textarea was not rendered");
+    definitions.value = "to promise\npersonal note\n";
+    definitions.dispatchEvent(new Event("input", { bubbles: true }));
+
+    (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
+    await vi.waitFor(() => {
+      expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe(
+        "none",
+      );
+    });
+
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      "mine:create",
+      expect.objectContaining({ definitions: ["to promise", "personal note"] }),
+    );
+    const ankiAddNoteCall = (sendMessageMock.mock.calls as unknown[][]).find(
+      ([type]) => type === "anki:addNote",
+    );
+    expect(ankiAddNoteCall?.[1]).toMatchObject({
+      fields: { Définitions: "to promise<br>personal note" },
+    });
+  });
+
   it("captures Netflix phrase audio before sending the card", async () => {
     let releaseScreenshot: ((value: string) => void) | undefined;
     captureFrameMock.mockReturnValue(
