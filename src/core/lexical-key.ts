@@ -16,9 +16,12 @@ export function canonicalizeLexicalKey(value: string): string {
   return KNOWN_VARIANT_KEYS.get(normalized) ?? KNOWN_VARIANT_KEYS.get(hiragana) ?? normalized;
 }
 
-/** Candidate keys used when reading states created before UniDic migration. */
-export function lexicalKeyCandidates(value: string): string[] {
-  const canonical = canonicalizeLexicalKey(value);
-  const variants = canonical === "此奴" ? ["こいつ", "コイツ", "此奴"] : [canonical];
-  return [...new Set([canonical, ...variants])];
+/** Candidate keys used when reading states from multiple lexical forms. */
+export function lexicalKeyCandidates(...values: string[]): string[] {
+  const candidates = values.flatMap((value) => {
+    const canonical = canonicalizeLexicalKey(value);
+    const variants = canonical === "此奴" ? ["こいつ", "コイツ", "此奴"] : [canonical];
+    return [canonical, ...variants];
+  });
+  return [...new Set(candidates.filter(Boolean))];
 }

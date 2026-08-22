@@ -1,23 +1,29 @@
 import type { WordState } from "@/core/types";
 
 export class WordStateCache {
-  private readonly promises = new Map<string, Promise<WordState | null>>();
+  private readonly promises = new Map<
+    string,
+    { lemma: string; promise: Promise<WordState | null> }
+  >();
 
   constructor(
-    private readonly load: (lemma: string) => Promise<WordState | null>,
+    private readonly load: (lemma: string, aliases?: string[]) => Promise<WordState | null>,
   ) {}
 
-  get(lemma: string): Promise<WordState | null> {
-    const cached = this.promises.get(lemma);
-    if (cached) return cached;
+  get(lemma: string, aliases?: string[]): Promise<WordState | null> {
+    const cacheKey = [lemma, ...(aliases ?? [])].join("\u0000");
+    const cached = this.promises.get(cacheKey);
+    if (cached) return cached.promise;
 
-    const promise = this.load(lemma);
-    this.promises.set(lemma, promise);
+    const promise = this.load(lemma, aliases);
+    this.promises.set(cacheKey, { lemma, promise });
     return promise;
   }
 
   invalidate(lemma: string): void {
-    this.promises.delete(lemma);
+    for (const [cacheKey, entry] of this.promises) {
+      if (entry.lemma === lemma) this.promises.delete(cacheKey);
+    }
   }
 
   clear(): void {

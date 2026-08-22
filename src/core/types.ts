@@ -194,7 +194,7 @@ export interface MessageMap {
   "netflix:timedTextFetchResult": { url: string; language: string; body: string };
 
   // Word state
-  "word:get": { key: string };
+  "word:get": { key: string; aliases?: string[] };
   "word:getResult": { state: WordState | null; ankiNoteCount: number };
   "word:set": WordState;
   "word:batch": WordState[];

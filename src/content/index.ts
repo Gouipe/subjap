@@ -35,7 +35,11 @@ import {
   subtitleTextForClipboard,
 } from "./shortcuts";
 import { WordStateCache } from "./word-state-cache";
-import { tokenCanonicalKey, tokenDictionaryForm } from "@/core/types";
+import {
+  tokenCanonicalKey,
+  tokenDictionaryForm,
+  tokenLookupTerms,
+} from "@/core/types";
 import type {
   DictionaryEntry,
   EpisodeContext,
@@ -144,8 +148,8 @@ let knownWordCount = 0;
 let knownWordCountPromise: Promise<number> | null = null;
 
 /** Cached word-state reads, invalidated after a manual state change. */
-const wordStateCache = new WordStateCache((lemma) =>
-  sendMessage("word:get", { key: lemma })
+const wordStateCache = new WordStateCache((lemma, aliases) =>
+  sendMessage("word:get", { key: lemma, aliases })
     .then((result) => {
       wordStatusByLemma.set(lemma, result.state?.status ?? null);
       ankiNoteCountByLemma.set(lemma, result.ankiNoteCount);
@@ -201,8 +205,8 @@ function schedulePopoverHide(): void {
 // 3. Word-state lookups (deduplicated, cached)
 // ---------------------------------------------------------------------------
 
-function getWordState(lemma: string): Promise<WordState | null> {
-  return wordStateCache.get(lemma);
+function getWordState(lemma: string, aliases?: string[]): Promise<WordState | null> {
+  return wordStateCache.get(lemma, aliases);
 }
 
 function getKnownWordCount(): Promise<number> {
@@ -404,7 +408,8 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
         const index = globalIndex++;
         nextSpanRegistry.set(index, { cue, token });
         const lexicalKey = tokenCanonicalKey(token);
-        const state = await getWordState(lexicalKey);
+        const stateLookupKeys = [lexicalKey, ...tokenLookupTerms(token)];
+        const state = await getWordState(lexicalKey, stateLookupKeys);
         const frequencyRank =
           frequencyRanks[lexicalKey] ??
           frequencyRanks[tokenDictionaryForm(token)] ??

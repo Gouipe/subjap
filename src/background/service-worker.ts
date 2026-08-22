@@ -20,7 +20,7 @@ import {
   extractAnkiWordStates,
   planImportedStateReconciliation,
 } from "./anki-known";
-import type { MineCard, SrsState } from "@/core/types";
+import type { MineCard, SrsState, WordState } from "@/core/types";
 
 // ---------------------------------------------------------------------------
 // First-install: open the options page so the onboarding wizard can run.
@@ -208,15 +208,41 @@ onMessage("dict:download", async ({ url }) => {
 });
 
 // ── word:get ──────────────────────────────────────────────────────────────
-onMessage("word:get", async ({ key }) => {
-  const keys = lexicalKeyCandidates(key);
+const WORD_STATE_STATUS_PRIORITY: Record<WordState["status"], number> = {
+  known: 1,
+  unknown: 2,
+  learning: 3,
+  ignored: 4,
+};
+
+function chooseWordState(states: Array<WordState | undefined>): WordState | null {
+  return (
+    states
+      .filter((state): state is WordState => state !== undefined)
+      .sort((left, right) => {
+        const leftSource = left.source === "manual" ? 2 : 1;
+        const rightSource = right.source === "manual" ? 2 : 1;
+        return (
+          rightSource - leftSource ||
+          WORD_STATE_STATUS_PRIORITY[right.status] -
+            WORD_STATE_STATUS_PRIORITY[left.status]
+        );
+      })[0] ?? null
+  );
+}
+
+onMessage("word:get", async ({ key, aliases = [] }) => {
+  const keys = lexicalKeyCandidates(key, ...aliases);
   const [states, ankiWords] = await Promise.all([
     Promise.all(keys.map((candidate) => db.wordStates.get(candidate))),
     Promise.all(keys.map((candidate) => db.ankiWords.get(candidate))),
   ]);
-  const state = states.find((candidate) => candidate != null);
-  const ankiWord = ankiWords.find((candidate) => candidate != null);
-  return { state: state ?? null, ankiNoteCount: ankiWord?.noteCount ?? 0 };
+  const state = chooseWordState(states);
+  const ankiNoteCount = ankiWords.reduce(
+    (total, candidate) => total + (candidate?.noteCount ?? 0),
+    0,
+  );
+  return { state, ankiNoteCount };
 });
 
 // ── word:set ──────────────────────────────────────────────────────────────
