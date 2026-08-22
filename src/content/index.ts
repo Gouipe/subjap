@@ -301,6 +301,11 @@ function ensureOverlay(): OverlayRenderer | null {
 // ---------------------------------------------------------------------------
 
 async function handleCues(cues: SubtitleCue[]): Promise<void> {
+  // Netflix can provide its complete official track even when this content
+  // script was loaded in the middle of the current phrase. Seed navigation
+  // before render deduplication so Q can still reach the unseen predecessor.
+  cueNavigator.remember(adapter.getNavigationCues?.() ?? []);
+
   const signature = cues
     .map((cue) => `${cue.language ?? ""}\u0000${cue.id}\u0000${cue.text}`)
     .join("\u0001");

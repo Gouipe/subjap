@@ -39,6 +39,8 @@ export interface PlatformAdapter {
   getCurrentTime(): number;
   isPaused(): boolean;
   getPlaybackRate(): number;
+  /** Complete timed cues available for navigation, without rendering them all. */
+  getNavigationCues?(): SubtitleCue[];
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
   setNativeSubtitlesVisible(v: boolean): void;
   getEpisodeContext(): EpisodeContext | null;
