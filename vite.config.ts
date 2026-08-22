@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: {
         popup: resolve(__dirname, "src/popup/index.html"),
+        offscreen: resolve(__dirname, "src/offscreen/index.html"),
         options: resolve(__dirname, "src/options/index.html"),
         ...(mode === "production"
           ? { netflixBridge: resolve(__dirname, "src/netflix-bridge-entry.ts") }

@@ -54,20 +54,34 @@ const Popup: React.FC = () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id == null) throw new Error("Aucun onglet actif");
-      const streamId = await new Promise<string>((resolve, reject) => {
-        chrome.tabCapture.getMediaStreamId(
-          { targetTabId: tab.id, consumerTabId: tab.id },
-          (id) => {
-            const runtimeError = chrome.runtime.lastError;
-            if (runtimeError) {
-              reject(new Error(runtimeError.message));
-              return;
-            }
-            resolve(id);
-          },
-        );
+      const getStreamId = (consumerTabId?: number): Promise<string> =>
+        new Promise<string>((resolve, reject) => {
+          chrome.tabCapture.getMediaStreamId(
+            consumerTabId == null
+              ? { targetTabId: tab.id }
+              : { targetTabId: tab.id, consumerTabId },
+            (id) => {
+              const runtimeError = chrome.runtime.lastError;
+              if (runtimeError) {
+                reject(new Error(runtimeError.message));
+                return;
+              }
+              resolve(id);
+            },
+          );
+        });
+
+      // Use one stream for the persistent offscreen audio route and a second
+      // stream in the tab for phrase clipping and the rolling buffer.
+      const [offscreenStreamId, contentStreamId] = await Promise.all([
+        getStreamId(),
+        getStreamId(tab.id),
+      ]);
+      await sendMessage("tabCapture:offscreen", { streamId: offscreenStreamId });
+      await chrome.tabs.sendMessage(tab.id, {
+        type: "tabCapture:stream",
+        streamId: contentStreamId,
       });
-      await chrome.tabs.sendMessage(tab.id, { type: "tabCapture:stream", streamId });
       await chrome.action.setBadgeText({ tabId: tab.id, text: "ON" });
       await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: "#22c55e" });
       setCaptureStatus("active");

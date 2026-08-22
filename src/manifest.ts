@@ -5,7 +5,14 @@ const manifest: ManifestV3Export = {
   name: "SubJap",
   version: "0.1.0",
   description: "Apprendre le japonais en regardant des anime",
-  permissions: ["storage", "scripting", "activeTab", "nativeMessaging", "tabCapture"],
+  permissions: [
+    "storage",
+    "scripting",
+    "activeTab",
+    "nativeMessaging",
+    "tabCapture",
+    "offscreen",
+  ],
   host_permissions: [
     // Required by tabs.captureVisibleTab; the extension only captures the
     // active tab after the user starts mining a card.
