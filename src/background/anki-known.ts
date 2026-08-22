@@ -20,9 +20,9 @@ const TAG_STATUS: Record<string, WordStatus> = {
 
 // IGNORED is an explicit opt-out and must win when notes/tags conflict across
 // decks; otherwise the presence of the same word in Anki can turn it purple.
-const STATUS_PRIORITY: Record<WordStatus, number> = {
-  known: 1,
-  unknown: 2,
+export const WORD_STATUS_PRIORITY: Record<WordStatus, number> = {
+  unknown: 1,
+  known: 2,
   learning: 3,
   ignored: 4,
 };
@@ -60,7 +60,7 @@ export function extractAnkiWordStates(
       .filter((status): status is WordStatus => status !== undefined);
     for (const status of statuses) {
       const current = byWord.get(key);
-      if (!current || STATUS_PRIORITY[status] > STATUS_PRIORITY[current]) {
+      if (!current || WORD_STATUS_PRIORITY[status] > WORD_STATUS_PRIORITY[current]) {
         byWord.set(key, status);
       }
     }

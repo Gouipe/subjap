@@ -20,6 +20,7 @@ import type {
   SubtitleTranslation,
   Token,
   Tokenizer,
+  WordState,
 } from "../../src/core/types";
 
 const stage = document.querySelector<HTMLDivElement>("#stage")!;
@@ -48,6 +49,7 @@ let currentTranslation: SubtitleTranslation | null = null;
 // One known word gives deterministic green/blue/orange frequency bands.
 let knownLemmas = new Set<string>(["日本語"]);
 let ignoredLemmas = new Set<string>();
+let unknownLemmas = new Set<string>();
 const frequencyRanks = new Map<string, number>(
   mergeFrequencyRanks(
     [
@@ -91,6 +93,36 @@ function tokenAnkiNoteCount(token: Token): number {
   return tokenLookupKeys(token).reduce(
     (count, key) => count + (ankiNoteCounts.get(key) ?? 0),
     0,
+  );
+}
+
+const FIXTURE_STATUS_PRIORITY: Record<WordState["status"], number> = {
+  unknown: 1,
+  known: 2,
+  learning: 3,
+  ignored: 4,
+};
+
+function fixtureWordState(token: Token): WordState | null {
+  const candidates: WordState[] = [];
+  if (tokenMatches(ignoredLemmas, token)) {
+    candidates.push({ key: token.lemma, status: "ignored", source: "manual" });
+  }
+  if (tokenMatches(knownLemmas, token)) {
+    candidates.push({ key: token.lemma, status: "known", source: "manual" });
+  }
+  if (tokenMatches(unknownLemmas, token) || token.lemma === "を") {
+    candidates.push({ key: token.lemma, status: "unknown", source: "import" });
+  }
+  if (token.lemma === "する") {
+    candidates.push({ key: token.lemma, status: "learning", source: "import" });
+  }
+  return (
+    candidates.sort(
+      (left, right) =>
+        FIXTURE_STATUS_PRIORITY[right.status] -
+        FIXTURE_STATUS_PRIORITY[left.status],
+    )[0] ?? null
   );
 }
 
@@ -328,15 +360,7 @@ function renderedCue(cue: SubtitleCue): RenderedCue {
       index,
       token,
       isParenthetical: parentheticalFlags[index],
-      wordState: tokenMatches(ignoredLemmas, token)
-        ? { key: token.lemma, status: "ignored", source: "manual" }
-        : tokenMatches(knownLemmas, token)
-          ? { key: token.lemma, status: "known", source: "manual" }
-          : token.lemma === "を"
-            ? { key: token.lemma, status: "unknown", source: "import" }
-          : token.lemma === "する"
-            ? { key: token.lemma, status: "learning", source: "import" }
-            : null,
+      wordState: fixtureWordState(token),
       ankiNoteCount: tokenAnkiNoteCount(token),
       frequencyRank: frequencyRanks.get(token.lemma),
     })),
@@ -435,15 +459,7 @@ const popoverCallbacks = {
 
 function showPopoverForToken(anchor: HTMLElement, token: Token): void {
   const entry = dictionaryEntries.get(token.lemma) ?? null;
-  const currentStatus = tokenMatches(ignoredLemmas, token)
-    ? "ignored"
-    : tokenMatches(knownLemmas, token)
-      ? "known"
-      : token.lemma === "を"
-        ? "unknown"
-        : token.lemma === "する"
-          ? "learning"
-          : null;
+  const currentStatus = fixtureWordState(token)?.status ?? null;
   const frequencyRank = frequencyRanks.get(token.lemma);
   showPopover({
     anchor,
@@ -822,6 +838,7 @@ if (new URLSearchParams(window.location.search).get("scenario") === "lexical-ali
   // Simulate an Anki KNOWN note storing UniDic's displayed spelling while the
   // tokenizer exposes the canonical lexeme 色んな.
   knownLemmas.add("いろんな");
+  unknownLemmas.add("色んな");
   void renderUniDic("いろんなことがあった", "unidic-lexical-alias");
 }
 

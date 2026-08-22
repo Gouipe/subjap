@@ -19,6 +19,7 @@ import {
   extractAnkiWordPresences,
   extractAnkiWordStates,
   planImportedStateReconciliation,
+  WORD_STATUS_PRIORITY,
 } from "./anki-known";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -208,13 +209,6 @@ onMessage("dict:download", async ({ url }) => {
 });
 
 // ── word:get ──────────────────────────────────────────────────────────────
-const WORD_STATE_STATUS_PRIORITY: Record<WordState["status"], number> = {
-  known: 1,
-  unknown: 2,
-  learning: 3,
-  ignored: 4,
-};
-
 function chooseWordState(states: Array<WordState | undefined>): WordState | null {
   return (
     states
@@ -224,8 +218,7 @@ function chooseWordState(states: Array<WordState | undefined>): WordState | null
         const rightSource = right.source === "manual" ? 2 : 1;
         return (
           rightSource - leftSource ||
-          WORD_STATE_STATUS_PRIORITY[right.status] -
-            WORD_STATE_STATUS_PRIORITY[left.status]
+          WORD_STATUS_PRIORITY[right.status] - WORD_STATUS_PRIORITY[left.status]
         );
       })[0] ?? null
   );
