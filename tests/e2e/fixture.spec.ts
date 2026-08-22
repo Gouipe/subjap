@@ -288,4 +288,18 @@ test.describe("SubJap UX fixture", () => {
       "日本語を勉強します。",
     );
   });
+
+  test("garde toute une phrase quand Netflix fait défiler ses deux lignes", async ({
+    page,
+  }) => {
+    const status = page.getByTestId("status");
+
+    await expect(status).toHaveAttribute("data-cue", "待ってください。");
+    await page.getByTestId("rolling-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "生徒が起こした騒動については\n不問ということにいたしましょう",
+    );
+    await expect(status).toHaveAttribute("data-cue-start", "39.85");
+  });
 });

@@ -9,6 +9,8 @@ const BUFFER_SECONDS = 90;
 const PROCESSOR_BUFFER_SIZE = 4096;
 const PHRASE_CAPTURE_SETTLE_MS = 250;
 const PHRASE_CAPTURE_TIMEOUT_MS = 20000;
+const PHRASE_SEEK_TIMEOUT_MS = 5000;
+const PHRASE_SEEK_TOLERANCE_SECONDS = 0.2;
 
 interface AudioBlock {
   startVideoTime: number;
@@ -80,6 +82,7 @@ export class VideoAudioCapture {
   private tabVideo: HTMLVideoElement | null = null;
   private tabStream: MediaStream | null = null;
   private tabCapturePromise: Promise<void> | null = null;
+  private phraseCaptureQueue: Promise<void> = Promise.resolve();
 
   constructor(
     video: HTMLVideoElement,
@@ -204,7 +207,9 @@ export class VideoAudioCapture {
   async capturePhrase(start: number, end: number, marginSeconds = 0.3): Promise<string | undefined> {
     if (end <= start) return undefined;
 
-    return this.capturePhraseWithEnd(start, end, marginSeconds);
+    return this.enqueuePhraseCapture(() =>
+      this.capturePhraseWithEnd(start, end, marginSeconds),
+    );
   }
 
   /** Capture a cue whose DOM-derived end may only become known during replay. */
@@ -214,21 +219,34 @@ export class VideoAudioCapture {
     }
     if (!this.seekTo) return undefined;
 
-    return this.capturePhraseWithEnd(
-      cue.start,
-      cue.end,
-      marginSeconds,
-      async () => {
-        const deadline = performance.now() + PHRASE_CAPTURE_TIMEOUT_MS;
-        while (cue.endConfirmed === false) {
-          if (performance.now() >= deadline) {
-            throw new Error("Timed out waiting for the Netflix cue boundary");
+    return this.enqueuePhraseCapture(() =>
+      this.capturePhraseWithEnd(
+        cue.start,
+        cue.end,
+        marginSeconds,
+        async () => {
+          const deadline = performance.now() + PHRASE_CAPTURE_TIMEOUT_MS;
+          while (cue.endConfirmed === false) {
+            if (performance.now() >= deadline) {
+              throw new Error("Timed out waiting for the Netflix cue boundary");
+            }
+            await new Promise((resolve) => setTimeout(resolve, 50));
           }
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-        return cue.end;
-      },
+          return cue.end;
+        },
+      ),
     );
+  }
+
+  private enqueuePhraseCapture(
+    capture: () => Promise<string | undefined>,
+  ): Promise<string | undefined> {
+    const result = this.phraseCaptureQueue.then(capture, capture);
+    this.phraseCaptureQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private async capturePhraseWithEnd(
@@ -264,7 +282,10 @@ export class VideoAudioCapture {
         this.video.pause();
         const seekOk = await this.seekTo(start, false);
         if (!seekOk) throw new Error("Netflix seek bridge refused phrase start");
-        await this.waitForVideoTime(start);
+        // The page-world bridge acknowledges that it invoked Netflix's API;
+        // the media element can still be several seconds ahead until the seek
+        // actually lands. Recording before this point produced random halves.
+        await this.waitForSeekPosition(start);
         await startOffscreenRecording();
         const playOk = await this.seekTo(start, true);
         if (!playOk) throw new Error("Netflix seek bridge refused phrase playback");
@@ -281,9 +302,11 @@ export class VideoAudioCapture {
         await offscreenStartPromise;
       }
       if (resolvedEnd <= start) throw new Error("Invalid phrase cue boundary");
-      await this.waitForVideoTime(this.seekTo ? resolvedEnd : to);
+      await this.waitForVideoTime(
+        this.seekTo ? resolvedEnd + marginSeconds : to,
+      );
       if (this.seekTo) this.video.pause();
-      else await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
+      await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
       if (offscreenRecording) {
         const { dataUrl } = await sendMessage("tabCapture:phraseStop", {});
         offscreenRecording = false;
@@ -429,6 +452,19 @@ export class VideoAudioCapture {
         throw new Error(`Timed out waiting for Netflix playback at ${target.toFixed(2)}s`);
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  private async waitForSeekPosition(target: number): Promise<void> {
+    const deadline = performance.now() + PHRASE_SEEK_TIMEOUT_MS;
+    while (
+      Math.abs(this.video.currentTime - target) >
+      PHRASE_SEEK_TOLERANCE_SECONDS
+    ) {
+      if (performance.now() >= deadline) {
+        throw new Error(`Timed out waiting for Netflix seek to ${target.toFixed(2)}s`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
     }
   }
 
