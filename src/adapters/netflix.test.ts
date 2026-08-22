@@ -359,6 +359,47 @@ describe("NetflixAdapter", () => {
     adapter.destroy();
   });
 
+  it("télécharge les pistes annoncées par le bridge dans le content script", async () => {
+    installNetflixPlayer();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        "WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSous-titre français",
+        { headers: { "content-type": "text/vtt" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window,
+        data: {
+          source: "subjap",
+          type: "subjap:netflix-timed-text-url",
+          payload: {
+            url: "https://cdn.example/timedtext/fr.vtt",
+            language: "fr-FR",
+          },
+        },
+      }),
+    );
+    await flushCueDebounce();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://cdn.example/timedtext/fr.vtt",
+      { credentials: "include", cache: "no-store" },
+    );
+    expect(received.at(-1)).toEqual([
+      expect.objectContaining({ language: "fr", text: "Sous-titre français" }),
+    ]);
+
+    unsubscribe();
+    adapter.destroy();
+    vi.unstubAllGlobals();
+  });
+
   it("délègue le seek au transport sans écrire currentTime", async () => {
     const { video } = installNetflixPlayer();
     const currentTimeSetter = vi.spyOn(video, "currentTime", "set");

@@ -49,7 +49,7 @@ test("the production page-world bridge runs as a classic script", async ({
   ).resolves.toBe(true);
 });
 
-test("the page-world bridge forwards an official timed-text track", async ({
+test("the page-world bridge forwards an official timed-text URL", async ({
   page,
 }) => {
   const bundle = await readFile(
@@ -60,27 +60,8 @@ test("the page-world bridge forwards an official timed-text track", async ({
   await page.addScriptTag({ content: bundle });
 
   const payload = await page.evaluate(async () => {
-    const received = new Promise<Record<string, unknown>>((resolve) => {
-      window.addEventListener(
-        "message",
-        (event) => {
-          if (
-            event.source === window &&
-            event.data?.source === "subjap" &&
-            event.data?.type === "subjap:netflix-timed-text"
-          ) {
-            resolve(event.data.payload as Record<string, unknown>);
-          }
-        },
-        { once: true },
-      );
-    });
-
-    window.fetch = async () =>
-      new Response(
-        "WEBVTT\\n\\n00:00:01.000 --> 00:00:02.000\\nBonjour",
-        { headers: { "content-type": "text/vtt" } },
-      );
+    // Simulate Netflix sending playback metadata before the isolated content
+    // script has finished subscribing to page messages.
     JSON.parse(
       JSON.stringify({
         timedtexttracks: [
@@ -93,12 +74,32 @@ test("the page-world bridge forwards an official timed-text track", async ({
         ],
       }),
     );
+
+    const received = new Promise<Record<string, unknown>>((resolve) => {
+      window.addEventListener(
+        "message",
+        (event) => {
+          if (
+            event.source === window &&
+            event.data?.source === "subjap" &&
+            event.data?.type === "subjap:netflix-timed-text-url"
+          ) {
+            resolve(event.data.payload as Record<string, unknown>);
+          }
+        },
+        { once: true },
+      );
+    });
+
+    window.postMessage(
+      { source: "subjap", type: "subjap:netflix-timed-text-request" },
+      window.location.origin,
+    );
     return received;
   });
 
   expect(payload).toMatchObject({
     language: "fr-FR",
     url: "https://cdn.example/timedtext/fr.vtt",
-    body: expect.stringContaining("Bonjour"),
   });
 });

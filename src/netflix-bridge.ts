@@ -1,6 +1,8 @@
 export const NETFLIX_SEEK_EVENT = "subjap:netflix-seek";
 export const NETFLIX_SEEK_RESULT_EVENT = "subjap:netflix-seek-result";
 export const NETFLIX_TIMED_TEXT_EVENT = "subjap:netflix-timed-text";
+export const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
+export const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 
 export interface NetflixTimedTextTrack {
   language: string;
@@ -236,23 +238,23 @@ function installTimedTextCapture(page: Window): void {
   const pageWithJson = page as Window & { JSON?: JSON };
   if (!pageWithJson.JSON || typeof pageWithJson.JSON.parse !== "function") return;
 
-  const emit = (payload: NetflixTimedTextPayload): void => {
+  const emit = (type: string, payload: unknown): void => {
     page.postMessage(
-      { source: "subjap", type: NETFLIX_TIMED_TEXT_EVENT, payload },
+      { source: "subjap", type, payload },
       page.location.origin,
     );
   };
 
   const seenUrls = new Set<string>();
+  const discoveredTracks = new Map<string, NetflixTimedTextTrack>();
   const fetchTrack = (track: NetflixTimedTextTrack): void => {
     if (seenUrls.has(track.url)) return;
     seenUrls.add(track.url);
-    void page.fetch(track.url, { credentials: "include", cache: "no-store" })
-      .then((response) => response.text())
-      .then((body) => {
-        if (body) emit({ url: track.url, language: track.language, body });
-      })
-      .catch(() => undefined);
+    discoveredTracks.set(track.url, track);
+    // Let the isolated content script perform the request. Some privacy
+    // extensions block page-world fetches to Netflix's CDN, while an
+    // extension content script can use the page session without that clash.
+    emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
   };
 
   const nativeParse = pageWithJson.JSON.parse.bind(pageWithJson.JSON);
@@ -269,12 +271,32 @@ function installTimedTextCapture(page: Window): void {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (TIMED_TEXT_URL_PATTERN.test(url)) {
         void response.clone().text().then((body) => {
-          if (body) emit({ url, language: inferLanguage(url), body });
+          if (body) {
+            emit(NETFLIX_TIMED_TEXT_EVENT, {
+              url,
+              language: inferLanguage(url),
+              body,
+            });
+          }
         }).catch(() => undefined);
       }
       return response;
     }) as typeof page.fetch;
   }
+
+  page.addEventListener("message", (event) => {
+    if (event.source !== page) return;
+    const data = event.data as { source?: unknown; type?: unknown };
+    if (
+      data?.source !== "subjap" ||
+      data.type !== NETFLIX_TIMED_TEXT_REQUEST_EVENT
+    ) {
+      return;
+    }
+    for (const track of discoveredTracks.values()) {
+      emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
+    }
+  });
 }
 
 function inferLanguage(url: string): string {

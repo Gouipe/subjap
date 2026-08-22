@@ -7,11 +7,18 @@ import {
 } from "./netflix-seek-bridge";
 
 const NETFLIX_TIMED_TEXT_EVENT = "subjap:netflix-timed-text";
+const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
+const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 
 interface NetflixTimedTextPayload {
   url: string;
   language: string;
   body: string;
+}
+
+interface NetflixTimedTextUrlPayload {
+  url: string;
+  language: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +112,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private trackUnsubscriber: (() => void) | null = null;
   private videoHuntTimer: ReturnType<typeof setInterval> | null = null;
   private readonly timedTextTracks = new Map<string, SubtitleCue[]>();
+  private readonly requestedTimedTextUrls = new Set<string>();
   private messageListener: ((event: MessageEvent) => void) | null = null;
   private timeupdateVideo: HTMLVideoElement | null = null;
   private readonly onTimeUpdate = () => this.emitCues();
@@ -186,10 +194,19 @@ export class NetflixAdapter implements PlatformAdapter {
     this.messageListener = (event: MessageEvent) => {
       if (event.source !== window) return;
       const data = event.data as { source?: unknown; type?: unknown; payload?: unknown };
-      if (data?.source !== "subjap" || data.type !== NETFLIX_TIMED_TEXT_EVENT) return;
+      if (data?.source !== "subjap") return;
+      if (data.type === NETFLIX_TIMED_TEXT_URL_EVENT) {
+        this.requestTimedText(data.payload);
+        return;
+      }
+      if (data.type !== NETFLIX_TIMED_TEXT_EVENT) return;
       this.storeTimedText(data.payload);
     };
     window.addEventListener("message", this.messageListener);
+    window.postMessage(
+      { source: "subjap", type: NETFLIX_TIMED_TEXT_REQUEST_EVENT },
+      window.location.origin,
+    );
 
     // Primary path: observe Netflix's timed-text DOM container.
     this.attachTimedTextObserver();
@@ -205,9 +222,33 @@ export class NetflixAdapter implements PlatformAdapter {
       this.cueCallback = null;
       if (this.messageListener) window.removeEventListener("message", this.messageListener);
       this.messageListener = null;
+      this.requestedTimedTextUrls.clear();
     };
 
     return this.trackUnsubscriber;
+  }
+
+  private requestTimedText(payload: unknown): void {
+    if (!payload || typeof payload !== "object") return;
+    const data = payload as Partial<NetflixTimedTextUrlPayload>;
+    if (typeof data.url !== "string" || typeof data.language !== "string") return;
+    if (this.requestedTimedTextUrls.has(data.url)) return;
+    this.requestedTimedTextUrls.add(data.url);
+
+    void fetch(data.url, { credentials: "include", cache: "no-store" })
+      .then((response) => response.text())
+      .then((body) => {
+        if (body) {
+          this.storeTimedText({
+            url: data.url,
+            language: data.language,
+            body,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn("[SubJap] timed text fetch failed:", error);
+      });
   }
 
   // -----------------------------------------------------------------------
@@ -664,6 +705,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.videoObserver = null;
     this.video = null;
     this.timedTextTracks.clear();
+    this.requestedTimedTextUrls.clear();
     if (this.timeupdateVideo) {
       this.timeupdateVideo.removeEventListener("timeupdate", this.onTimeUpdate);
       this.timeupdateVideo = null;
