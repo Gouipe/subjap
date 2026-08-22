@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NetflixAdapter } from "@/adapters/netflix";
+import type { SubtitleCue } from "@/core/types";
 
 function installNetflixPlayer(): {
   video: HTMLVideoElement;
@@ -109,7 +110,152 @@ describe("NetflixAdapter", () => {
     video.currentTime = 20.5;
     await flushCueDebounce();
 
-    expect(received.at(-1)).toEqual({ start: 19.85, end: 21.85 });
+    expect(received.at(-1)).toEqual({ start: 19.85, end: 19.85 });
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
+  it("regroupe les lignes simultanées en un seul cue", async () => {
+    const { timedtext } = installNetflixPlayer();
+    addLine(timedtext, "Première ligne", "4", "7");
+    addLine(timedtext, "Deuxième ligne", "4.2", "7.5");
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+    await flushCueDebounce();
+
+    expect(received.at(-1)).toHaveLength(1);
+    expect(received.at(-1)?.[0]).toMatchObject({
+      text: "Première ligne\nDeuxième ligne",
+      start: 4,
+      end: 7.5,
+      endConfirmed: true,
+    });
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
+  it("finalise un cue sans timestamps lors de sa disparition réelle", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    video.currentTime = 30;
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+    addLine(timedtext, "Une phrase longue", null, null);
+    await flushCueDebounce();
+
+    const activeCue = received.at(-1)?.[0];
+    expect(activeCue).toMatchObject({
+      start: 29.85,
+      end: 29.85,
+      endConfirmed: false,
+    });
+
+    video.currentTime = 36.4;
+    timedtext.replaceChildren();
+    await flushCueDebounce();
+
+    expect(activeCue).toMatchObject({ end: 36.4, endConfirmed: true });
+    expect(received.at(-1)).toEqual([]);
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
+  it("distingue deux occurrences éloignées qui ont le même texte", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    video.currentTime = 10;
+    addLine(timedtext, "はい", null, null);
+    await flushCueDebounce();
+    const first = received.at(-1)?.[0];
+
+    video.currentTime = 12;
+    timedtext.replaceChildren();
+    await flushCueDebounce();
+    video.currentTime = 20;
+    addLine(timedtext, "はい", null, null);
+    await flushCueDebounce();
+    const second = received.at(-1)?.[0];
+
+    expect(first?.id).toBeTruthy();
+    expect(second?.id).toBeTruthy();
+    expect(second?.id).not.toBe(first?.id);
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
+  it("ne prend pas la disparition transitoire d'un seek pour la fin du cue", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    video.currentTime = 10;
+    const transport = { seek: vi.fn().mockResolvedValue(true) };
+    const adapter = new NetflixAdapter(transport);
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    video.currentTime = 10;
+    addLine(timedtext, "Phrase rejouée", null, null);
+    await flushCueDebounce();
+    const cue = received.at(-1)?.[0];
+
+    await adapter.seekTo(9.85, true);
+    video.currentTime = 9.85;
+    timedtext.replaceChildren();
+    await flushCueDebounce();
+    expect(cue?.endConfirmed).toBe(false);
+
+    video.currentTime = 10;
+    addLine(timedtext, "Phrase rejouée", null, null);
+    await flushCueDebounce();
+    video.currentTime = 12;
+    timedtext.replaceChildren();
+    await flushCueDebounce();
+
+    expect(cue).toMatchObject({ end: 12, endConfirmed: true });
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
+  it("ignore la phrase précédente brièvement affichée en rejouant le cue actif", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    video.currentTime = 10;
+    const transport = { seek: vi.fn().mockResolvedValue(true) };
+    const adapter = new NetflixAdapter(transport);
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    addLine(timedtext, "Phrase minée", null, null);
+    await flushCueDebounce();
+    const cue = received.at(-1)?.[0];
+    expect(cue?.start).toBe(9.85);
+
+    await adapter.seekTo(9.85, false);
+    video.currentTime = 9.85;
+    timedtext.replaceChildren();
+    addLine(timedtext, "Phrase précédente", null, null);
+    await flushCueDebounce();
+
+    expect(received.at(-1)?.[0]).toBe(cue);
+    expect(cue?.endConfirmed).toBe(false);
+
+    video.currentTime = 10;
+    timedtext.replaceChildren();
+    addLine(timedtext, "Phrase minée", null, null);
+    await flushCueDebounce();
+    video.currentTime = 12;
+    timedtext.replaceChildren();
+    await flushCueDebounce();
+
+    expect(cue).toMatchObject({ end: 12, endConfirmed: true });
 
     unsubscribe();
     adapter.destroy();

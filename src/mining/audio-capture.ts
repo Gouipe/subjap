@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { sendMessage } from "@/core/messaging";
+import type { SubtitleCue } from "@/core/types";
 
 const BUFFER_SECONDS = 90;
 const PROCESSOR_BUFFER_SIZE = 4096;
@@ -203,8 +204,43 @@ export class VideoAudioCapture {
   async capturePhrase(start: number, end: number, marginSeconds = 0.3): Promise<string | undefined> {
     if (end <= start) return undefined;
 
+    return this.capturePhraseWithEnd(start, end, marginSeconds);
+  }
+
+  /** Capture a cue whose DOM-derived end may only become known during replay. */
+  async captureCue(cue: SubtitleCue, marginSeconds = 0.3): Promise<string | undefined> {
+    if (cue.endConfirmed !== false) {
+      return this.capturePhrase(cue.start, cue.end, marginSeconds);
+    }
+    if (!this.seekTo) return undefined;
+
+    return this.capturePhraseWithEnd(
+      cue.start,
+      cue.end,
+      marginSeconds,
+      async () => {
+        const deadline = performance.now() + PHRASE_CAPTURE_TIMEOUT_MS;
+        while (cue.endConfirmed === false) {
+          if (performance.now() >= deadline) {
+            throw new Error("Timed out waiting for the Netflix cue boundary");
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        return cue.end;
+      },
+    );
+  }
+
+  private async capturePhraseWithEnd(
+    start: number,
+    initialEnd: number,
+    marginSeconds: number,
+    resolveEnd?: () => Promise<number>,
+  ): Promise<string | undefined> {
+    if (!resolveEnd && initialEnd <= start) return undefined;
+
     const from = Math.max(0, start - marginSeconds);
-    const to = end + marginSeconds;
+    const to = initialEnd + marginSeconds;
     const initialTime = this.video.currentTime;
     const initialPaused = this.video.paused;
     const initialRate = this.video.playbackRate;
@@ -220,6 +256,7 @@ export class VideoAudioCapture {
       }
     };
     try {
+      let resolvedEnd = initialEnd;
       if (this.seekTo) {
         // Netflix's player transport can seek without replacing the DRM video
         // element. Prepare the exact cue start while paused, then start the
@@ -231,6 +268,7 @@ export class VideoAudioCapture {
         await startOffscreenRecording();
         const playOk = await this.seekTo(start, true);
         if (!playOk) throw new Error("Netflix seek bridge refused phrase playback");
+        if (resolveEnd) resolvedEnd = await resolveEnd();
       } else {
         offscreenStartPromise = startOffscreenRecording();
         this.video.currentTime = from;
@@ -242,7 +280,8 @@ export class VideoAudioCapture {
         if (this.video.paused) await this.video.play();
         await offscreenStartPromise;
       }
-      await this.waitForVideoTime(this.seekTo ? end : to);
+      if (resolvedEnd <= start) throw new Error("Invalid phrase cue boundary");
+      await this.waitForVideoTime(this.seekTo ? resolvedEnd : to);
       if (this.seekTo) this.video.pause();
       else await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
       if (offscreenRecording) {
@@ -250,7 +289,7 @@ export class VideoAudioCapture {
         offscreenRecording = false;
         if (dataUrl) return dataUrl;
       }
-      return this.captureSegment(start, end, marginSeconds);
+      return this.captureSegment(start, resolvedEnd, marginSeconds);
     } catch (err) {
       console.warn("[SubJap] Phrase audio replay unavailable:", err);
       return undefined;

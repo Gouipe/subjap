@@ -46,6 +46,7 @@ let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 let hovered: HTMLElement | null = null;
 let miningModal: MiningModal | null = null;
+let nextRenderDelayMs = 0;
 
 const dictionaryEntry: DictionaryEntry = {
   headword: "日本語",
@@ -142,7 +143,6 @@ function ensureOverlay(): OverlayRenderer | null {
 
 function render(cues: SubtitleCue[]): void {
   currentCues = cues;
-  cueNavigator.observe(cues);
   status.dataset.cue = cues[0]?.text ?? "";
   const renderer = ensureOverlay();
   if (!renderer) {
@@ -153,12 +153,14 @@ function render(cues: SubtitleCue[]): void {
     renderer.updateCues([]);
     renderer.hide();
     hidePopover();
+    cueNavigator.observe([]);
     setStatus("Cues reçus : 0 — overlay masqué");
     return;
   }
   renderer.setKnownWordCount(knownLemmas.size);
   renderer.updateCues(cues.map(renderedCue));
   renderer.show();
+  cueNavigator.observe(cues);
   setStatus(`Cues reçus : ${cues.length} — overlay visible`);
 }
 
@@ -232,6 +234,22 @@ document.querySelector<HTMLButtonElement>("#untimed")!.addEventListener("click",
   );
 });
 
+document.querySelector<HTMLButtonElement>("#multiline")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  nativeSubtitles.replaceChildren(
+    nativeLine("日本語を", "20", "24"),
+    nativeLine("勉強します。", "20", "24"),
+  );
+});
+
+document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  nextRenderDelayMs = 400;
+  nativeSubtitles.replaceChildren(
+    nativeLine("遅れて表示される字幕", "20", "24"),
+  );
+});
+
 document.querySelector<HTMLButtonElement>("#grouped")!.addEventListener("click", () => {
   activeTokens = groupedTokens;
   nativeSubtitles.replaceChildren(nativeLine("じゃなくって", "16", "20"));
@@ -298,7 +316,15 @@ getPopover(popoverCallbacks);
 installPlaybackShortcuts(document, adapter, cueNavigator);
 installSimulatedMediaClock(document.querySelector<HTMLVideoElement>("#video")!);
 
-adapter.subscribeCues(render);
+adapter.subscribeCues((cues) => {
+  const delay = cues.length > 0 ? nextRenderDelayMs : 0;
+  nextRenderDelayMs = 0;
+  if (delay > 0) {
+    setTimeout(() => render(cues), delay);
+    return;
+  }
+  render(cues);
+});
 adapter.setNativeSubtitlesVisible(false);
 nativeSubtitles.replaceChildren(nativeLine("待ってください。", "0", "4"));
 

@@ -7,8 +7,8 @@ const { captureFrameMock } = vi.hoisted(() => ({
 const { sendMessageMock } = vi.hoisted(() => ({
   sendMessageMock: vi.fn(),
 }));
-const { capturePhraseMock } = vi.hoisted(() => ({
-  capturePhraseMock: vi.fn(),
+const { captureCueMock } = vi.hoisted(() => ({
+  captureCueMock: vi.fn(),
 }));
 const { audioPlayMock } = vi.hoisted(() => ({
   audioPlayMock: vi.fn(),
@@ -29,6 +29,7 @@ describe("MiningModal", () => {
     document.body.innerHTML = "";
     captureFrameMock.mockReset();
     captureFrameMock.mockResolvedValue("data:image/jpeg;base64,fixture");
+    captureCueMock.mockReset();
     audioPlayMock.mockReset();
     sendMessageMock.mockReset();
     sendMessageMock.mockResolvedValue({ dataUrl: "data:audio/wav;base64,fixture" });
@@ -87,7 +88,13 @@ describe("MiningModal", () => {
   });
 
   it("captures Netflix phrase audio before sending the card", async () => {
-    capturePhraseMock.mockResolvedValue("data:audio/wav;base64,phrase");
+    let releaseScreenshot: ((value: string) => void) | undefined;
+    captureFrameMock.mockReturnValue(
+      new Promise<string>((resolve) => {
+        releaseScreenshot = resolve;
+      }),
+    );
+    captureCueMock.mockResolvedValue("data:audio/wav;base64,phrase");
     sendMessageMock.mockImplementation((type: string) => {
       if (type === "tts:generate") return Promise.resolve({ dataUrl: "data:audio/wav;base64,word" });
       if (type === "mine:create") return Promise.resolve({ id: "local-card" });
@@ -97,7 +104,7 @@ describe("MiningModal", () => {
     });
 
     const audioCapture = {
-      capturePhrase: capturePhraseMock,
+      captureCue: captureCueMock,
       captureSegment: vi.fn(),
       getTabVideo: vi.fn().mockResolvedValue(null),
       startTabCapture: vi.fn().mockResolvedValue(undefined),
@@ -121,8 +128,14 @@ describe("MiningModal", () => {
       definitions: [],
     });
 
+    await vi.waitFor(() => expect(captureFrameMock).toHaveBeenCalled());
+    expect(captureCueMock).not.toHaveBeenCalled();
+    releaseScreenshot?.("data:image/jpeg;base64,fixture");
+
     await vi.waitFor(() => {
-      expect(capturePhraseMock).toHaveBeenCalledWith(1, 2);
+      expect(captureCueMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "fixture", start: 1, end: 2 }),
+      );
       expect(
         [...document.querySelectorAll(".subjap-audio-info")].some((el) =>
           el.textContent?.includes("Netflix phrase audio ready"),
@@ -138,6 +151,68 @@ describe("MiningModal", () => {
     expect(sendMessageMock).toHaveBeenCalledWith(
       "anki:addNote",
       expect.objectContaining({ audioPhraseDataUrl: "data:audio/wav;base64,phrase" }),
+    );
+  });
+
+  it("creates the card without phrase audio when the cue end stays unknown", async () => {
+    captureCueMock.mockResolvedValue(undefined);
+    sendMessageMock.mockImplementation((type: string) => {
+      if (type === "tts:generate") {
+        return Promise.resolve({ dataUrl: "data:audio/wav;base64,word" });
+      }
+      if (type === "mine:create") return Promise.resolve({ id: "local-card" });
+      if (type === "anki:setup") {
+        return Promise.resolve({ deckName: "SubJap", modelName: "Migaku Memory" });
+      }
+      if (type === "anki:addNote") {
+        return Promise.resolve({ noteId: 42, modelName: "Migaku Memory" });
+      }
+      return Promise.resolve(undefined);
+    });
+    const captureSegment = vi.fn();
+    const modal = new MiningModal(document.createElement("video"), {
+      captureCue: captureCueMock,
+      captureSegment,
+      getTabVideo: vi.fn().mockResolvedValue(null),
+    } as never);
+
+    modal.open({
+      cue: {
+        cue: {
+          id: "open",
+          text: "未完了の字幕",
+          start: 4,
+          end: 4,
+          endConfirmed: false,
+        },
+        spans: [],
+      } as unknown as RenderedCue,
+      targetToken: {
+        token: { surface: "字幕", lemma: "字幕", reading: "じまく" },
+      } as unknown as SpanToken,
+      lemmaReading: "じまく",
+      episodeContext: {
+        platform: "netflix",
+        title: "Fixture",
+        language: "ja",
+        url: "https://example.test",
+      } as unknown as EpisodeContext,
+      definitions: [],
+    });
+
+    await vi.waitFor(() => expect(captureCueMock).toHaveBeenCalled());
+    (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
+    await vi.waitFor(() => {
+      expect(
+        (document.querySelector("#subjap-mining-modal") as HTMLElement).style
+          .display,
+      ).toBe("none");
+    });
+
+    expect(captureSegment).not.toHaveBeenCalled();
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      "mine:create",
+      expect.objectContaining({ audioDataUrl: undefined }),
     );
   });
 

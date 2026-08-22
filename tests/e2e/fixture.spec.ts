@@ -249,4 +249,43 @@ test.describe("SubJap UX fixture", () => {
     await pageBody.press("s");
     await expect(video).toHaveJSProperty("currentTime", 19.85);
   });
+
+  test("garde navigation et mining alignés sur la phrase réellement rendue", async ({
+    page,
+  }) => {
+    const status = page.getByTestId("status");
+    const video = page.locator("#video");
+    const pageBody = page.locator("body");
+
+    await page.getByTestId("next-cue").click();
+    await expect(status).toHaveAttribute("data-cue", "日本語を勉強します。");
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 21;
+    });
+    await page.getByTestId("delayed-cue").click();
+
+    // The native cue has changed, but the learner still sees the old overlay.
+    // S must replay that displayed phrase until the delayed render commits.
+    await page.waitForTimeout(100);
+    await expect(status).toHaveAttribute("data-cue", "日本語を勉強します。");
+    await pageBody.press("s");
+    await expect(video).toHaveJSProperty("currentTime", 12);
+
+    await expect(status).toHaveAttribute("data-cue", "遅れて表示される字幕");
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 21;
+    });
+    await pageBody.press("s");
+    await expect(video).toHaveJSProperty("currentTime", 20);
+
+    await page.getByTestId("multiline-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "日本語を\n勉強します。",
+    );
+    await page.getByTestId("mine-cue").click();
+    await expect(page.locator("#subjap-mining-modal .subjap-sentence")).toContainText(
+      "日本語を勉強します。",
+    );
+  });
 });

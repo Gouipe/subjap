@@ -26,6 +26,7 @@ interface MiningState {
   selectedDefinitions: Set<number>;
   wordAudioDataUrl: string | null;
   phraseAudioDataUrl: string | null;
+  phraseAudioAttempted: boolean;
   screenshotDataUrl: string | null;
   localCardId: string | null;
   ankiError: string | null;
@@ -91,6 +92,7 @@ export class MiningModal {
       selectedDefinitions: new Set(state.definitions.map((_, i) => i)),
       wordAudioDataUrl: null,
       phraseAudioDataUrl: null,
+      phraseAudioAttempted: false,
       screenshotDataUrl: null,
       localCardId: null,
       ankiError: null,
@@ -102,8 +104,12 @@ export class MiningModal {
     this.show();
     this.registerKeyboard();
     void this.generateAudio();
-    this.phraseAudioPromise = this.capturePhraseAudio(modalState);
-    void this.captureScreenshot();
+    // Freeze the frame chosen by the learner before phrase replay seeks the
+    // Netflix player back to the cue start.
+    this.phraseAudioPromise = this.captureScreenshot().then(() => {
+      if (this.state !== modalState) return undefined;
+      return this.capturePhraseAudio(modalState);
+    });
   }
 
   close(): void {
@@ -356,7 +362,8 @@ export class MiningModal {
   }
 
   private async capturePhraseAudio(state: MiningState): Promise<string | undefined> {
-    const dataUrl = await this.audioCapture?.capturePhrase(state.cue.cue.start, state.cue.cue.end);
+    state.phraseAudioAttempted = true;
+    const dataUrl = await this.audioCapture?.captureCue(state.cue.cue);
     if (this.state === state) {
       state.phraseAudioDataUrl = dataUrl ?? null;
       if (dataUrl) this.render();
@@ -380,10 +387,19 @@ export class MiningModal {
     if (!phraseAudioDataUrl && this.phraseAudioPromise) {
       phraseAudioDataUrl = await this.phraseAudioPromise;
     }
-    if (!phraseAudioDataUrl && this.audioCapture) {
+    if (!phraseAudioDataUrl && this.audioCapture && !state.phraseAudioAttempted) {
       phraseAudioDataUrl = await this.capturePhraseAudio(state);
     }
-    phraseAudioDataUrl ??= this.audioCapture?.captureSegment(cue.cue.start, cue.cue.end);
+    if (
+      !phraseAudioDataUrl &&
+      cue.cue.endConfirmed !== false &&
+      cue.cue.end > cue.cue.start
+    ) {
+      phraseAudioDataUrl = this.audioCapture?.captureSegment(
+        cue.cue.start,
+        cue.cue.end,
+      );
+    }
     state.phraseAudioDataUrl = phraseAudioDataUrl ?? null;
 
     state.sending = true;

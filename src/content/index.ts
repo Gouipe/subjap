@@ -285,10 +285,11 @@ function ensureOverlay(): OverlayRenderer | null {
 // ---------------------------------------------------------------------------
 
 async function handleCues(cues: SubtitleCue[]): Promise<void> {
-  const signature = cues.map((cue) => cue.text).join("\u0000");
+  const signature = cues
+    .map((cue) => `${cue.id}\u0000${cue.text}`)
+    .join("\u0001");
   if (signature === lastSignature) return;
   lastCues = cues;
-  cueNavigator.observe(cues);
 
   const overlayInstance = ensureOverlay();
   if (!overlayInstance) {
@@ -315,6 +316,9 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
 
   if (cues.length === 0) {
     overlayInstance.hide();
+    spanRegistry.clear();
+    lastRenderedCues = [];
+    cueNavigator.observe([]);
     return;
   }
 
@@ -355,7 +359,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     getKnownWordCount(),
   ]);
 
-  spanRegistry.clear();
+  const nextSpanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
   const rendered: RenderedCue[] = [];
   let globalIndex = 0;
 
@@ -363,7 +367,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     const spans: SpanToken[] = await Promise.all(
       tokens.map(async (token): Promise<SpanToken> => {
         const index = globalIndex++;
-        spanRegistry.set(index, { cue, token });
+        nextSpanRegistry.set(index, { cue, token });
         const state = await getWordState(token.lemma);
         const frequencyRank =
           frequencyRanks[token.lemma] ?? frequencyRanks[token.surface];
@@ -374,16 +378,20 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     rendered.push({ cue, spans });
   }
 
-  lastRenderedCues = rendered;
-
   // Skip stale renders: a newer emission (e.g. an empty cue set that hid the
   // overlay) may have superseded this one while the async tokenizer/word-state
   // work was in flight.
   if (signature !== lastSignature) return;
 
+  spanRegistry.clear();
+  for (const [index, entry] of nextSpanRegistry) {
+    spanRegistry.set(index, entry);
+  }
+  lastRenderedCues = rendered;
   overlayInstance.setKnownWordCount(resolvedKnownWordCount);
   overlayInstance.updateCues(rendered);
   overlayInstance.show();
+  cueNavigator.observe(cues);
   console.log(`[SubJap] render: shown ${rendered.length} cue(s)`);
 }
 
