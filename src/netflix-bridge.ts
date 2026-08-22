@@ -50,6 +50,8 @@ const installedDocuments = new WeakSet<Document>();
 
 const TIMED_TEXT_URL_PATTERN =
   /nflxvideo\.net|timedtext|subtitle|caption|dfxp|ttml|webvtt|vtt|imsc/i;
+const JSON_METADATA_PATTERN =
+  /json|api|metadata|manifest|playback|session|shakti|pathevaluator/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -254,6 +256,7 @@ function installTimedTextCapture(page: Window): void {
     // Let the isolated content script perform the request. Some privacy
     // extensions block page-world fetches to Netflix's CDN, while an
     // extension content script can use the page session without that clash.
+    console.log(`[SubJap] Netflix timed-text track discovered: ${track.language}`);
     emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
   };
   const inspectTimedTextValue = (value: unknown): void => {
@@ -269,13 +272,23 @@ function installTimedTextCapture(page: Window): void {
 
   const fetchImpl = page.fetch?.bind(page);
   if (fetchImpl) {
+    const inspectJsonResponse = (response: Response, url: string): void => {
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) return;
+      void response.clone().text().then((body) => {
+        const trimmed = body.trim().replace(/^\)\]\}',?\s*/, "");
+        if (trimmed[0] !== "{" && trimmed[0] !== "[") return;
+        try {
+          inspectTimedTextValue(nativeParse(trimmed) as unknown);
+        } catch {
+          // Not every API response that looks like JSON is parseable text.
+        }
+      }).catch(() => undefined);
+    };
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const response = await fetchImpl(input, init);
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const contentType = response.headers.get("content-type") ?? "";
-      if (/json/i.test(contentType)) {
-        void response.clone().json().then(inspectTimedTextValue).catch(() => undefined);
-      }
+      inspectJsonResponse(response, url);
       if (TIMED_TEXT_URL_PATTERN.test(url)) {
         void response.clone().text().then((body) => {
           if (body) {
@@ -295,6 +308,8 @@ function installTimedTextCapture(page: Window): void {
     .XMLHttpRequest;
   if (NativeXhr) {
     const xhrUrls = new WeakMap<XMLHttpRequest, string>();
+    // The native overload cannot be expressed as a safely bound method.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const nativeOpen = NativeXhr.prototype.open;
     NativeXhr.prototype.open = function (
       this: XMLHttpRequest,
@@ -304,6 +319,7 @@ function installTimedTextCapture(page: Window): void {
       return nativeOpen.apply(this, args);
     } as typeof NativeXhr.prototype.open;
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const nativeSend = NativeXhr.prototype.send;
     NativeXhr.prototype.send = function (
       this: XMLHttpRequest,
@@ -312,7 +328,7 @@ function installTimedTextCapture(page: Window): void {
       this.addEventListener("load", () => {
         const url = this.responseURL || xhrUrls.get(this) || "";
         const contentType = this.getResponseHeader("content-type") ?? "";
-        if (!/json/i.test(contentType) && !/metadata|manifest|playback|session/i.test(url)) {
+        if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) {
           return;
         }
         let value: unknown;
@@ -320,7 +336,9 @@ function installTimedTextCapture(page: Window): void {
           if (this.responseType === "json") {
             value = this.response;
           } else if (this.responseType === "" || this.responseType === "text") {
-            value = nativeParse(this.responseText) as unknown;
+            const body = this.responseText.trim().replace(/^\)\]\}',?\s*/, "");
+            if (body[0] !== "{" && body[0] !== "[") return;
+            value = nativeParse(body) as unknown;
           }
         } catch {
           return;
