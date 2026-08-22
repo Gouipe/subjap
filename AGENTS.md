@@ -1,10 +1,9 @@
 # SubJap — instructions projet
 
 Pour tout développement d’une nouvelle fonctionnalité ou toute modification
-d’une fonctionnalité existante, utiliser d’abord
-`$superpowers:using-git-worktrees` afin de travailler dans un worktree isolé. Par contre je limite certaines instructions faites par certains skills superpowers notamment:
-* ne lance pas de revue par subagents : trop couteux pour peu d'utilité
-* ne crée jamais de fichier de spec et de plan, implémente directement une fois que la fonctionnalité a été brainstormée et spécidifié avec l'utilisateur.
+d’une fonctionnalité existante, travaille dans un worktree isolé que tu mergeras à master une fois que la fonctionnalité est testée et fonctionne. Ceci pour permettre des devs en parallèles par plusieurs agents.
+
+Quand je te demande de modifier/ajouter une fonctionnalité, brainstormons ensemble la spécification fonctionnelle. Une fois que c'est fait tu peux dev.
 
 Pour tout changement du content script, des adaptateurs, de l’overlay, de la
 popover, du mining, du popup ou des Options, utiliser `$subjap-ux-harness`.
