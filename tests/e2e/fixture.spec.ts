@@ -369,12 +369,20 @@ test.describe("SubJap UX fixture", () => {
 
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
     const definitions = page.getByTestId("mining-definitions");
+    await expect(definitions).toHaveCSS("min-height", "280px");
     await expect(definitions).toHaveValue("fixture definition");
     await definitions.fill("classroom\nmy personal note");
     await expect(definitions).toHaveValue("classroom\nmy personal note");
+    await definitions.press("Enter");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#subjap-mining-modal")).toBeVisible();
+    await page.locator(".subjap-modal-backdrop").dispatchEvent("click");
+    await expect(page.locator("#subjap-mining-modal")).toBeVisible();
     await expect(page.locator(".subjap-screenshot-info")).toHaveText(
       "✓ Screenshot captured",
     );
+    await page.locator(".subjap-modal-close").click();
+    await expect(page.locator("#subjap-mining-modal")).toBeHidden();
   });
 
   test("met à jour la couleur quand un mot inconnu devient connu", async ({
