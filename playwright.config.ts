@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const fixturePort = process.env.SUBJAP_FIXTURE_PORT ?? "4173";
+const fixtureOrigin = `http://127.0.0.1:${fixturePort}`;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -7,7 +10,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: fixtureOrigin,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -19,8 +22,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm.cmd run test:fixture -- --port 4173",
-    url: "http://127.0.0.1:4173/tests/fixture/index.html",
+    command: `npm.cmd run test:fixture -- --port ${fixturePort}`,
+    url: `${fixtureOrigin}/tests/fixture/index.html`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

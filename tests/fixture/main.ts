@@ -78,8 +78,19 @@ const yabaiDictionaryEntry: DictionaryEntry = {
   common: true,
 };
 
+const suruDictionaryEntry: DictionaryEntry = {
+  headword: "する",
+  reading: "する",
+  partOfSpeech: ["動詞"],
+  senses: [{ glosses: ["to do"] }],
+  common: true,
+};
+
 const dictionaryEntries = new Map(
-  [dictionaryEntry, yabaiDictionaryEntry].map((entry) => [entry.headword, entry]),
+  [dictionaryEntry, yabaiDictionaryEntry, suruDictionaryEntry].map((entry) => [
+    entry.headword,
+    entry,
+  ]),
 );
 
 const tokens: Token[] = [
@@ -103,6 +114,63 @@ const explanatoryTokens = groupTokens([
   { surface: "な", lemma: "だ", reading: "な", partOfSpeech: ["助動詞"] },
   { surface: "ん", lemma: "ん", reading: "ん", partOfSpeech: ["名詞"] },
   { surface: "です", lemma: "です", reading: "です", partOfSpeech: ["助動詞"] },
+]);
+
+const politeVerbTokens = groupTokens([
+  { surface: "感動", lemma: "感動", reading: "かんどう", partOfSpeech: ["名詞"] },
+  {
+    surface: "し",
+    lemma: "する",
+    reading: "し",
+    partOfSpeech: ["動詞"],
+    partOfSpeechDetails: ["自立"],
+  },
+  {
+    surface: "まし",
+    lemma: "ます",
+    reading: "まし",
+    partOfSpeech: ["助動詞"],
+    conjugationType: "特殊・マス",
+  },
+  {
+    surface: "た",
+    lemma: "た",
+    reading: "た",
+    partOfSpeech: ["助動詞"],
+    conjugationType: "特殊・タ",
+  },
+]);
+
+const passiveVerbTokens = groupTokens([
+  {
+    surface: "取材",
+    lemma: "取材",
+    reading: "しゅざい",
+    partOfSpeech: ["名詞"],
+    partOfSpeechDetails: ["サ変接続"],
+  },
+  {
+    surface: "さ",
+    lemma: "する",
+    reading: "さ",
+    partOfSpeech: ["動詞"],
+    partOfSpeechDetails: ["自立"],
+  },
+  {
+    surface: "れ",
+    lemma: "れる",
+    reading: "れ",
+    partOfSpeech: ["動詞"],
+    partOfSpeechDetails: ["接尾"],
+    conjugationType: "一段",
+  },
+  {
+    surface: "た",
+    lemma: "た",
+    reading: "た",
+    partOfSpeech: ["助動詞"],
+    conjugationType: "特殊・タ",
+  },
 ]);
 
 const mixedAdjectiveTokens = repairKatakanaAdjectives(
@@ -455,6 +523,16 @@ document.querySelector<HTMLButtonElement>("#mixed-adjective")!.addEventListener(
 document.querySelector<HTMLButtonElement>("#explanatory")!.addEventListener("click", () => {
   activeTokens = explanatoryTokens;
   nativeSubtitles.replaceChildren(nativeLine("孫なんです", "20", "24"));
+});
+
+document.querySelector<HTMLButtonElement>("#polite-verb")!.addEventListener("click", () => {
+  activeTokens = politeVerbTokens;
+  nativeSubtitles.replaceChildren(nativeLine("感動しました", "20", "24"));
+});
+
+document.querySelector<HTMLButtonElement>("#passive-verb")!.addEventListener("click", () => {
+  activeTokens = passiveVerbTokens;
+  nativeSubtitles.replaceChildren(nativeLine("取材された", "20", "24"));
 });
 
 document.querySelector<HTMLButtonElement>("#mine")!.addEventListener("click", () => {
