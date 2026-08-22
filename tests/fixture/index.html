@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SubJap — UX fixture</title>
+    <style>
+      :root {
+        color: #e2e8f0;
+        background: #0f172a;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-width: 920px; }
+      .page { max-width: 1180px; margin: 0 auto; padding: 24px; }
+      h1 { margin: 0 0 6px; font-size: 24px; }
+      .hint { margin: 0 0 20px; color: #94a3b8; }
+      .layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; }
+      .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
+      .stage { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; background: linear-gradient(135deg, #312e81, #111827 55%, #7f1d1d); }
+      .stage video { display: block; width: 100%; height: 100%; opacity: 0; }
+      .fake-scene { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,.18); font-size: 48px; letter-spacing: .2em; }
+      .player-controls { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 76px; padding: 32px 16px 12px; background: linear-gradient(transparent, rgba(0,0,0,.85)); color: #fff; pointer-events: none; }
+      .player-controls::after { content: "Netflix controls layer"; font-size: 11px; color: #cbd5e1; }
+      .player-timedtext { position: absolute; z-index: 2; left: 0; right: 0; bottom: 92px; text-align: center; color: #fff; font-size: 26px; text-shadow: 2px 2px 3px #000; }
+      .player-timedtext-text-container { display: block; margin: 4px; }
+      .status { margin-top: 12px; padding: 8px 10px; border-radius: 6px; background: #0f172a; color: #a7f3d0; font-family: ui-monospace, monospace; font-size: 12px; }
+      .controls { display: grid; gap: 8px; }
+      button { border: 1px solid #475569; border-radius: 7px; padding: 9px 10px; background: #334155; color: #e2e8f0; cursor: pointer; text-align: left; }
+      button:hover { background: #475569; }
+      button.primary { background: #2563eb; border-color: #2563eb; }
+      button.primary:hover { background: #1d4ed8; }
+      .check { display: flex; gap: 8px; align-items: center; color: #cbd5e1; font-size: 13px; }
+      code { color: #c4b5fd; }
+      .legend { display: grid; gap: 7px; margin-top: 16px; color: #94a3b8; font-size: 12px; }
+      .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 3px; vertical-align: -2px; }
+      .green { background: #22c55e; }
+      .white { background: #fff; }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <h1>SubJap — lecteur UX simulé</h1>
+      <p class="hint">Cette page utilise les vrais modules Netflix, overlay et popover du projet.</p>
+      <div class="layout">
+        <section class="card">
+          <div id="stage" class="stage" data-testid="video-stage">
+            <div class="fake-scene">UX</div>
+            <video id="video" aria-label="Vidéo simulée"></video>
+            <div id="timedtext" class="player-timedtext" data-testid="native-subtitles"></div>
+            <div class="player-controls"></div>
+          </div>
+          <div id="status" class="status" data-testid="status">Initialisation…</div>
+          <div class="legend">
+            <div><span class="green"></span>mot connu</div>
+            <div><span class="white"></span>mot à apprendre</div>
+          </div>
+        </section>
+        <aside class="card controls">
+          <button id="next" class="primary" data-testid="next-cue">Afficher la phrase suivante</button>
+          <button id="clear" data-testid="clear-cue">Effacer les sous-titres</button>
+          <button id="swap" data-testid="swap-video">Remplacer le lecteur (SPA)</button>
+          <button id="toggle-native" data-testid="toggle-native">Afficher les natifs</button>
+          <label class="check"><input id="furigana" type="checkbox" checked /> Afficher le furigana</label>
+          <p class="hint" style="font-size:12px; margin:8px 0 0">Survolez un token 350 ms ou cliquez dessus pour tester la popover.</p>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

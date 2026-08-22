@@ -12,6 +12,7 @@
 import DictionaryLoader from "kuromoji/src/loader/DictionaryLoader";
 import KuromojiTokenizerClass from "kuromoji/src/Tokenizer";
 import type { Token, Tokenizer } from "@/core/types";
+import { toHiragana } from "@/core/kana";
 import { LRUCache } from "./lru-cache";
 
 /** Raw token shape emitted by kuromoji. */
@@ -120,7 +121,7 @@ function toToken(kt: KuromojiToken): Token {
   return {
     surface: kt.surface_form,
     lemma: kt.basic_form === "*" ? kt.surface_form : kt.basic_form,
-    reading: kt.reading ?? kt.surface_form,
+    reading: toHiragana(kt.reading ?? kt.surface_form),
     partOfSpeech: kt.pos.split(",").filter(Boolean),
   };
 }
