@@ -28,8 +28,8 @@ const cue: RenderedCue = {
 };
 
 describe("Migaku Memory formatting", () => {
-  it("formats a kanji word with ruby reading", () => {
-    expect(formatMigakuWord("食べて", "たべて")).toBe("<ruby>食べて<rt>たべて</rt></ruby>");
+  it("formats the lemma with its dictionary reading", () => {
+    expect(formatMigakuWord("食べる", "たべる")).toBe("<ruby>食べる<rt>たべる</rt></ruby>");
   });
 
   it("highlights the mined token in the phrase field", () => {
