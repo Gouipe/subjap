@@ -5,7 +5,7 @@
   "description": "Browser extension for learning Japanese through anime streaming",
   "scripts": {
     "dev": "vite build --watch --mode development",
-    "build": "vite build",
+    "build": "vite build && node scripts/verify-netflix-bridge.mjs",
     "lint": "eslint src/ --ext .ts,.tsx",
     "format": "prettier --write src/",
     "test": "vitest run",

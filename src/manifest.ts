@@ -44,6 +44,11 @@ const manifest: ManifestV3Export = {
   options_page: "src/options/index.html",
   web_accessible_resources: [
     {
+      // Netflix's page-world bridge must be loadable by the content script.
+      resources: ["netflix-bridge.js"],
+      matches: ["*://*.netflix.com/*"],
+    },
+    {
       // kuromoji dictionary files are copied from node_modules into public/dict
       // and land in dist/dict; the tokenizer loads them from the extension origin.
       resources: ["dict/*"],

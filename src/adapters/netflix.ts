@@ -1,5 +1,9 @@
 // Netflix L1 adapter – implements PlatformAdapter for the Netflix web player.
 import type { PlatformId, PlatformAdapter, SubtitleCue, EpisodeContext } from "@/core/types";
+import {
+  NetflixSeekBridge,
+  type NetflixSeekTransport,
+} from "./netflix-seek-bridge";
 
 // ---------------------------------------------------------------------------
 // Netflix adapter
@@ -31,6 +35,8 @@ const EMIT_DEBOUNCE_MS = 60;
 export class NetflixAdapter implements PlatformAdapter {
   id: PlatformId = 'netflix';
 
+  private readonly seekTransport: NetflixSeekTransport;
+
   private video: HTMLVideoElement | null = null;
   private videoObserver: MutationObserver | null = null;
 
@@ -53,6 +59,10 @@ export class NetflixAdapter implements PlatformAdapter {
   // win over a parent's inherited value.
   private static readonly HIDE_NATIVE_CLASS = "subjap-hide-native-subs";
   private static hideStyleInjected = false;
+
+  constructor(seekTransport: NetflixSeekTransport = new NetflixSeekBridge()) {
+    this.seekTransport = seekTransport;
+  }
 
   private static injectHideNativeStyle(): void {
     if (NetflixAdapter.hideStyleInjected) return;
@@ -344,6 +354,10 @@ export class NetflixAdapter implements PlatformAdapter {
 
   getPlaybackRate(): number {
     return this.getVideoElement()?.playbackRate ?? 1;
+  }
+
+  seekTo(timeSeconds: number, resume: boolean): Promise<boolean> {
+    return this.seekTransport.seek(timeSeconds, resume);
   }
 
   // -----------------------------------------------------------------------

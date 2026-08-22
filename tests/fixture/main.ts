@@ -1,6 +1,7 @@
 import { NetflixAdapter } from "../../src/adapters/netflix";
 import { OverlayRenderer } from "../../src/overlay/renderer";
 import { getPopover, hidePopover, showPopover } from "../../src/overlay/popover";
+import { CueNavigator, installPlaybackShortcuts } from "../../src/content/shortcuts";
 import { groupTokens } from "../../src/tokenizer/group";
 import type {
   DictionaryEntry,
@@ -14,7 +15,19 @@ const nativeSubtitles = document.querySelector<HTMLDivElement>("#timedtext")!;
 const status = document.querySelector<HTMLDivElement>("#status")!;
 const furiganaToggle = document.querySelector<HTMLInputElement>("#furigana")!;
 
-const adapter = new NetflixAdapter();
+const fixtureSeekTransport = {
+  seek: async (timeSeconds: number): Promise<boolean> => {
+    const video = document.querySelector<HTMLVideoElement>("#video");
+    if (!video || !Number.isFinite(timeSeconds) || timeSeconds < 0) {
+      return false;
+    }
+    video.currentTime = timeSeconds;
+    return true;
+  },
+};
+
+const adapter = new NetflixAdapter(fixtureSeekTransport);
+const cueNavigator = new CueNavigator();
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let currentCues: SubtitleCue[] = [];
@@ -39,7 +52,7 @@ const tokens: Token[] = [
   { surface: "ます", lemma: "ます", reading: "ます", partOfSpeech: ["助動詞"] },
   { surface: "。", lemma: "。", reading: "。", partOfSpeech: ["記号"] },
 ];
-let activeTokens = tokens;
+let activeTokens: Token[] = [];
 
 const groupedTokens = groupTokens([
   { surface: "じゃ", lemma: "だ", reading: "じゃ", partOfSpeech: ["助動詞"] },
@@ -53,6 +66,17 @@ const explanatoryTokens = groupTokens([
   { surface: "ん", lemma: "ん", reading: "ん", partOfSpeech: ["名詞"] },
   { surface: "です", lemma: "です", reading: "です", partOfSpeech: ["助動詞"] },
 ]);
+
+function installSimulatedMediaClock(video: HTMLVideoElement): void {
+  let currentTime = 0;
+  Object.defineProperty(video, "currentTime", {
+    configurable: true,
+    get: () => currentTime,
+    set: (value: number) => {
+      currentTime = value;
+    },
+  });
+}
 
 function setStatus(message: string): void {
   status.textContent = message;
@@ -100,6 +124,8 @@ function ensureOverlay(): OverlayRenderer | null {
 
 function render(cues: SubtitleCue[]): void {
   currentCues = cues;
+  cueNavigator.observe(cues);
+  status.dataset.cue = cues[0]?.text ?? "";
   const renderer = ensureOverlay();
   if (!renderer) {
     setStatus("Aucune vidéo détectée");
@@ -182,12 +208,12 @@ document.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", ()
 
 document.querySelector<HTMLButtonElement>("#grouped")!.addEventListener("click", () => {
   activeTokens = groupedTokens;
-  nativeSubtitles.replaceChildren(nativeLine("じゃなくって"));
+  nativeSubtitles.replaceChildren(nativeLine("じゃなくって", "16", "20"));
 });
 
 document.querySelector<HTMLButtonElement>("#explanatory")!.addEventListener("click", () => {
   activeTokens = explanatoryTokens;
-  nativeSubtitles.replaceChildren(nativeLine("孫なんです"));
+  nativeSubtitles.replaceChildren(nativeLine("孫なんです", "20", "24"));
 });
 
 document.querySelector<HTMLButtonElement>("#clear")!.addEventListener("click", () => {
@@ -206,9 +232,11 @@ document.querySelector<HTMLButtonElement>("#toggle-native")!.addEventListener("c
 document.querySelector<HTMLButtonElement>("#swap")!.addEventListener("click", () => {
   const oldVideo = document.querySelector("#video");
   oldVideo?.remove();
+  cueNavigator.reset();
   const nextVideo = document.createElement("video");
   nextVideo.id = "video";
   nextVideo.setAttribute("aria-label", "Vidéo simulée remplacée");
+  installSimulatedMediaClock(nextVideo);
   stage.insertBefore(nextVideo, nativeSubtitles);
   nativeSubtitles.replaceChildren(nativeLine("Lecteur remplacé, nouvelle phrase."));
   setStatus("Navigation SPA simulée : nouveau lecteur détecté");
@@ -219,10 +247,12 @@ furiganaToggle.addEventListener("change", () => {
 });
 
 getPopover(popoverCallbacks);
+installPlaybackShortcuts(document, adapter, cueNavigator);
+installSimulatedMediaClock(document.querySelector<HTMLVideoElement>("#video")!);
 
 adapter.subscribeCues(render);
 adapter.setNativeSubtitlesVisible(false);
-nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。"));
+nativeSubtitles.replaceChildren(nativeLine("待ってください。", "0", "4"));
 
 window.addEventListener("beforeunload", () => {
   clearTimers();

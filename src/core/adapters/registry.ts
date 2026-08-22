@@ -8,7 +8,7 @@ import type { PlatformAdapter, PlatformId, SubtitleCue, EpisodeContext } from "@
 // Built-in generic HTML5 fallback adapter
 // ---------------------------------------------------------------------------
 
-const GENERIC_HTML5_ADAPTER: PlatformAdapter = {
+export const GENERIC_HTML5_ADAPTER: PlatformAdapter = {
   id: "generic-html5" as PlatformId,
 
   isActive(_doc: Document, _url: string): boolean {
@@ -39,6 +39,19 @@ const GENERIC_HTML5_ADAPTER: PlatformAdapter = {
   getPlaybackRate(): number {
     const video = document.querySelector("video");
     return video?.playbackRate ?? 1;
+  },
+
+  seekTo(timeSeconds: number, resume: boolean): Promise<boolean> {
+    const video = this.getVideoElement();
+    if (!video || !Number.isFinite(timeSeconds)) return Promise.resolve(false);
+
+    video.currentTime = Math.max(0, timeSeconds);
+    if (resume) {
+      void video.play().catch(() => {
+        // Autoplay policy may reject play(); the seek itself still succeeded.
+      });
+    }
+    return Promise.resolve(true);
   },
 
   setNativeSubtitlesVisible(_v: boolean): void {

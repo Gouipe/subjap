@@ -114,4 +114,17 @@ describe("NetflixAdapter", () => {
       .toBe(false);
     adapter.destroy();
   });
+
+  it("délègue le seek au transport sans écrire currentTime", async () => {
+    const { video } = installNetflixPlayer();
+    const currentTimeSetter = vi.spyOn(video, "currentTime", "set");
+    const transport = { seek: vi.fn().mockResolvedValue(true) };
+    const adapter = new NetflixAdapter(transport);
+
+    await expect(adapter.seekTo(9.5, true)).resolves.toBe(true);
+
+    expect(transport.seek).toHaveBeenCalledWith(9.5, true);
+    expect(currentTimeSetter).not.toHaveBeenCalled();
+    adapter.destroy();
+  });
 });

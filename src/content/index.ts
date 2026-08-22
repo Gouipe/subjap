@@ -23,6 +23,7 @@ import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay
 import { normalizeCueText, splitIntoSentences } from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
 import { groupTokens } from "@/tokenizer/group";
+import { CueNavigator, installPlaybackShortcuts } from "./shortcuts";
 import type {
   DictionaryEntry,
   EpisodeContext,
@@ -46,6 +47,8 @@ const adapter: PlatformAdapter = adapterRegistry.findActive(
   document,
   window.location.href,
 );
+
+const cueNavigator = new CueNavigator();
 
 console.log(`[SubJap] Platform: ${adapter.id}`);
 
@@ -180,6 +183,7 @@ function ensureOverlay(): OverlayRenderer | null {
     overlay.destroy();
     overlay = null;
     currentVideo = null;
+    cueNavigator.reset();
     miningModal?.destroy();
     miningModal = null;
     // Force the next cue set through the pipeline after a player swap.
@@ -202,6 +206,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   const signature = cues.map((cue) => cue.text).join("\u0000");
   if (signature === lastSignature) return;
   lastCues = cues;
+  cueNavigator.observe(cues);
 
   const overlayInstance = ensureOverlay();
   if (!overlayInstance) {
@@ -488,6 +493,13 @@ getPopover({
     openMiningModal(token, entry);
   },
 });
+
+const removePlaybackShortcuts = installPlaybackShortcuts(
+  document,
+  adapter,
+  cueNavigator,
+);
+window.addEventListener("pagehide", removePlaybackShortcuts, { once: true });
 
 // Click delegation (capture phase — the overlay container may be rebuilt).
 document.addEventListener("click", onOverlayClick, true);

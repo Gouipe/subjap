@@ -36,6 +36,7 @@ export interface PlatformAdapter {
   subscribeCues(cb: (cues: SubtitleCue[]) => void): () => void;
   getCurrentTime(): number;
   getPlaybackRate(): number;
+  seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
   setNativeSubtitlesVisible(v: boolean): void;
   getEpisodeContext(): EpisodeContext | null;
   destroy(): void;

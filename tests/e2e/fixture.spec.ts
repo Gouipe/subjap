@@ -106,4 +106,38 @@ test.describe("SubJap UX fixture", () => {
     await page.getByLabel("Afficher le furigana").uncheck();
     await expect(page.locator(".subjap-furigana").first()).toBeHidden();
   });
+
+  test("navigue entre les sous-titres avec q, s et d", async ({ page }) => {
+    await page.getByTestId("next-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-cue",
+      "日本語を勉強します。",
+    );
+    await page.getByTestId("grouped-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-cue",
+      "じゃなくって",
+    );
+
+    const video = page.locator("#video");
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 16;
+    });
+    const pageBody = page.locator("body");
+    await pageBody.press("q");
+    await expect(video).toHaveJSProperty("currentTime", 12);
+
+    await pageBody.press("s");
+    await expect(video).toHaveJSProperty("currentTime", 12);
+
+    await pageBody.press("d");
+    await expect(video).toHaveJSProperty("currentTime", 16);
+
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 0;
+    });
+    await page.getByLabel("Afficher le furigana").focus();
+    await page.keyboard.press("s");
+    await expect(video).toHaveJSProperty("currentTime", 0);
+  });
 });

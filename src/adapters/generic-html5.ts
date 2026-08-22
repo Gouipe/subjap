@@ -109,6 +109,19 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     return this.getVideoElement()?.playbackRate ?? 1;
   }
 
+  seekTo(timeSeconds: number, resume: boolean): Promise<boolean> {
+    const video = this.getVideoElement();
+    if (!video || !Number.isFinite(timeSeconds)) return Promise.resolve(false);
+
+    video.currentTime = Math.max(0, timeSeconds);
+    if (resume) {
+      void video.play().catch(() => {
+        // Autoplay policy may reject play(); the seek itself still succeeded.
+      });
+    }
+    return Promise.resolve(true);
+  }
+
   // -----------------------------------------------------------------------
   // setNativeSubtitlesVisible
   // -----------------------------------------------------------------------

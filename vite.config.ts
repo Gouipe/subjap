@@ -3,8 +3,20 @@ import { crx } from "@crxjs/vite-plugin";
 import { resolve } from "path";
 import manifest from "./src/manifest";
 
-export default defineConfig({
-  plugins: [crx({ manifest })],
+export default defineConfig(({ mode }) => ({
+  plugins: [
+    crx({
+      manifest:
+        mode === "development"
+          ? {
+              ...manifest,
+              web_accessible_resources: manifest.web_accessible_resources?.filter(
+                ({ resources }) => !resources.includes("netflix-bridge.js"),
+              ),
+            }
+          : manifest,
+    }),
+  ],
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
@@ -18,7 +30,16 @@ export default defineConfig({
       input: {
         popup: resolve(__dirname, "src/popup/index.html"),
         options: resolve(__dirname, "src/options/index.html"),
+        ...(mode === "production"
+          ? { netflixBridge: resolve(__dirname, "src/netflix-bridge-entry.ts") }
+          : {}),
+      },
+      output: {
+        entryFileNames: (chunkInfo) =>
+          chunkInfo.name === "netflixBridge"
+            ? "netflix-bridge.js"
+            : "assets/[name]-[hash].js",
       },
     },
   },
-});
+}));
