@@ -1,5 +1,6 @@
 // Netflix L1 adapter – implements PlatformAdapter for the Netflix web player.
 import type { PlatformId, PlatformAdapter, SubtitleCue, EpisodeContext } from "@/core/types";
+import { sendMessage } from "@/core/messaging";
 import { parseSubtitleFile } from "@/subtitles";
 import {
   NetflixSeekBridge,
@@ -234,17 +235,14 @@ export class NetflixAdapter implements PlatformAdapter {
     if (typeof data.url !== "string" || typeof data.language !== "string") return;
     if (this.requestedTimedTextUrls.has(data.url)) return;
     this.requestedTimedTextUrls.add(data.url);
+    const request: NetflixTimedTextUrlPayload = {
+      url: data.url,
+      language: data.language,
+    };
 
-    void fetch(data.url, { credentials: "include", cache: "no-store" })
-      .then((response) => response.text())
-      .then((body) => {
-        if (body) {
-          this.storeTimedText({
-            url: data.url,
-            language: data.language,
-            body,
-          });
-        }
+    void sendMessage("netflix:timedTextFetch", request)
+      .then(({ body, language, url }) => {
+        if (body) this.storeTimedText({ url, language, body });
       })
       .catch((error: unknown) => {
         console.warn("[SubJap] timed text fetch failed:", error);

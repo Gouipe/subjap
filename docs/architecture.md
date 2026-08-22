@@ -74,11 +74,14 @@ sous-titres natifs.
 5. une voie `textTracks` est conservée comme fallback.
 
 Pour le mode bilingue, le bridge Netflix est injecté dans le monde de la page
-à `document_start`. Il observe les métadonnées `timedtexttracks`, récupère en
-mémoire les pistes officielles TTML/DFXP/VTT disponibles, puis l’adaptateur
-sélectionne automatiquement le français avant l’anglais. Le japonais reste
-la piste d’apprentissage ; le DOM Netflix est préféré lorsqu’il est visible,
-avec la piste japonaise capturée comme repli.
+à `document_start`. Il observe les métadonnées `timedtexttracks` et relaie
+uniquement les URLs officielles disponibles. L’adaptateur demande ensuite le
+contenu au service worker via le bus MV3 ; le téléchargement ne passe donc pas
+par le `fetch` du contexte de la page, ce qui évite les bloqueurs qui modifient
+ce dernier. Les pistes TTML/DFXP/VTT sont ensuite choisies automatiquement,
+français avant anglais. Le japonais reste la piste d’apprentissage ; le DOM
+Netflix est préféré lorsqu’il est visible, avec la piste japonaise capturée
+comme repli.
 
 Le masquage des sous-titres natifs est piloté par une classe sur `<html>` et
 une règle CSS document-level. Cette approche résiste à la recréation du DOM

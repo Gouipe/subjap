@@ -361,13 +361,12 @@ describe("NetflixAdapter", () => {
 
   it("télécharge les pistes annoncées par le bridge dans le content script", async () => {
     installNetflixPlayer();
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        "WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSous-titre français",
-        { headers: { "content-type": "text/vtt" } },
-      ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const sendMessageMock = vi.fn().mockResolvedValue({
+      url: "https://cdn.nflxvideo.net/timedtext/fr.vtt",
+      language: "fr-FR",
+      body: "WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSous-titre français",
+    });
+    vi.stubGlobal("chrome", { runtime: { sendMessage: sendMessageMock } });
     const adapter = new NetflixAdapter();
     const received: SubtitleCue[][] = [];
     const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
@@ -379,7 +378,7 @@ describe("NetflixAdapter", () => {
           source: "subjap",
           type: "subjap:netflix-timed-text-url",
           payload: {
-            url: "https://cdn.example/timedtext/fr.vtt",
+            url: "https://cdn.nflxvideo.net/timedtext/fr.vtt",
             language: "fr-FR",
           },
         },
@@ -387,10 +386,11 @@ describe("NetflixAdapter", () => {
     );
     await flushCueDebounce();
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://cdn.example/timedtext/fr.vtt",
-      { credentials: "include", cache: "no-store" },
-    );
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      type: "netflix:timedTextFetch",
+      url: "https://cdn.nflxvideo.net/timedtext/fr.vtt",
+      language: "fr-FR",
+    });
     expect(received.at(-1)).toEqual([
       expect.objectContaining({ language: "fr", text: "Sous-titre français" }),
     ]);

@@ -16,6 +16,7 @@ Les tests Vitest couvrent notamment :
 - les timestamps et les mutations du DOM Netflix ;
 - le masquage robuste des sous-titres natifs ;
 - l’affichage du japonais interactif avec une traduction française Netflix ;
+- le téléchargement des pistes officielles Netflix par le service worker ;
 - le montage de l’overlay sur `document.body` ;
 - le rendu des tokens, du furigana et des mots connus ;
 - les couleurs de fréquence : inconnus pertinents en vert, tranche suivante de

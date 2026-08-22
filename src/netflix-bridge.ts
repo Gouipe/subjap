@@ -1,18 +1,11 @@
 export const NETFLIX_SEEK_EVENT = "subjap:netflix-seek";
 export const NETFLIX_SEEK_RESULT_EVENT = "subjap:netflix-seek-result";
-export const NETFLIX_TIMED_TEXT_EVENT = "subjap:netflix-timed-text";
 export const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 export const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 
 export interface NetflixTimedTextTrack {
   language: string;
   url: string;
-}
-
-export interface NetflixTimedTextPayload {
-  url: string;
-  language: string;
-  body: string;
 }
 
 interface NetflixPlayer {
@@ -311,17 +304,6 @@ function installTimedTextCapture(page: Window): void {
       }
       const response = await fetchImpl(input, init);
       inspectJsonResponse(response, url);
-      if (TIMED_TEXT_URL_PATTERN.test(url)) {
-        void response.clone().text().then((body) => {
-          if (body) {
-            emit(NETFLIX_TIMED_TEXT_EVENT, {
-              url,
-              language: inferLanguage(url),
-              body,
-            });
-          }
-        }).catch(() => undefined);
-      }
       return response;
     }) as typeof page.fetch;
   }
