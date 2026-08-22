@@ -5,6 +5,7 @@ import {
   installNetflixBridge,
   resolveNetflixPlayer,
   collectNetflixTimedTextTracks,
+  inferSubtitleBodyLanguage,
   selectNetflixSecondaryTrack,
 } from "./netflix-bridge";
 
@@ -42,6 +43,11 @@ describe("Netflix page seek bridge", () => {
       native: ja,
       secondary: en,
     });
+  });
+  it("déduit la langue d'une réponse timed-text quand l'URL est neutre", () => {
+    expect(inferSubtitleBodyLanguage('<tt xml:lang="fr-FR"><p begin="0s">Bonjour</p></tt>')).toBe("fr-FR");
+    expect(inferSubtitleBodyLanguage("WEBVTT\n\n00:00.000 --> 00:01.000\nこんにちは")).toBe("ja");
+    expect(inferSubtitleBodyLanguage("WEBVTT\n\n00:00.000 --> 00:01.000\nHello")).toBe("fr");
   });
   it("selects the watch player session", () => {
     const watchPlayer = { seek: vi.fn() };

@@ -155,3 +155,46 @@ test("the page-world bridge inspects JSON metadata returned by fetch", async ({
     url: "https://cdn.example/timedtext/en.vtt",
   });
 });
+
+test("the page-world bridge classifies a neutral timed-text URL from its body", async ({
+  page,
+}) => {
+  const bundle = await readFile(
+    resolve(process.cwd(), "dist/netflix-bridge.js"),
+    "utf8",
+  );
+  await page.goto("/tests/fixture/index.html");
+  await page.evaluate(() => {
+    window.fetch = async () =>
+      new Response(
+        'WEBVTT\n\n00:00.000 --> 00:01.000\nBonjour tout le monde',
+        { headers: { "content-type": "text/vtt" } },
+      );
+  });
+  await page.addScriptTag({ content: bundle });
+
+  const payload = await page.evaluate(async () => {
+    const received = new Promise<Record<string, unknown>>((resolve) => {
+      window.addEventListener(
+        "message",
+        (event) => {
+          if (
+            event.source === window &&
+            event.data?.source === "subjap" &&
+            event.data?.type === "subjap:netflix-timed-text-url"
+          ) {
+            resolve(event.data.payload as Record<string, unknown>);
+          }
+        },
+        { once: true },
+      );
+    });
+    await fetch("https://cdn.example/timedtext/segment-1");
+    return received;
+  });
+
+  expect(payload).toEqual({
+    language: "fr",
+    url: "https://cdn.example/timedtext/segment-1",
+  });
+});

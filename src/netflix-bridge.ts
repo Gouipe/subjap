@@ -269,7 +269,6 @@ function installTimedTextCapture(page: Window): void {
     );
   };
 
-  const seenUrls = new Set<string>();
   const discoveredTracks = new Map<string, NetflixTimedTextTrack>();
   let pendingSecondaryLanguage = "";
   let pendingNativeTrack: NetflixTimedTextTrackOption | null = null;
@@ -309,8 +308,8 @@ function installTimedTextCapture(page: Window): void {
   };
 
   const fetchTrack = (track: NetflixTimedTextTrack): void => {
-    if (seenUrls.has(track.url)) return;
-    seenUrls.add(track.url);
+    const previous = discoveredTracks.get(track.url);
+    if (previous?.language || !track.language) return;
     discoveredTracks.set(track.url, track);
     // Let the isolated content script perform the request. Some privacy
     // extensions block page-world fetches to Netflix's CDN, while an
@@ -321,13 +320,20 @@ function installTimedTextCapture(page: Window): void {
   const emitTimedTextUrl = (url: string, language = ""): void => {
     fetchTrack({
       url,
-      language: language || pendingSecondaryLanguage,
+      language,
     });
   };
   const inspectSubtitleBody = (url: string, body: string, contentType: string): void => {
-    if (!SUBTITLE_CONTENT_TYPE_PATTERN.test(contentType) && !pendingSecondaryLanguage) return;
+    if (
+      !SUBTITLE_CONTENT_TYPE_PATTERN.test(contentType) &&
+      !TIMED_TEXT_URL_PATTERN.test(url) &&
+      !pendingSecondaryLanguage
+    ) return;
     if (!looksLikeSubtitleBody(body)) return;
-    emitTimedTextUrl(url, inferLanguage(url) || pendingSecondaryLanguage);
+    emitTimedTextUrl(
+      url,
+      inferLanguage(url) || inferSubtitleBodyLanguage(body) || pendingSecondaryLanguage,
+    );
   };
   const inspectTimedTextValue = (value: unknown): void => {
     for (const track of collectNetflixTimedTextTracks(value)) fetchTrack(track);
@@ -382,8 +388,7 @@ function installTimedTextCapture(page: Window): void {
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (TIMED_TEXT_URL_PATTERN.test(url)) {
-        const language = inferLanguage(url) || pendingSecondaryLanguage;
-        emitTimedTextUrl(url, language);
+        emitTimedTextUrl(url, inferLanguage(url));
         if (pendingSecondaryLanguage) {
           // The service worker has already received the URL message; restoring
           // the native track here prevents the temporary probe from changing
@@ -424,8 +429,7 @@ function installTimedTextCapture(page: Window): void {
       this.addEventListener("load", () => {
         const url = this.responseURL || xhrUrls.get(this) || "";
         if (TIMED_TEXT_URL_PATTERN.test(url)) {
-          const language = inferLanguage(url) || pendingSecondaryLanguage;
-          emitTimedTextUrl(url, language);
+          emitTimedTextUrl(url, inferLanguage(url));
           if (pendingSecondaryLanguage) {
             const session = resolveNetflixTimedTextSession(page);
             if (session && pendingNativeTrack) {
@@ -535,6 +539,7 @@ function installTimedTextCapture(page: Window): void {
     if (uiProbeAttempted) return;
     const audioButton = findNetflixUiElement(page, "Audio & Subtitles");
     if (!audioButton) {
+      revealNetflixControls(page);
       if (!uiProbeDiagnosticLogged) {
         uiProbeDiagnosticLogged = true;
         console.log(
@@ -657,6 +662,26 @@ function looksLikeSubtitleBody(body: string): boolean {
     /^WEBVTT(?:\s|$)/i.test(head) ||
     /<tt(?:\s|>|\/)/i.test(head) ||
     /<p\s[^>]*(?:begin|start)=/i.test(head)
+  );
+}
+
+export function inferSubtitleBodyLanguage(body: string): string {
+  const declared = body.match(/(?:xml:lang|\blang|\blanguage)\s*=\s*["']([^"']+)["']/i)?.[1];
+  if (declared) return declared;
+  if (/[\u3040-\u30ff\u3400-\u9fff]/u.test(body)) return "ja";
+  // Netflix's CDN URLs often omit the language. In that case a subtitle body
+  // without Japanese characters is the translation candidate. The selected
+  // French track is preferred, while English remains a valid fallback.
+  if (/[A-Za-zÀ-ÿ]/u.test(body)) return "fr";
+  return "";
+}
+
+function revealNetflixControls(page: Window): void {
+  const target =
+    page.document.querySelector<HTMLElement>("video") ??
+    page.document.querySelector<HTMLElement>('[class*="watch-video"]');
+  target?.dispatchEvent(
+    new MouseEvent("mousemove", { bubbles: true, clientX: 500, clientY: 500 }),
   );
 }
 
