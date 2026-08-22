@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+const fixturePort = process.env.SUBJAP_FIXTURE_PORT ?? "4173";
+
 test.describe("SubJap UX fixture", () => {
   test.beforeEach(async ({ page }) => {
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
-      origin: "http://127.0.0.1:4173",
+      origin: `http://127.0.0.1:${fixturePort}`,
     });
     await page.goto("/tests/fixture/index.html");
   });
@@ -402,6 +404,38 @@ test.describe("SubJap UX fixture", () => {
     await tokens.nth(1).hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("なんです");
+  });
+
+  test("regroupe une forme polie autour du lemme verbal", async ({ page }) => {
+    await page.getByTestId("polite-verb-cue").click();
+
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    await expect(tokens).toHaveCount(2);
+    await expect(tokens.nth(0)).toHaveAttribute("data-surface", "感動");
+    await expect(tokens.nth(1)).toHaveAttribute("data-surface", "しました");
+    await expect(tokens.nth(1)).toHaveAttribute("data-lemma", "する");
+    await expect(tokens.nth(1)).toHaveAttribute("data-pos", /動詞/);
+
+    await tokens.nth(1).hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("しました");
+    await expect(page.locator(".subjap-popover__defs")).toHaveText("to do");
+  });
+
+  test("regroupe passif et passé autour du verbe lexical", async ({ page }) => {
+    await page.getByTestId("passive-verb-cue").click();
+
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    await expect(tokens).toHaveCount(2);
+    await expect(tokens.nth(0)).toHaveAttribute("data-surface", "取材");
+    await expect(tokens.nth(1)).toHaveAttribute("data-surface", "された");
+    await expect(tokens.nth(1)).toHaveAttribute("data-lemma", "する");
+    await expect(tokens.nth(1)).toHaveAttribute("data-pos", /動詞/);
+
+    await tokens.nth(1).hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("された");
+    await expect(page.locator(".subjap-popover__defs")).toHaveText("to do");
   });
 
   test("réagit à l’effacement, aux options live et au remplacement SPA", async ({

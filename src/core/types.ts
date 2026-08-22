@@ -52,6 +52,8 @@ export interface Token {
   lemma: string; // forme de dictionnaire (食べる)
   reading: string; // lecture en kana
   partOfSpeech: string[];
+  /** Kuromoji POS details such as 自立, 非自立 or 接尾. */
+  partOfSpeechDetails?: string[];
   /** Kuromoji conjugation metadata, when the token is inflected. */
   conjugationType?: string;
   conjugationForm?: string;

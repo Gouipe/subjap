@@ -5,6 +5,9 @@ interface KuromojiToken {
   basic_form: string;
   reading: string | undefined;
   pos: string;
+  pos_detail_1?: string;
+  pos_detail_2?: string;
+  pos_detail_3?: string;
   word_type: string;
   word_position: number;
   conjugated_type?: string;
