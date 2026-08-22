@@ -5,6 +5,8 @@ d’une fonctionnalité existante, travaille dans un worktree isolé que tu merg
 
 Quand je te demande de modifier/ajouter une fonctionnalité, brainstormons ensemble la spécification fonctionnelle. Une fois que c'est fait tu peux dev.
 
+Aborde une question à la fois. Sinon c'est trop compliqué pour moi. Donne une recommandation pour me faciliter la tâche.
+
 Pour tout changement du content script, des adaptateurs, de l’overlay, de la
 popover, du mining, du popup ou des Options, utiliser `$subjap-ux-harness`.
 Son `SKILL.md` est la source de vérité pour le harnais, les commandes de
