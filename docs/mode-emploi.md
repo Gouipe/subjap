@@ -31,7 +31,7 @@ Dans PowerShell :
 ```powershell
 cd C:\Users\piola\Projects\migaku-export
 npm install
-node export-cards.js .\core_<identifiant>.db .\migaku_cards_full.json .\migaku_cards_full.csv
+node export-cards.js .\core_<identifiant>.db .\migaku_cards_full.json .\migaku_cards_full.csv .\migaku_word_states.json
 node fetch-media.js
 node build-export.js
 node verify-export.js
@@ -39,8 +39,11 @@ node verify-export.js
 
 `fetch-media.js` nécessite la session Migaku locale dans `db/study`. Importer
 ensuite `Migaku_Memory.apkg` depuis **Fichier > Importer** dans Anki. Le paquet
-utilise le deck `Migaku Memory` et le type `Migaku Memory Import`, volontairement
-séparés de SubJap. Faire une sauvegarde Anki avant un import important.
+crée `Migaku Memory::New`, à réviser normalement, et
+`Migaku Memory::Status`, qui doit rester entièrement suspendu : ce second deck
+sert uniquement à transmettre les couleurs à SubJap. Les cartes Migaku déjà
+étudiées et les cartes sans mot japonais cible ne sont pas ajoutées aux
+révisions. Faire une sauvegarde Anki avant un import important.
 
 ## Piloter les couleurs depuis Anki
 
