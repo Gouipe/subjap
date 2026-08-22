@@ -288,7 +288,9 @@ export class VideoAudioCapture {
     const source = context.createMediaStreamSource(stream);
     const processor = context.createScriptProcessor(PROCESSOR_BUFFER_SIZE, 2, 1);
     const silentGain = context.createGain();
-    silentGain.gain.value = 0;
+    // tabCapture mutes the original tab output. Route the captured audio
+    // back to the speakers while also feeding the rolling PCM processor.
+    silentGain.gain.value = 1;
     this.source = source;
     this.processor = processor;
     this.silentGain = silentGain;
