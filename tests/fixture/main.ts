@@ -35,6 +35,7 @@ let currentVideo: HTMLVideoElement | null = null;
 let currentCues: SubtitleCue[] = [];
 // One known word gives deterministic green/blue/orange frequency bands.
 let knownLemmas = new Set<string>(["日本語"]);
+let ignoredLemmas = new Set<string>();
 const frequencyRanks = new Map<string, number>([
   ["日本語", 1],
   ["を", 2],
@@ -114,11 +115,13 @@ function renderedCue(cue: SubtitleCue): RenderedCue {
     spans: activeTokens.map((token, index) => ({
       index,
       token,
-      wordState: knownLemmas.has(token.lemma)
-        ? { key: token.lemma, status: "known", source: "manual" }
-        : token.lemma === "する"
-          ? { key: token.lemma, status: "learning", source: "import" }
-          : null,
+      wordState: ignoredLemmas.has(token.lemma)
+        ? { key: token.lemma, status: "ignored", source: "manual" }
+        : knownLemmas.has(token.lemma)
+          ? { key: token.lemma, status: "known", source: "manual" }
+          : token.lemma === "する"
+            ? { key: token.lemma, status: "learning", source: "import" }
+            : null,
       frequencyRank: frequencyRanks.get(token.lemma),
     })),
   };
@@ -146,6 +149,7 @@ function render(cues: SubtitleCue[]): void {
   currentCues = cues;
   status.dataset.cue = cues[0]?.text ?? "";
   status.dataset.cueStart = String(cues[0]?.start ?? "");
+  status.dataset.knownCount = String(knownLemmas.size);
   const renderer = ensureOverlay();
   if (!renderer) {
     setStatus("Aucune vidéo détectée");
@@ -168,8 +172,19 @@ function render(cues: SubtitleCue[]): void {
 
 const popoverCallbacks = {
   onToggleKnown: (lemma: string) => {
+    ignoredLemmas.delete(lemma);
     if (knownLemmas.has(lemma)) knownLemmas.delete(lemma);
     else knownLemmas.add(lemma);
+    render(currentCues);
+    setStatus(`État modifié : ${lemma}`);
+  },
+  onToggleIgnored: (lemma: string, currentStatus: string | null) => {
+    if (currentStatus === "ignored") {
+      ignoredLemmas.delete(lemma);
+    } else {
+      knownLemmas.delete(lemma);
+      ignoredLemmas.add(lemma);
+    }
     render(currentCues);
     setStatus(`État modifié : ${lemma}`);
   },
@@ -180,13 +195,19 @@ const popoverCallbacks = {
 
 function showPopoverForToken(anchor: HTMLElement, token: Token): void {
   const entry = token.lemma === dictionaryEntry.headword ? dictionaryEntry : null;
-  const currentStatus = knownLemmas.has(token.lemma) ? "known" : null;
-  const frequencyRank = frequencyRanks.get(token.lemma);
-  const wordState = knownLemmas.has(token.lemma)
-    ? { key: token.lemma, status: "known" as const, source: "manual" as const }
-    : token.lemma === "する"
-      ? { key: token.lemma, status: "learning" as const, source: "import" as const }
+  const currentStatus = ignoredLemmas.has(token.lemma)
+    ? "ignored"
+    : knownLemmas.has(token.lemma)
+      ? "known"
       : null;
+  const frequencyRank = frequencyRanks.get(token.lemma);
+  const wordState = ignoredLemmas.has(token.lemma)
+    ? { key: token.lemma, status: "ignored" as const, source: "manual" as const }
+    : knownLemmas.has(token.lemma)
+      ? { key: token.lemma, status: "known" as const, source: "manual" as const }
+      : token.lemma === "する"
+        ? { key: token.lemma, status: "learning" as const, source: "import" as const }
+        : null;
   const frequencyHighlight = getFrequencyHighlight(
     wordState,
     frequencyRank,

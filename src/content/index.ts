@@ -578,6 +578,30 @@ function onToggleKnown(lemma: string, currentStatus: WordStatus | null): void {
   // persisted count is refreshed after the write completes.
 }
 
+function onToggleIgnored(
+  lemma: string,
+  currentStatus: WordStatus | null,
+): void {
+  const next: WordState = {
+    key: lemma,
+    status: currentStatus === "ignored" ? "unknown" : "ignored",
+    source: "manual",
+  };
+
+  void sendMessage("word:set", next)
+    .catch((err) => {
+      console.warn(`[SubJap] word:set failed for "${lemma}":`, err);
+    })
+    .finally(() => {
+      knownWordCountPromise = null;
+      lastSignature = "";
+      void handleCues(lastCues);
+    });
+
+  wordStatusByLemma.set(lemma, next.status);
+  wordStateCache.invalidate(lemma);
+}
+
 // ---------------------------------------------------------------------------
 // 7. Boot
 // ---------------------------------------------------------------------------
@@ -618,6 +642,7 @@ adapter.subscribeCues((cues) => {
 // Create the popover singleton (mounted on document.body).
 getPopover({
   onToggleKnown,
+  onToggleIgnored,
   onMine: (token, entry) => {
     openMiningModal(token, entry);
   },
