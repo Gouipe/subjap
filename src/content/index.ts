@@ -270,7 +270,9 @@ function ensureOverlay(): OverlayRenderer | null {
 
   if (!overlay) {
     overlay = new OverlayRenderer(video, overlayOptions);
-    audioCapture = new VideoAudioCapture(video);
+    audioCapture = new VideoAudioCapture(video, (timeSeconds, resume) =>
+      adapter.seekTo(timeSeconds, resume),
+    );
     audioCapture.start();
     currentVideo = video;
   }
