@@ -163,12 +163,12 @@ test.describe("SubJap UX fixture", () => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
 
-    // N = 1: an existing Anki card follows the frequency bands, while
-    // LEARNING is violet; low-priority unknown is orange and KNOWN is white.
+    // N = 1: an existing Anki card and LEARNING are violet; low-priority
+    // unknown is orange and KNOWN is white.
     await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
-    await expect(tokens.nth(2)).toHaveClass(/subjap-unknown--relevant/);
+    await expect(tokens.nth(2)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(3)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);

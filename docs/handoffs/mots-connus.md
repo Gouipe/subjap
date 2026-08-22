@@ -15,11 +15,10 @@ redevient visible, toutes les deux minutes et depuis le bouton des Options.
 ## Couleurs
 
 - `KNOWN` et `IGNORED` : blanc ;
-- `LEARNING` : violet ;
-- `UNKNOWN`, ou un mot sans statut explicite : vert si très pertinent par
-  fréquence, bleu dans la fenêtre suivante de 300 rangs, puis orange ;
-- la présence d’une carte Anki n’influence pas la couleur et reste indiquée
-  dans la popover.
+- `LEARNING` ou au moins une carte existante dans Anki : violet ;
+- `UNKNOWN` sans carte existante : vert si très pertinent par fréquence, bleu
+  dans la fenêtre suivante de 300 rangs, puis orange ;
+- sans statut explicite et sans carte : même règle de fréquence.
 
 La popover affiche le rang de fréquence pour toutes les couleurs lorsqu’il est
 disponible. Elle affiche aussi `Déjà dans Anki · N carte(s)` ; aucun avertissement

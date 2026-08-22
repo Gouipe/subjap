@@ -250,8 +250,8 @@ est normalisé vers le lemme : SubJap conserve à la fois le nombre de cartes et
 les éventuels tags `KNOWN`, `IGNORED`, `UNKNOWN` ou `LEARNING`. Les imports de
 statut sont réconciliés : retirer un tag retire l’ancien état importé, tandis
 qu’un état manuel local reste prioritaire. `KNOWN` et `IGNORED` sont blancs ;
-`LEARNING` est violet. La simple présence d’une carte Anki ne change pas la
-couleur : un mot `UNKNOWN` suit la fréquence (vert, bleu, puis orange). La
+un mot déjà présent dans Anki ou marqué `LEARNING` est violet. Un mot `UNKNOWN`
+sans carte existante suit la fréquence (vert, bleu, puis orange). La
 popover affiche le rang dès qu’il existe et précise `Déjà dans Anki · N cartes`.
 
 VOICEVOX est démarré localement par un Native Messaging host Windows enregistré

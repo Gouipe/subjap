@@ -42,13 +42,14 @@ describe("getFrequencyHighlight", () => {
     expect(getFrequencyHighlight(unknown, 401, 100)).toBe("unknown");
   });
 
-  it("does not turn an existing Anki card purple by itself", () => {
-    expect(getFrequencyHighlight(null, 1, 100)).toBe("relevant");
+  it("uses learning purple for an existing Anki card unless it is known", () => {
+    expect(getFrequencyHighlight(null, 1, 100, 2)).toBe("learning");
     expect(
       getFrequencyHighlight(
         { key: "x", status: "known", source: "import" },
         1,
         100,
+        2,
       ),
     ).toBe("known");
   });
