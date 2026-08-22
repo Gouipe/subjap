@@ -161,8 +161,6 @@ export interface MessageMap {
   // Rendered tab media capture (used for DRM-backed video/audio).
   "tabCapture:streamId": Record<string, never>;
   "tabCapture:streamIdResult": { streamId: string };
-  "tabCapture:prepare": { tabId: number };
-  "tabCapture:prepareResult": { ready: boolean };
   "tabCapture:stream": { streamId: string };
   "tabCapture:streamResult": Record<string, never>;
 
