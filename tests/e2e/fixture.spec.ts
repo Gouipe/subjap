@@ -393,6 +393,23 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 12);
   });
 
+  test("Q ignore une reconstruction Netflix de la même phrase", async ({ page }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+    const pageBody = page.locator("body");
+
+    await page.getByTestId("seek-rebuild-cue").click();
+    await expect(status).toHaveAttribute("data-cue", "教育シンポジウムです");
+
+    await pageBody.press("q");
+    await expect(video).toHaveJSProperty("currentTime", 59.4);
+
+    // The next Q must reach the genuinely preceding subtitle, not a second
+    // whitespace-only DOM build of the cue at 59 seconds.
+    await pageBody.press("q");
+    await expect(video).toHaveJSProperty("currentTime", 50);
+  });
+
   test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({
     page,
   }) => {
