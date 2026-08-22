@@ -7,6 +7,9 @@ const { captureFrameMock } = vi.hoisted(() => ({
 const { sendMessageMock } = vi.hoisted(() => ({
   sendMessageMock: vi.fn(),
 }));
+const { capturePhraseMock } = vi.hoisted(() => ({
+  capturePhraseMock: vi.fn(),
+}));
 
 vi.mock("./capture", () => ({
   captureFrame: captureFrameMock,
@@ -71,6 +74,58 @@ describe("MiningModal", () => {
         "✓ Word audio ready",
       );
     });
+  });
+
+  it("captures Netflix phrase audio before sending the card", async () => {
+    capturePhraseMock.mockResolvedValue("data:audio/wav;base64,phrase");
+    sendMessageMock.mockImplementation((type: string) => {
+      if (type === "tts:generate") return Promise.resolve({ dataUrl: "data:audio/wav;base64,word" });
+      if (type === "mine:create") return Promise.resolve({ id: "local-card" });
+      if (type === "anki:setup") return Promise.resolve({ deckName: "SubJap", modelName: "Migaku Memory" });
+      if (type === "anki:addNote") return Promise.resolve({ noteId: 42, modelName: "Migaku Memory" });
+      return Promise.resolve(undefined);
+    });
+
+    const audioCapture = {
+      capturePhrase: capturePhraseMock,
+      captureSegment: vi.fn(),
+      getTabVideo: vi.fn().mockResolvedValue(null),
+      startTabCapture: vi.fn().mockResolvedValue(undefined),
+    } as never;
+    const modal = new MiningModal(document.createElement("video"), audioCapture);
+    modal.open({
+      cue: {
+        cue: { id: "fixture", text: "約束した", start: 1, end: 2 },
+        spans: [],
+      } as unknown as RenderedCue,
+      targetToken: {
+        token: { surface: "約束", lemma: "約束", reading: "やくそく" },
+      } as unknown as SpanToken,
+      lemmaReading: "やくそく",
+      episodeContext: {
+        platform: "netflix",
+        title: "Fixture",
+        language: "ja",
+        url: "https://example.test",
+      } as unknown as EpisodeContext,
+      definitions: [],
+    });
+
+    await vi.waitFor(() => {
+      expect(capturePhraseMock).toHaveBeenCalledWith(1, 2);
+      expect(
+        [...document.querySelectorAll(".subjap-audio-info")].some((el) =>
+          el.textContent?.includes("Netflix phrase audio ready"),
+        ),
+      ).toBe(true);
+    });
+
+    (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(document.querySelector("#subjap-mining-modal")?.getAttribute("style")).toContain("none"));
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      "anki:addNote",
+      expect.objectContaining({ audioPhraseDataUrl: "data:audio/wav;base64,phrase" }),
+    );
   });
 
   it("conserve la carte locale, affiche l’erreur Anki et réessaie sans doublon local", async () => {

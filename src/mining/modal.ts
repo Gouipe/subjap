@@ -47,6 +47,7 @@ export class MiningModal {
   private video: HTMLVideoElement;
   private audioCapture: VideoAudioCapture | null;
   private state: MiningState | null = null;
+  private phraseAudioPromise: Promise<string | undefined> | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(video: HTMLVideoElement, audioCapture: VideoAudioCapture | null = null) {
@@ -99,6 +100,7 @@ export class MiningModal {
     this.registerKeyboard();
     void this.generateAudio();
     void this.audioCapture?.startTabCapture();
+    this.phraseAudioPromise = this.capturePhraseAudio(modalState);
     void this.captureScreenshot().finally(() => {
       if (this.state === modalState) this.show();
     });
@@ -111,6 +113,7 @@ export class MiningModal {
 
   destroy(): void {
     this.close();
+    this.phraseAudioPromise = null;
     this.container.remove();
   }
 
@@ -321,6 +324,15 @@ export class MiningModal {
     }
   }
 
+  private async capturePhraseAudio(state: MiningState): Promise<string | undefined> {
+    const dataUrl = await this.audioCapture?.capturePhrase(state.cue.cue.start, state.cue.cue.end);
+    if (this.state === state) {
+      state.phraseAudioDataUrl = dataUrl ?? null;
+      if (dataUrl) this.render();
+    }
+    return dataUrl;
+  }
+
   /**
    * Create the local card (IndexedDB via the service worker), then push a
    * best-effort copy to AnkiConnect when available. The local card is the
@@ -328,16 +340,21 @@ export class MiningModal {
    */
   private async sendToAnki(): Promise<void> {
     if (!this.state || this.state.sending) return;
-    const { cue, targetToken, episodeContext, definitions, selectedDefinitions } = this.state;
+    const state = this.state;
+    const { cue, targetToken, episodeContext, definitions, selectedDefinitions } = state;
 
     const sentence = normalizeCueText(cue.cue.text) || targetToken.token.surface;
     const selectedDefs = definitions.filter((_, i) => selectedDefinitions.has(i));
-    const phraseAudioDataUrl =
-      this.state.phraseAudioDataUrl ??
-      this.audioCapture?.captureSegment(cue.cue.start, cue.cue.end);
-    this.state.phraseAudioDataUrl = phraseAudioDataUrl ?? null;
+    let phraseAudioDataUrl: string | undefined = this.state.phraseAudioDataUrl ?? undefined;
+    if (!phraseAudioDataUrl && this.phraseAudioPromise) {
+      phraseAudioDataUrl = await this.phraseAudioPromise;
+    }
+    if (!phraseAudioDataUrl && this.audioCapture) {
+      phraseAudioDataUrl = await this.capturePhraseAudio(state);
+    }
+    phraseAudioDataUrl ??= this.audioCapture?.captureSegment(cue.cue.start, cue.cue.end);
+    state.phraseAudioDataUrl = phraseAudioDataUrl ?? null;
 
-    const state = this.state;
     state.sending = true;
     state.ankiError = null;
     const sendBtn = this.container.querySelector<HTMLButtonElement>(".subjap-modal-btn-send");
