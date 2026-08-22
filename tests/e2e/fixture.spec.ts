@@ -119,7 +119,11 @@ test.describe("SubJap UX fixture", () => {
     await expect(parenthetical).toHaveCount(3);
     await expect(parenthetical.first()).toHaveCSS(
       "color",
-      "rgb(148, 163, 184)",
+      "rgb(100, 116, 139)",
+    );
+    await expect(parenthetical.nth(1).locator(".subjap-furigana")).toHaveCSS(
+      "color",
+      "rgb(100, 116, 139)",
     );
     await expect(parenthetical.first()).toHaveCSS("pointer-events", "none");
     await expect(parenthetical.first()).toHaveCSS("cursor", "default");
