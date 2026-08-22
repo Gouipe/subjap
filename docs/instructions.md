@@ -1,5 +1,7 @@
 # SubJap — Browser Extension MV3 (TypeScript + Vite)
 
+Mode d’emploi utilisateur : [`docs/mode-emploi.md`](mode-emploi.md).
+
 Extension navigateur Manifest V3 pour l'apprentissage du japonais via les sous-titres d'anime sur Netflix et autres plateformes de streaming.
 
 ## Stack
