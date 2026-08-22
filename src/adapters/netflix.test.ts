@@ -21,13 +21,13 @@ function installNetflixPlayer(): {
 function addLine(
   timedtext: HTMLElement,
   text: string,
-  start = "12.5",
-  end = "15.25",
+  start: string | null = "12.5",
+  end: string | null = "15.25",
 ): HTMLDivElement {
   const line = document.createElement("div");
   line.className = "player-timedtext-text-container";
-  line.dataset.start = start;
-  line.dataset.end = end;
+  if (start !== null) line.dataset.start = start;
+  if (end !== null) line.dataset.end = end;
   line.textContent = text;
   timedtext.appendChild(line);
   return line;
@@ -87,6 +87,29 @@ describe("NetflixAdapter", () => {
       start: 8,
       end: 10,
     });
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
+  it("ancre un cue sans timestamps au changement DOM, avant le debounce", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    video.currentTime = 20;
+    const adapter = new NetflixAdapter();
+    const received: Array<{ start: number; end: number }> = [];
+
+    const unsubscribe = adapter.subscribeCues((cues) => {
+      received.push(...cues.map(({ start, end }) => ({ start, end })));
+    });
+    addLine(timedtext, "字幕 sans timestamps", null, null);
+
+    // Playback keeps moving while DOM mutations are debounced. The cue must
+    // retain the transition time (with a small preroll), not this later time.
+    await Promise.resolve();
+    video.currentTime = 20.5;
+    await flushCueDebounce();
+
+    expect(received.at(-1)).toEqual({ start: 19.85, end: 21.85 });
 
     unsubscribe();
     adapter.destroy();

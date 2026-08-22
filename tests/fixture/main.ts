@@ -93,11 +93,15 @@ function setStatus(message: string): void {
   status.textContent = message;
 }
 
-function nativeLine(text: string, start = "12", end = "16"): HTMLDivElement {
+function nativeLine(
+  text: string,
+  start: string | null = "12",
+  end: string | null = "16",
+): HTMLDivElement {
   const line = document.createElement("div");
   line.className = "player-timedtext-text-container";
-  line.dataset.start = start;
-  line.dataset.end = end;
+  if (start !== null) line.dataset.start = start;
+  if (end !== null) line.dataset.end = end;
   line.textContent = text;
   return line;
 }
@@ -219,6 +223,13 @@ document.addEventListener("mouseout", (event) => {
 document.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", () => {
   activeTokens = tokens;
   nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。"));
+});
+
+document.querySelector<HTMLButtonElement>("#untimed")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  nativeSubtitles.replaceChildren(
+    nativeLine("日本語を勉強します。", null, null),
+  );
 });
 
 document.querySelector<HTMLButtonElement>("#grouped")!.addEventListener("click", () => {

@@ -31,6 +31,9 @@ const NETFLIX_TIMEDTEXT_LINE_SELECTOR = '.player-timedtext-text-container';
 
 /** Debounce for timed-text DOM mutations (Netflix re-renders on resize…). */
 const EMIT_DEBOUNCE_MS = 60;
+/** Start slightly before the DOM transition so the first syllable is audible. */
+const FALLBACK_CUE_PREROLL_SECONDS = 0.15;
+const FALLBACK_CUE_DURATION_SECONDS = 2;
 
 export class NetflixAdapter implements PlatformAdapter {
   id: PlatformId = 'netflix';
@@ -45,6 +48,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private rootObserver: MutationObserver | null = null;
   private timedtextObserver: MutationObserver | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingFallbackStart: number | null = null;
   private cueCallback: ((cues: SubtitleCue[]) => void) | null = null;
   private trackUnsubscriber: (() => void) | null = null;
   private videoHuntTimer: ReturnType<typeof setInterval> | null = null;
@@ -223,6 +227,7 @@ export class NetflixAdapter implements PlatformAdapter {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+    this.pendingFallbackStart = null;
     if (this.videoHuntTimer !== null) {
       clearInterval(this.videoHuntTimer);
       this.videoHuntTimer = null;
@@ -230,14 +235,27 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private scheduleEmit(): void {
+    // Capture the media clock on the first mutation in the batch. Reading it
+    // after the debounce makes every untimed Netflix cue start too late.
+    if (this.pendingFallbackStart === null) {
+      const currentTime = this.getVideoElement()?.currentTime;
+      if (currentTime !== undefined && Number.isFinite(currentTime)) {
+        this.pendingFallbackStart = Math.max(
+          0,
+          Math.round((currentTime - FALLBACK_CUE_PREROLL_SECONDS) * 1000) / 1000,
+        );
+      }
+    }
     if (this.debounceTimer !== null) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      this.emitCues();
+      const fallbackStart = this.pendingFallbackStart;
+      this.pendingFallbackStart = null;
+      this.emitCues(fallbackStart);
     }, EMIT_DEBOUNCE_MS);
   }
 
-  private emitCues(): void {
+  private emitCues(capturedFallbackStart: number | null = null): void {
     const cb = this.cueCallback;
     if (!cb) return;
 
@@ -259,7 +277,10 @@ export class NetflixAdapter implements PlatformAdapter {
         );
       }
 
-      const fallbackTime = video?.currentTime ?? 0;
+      const fallbackTime = capturedFallbackStart ?? Math.max(
+        0,
+        (video?.currentTime ?? 0) - FALLBACK_CUE_PREROLL_SECONDS,
+      );
       let idx = 0;
       for (const line of lineEls) {
         const text = line.textContent?.replace(/\s+/g, ' ').trim() ?? '';
@@ -278,7 +299,9 @@ export class NetflixAdapter implements PlatformAdapter {
         cues.push({
           id: `tt-${idx++}-${startAttr ?? fallbackTime}`,
           start: Number.isFinite(start) ? start : fallbackTime,
-          end: Number.isFinite(end) ? end : fallbackTime + 2,
+          end: Number.isFinite(end)
+            ? end
+            : fallbackTime + FALLBACK_CUE_DURATION_SECONDS,
           text,
           language: 'ja',
         });
