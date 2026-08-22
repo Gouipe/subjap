@@ -62,6 +62,20 @@ function compactCueText(text: string): string {
 }
 
 /**
+ * Read Netflix's visible subtitle base text without ruby annotations.
+ *
+ * Netflix can render Japanese furigana as `<ruby><rt>…</rt></ruby>` inside
+ * the timed-text DOM. `textContent` alone would concatenate the annotation
+ * with the base text and make the tokenizer display the reading as a second
+ * word. Clone the line so the native subtitle DOM remains untouched.
+ */
+function textWithoutRubyAnnotations(line: HTMLElement): string {
+  const clone = line.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("rt, rp").forEach((annotation) => annotation.remove());
+  return clone.textContent?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+/**
  * Netflix can roll a long subtitle through A -> A+B -> B while it remains one
  * spoken phrase. Return the accumulated line sequence when the two DOM states
  * overlap, otherwise signal that a genuinely new phrase started.
@@ -392,7 +406,7 @@ export class NetflixAdapter implements PlatformAdapter {
       }
 
       for (const line of lineEls) {
-        const text = line.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+        const text = textWithoutRubyAnnotations(line);
         if (!text) continue;
 
         // Netflix sometimes carries per-line timings on data-* attributes.

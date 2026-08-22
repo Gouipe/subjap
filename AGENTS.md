@@ -24,3 +24,26 @@ régression dans le dépôt.
 Les commandes Node s’exécutent avec `npm.cmd` / `npx.cmd` sous Windows.
 
 Quand je mets un imprim ecran dans la conversation, c'est de l'existant, souvent que je veux modifier. Ce n'est pas la cible que je souhaite.
+
+## Stratégie de vérification
+
+Pour accélérer l’implémentation, ne pas lancer toute la suite E2E après chaque
+petite modification. Pendant le développement, privilégier les tests unitaires
+et E2E ciblés par la fonctionnalité modifiée, ainsi que TypeScript lorsque le
+code concerné est typé.
+
+La suite E2E complète n’est pas obligatoire pour chaque demande. La lancer une
+fois avant la remise finale lorsque la modification touche un adaptateur, le
+content script, le pipeline de rendu, le bridge ou un autre module partagé,
+ainsi que pour les lots de changements transversaux. Pour une modification
+isolée et à faible risque, les tests ciblés suffisent.
+
+Les tests ciblés doivent tout de même être passés avant de rendre la main dès
+qu’ils existent pour le comportement modifié. Toute régression découverte doit
+être conservée dans le harnais conformément aux instructions du skill.
+
+Quand une implémentation est terminée et vérifiée, créer un commit avec les
+changements concernés avant de rendre la main. Si l’utilisateur demande ensuite
+des retours sur cette même implémentation, modifier le commit existant avec
+`git commit --amend --no-edit` plutôt que créer un nouveau commit, sauf demande
+explicite contraire.

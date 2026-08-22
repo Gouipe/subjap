@@ -108,6 +108,21 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("ignore le furigana ruby natif sans dupliquer le mot", async ({ page }) => {
+    await page.goto("/tests/fixture/index.html?scenario=ruby-native-annotation");
+
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-cue",
+      "親父もおふくろも超喜んじゃって",
+    );
+    const overlay = page.locator("#subjap-overlay-container");
+    await expect(overlay.locator('[data-surface="親父"]')).toHaveCount(1);
+    await expect(overlay.locator('[data-surface="おやじ"]')).toHaveCount(0);
+    await expect(overlay.locator('[data-surface="親父"] .subjap-furigana')).toHaveText(
+      "おやじ",
+    );
+  });
+
   test("fait primer KNOWN sur UNKNOWN entre formes lexicales UniDic", async ({
     page,
   }) => {

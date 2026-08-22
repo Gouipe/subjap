@@ -733,6 +733,36 @@ document.querySelector<HTMLButtonElement>("#unidic-variants")!.addEventListener(
   void renderUniDic("どいつらとコイツらしい彼ら生徒達", "unidic-variants");
 });
 
+function renderRubyCue(): void {
+  activeTokens = [
+    { surface: "親父", lemma: "親父", reading: "おやじ", partOfSpeech: ["名詞"] },
+    { surface: "も", lemma: "も", reading: "も", partOfSpeech: ["助詞"] },
+    { surface: "おふくろ", lemma: "御袋", reading: "おふくろ", partOfSpeech: ["名詞"] },
+    { surface: "も", lemma: "も", reading: "も", partOfSpeech: ["助詞"] },
+    { surface: "超", lemma: "超", reading: "ちょう", partOfSpeech: ["接頭辞"] },
+    { surface: "喜ん", lemma: "喜ぶ", reading: "よろこん", partOfSpeech: ["動詞"] },
+    { surface: "じゃっ", lemma: "ちゃう", reading: "じゃっ", partOfSpeech: ["助動詞"] },
+    { surface: "て", lemma: "て", reading: "て", partOfSpeech: ["助詞"] },
+  ];
+  const line = document.createElement("div");
+  line.className = "player-timedtext-text-container";
+  line.dataset.start = "12";
+  line.dataset.end = "16";
+  const ruby = document.createElement("ruby");
+  const base = document.createElement("span");
+  base.lang = "ja";
+  base.textContent = "親父";
+  const rt = document.createElement("rt");
+  const annotation = document.createElement("span");
+  annotation.textContent = "おやじ";
+  rt.appendChild(annotation);
+  ruby.append(base, rt);
+  line.append(ruby, "もおふくろも超喜んじゃって");
+  nativeSubtitles.replaceChildren(line);
+  render([{ id: "ruby", start: 12, end: 16, text: "親父もおふくろも超喜んじゃって", language: "ja" }]);
+  status.dataset.scenario = "ruby-native-annotation";
+}
+
 document.querySelector<HTMLButtonElement>("#mixed-adjective")!.addEventListener("click", () => {
   activeTokens = mixedAdjectiveTokens;
   nativeSubtitles.replaceChildren(nativeLine("ヤバくない", "16", "20"));
@@ -834,12 +864,15 @@ adapter.subscribeCues((cues) => {
 adapter.setNativeSubtitlesVisible(false);
 nativeSubtitles.replaceChildren(nativeLine("待ってください。", "0", "4"));
 
-if (new URLSearchParams(window.location.search).get("scenario") === "lexical-alias") {
+const fixtureScenario = new URLSearchParams(window.location.search).get("scenario");
+if (fixtureScenario === "lexical-alias") {
   // Simulate an Anki KNOWN note storing UniDic's displayed spelling while the
   // tokenizer exposes the canonical lexeme 色んな.
   knownLemmas.add("いろんな");
   unknownLemmas.add("色んな");
   void renderUniDic("いろんなことがあった", "unidic-lexical-alias");
+} else if (fixtureScenario === "ruby-native-annotation") {
+  renderRubyCue();
 }
 
 window.addEventListener("beforeunload", () => {

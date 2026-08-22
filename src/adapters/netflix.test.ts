@@ -34,6 +34,30 @@ function addLine(
   return line;
 }
 
+function addRubyLine(
+  timedtext: HTMLElement,
+  text: string,
+  reading: string,
+): HTMLDivElement {
+  const line = document.createElement("div");
+  line.className = "player-timedtext-text-container";
+  line.dataset.start = "12.5";
+  line.dataset.end = "15.25";
+
+  const ruby = document.createElement("ruby");
+  const base = document.createElement("span");
+  base.lang = "ja";
+  base.textContent = text;
+  const rt = document.createElement("rt");
+  const annotation = document.createElement("span");
+  annotation.textContent = reading;
+  rt.appendChild(annotation);
+  ruby.append(base, rt);
+  line.append(ruby, "もおふくろも超喜んじゃって");
+  timedtext.appendChild(line);
+  return line;
+}
+
 async function flushCueDebounce(): Promise<void> {
   await Promise.resolve();
   await new Promise<void>((resolve) => setTimeout(resolve, 70));
@@ -87,6 +111,25 @@ describe("NetflixAdapter", () => {
       text: "次の字幕です。",
       start: 8,
       end: 10,
+    });
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
+  it("ignore les annotations ruby Netflix dans le texte de la cue", async () => {
+    const { timedtext } = installNetflixPlayer();
+    addRubyLine(timedtext, "親父", "おやじ");
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+    await flushCueDebounce();
+
+    expect(received.at(-1)?.[0]).toMatchObject({
+      text: "親父もおふくろも超喜んじゃって",
+      start: 12.5,
+      end: 15.25,
     });
 
     unsubscribe();
