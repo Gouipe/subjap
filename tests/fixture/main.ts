@@ -593,6 +593,47 @@ document.querySelector<HTMLButtonElement>("#seek-overlap")!.addEventListener("cl
   }, 400);
 });
 
+document.querySelector<HTMLButtonElement>("#authoritative-timing")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  const video = document.querySelector<HTMLVideoElement>("#video")!;
+
+  // The content script attaches in the middle of this cue and initially has
+  // only the late DOM observation time available.
+  video.currentTime = 110.8;
+  nativeSubtitles.replaceChildren(
+    nativeLine("廊下を走らないって言ってるでしょう", null, null),
+  );
+  setTimeout(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window,
+        data: {
+          source: "subjap",
+          type: "subjap:netflix-timed-text",
+          payload: {
+            url: "https://cdn.example/timedtext/ja.vtt",
+            language: "ja",
+            body:
+              "WEBVTT\n\n00:01:45.000 --> 00:01:51.000\n" +
+              "廊下を走らないって言ってるでしょう\n\n" +
+              "00:01:51.000 --> 00:01:54.000\n" +
+              "困るんですよ生徒に示しがつかないから",
+          },
+        },
+      }),
+    );
+  }, 100);
+  setTimeout(() => {
+    video.currentTime = 111.2;
+    nativeSubtitles.replaceChildren(
+      nativeLine("困るんですよ生徒に示しがつかないから", "111", "114"),
+    );
+  }, 200);
+  setTimeout(() => {
+    status.dataset.scenario = "authoritative-timing-complete";
+  }, 300);
+});
+
 document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click", () => {
   activeTokens = tokens;
   nextRenderDelayMs = 400;

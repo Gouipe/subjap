@@ -1,7 +1,7 @@
 // Netflix L1 adapter – implements PlatformAdapter for the Netflix web player.
 import type { PlatformId, PlatformAdapter, SubtitleCue, EpisodeContext } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
-import { parseSubtitleFile } from "@/subtitles";
+import { normalizeCueText, parseSubtitleFile } from "@/subtitles";
 import {
   NetflixSeekBridge,
   type NetflixSeekTransport,
@@ -54,7 +54,11 @@ const FALLBACK_CUE_PREROLL_SECONDS = 0.15;
 const SEEK_TARGET_TOLERANCE_SECONDS = 0.5;
 
 function compactCueLines(lines: string[]): string {
-  return lines.join("").replace(/\s+/g, "");
+  return compactCueText(lines.join(""));
+}
+
+function compactCueText(text: string): string {
+  return normalizeCueText(text).replace(/\s+/gu, "");
 }
 
 /**
@@ -431,6 +435,15 @@ export class NetflixAdapter implements PlatformAdapter {
       : null;
     if (this.activeDomCue && mergedLines) {
       this.activeDomCue.text = mergedLines.join("\n");
+      const trackCue = this.getMatchingTrackCue(
+        this.activeDomCue.text,
+        observationTime,
+      );
+      if (trackCue) {
+        this.activeDomCue.start = trackCue.start;
+        this.activeDomCue.end = trackCue.end;
+        this.activeDomCue.endConfirmed = true;
+      }
       // The destination has reappeared, so a later disappearance is genuine.
       this.pendingSeekTarget = null;
       this.pendingSeekKeepsActiveCue = false;
@@ -455,12 +468,17 @@ export class NetflixAdapter implements PlatformAdapter {
     this.finalizeActiveDomCue(observationTime);
     const allStartsKnown = lines.every((line) => Number.isFinite(line.start));
     const allEndsKnown = lines.every((line) => Number.isFinite(line.end));
+    const trackCue = this.getMatchingTrackCue(text, observationTime);
     const start = allStartsKnown
       ? Math.min(...lines.map((line) => line.start))
+      : trackCue
+        ? trackCue.start
       : Math.max(0, observationTime - FALLBACK_CUE_PREROLL_SECONDS);
-    const endConfirmed = allEndsKnown;
+    const endConfirmed = allEndsKnown || trackCue !== null;
     const end = endConfirmed
-      ? Math.max(...lines.map((line) => line.end))
+      ? allEndsKnown
+        ? Math.max(...lines.map((line) => line.end))
+        : (trackCue?.end ?? start)
       : start;
     const cue: SubtitleCue = {
       id: `tt-${++this.nextDomCueId}`,
@@ -488,12 +506,21 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private getActiveTrackCue(language: string): SubtitleCue | null {
-    const currentTime = this.getCurrentTime();
+    return this.getTrackCueAt(language, this.getCurrentTime());
+  }
+
+  private getTrackCueAt(language: string, time: number): SubtitleCue | null {
     const cues = this.timedTextTracks.get(language) ?? [];
     return (
-      cues.find((cue) => cue.start <= currentTime && currentTime < cue.end) ??
+      cues.find((cue) => cue.start <= time && time < cue.end) ??
       null
     );
+  }
+
+  private getMatchingTrackCue(text: string, time: number): SubtitleCue | null {
+    const cue = this.getTrackCueAt("ja", time);
+    if (!cue) return null;
+    return compactCueText(cue.text) === compactCueText(text) ? cue : null;
   }
 
   private getActiveTranslationCue(): SubtitleCue | null {

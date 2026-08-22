@@ -116,6 +116,51 @@ describe("NetflixAdapter", () => {
     adapter.destroy();
   });
 
+  it("remplace le timestamp DOM tardif par celui de la piste japonaise", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    video.currentTime = 110.8;
+    addLine(
+      timedtext,
+      "廊下を走らないって言ってるでしょう",
+      null,
+      null,
+    );
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    await flushCueDebounce();
+    const domCue = received.at(-1)?.[0];
+    expect(domCue?.start).toBeCloseTo(110.65, 5);
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window,
+        data: {
+          source: "subjap",
+          type: "subjap:netflix-timed-text",
+          payload: {
+            url: "https://cdn.example/timedtext/ja.vtt",
+            language: "ja",
+            body:
+              "WEBVTT\n\n00:01:45.000 --> 00:01:51.000\n" +
+              "廊下を走らないって言ってるでしょう",
+          },
+        },
+      }),
+    );
+
+    expect(received.at(-1)?.[0]).toBe(domCue);
+    expect(domCue).toMatchObject({
+      start: 105,
+      end: 111,
+      endConfirmed: true,
+    });
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
   it("regroupe les lignes simultanées en un seul cue", async () => {
     const { timedtext } = installNetflixPlayer();
     addLine(timedtext, "Première ligne", "4", "7");
