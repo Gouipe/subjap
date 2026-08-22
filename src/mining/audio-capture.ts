@@ -119,6 +119,11 @@ export class VideoAudioCapture {
     }
   }
 
+  /** Resume capture from a user gesture after autoplay policy suspension. */
+  resume(): void {
+    void this.context?.resume().catch(() => undefined);
+  }
+
   /** Cut a subtitle interval with a small leading/trailing margin. */
   captureSegment(start: number, end: number, marginSeconds = 0.3): string | undefined {
     if (!this.blocks.length || end <= start) return undefined;

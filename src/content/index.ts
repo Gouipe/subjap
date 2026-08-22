@@ -472,6 +472,10 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   const video = adapter.getVideoElement();
   if (!video) return;
 
+  // Opening the mining flow is a user gesture. Use it to unlock an audio
+  // context that may have been suspended when the page first loaded.
+  audioCapture?.resume();
+
   // Locate the rendered cue that introduced this token (last match wins).
   const rendered = lastRenderedCues.find((rc) => rc.spans.some((st) => st.token === token));
   const targetSpan = rendered?.spans.find((st) => st.token === token);
