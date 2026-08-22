@@ -36,6 +36,44 @@ const FALLBACK_CUE_PREROLL_SECONDS = 0.15;
 /** Match the brief timed-text disappearance caused by a seek to its target. */
 const SEEK_TARGET_TOLERANCE_SECONDS = 0.5;
 
+function compactCueLines(lines: string[]): string {
+  return lines.join("").replace(/\s+/g, "");
+}
+
+/**
+ * Netflix can roll a long subtitle through A -> A+B -> B while it remains one
+ * spoken phrase. Return the accumulated line sequence when the two DOM states
+ * overlap, otherwise signal that a genuinely new phrase started.
+ */
+function mergeRollingCueLines(
+  accumulated: string[],
+  visible: string[],
+): string[] | null {
+  const accumulatedText = compactCueLines(accumulated);
+  const visibleText = compactCueLines(visible);
+  if (!accumulatedText || !visibleText) return null;
+  if (accumulatedText === visibleText) return accumulated;
+  if (accumulatedText.includes(visibleText)) return accumulated;
+  if (visibleText.includes(accumulatedText)) return visible;
+
+  const maxOverlap = Math.min(accumulated.length, visible.length);
+  for (let size = maxOverlap; size >= 1; size -= 1) {
+    const accumulatedSuffix = accumulated.slice(-size);
+    const visiblePrefix = visible.slice(0, size);
+    if (accumulatedSuffix.every((line, index) => line === visiblePrefix[index])) {
+      return [...accumulated, ...visible.slice(size)];
+    }
+
+    const visibleSuffix = visible.slice(-size);
+    const accumulatedPrefix = accumulated.slice(0, size);
+    if (visibleSuffix.every((line, index) => line === accumulatedPrefix[index])) {
+      return [...visible, ...accumulated.slice(size)];
+    }
+  }
+
+  return null;
+}
+
 export class NetflixAdapter implements PlatformAdapter {
   id: PlatformId = 'netflix';
 
@@ -307,8 +345,13 @@ export class NetflixAdapter implements PlatformAdapter {
       return;
     }
 
-    const text = lines.map((line) => line.text).join("\n");
-    if (this.activeDomCue?.text === text) {
+    const visibleLines = lines.map((line) => line.text);
+    const text = visibleLines.join("\n");
+    const mergedLines = this.activeDomCue
+      ? mergeRollingCueLines(this.activeDomCue.text.split("\n"), visibleLines)
+      : null;
+    if (this.activeDomCue && mergedLines) {
+      this.activeDomCue.text = mergedLines.join("\n");
       // The destination has reappeared, so a later disappearance is genuine.
       this.pendingSeekTarget = null;
       this.pendingSeekKeepsActiveCue = false;

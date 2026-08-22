@@ -144,6 +144,7 @@ function ensureOverlay(): OverlayRenderer | null {
 function render(cues: SubtitleCue[]): void {
   currentCues = cues;
   status.dataset.cue = cues[0]?.text ?? "";
+  status.dataset.cueStart = String(cues[0]?.start ?? "");
   const renderer = ensureOverlay();
   if (!renderer) {
     setStatus("Aucune vidéo détectée");
@@ -240,6 +241,28 @@ document.querySelector<HTMLButtonElement>("#multiline")!.addEventListener("click
     nativeLine("日本語を", "20", "24"),
     nativeLine("勉強します。", "20", "24"),
   );
+});
+
+document.querySelector<HTMLButtonElement>("#rolling")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  const video = document.querySelector<HTMLVideoElement>("#video")!;
+  video.currentTime = 40;
+  nativeSubtitles.replaceChildren(
+    nativeLine("生徒が起こした騒動については", null, null),
+  );
+  setTimeout(() => {
+    video.currentTime = 42;
+    nativeSubtitles.replaceChildren(
+      nativeLine("生徒が起こした騒動については", null, null),
+      nativeLine("不問ということにいたしましょう", null, null),
+    );
+  }, 100);
+  setTimeout(() => {
+    video.currentTime = 44;
+    nativeSubtitles.replaceChildren(
+      nativeLine("不問ということにいたしましょう", null, null),
+    );
+  }, 200);
 });
 
 document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click", () => {

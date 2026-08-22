@@ -138,6 +138,44 @@ describe("NetflixAdapter", () => {
     adapter.destroy();
   });
 
+  it("conserve une phrase longue quand Netflix fait défiler ses deux lignes", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    video.currentTime = 40;
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    addLine(timedtext, "生徒が起こした騒動については", null, null);
+    await flushCueDebounce();
+    const phrase = received.at(-1)?.[0];
+
+    video.currentTime = 42;
+    timedtext.replaceChildren();
+    addLine(timedtext, "生徒が起こした騒動については", null, null);
+    addLine(timedtext, "不問ということにいたしましょう", null, null);
+    await flushCueDebounce();
+
+    video.currentTime = 44;
+    timedtext.replaceChildren();
+    addLine(timedtext, "不問ということにいたしましょう", null, null);
+    await flushCueDebounce();
+
+    expect(received.at(-1)?.[0]).toBe(phrase);
+    expect(phrase).toMatchObject({
+      start: 39.85,
+      endConfirmed: false,
+      text: "生徒が起こした騒動については\n不問ということにいたしましょう",
+    });
+
+    video.currentTime = 46;
+    timedtext.replaceChildren();
+    await flushCueDebounce();
+    expect(phrase).toMatchObject({ end: 46, endConfirmed: true });
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
   it("finalise un cue sans timestamps lors de sa disparition réelle", async () => {
     const { video, timedtext } = installNetflixPlayer();
     video.currentTime = 30;
