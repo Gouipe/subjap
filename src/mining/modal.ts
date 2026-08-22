@@ -20,6 +20,7 @@ const MODAL_ID = "subjap-mining-modal";
 interface MiningState {
   cue: RenderedCue;
   targetToken: SpanToken;
+  lemmaReading: string;
   episodeContext: EpisodeContext;
   definitions: string[];
   selectedDefinitions: Set<number>;
@@ -73,12 +74,14 @@ export class MiningModal {
   open(state: {
     cue: RenderedCue;
     targetToken: SpanToken;
+    lemmaReading: string;
     episodeContext: EpisodeContext;
     definitions: string[];
   }): void {
     this.state = {
       cue: state.cue,
       targetToken: state.targetToken,
+      lemmaReading: state.lemmaReading,
       episodeContext: state.episodeContext,
       definitions: state.definitions,
       selectedDefinitions: new Set(state.definitions.map((_, i) => i)),
@@ -218,9 +221,9 @@ export class MiningModal {
            </ul>`
         : "";
 
-    const readingHtml = targetToken.token.reading
+    const readingHtml = this.state.lemmaReading
       ? `<div class="subjap-label">Reading</div>
-         <div class="subjap-reading">${escapeHtml(targetToken.token.reading)}</div>`
+         <div class="subjap-reading">${escapeHtml(this.state.lemmaReading)}</div>`
       : "";
 
     const audioInfo = this.state.wordAudioDataUrl
@@ -265,7 +268,7 @@ export class MiningModal {
     if (!this.state) return;
     try {
       const result = await sendMessage("tts:generate", {
-        text: this.state.targetToken.token.reading || this.state.targetToken.token.surface,
+        text: this.state.lemmaReading || this.state.targetToken.token.lemma,
       });
       this.state.wordAudioDataUrl = result.dataUrl;
       const preview = new Audio(result.dataUrl);
@@ -320,7 +323,7 @@ export class MiningModal {
         sentenceReading: "",
         targetWord: targetToken.token.lemma,
         targetSurface: targetToken.token.surface,
-        targetReading: targetToken.token.reading,
+        targetReading: this.state.lemmaReading,
         definitions: selectedDefs,
         audioDataUrl: phraseAudioDataUrl,
         screenshotDataUrl: this.state.screenshotDataUrl ?? undefined,
@@ -346,7 +349,7 @@ export class MiningModal {
           try {
             wordAudioDataUrl = (
               await sendMessage("tts:generate", {
-                text: targetToken.token.reading || targetToken.token.surface,
+                text: this.state.lemmaReading || targetToken.token.lemma,
               })
             ).dataUrl;
           } catch (err) {
@@ -364,8 +367,8 @@ export class MiningModal {
             deckName,
             modelName: "Migaku Memory",
             fields: {
-              Mot: formatMigakuWord(targetToken.token.surface, targetToken.token.reading),
-              Lecture: targetToken.token.reading,
+              Mot: formatMigakuWord(targetToken.token.lemma, this.state.lemmaReading),
+              Lecture: this.state.lemmaReading,
               Phrase: formatMigakuSentence(cue, targetToken),
               Traduction: "",
               Définitions: formatMigakuDefinitions(selectedDefs),

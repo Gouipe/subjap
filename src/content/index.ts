@@ -489,6 +489,7 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   miningModal.open({
     cue: rendered,
     targetToken: targetSpan,
+    lemmaReading: entry?.reading || targetSpan.token.reading,
     episodeContext: source,
     definitions: entry?.senses.flatMap((sense) => sense.glosses) ?? [],
   });
