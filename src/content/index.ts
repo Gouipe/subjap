@@ -70,6 +70,16 @@ onMessage("tabCapture:stream", async ({ streamId }) => {
   return {};
 });
 
+// tabCapture mutes the source tab. The AudioContext that restores the sound
+// may be created asynchronously after the popup closes, so Chrome can leave
+// it suspended. Any real interaction in the Netflix tab is a valid media
+// activation and lets us resume it without another SubJap button.
+const resumeTabAudio = (): void => {
+  audioCapture?.resume();
+};
+document.addEventListener("pointerdown", resumeTabAudio, true);
+document.addEventListener("keydown", resumeTabAudio, true);
+
 /** Effective overlay options (loaded from storage, live-updated). */
 let overlayOptions: OverlayOptions = DEFAULT_OPTIONS;
 
@@ -595,6 +605,8 @@ window.addEventListener(
   "pagehide",
   () => {
     removePlaybackShortcuts();
+    document.removeEventListener("pointerdown", resumeTabAudio, true);
+    document.removeEventListener("keydown", resumeTabAudio, true);
     audioCapture?.destroy();
     audioCapture = null;
   },
