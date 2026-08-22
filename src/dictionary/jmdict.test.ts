@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from "vitest";
-import { convertJmdictWord, parseTar } from "./jmdict";
+import { convertJmdictWord, JMDICT_PACKS, parseTar } from "./jmdict";
 
 interface TarFile {
   name: string;
@@ -134,5 +134,21 @@ describe("parseTar", () => {
     const files = parseTar(tar);
 
     expect(files.get("big.json")?.length).toBe(600);
+  });
+});
+
+describe("JMDICT_PACKS", () => {
+  it("pins each asset to the release with the same version", () => {
+    for (const pack of JMDICT_PACKS) {
+      const url = new URL(pack.url);
+      const match = url.pathname.match(
+        /^\/scriptin\/jmdict-simplified\/releases\/download\/([^/]+)\/jmdict-eng(?:-common)?-(.+)\.json\.tgz$/,
+      );
+
+      expect(match, pack.url).not.toBeNull();
+      expect(decodeURIComponent(match?.[1] ?? ""), pack.url).toBe(
+        decodeURIComponent(match?.[2] ?? ""),
+      );
+    }
   });
 });
