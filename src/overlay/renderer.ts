@@ -9,6 +9,7 @@ import type {
   SubtitleCue,
 } from "@/core/types";
 import { DEFAULT_OPTIONS } from "@/core/options";
+import { toHiragana } from "@/core/kana";
 
 const CONTAINER_ID = "subjap-overlay-container";
 const STYLE_ID = "subjap-overlay-styles";
@@ -43,10 +44,10 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      align-items: center;
-      column-gap: 0.2em;
+      align-items: flex-end;
+      column-gap: 0.16em;
       margin: 0;
-      padding: 0;
+      padding: 0.08em 0.16em 0.12em;
       pointer-events: auto;
       font-size: ${opts.fontSize}px;
       font-family: ${opts.fontFamily};
@@ -54,10 +55,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       white-space: normal;
       overflow-wrap: break-word;
       text-shadow:
-        -1px -1px 0 #000,
-         1px -1px 0 #000,
-        -1px  1px 0 #000,
-         1px  1px 0 #000;
+        0 2px 4px rgba(0, 0, 0, 0.95),
+        0 0 1px #000,
+        0 0 8px rgba(0, 0, 0, 0.55);
     }
     #${CONTAINER_ID} .subjap-cue-line + .subjap-cue-line {
       margin-top: 4px;
@@ -67,11 +67,18 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       flex-direction: column;
       align-items: center;
       min-width: 0;
+      white-space: nowrap;
+      padding-inline: 0.02em;
       cursor: pointer;
-      transition: color 0.15s;
+      border-radius: 0.16em;
+      transition: color 0.15s, background-color 0.15s;
     }
     #${CONTAINER_ID} .subjap-token:hover {
       color: #facc15;
+      background-color: rgba(250, 204, 21, 0.16);
+    }
+    #${CONTAINER_ID} .subjap-token--punctuation {
+      margin-left: -0.16em;
     }
     #${CONTAINER_ID} .subjap-known {
       color: ${opts.highlightKnown ? opts.knownColor : "#ffffff"};
@@ -84,8 +91,12 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       /* Furigana sits above its word, not below it. */
       order: -1;
       font-size: ${Math.round(opts.fontSize * 0.45)}px;
-      line-height: 1.2;
-      color: #cbd5e1;
+      line-height: 1;
+      margin-bottom: 0.08em;
+      color: #e2e8f0;
+      font-weight: 500;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 1px #000;
     }
   `;
   document.head.appendChild(style);
@@ -192,8 +203,15 @@ export class OverlayRenderer {
   private buildTokenSpan(st: SpanToken): HTMLSpanElement {
     const span = document.createElement("span");
     span.className = "subjap-token";
+    if (
+      st.token.partOfSpeech.includes("記号") ||
+      /^[、。！？!?.,，．：；「」『』（）()…]+$/.test(st.token.surface)
+    ) {
+      span.classList.add("subjap-token--punctuation");
+    }
+    const reading = toHiragana(st.token.reading);
     span.dataset.lemma = st.token.lemma;
-    span.dataset.reading = st.token.reading;
+    span.dataset.reading = reading;
     span.dataset.surface = st.token.surface;
     span.dataset.pos = st.token.partOfSpeech.join(",");
     span.dataset.index = String(st.index);
@@ -211,10 +229,10 @@ export class OverlayRenderer {
     span.textContent = st.token.surface;
 
     // Optionally append furigana
-    if (this.options.showFurigana && st.token.reading && st.token.reading !== st.token.surface) {
+    if (this.options.showFurigana && reading && reading !== st.token.surface) {
       const ruby = document.createElement("span");
       ruby.className = "subjap-furigana";
-      ruby.textContent = st.token.reading;
+      ruby.textContent = reading;
       span.appendChild(ruby);
     }
 
