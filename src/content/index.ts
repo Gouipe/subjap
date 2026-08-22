@@ -86,8 +86,8 @@ let overlayOptions: OverlayOptions = DEFAULT_OPTIONS;
 
 /**
  * Apply the user's native-subtitles preference to the platform adapter.
- * Hides the Japanese native track when `hideNativeSubtitles` is on (the
- * overlay replaces it), restores it otherwise. Idempotent.
+ * Hides the native tracks when `hideNativeSubtitles` is on (the overlay
+ * replaces them), restores them otherwise. Idempotent.
  */
 function applyNativeSubtitleVisibility(): void {
   if (!overlayOptions.hideNativeSubtitles) {
@@ -287,7 +287,7 @@ function ensureOverlay(): OverlayRenderer | null {
 
 async function handleCues(cues: SubtitleCue[]): Promise<void> {
   const signature = cues
-    .map((cue) => `${cue.id}\u0000${cue.text}`)
+    .map((cue) => `${cue.language ?? ""}\u0000${cue.id}\u0000${cue.text}`)
     .join("\u0001");
   if (signature === lastSignature) return;
   lastCues = cues;
@@ -303,8 +303,11 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   // (the adapter re-emits when it finds the video).
   lastSignature = signature;
 
-  // The overlay replaces native Japanese subtitles (unless the user opted to
-  // keep them visible). The overlay stays on screen while paused — pausing is
+  const japaneseCues = cues.filter((cue) => isJapaneseTrack(cue.language));
+  const translationCue = selectTranslationCue(cues);
+
+  // The overlay replaces native subtitles (unless the user opted to keep them
+  // visible). The overlay stays on screen while paused — pausing is
   // when the learner wants to read the sentence.
   applyNativeSubtitleVisibility();
 
@@ -315,7 +318,8 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   clearHoverTimer();
   hoveredToken = null;
 
-  if (cues.length === 0) {
+  if (japaneseCues.length === 0) {
+    overlayInstance.updateTranslation(null);
     overlayInstance.hide();
     spanRegistry.clear();
     lastRenderedCues = [];
@@ -337,7 +341,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   const tokenizedCues: Array<{ cue: SubtitleCue; tokens: Token[] }> = [];
   const allTokens: Token[] = [];
 
-  for (const cue of cues) {
+  for (const cue of japaneseCues) {
     // Normalize markup, then segment into sentence-sized chunks so the
     // tokenizer LRU cache hits across repeated sentences.
     const sentences = splitIntoSentences(normalizeCueText(cue.text));
@@ -391,9 +395,26 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   lastRenderedCues = rendered;
   overlayInstance.setKnownWordCount(resolvedKnownWordCount);
   overlayInstance.updateCues(rendered);
+  overlayInstance.updateTranslation(
+    translationCue
+      ? { text: translationCue.text, language: translationCue.language ?? "" }
+      : null,
+  );
   overlayInstance.show();
-  cueNavigator.observe(cues);
+  cueNavigator.observe(japaneseCues);
   console.log(`[SubJap] render: shown ${rendered.length} cue(s)`);
+}
+
+function isJapaneseTrack(language: string | undefined): boolean {
+  return /^ja(?:[-_]|$)/i.test(language ?? "");
+}
+
+function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {
+  return (
+    cues.find((cue) => /^fr(?:[-_]|$)/i.test(cue.language ?? "")) ??
+    cues.find((cue) => /^en(?:[-_]|$)/i.test(cue.language ?? "")) ??
+    null
+  );
 }
 
 // ---------------------------------------------------------------------------

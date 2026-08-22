@@ -38,6 +38,14 @@ const manifest: ManifestV3Export = {
   },
   content_scripts: [
     {
+      // The page-world hook must run before Netflix parses playback metadata;
+      // the isolated content script remains responsible for rendering.
+      matches: ["*://*.netflix.com/*"],
+      js: ["src/netflix-bridge-entry.ts"],
+      run_at: "document_start",
+      world: "MAIN",
+    },
+    {
       matches: [
         "*://*.netflix.com/*",
         "*://*.youtube.com/*",

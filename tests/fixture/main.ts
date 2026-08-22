@@ -9,6 +9,7 @@ import type {
   DictionaryEntry,
   RenderedCue,
   SubtitleCue,
+  SubtitleTranslation,
   Token,
 } from "../../src/core/types";
 
@@ -33,6 +34,7 @@ const cueNavigator = new CueNavigator();
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let currentCues: SubtitleCue[] = [];
+let currentTranslation: SubtitleTranslation | null = null;
 // One known word gives deterministic green/blue/orange frequency bands.
 let knownLemmas = new Set<string>(["日本語"]);
 const frequencyRanks = new Map<string, number>([
@@ -144,15 +146,17 @@ function ensureOverlay(): OverlayRenderer | null {
 
 function render(cues: SubtitleCue[]): void {
   currentCues = cues;
-  status.dataset.cue = cues[0]?.text ?? "";
-  status.dataset.cueStart = String(cues[0]?.start ?? "");
+  const japaneseCues = cues.filter((cue) => /^ja(?:[-_]|$)/i.test(cue.language ?? ""));
+  status.dataset.cue = japaneseCues[0]?.text ?? "";
+  status.dataset.cueStart = String(japaneseCues[0]?.start ?? "");
   const renderer = ensureOverlay();
   if (!renderer) {
     setStatus("Aucune vidéo détectée");
     return;
   }
-  if (cues.length === 0) {
+  if (japaneseCues.length === 0) {
     renderer.updateCues([]);
+    renderer.updateTranslation(null);
     renderer.hide();
     hidePopover();
     cueNavigator.observe([]);
@@ -160,10 +164,11 @@ function render(cues: SubtitleCue[]): void {
     return;
   }
   renderer.setKnownWordCount(knownLemmas.size);
-  renderer.updateCues(cues.map(renderedCue));
+  renderer.updateCues(japaneseCues.map(renderedCue));
+  renderer.updateTranslation(currentTranslation);
   renderer.show();
-  cueNavigator.observe(cues);
-  setStatus(`Cues reçus : ${cues.length} — overlay visible`);
+  cueNavigator.observe(japaneseCues);
+  setStatus(`Cues reçus : ${japaneseCues.length} — overlay visible`);
 }
 
 const popoverCallbacks = {
@@ -246,7 +251,14 @@ document.addEventListener("mouseout", (event) => {
 
 document.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", () => {
   activeTokens = tokens;
+  currentTranslation = null;
   nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。"));
+});
+
+document.querySelector<HTMLButtonElement>("#bilingual")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  currentTranslation = { language: "fr", text: "J’étudie le japonais." };
+  nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。", "12", "16"));
 });
 
 document.querySelector<HTMLButtonElement>("#untimed")!.addEventListener("click", () => {
@@ -327,6 +339,7 @@ document.querySelector<HTMLButtonElement>("#mine")!.addEventListener("click", ()
 });
 
 document.querySelector<HTMLButtonElement>("#clear")!.addEventListener("click", () => {
+  currentTranslation = null;
   nativeSubtitles.replaceChildren();
 });
 

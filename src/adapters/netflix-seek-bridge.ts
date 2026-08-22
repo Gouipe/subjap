@@ -48,6 +48,11 @@ export class NetflixSeekBridge implements NetflixSeekTransport {
     return operation;
   }
 
+  /** Install the page-world bridge early enough to observe later Netflix data. */
+  prepare(): Promise<boolean> {
+    return this.ensureBridge();
+  }
+
   private async seekOnce(
     timeSeconds: number,
     resume: boolean,

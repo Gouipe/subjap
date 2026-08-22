@@ -17,6 +17,11 @@ export interface SubtitleCue {
   language?: string;
 }
 
+export interface SubtitleTranslation {
+  text: string;
+  language: string;
+}
+
 export interface EpisodeContext {
   platform: PlatformId;
   title: string;
@@ -251,6 +256,6 @@ export interface OverlayOptions {
   highlightKnown: boolean;
   /** Colour for unknown words within the learner's known-vocabulary rank. */
   knownColor: string;
-  /** Hide the platform's native Japanese subtitle track (the overlay replaces it). */
+  /** Hide the platform's native subtitle tracks (the overlay replaces them). */
   hideNativeSubtitles: boolean;
 }

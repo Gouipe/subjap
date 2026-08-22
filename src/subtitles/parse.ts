@@ -8,7 +8,7 @@
 
 import type { SubtitleCue } from "@/core/types";
 
-export type SubtitleFormat = "srt" | "vtt" | "ass";
+export type SubtitleFormat = "srt" | "vtt" | "ass" | "ttml";
 
 // ── Timestamps ─────────────────────────────────────────────────────────────
 
@@ -87,12 +87,14 @@ function scanBlocks(
 /** Convert scanned blocks into SubtitleCue objects. */
 function toCues(
   blocks: { start: number; end: number; text: string; id: string }[],
+  language?: string,
 ): SubtitleCue[] {
   return blocks.map((b) => ({
     id: b.id,
     start: b.start,
     end: b.end,
     text: b.text,
+    language,
   }));
 }
 
@@ -168,6 +170,58 @@ export function parseASS(content: string): SubtitleCue[] {
   return cues;
 }
 
+/** Parse the TTML/DFXP timed-text documents used by Netflix. */
+export function parseTTML(content: string, language?: string): SubtitleCue[] {
+  const cues: SubtitleCue[] = [];
+  const root = content.match(/<tt\b([^>]*)>/i)?.[1] ?? "";
+  const tickRate = Number(root.match(/\btickRate=["']([^"']+)["']/i)?.[1]) || 1;
+
+  const parseTime = (raw: string | undefined): number | null => {
+    if (!raw) return null;
+    const value = raw.trim().replace(",", ".");
+    const clock = value.match(/^(?:(\d+):)?(\d{1,2}):(\d{2})(?:\.(\d+))?$/);
+    if (clock) {
+      const hours = Number(clock[1] ?? 0);
+      const minutes = Number(clock[2]);
+      const seconds = Number(clock[3]);
+      const fraction = clock[4] ? Number(`0.${clock[4]}`) : 0;
+      return hours * 3600 + minutes * 60 + seconds + fraction;
+    }
+    const unit = value.match(/^([\d.]+)(h|m|ms|s|t)$/i);
+    if (!unit) return null;
+    const amount = Number(unit[1]);
+    switch (unit[2]?.toLowerCase()) {
+      case "h": return amount * 3600;
+      case "m": return amount * 60;
+      case "ms": return amount / 1000;
+      case "t": return amount / tickRate;
+      default: return amount;
+    }
+  };
+
+  const pPattern = /<(?:(?:[\w-]+):)?p\b([^>]*)>([\s\S]*?)<\/(?:(?:[\w-]+):)?p>/gi;
+  let match: RegExpExecArray | null;
+  let index = 0;
+  while ((match = pPattern.exec(content))) {
+    const attrs = match[1] ?? "";
+    const begin = attrs.match(/\bbegin=["']([^"']+)["']/i)?.[1];
+    const end = attrs.match(/\bend=["']([^"']+)["']/i)?.[1];
+    const dur = attrs.match(/\bdur=["']([^"']+)["']/i)?.[1];
+    const start = parseTime(begin);
+    const parsedEnd = parseTime(end);
+    const duration = parseTime(dur);
+    const cueEnd = parsedEnd ?? (start !== null && duration !== null ? start + duration : null);
+    const text = (match[2] ?? "")
+      .replace(/<(?:(?:[\w-]+):)?br\s*\/?\s*>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    if (start === null || cueEnd === null || !text) continue;
+    index += 1;
+    cues.push({ id: `ttml-${index}`, start, end: cueEnd, text, language });
+  }
+  return cues;
+}
+
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 /** Detect the subtitle format from the filename and/or content. */
@@ -179,10 +233,12 @@ export function detectFormat(
   if (ext === "srt") return "srt";
   if (ext === "vtt" || ext === "webvtt") return "vtt";
   if (ext === "ass" || ext === "ssa") return "ass";
+  if (ext === "ttml" || ext === "dfxp" || ext === "xml") return "ttml";
 
   // Sniff content when the extension is missing/unknown.
   if (content.trimStart().startsWith("WEBVTT")) return "vtt";
   if (/^\[Script Info\]/m.test(content)) return "ass";
+  if (/<tt\b|<timedtext\b/i.test(content)) return "ttml";
   if (/\d{1,2}:\d{2}:\d{2}[.,]\d{3}\s*-->/.test(content)) return "srt";
   return null;
 }
@@ -200,6 +256,8 @@ export function parseSubtitleFile(
       return parseVTT(content);
     case "ass":
       return parseASS(content);
+    case "ttml":
+      return parseTTML(content);
     default:
       return [];
   }
