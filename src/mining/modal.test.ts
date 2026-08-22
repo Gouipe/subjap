@@ -4,13 +4,16 @@ import type { EpisodeContext, RenderedCue, SpanToken } from "@/core/types";
 const { captureFrameMock } = vi.hoisted(() => ({
   captureFrameMock: vi.fn(),
 }));
+const { sendMessageMock } = vi.hoisted(() => ({
+  sendMessageMock: vi.fn(),
+}));
 
 vi.mock("./capture", () => ({
   captureFrame: captureFrameMock,
 }));
 
 vi.mock("@/core/messaging", () => ({
-  sendMessage: vi.fn(),
+  sendMessage: sendMessageMock,
 }));
 
 import { MiningModal } from "./modal";
@@ -20,6 +23,16 @@ describe("MiningModal", () => {
     document.body.innerHTML = "";
     captureFrameMock.mockReset();
     captureFrameMock.mockResolvedValue("data:image/jpeg;base64,fixture");
+    sendMessageMock.mockReset();
+    sendMessageMock.mockResolvedValue({ dataUrl: "data:audio/wav;base64,fixture" });
+    vi.stubGlobal(
+      "Audio",
+      class {
+        play(): Promise<void> {
+          return Promise.resolve();
+        }
+      },
+    );
   });
 
   it("captures the video frame when the modal opens", async () => {
@@ -51,6 +64,10 @@ describe("MiningModal", () => {
       expect(captureFrameMock).toHaveBeenCalledWith(video);
       expect(document.querySelector(".subjap-screenshot-info")?.textContent).toContain(
         "✓ Screenshot captured",
+      );
+      expect(sendMessageMock).toHaveBeenCalledWith("tts:generate", { text: "やくそく" });
+      expect(document.querySelector(".subjap-audio-info")?.textContent).toContain(
+        "✓ Word audio ready",
       );
     });
   });

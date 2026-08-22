@@ -93,6 +93,7 @@ export class MiningModal {
     const modalState = this.state;
     this.render();
     this.registerKeyboard();
+    void this.generateAudio();
     void this.captureScreenshot().finally(() => {
       if (this.state === modalState) this.show();
     });
@@ -267,14 +268,23 @@ export class MiningModal {
   // ── Actions ─────────────────────────────────────────────────────────────
 
   private async generateAudio(): Promise<void> {
-    if (!this.state) return;
+    const state = this.state;
+    if (!state) return;
     try {
       const result = await sendMessage("tts:generate", {
-        text: this.state.lemmaReading || this.state.targetToken.token.lemma,
+        text: state.lemmaReading || state.targetToken.token.lemma,
       });
-      this.state.wordAudioDataUrl = result.dataUrl;
+      // Ignore a late response if the modal was closed and reopened for a
+      // different card while VOICEVOX was synthesizing.
+      if (this.state !== state) return;
+      state.wordAudioDataUrl = result.dataUrl;
       const preview = new Audio(result.dataUrl);
-      void preview.play().catch(() => undefined);
+      try {
+        void Promise.resolve(preview.play()).catch(() => undefined);
+      } catch {
+        // Preview playback can be blocked by autoplay policy; the data URL
+        // remains available for Anki regardless.
+      }
       this.render();
     } catch (err) {
       console.error("[SubJap] VOICEVOX word audio failed:", err);
