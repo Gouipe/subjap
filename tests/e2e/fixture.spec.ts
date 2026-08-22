@@ -203,4 +203,50 @@ test.describe("SubJap UX fixture", () => {
     await page.keyboard.press("s");
     await expect(video).toHaveJSProperty("currentTime", 0);
   });
+
+  test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({
+    page,
+  }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+    const pageBody = page.locator("body");
+
+    await expect(status).toHaveAttribute("data-cue", "待ってください。");
+    await page.getByTestId("clear-cue").click();
+    await expect(page.locator("#subjap-overlay-container")).toBeHidden();
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 20;
+    });
+    await page.getByTestId("untimed-cue").click();
+
+    // Simulate playback continuing during the adapter's 60 ms debounce.
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 20.5;
+    });
+    await expect(status).toHaveAttribute("data-cue", "日本語を勉強します。");
+
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 21;
+    });
+    await pageBody.press("s");
+    await expect(video).toHaveJSProperty("currentTime", 19.85);
+
+    // Netflix clears then rebuilds timed text after a seek. Repeated S must
+    // retain the first anchor rather than adopting a new fallback timestamp.
+    await page.getByTestId("clear-cue").click();
+    await expect(status).toHaveAttribute("data-cue", "");
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 20.2;
+    });
+    await page.getByTestId("untimed-cue").click();
+    await expect(status).toHaveAttribute("data-cue", "日本語を勉強します。");
+    await video.evaluate((element) => {
+      (element as HTMLVideoElement).currentTime = 21;
+    });
+
+    await pageBody.press("s");
+    await pageBody.press("s");
+    await pageBody.press("s");
+    await expect(video).toHaveJSProperty("currentTime", 19.85);
+  });
 });

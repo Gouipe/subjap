@@ -3,6 +3,7 @@ import type { PlatformAdapter, SubtitleCue } from "@/core/types";
 export type CueShortcutAction = "previous" | "current" | "next";
 
 const NEXT_CUE_OFFSET_SECONDS = 0.05;
+const REEMITTED_CUE_TOLERANCE_SECONDS = 1;
 
 /**
  * Keeps the subtitle cues observed during playback so keyboard navigation can
@@ -11,10 +12,13 @@ const NEXT_CUE_OFFSET_SECONDS = 0.05;
 export class CueNavigator {
   private currentCues: SubtitleCue[] = [];
   private observedCues = new Map<string, SubtitleCue>();
+  /** Logical destination retained while Netflix rebuilds timed text after seek. */
+  private seekAnchor: SubtitleCue | null = null;
 
   observe(cues: SubtitleCue[]): void {
-    this.currentCues = cues;
-    for (const cue of cues) {
+    const observed = this.canonicalizeCues(this.applySeekAnchor(cues));
+    this.currentCues = observed;
+    for (const cue of observed) {
       this.observedCues.set(this.keyFor(cue), cue);
     }
   }
@@ -22,23 +26,38 @@ export class CueNavigator {
   reset(): void {
     this.currentCues = [];
     this.observedCues.clear();
+    this.seekAnchor = null;
   }
 
   getSeekTime(action: CueShortcutAction, currentTime: number): number | null {
-    const current = this.findCurrentCue(currentTime);
+    const current = this.seekAnchor ?? this.findCurrentCue(currentTime);
     if (!current) return null;
 
-    if (action === "current") return current.start;
+    if (action === "current") {
+      this.seekAnchor = current;
+      return current.start;
+    }
 
     const ordered = [...this.observedCues.values()].sort((a, b) => a.start - b.start);
 
     if (action === "previous") {
       const previous = [...ordered].reverse().find((cue) => cue.start < current.start);
+      this.seekAnchor = previous ?? null;
       return previous?.start ?? null;
     }
 
     const next = ordered.find((cue) => cue.start > current.start);
-    return next?.start ?? Math.max(current.end, currentTime) + NEXT_CUE_OFFSET_SECONDS;
+    if (next) {
+      this.seekAnchor = next;
+      return next.start;
+    }
+
+    this.seekAnchor = current;
+    return Math.max(current.end, currentTime) + NEXT_CUE_OFFSET_SECONDS;
+  }
+
+  cancelPendingSeek(): void {
+    this.seekAnchor = null;
   }
 
   private findCurrentCue(currentTime: number): SubtitleCue | null {
@@ -55,6 +74,41 @@ export class CueNavigator {
 
   private keyFor(cue: SubtitleCue): string {
     return `${cue.id}\u0000${cue.start}\u0000${cue.end}\u0000${cue.text}`;
+  }
+
+  private applySeekAnchor(cues: SubtitleCue[]): SubtitleCue[] {
+    const anchor = this.seekAnchor;
+    if (!anchor || cues.length === 0) return cues;
+
+    let matched = false;
+    const stabilized = cues.map((cue) => {
+      if (
+        cue.text !== anchor.text ||
+        cue.language !== anchor.language ||
+        Math.abs(cue.start - anchor.start) > REEMITTED_CUE_TOLERANCE_SECONDS
+      ) {
+        return cue;
+      }
+      matched = true;
+      return anchor;
+    });
+
+    if (!matched) this.seekAnchor = null;
+    return stabilized;
+  }
+
+  private canonicalizeCues(cues: SubtitleCue[]): SubtitleCue[] {
+    const observed = [...this.observedCues.values()];
+    return cues.map((cue) => {
+      const equivalent = observed.find(
+        (candidate) =>
+          candidate.text === cue.text &&
+          candidate.language === cue.language &&
+          Math.abs(candidate.start - cue.start) <=
+            REEMITTED_CUE_TOLERANCE_SECONDS,
+      );
+      return equivalent ?? cue;
+    });
   }
 }
 
@@ -85,6 +139,9 @@ export function installPlaybackShortcuts(
   adapter: Pick<PlatformAdapter, "getCurrentTime" | "seekTo">,
   navigator: CueNavigator,
 ): () => void {
+  let removed = false;
+  let seekQueue: Promise<void> = Promise.resolve();
+
   const onKeydown = (event: KeyboardEvent): void => {
     if (
       event.repeat ||
@@ -99,22 +156,28 @@ export function installPlaybackShortcuts(
     const action = shortcutActionForKey(event.key);
     if (!action) return;
 
-    const seekTime = navigator.getSeekTime(action, adapter.getCurrentTime());
-    if (seekTime === null) return;
-
     event.preventDefault();
-    void adapter
-      .seekTo(seekTime, true)
-      .then((accepted) => {
-        if (!accepted) {
-          console.warn("[SubJap] Playback seek was not accepted by the adapter");
-        }
-      })
-      .catch((err: unknown) => {
+    const runSeek = async (): Promise<void> => {
+      if (removed) return;
+      const seekTime = navigator.getSeekTime(action, adapter.getCurrentTime());
+      if (seekTime === null) return;
+
+      try {
+        const accepted = await adapter.seekTo(seekTime, true);
+        if (accepted) return;
+        navigator.cancelPendingSeek();
+        console.warn("[SubJap] Playback seek was not accepted by the adapter");
+      } catch (err: unknown) {
+        navigator.cancelPendingSeek();
         console.warn("[SubJap] Playback seek failed:", err);
-      });
+      }
+    };
+    seekQueue = seekQueue.then(runSeek, runSeek);
   };
 
   doc.addEventListener("keydown", onKeydown, true);
-  return () => doc.removeEventListener("keydown", onKeydown, true);
+  return () => {
+    removed = true;
+    doc.removeEventListener("keydown", onKeydown, true);
+  };
 }
