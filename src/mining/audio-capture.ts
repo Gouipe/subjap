@@ -198,7 +198,6 @@ export class VideoAudioCapture {
   async capturePhrase(start: number, end: number, marginSeconds = 0.3): Promise<string | undefined> {
     if (end <= start) return undefined;
     if (!this.tabVideo) await this.startTabCapture();
-    if (!this.tabVideo) return this.captureSegment(start, end, marginSeconds);
 
     const from = Math.max(0, start - marginSeconds);
     const to = end + marginSeconds;
