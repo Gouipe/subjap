@@ -332,6 +332,22 @@ onMessage("tabCapture:prepare", async ({ tabId }) => {
   return { ready: true };
 });
 
+async function ensureAudioOffscreen(): Promise<void> {
+  if (await chrome.offscreen.hasDocument()) return;
+
+  await chrome.offscreen.createDocument({
+    url: "src/offscreen/index.html",
+    reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.AUDIO_PLAYBACK],
+    justification: "Route the captured Netflix audio back to the speakers.",
+  });
+}
+
+onMessage("tabCapture:offscreen", async ({ streamId }) => {
+  await ensureAudioOffscreen();
+  await chrome.runtime.sendMessage({ type: "tabCapture:offscreenStream", streamId });
+  return { ready: true };
+});
+
 // ── anki:status ───────────────────────────────────────────────────────────
 
 onMessage("anki:status", async () => {

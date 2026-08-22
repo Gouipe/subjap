@@ -165,6 +165,10 @@ export interface MessageMap {
   "tabCapture:prepareResult": { ready: boolean };
   "tabCapture:stream": { streamId: string };
   "tabCapture:streamResult": Record<string, never>;
+  "tabCapture:offscreen": { streamId: string };
+  "tabCapture:offscreenResult": { ready: boolean };
+  "tabCapture:offscreenStream": { streamId: string };
+  "tabCapture:offscreenStreamResult": Record<string, never>;
 
   // Stats
   "stats:get": Record<string, never>;
