@@ -11,6 +11,24 @@ export type FrequencyHighlight =
   | "unknown";
 
 /**
+ * A sentence is a good mining candidate when it has one useful frequency
+ * hint and no distant (orange) unknown word competing for attention.
+ * Punctuation and parenthetical tokens are represented as null and do not
+ * participate in the decision.
+ */
+export function isSingleMiningCandidate(
+  highlights: readonly (FrequencyHighlight | null)[],
+): boolean {
+  const wordHighlights = highlights.filter(
+    (highlight): highlight is FrequencyHighlight => highlight !== null,
+  );
+  const candidateCount = wordHighlights.filter(
+    (highlight) => highlight === "relevant" || highlight === "near",
+  ).length;
+  return candidateCount === 1 && !wordHighlights.includes("unknown");
+}
+
+/**
  * Classify a token for the subtitle overlay.
  *
  * Known words intentionally stay neutral/white: frequency colours are only

@@ -117,6 +117,46 @@ describe("NetflixAdapter", () => {
     adapter.destroy();
   });
 
+  it("ignore les cues textTracks composées uniquement d’espaces", () => {
+    const { video } = installNetflixPlayer();
+    const blankCue = {
+      id: "blank",
+      startTime: 4,
+      endTime: 5,
+      text: " \u00a0 ",
+    };
+    const meaningfulCue = {
+      id: "meaningful",
+      startTime: 5,
+      endTime: 7,
+      text: "日本語です。",
+    };
+    const track = {
+      language: "ja",
+      mode: "showing",
+      activeCues: [blankCue, meaningfulCue],
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as TextTrack;
+    Object.defineProperty(video, "textTracks", {
+      configurable: true,
+      value: [track],
+    });
+
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    video.dispatchEvent(new Event("cuechange"));
+
+    expect(received.at(-1)).toEqual([
+      expect.objectContaining({ text: "日本語です。", start: 5, end: 7 }),
+    ]);
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
   it("ignore les annotations ruby Netflix dans le texte de la cue", async () => {
     const { timedtext } = installNetflixPlayer();
     addRubyLine(timedtext, "親父", "おやじ");

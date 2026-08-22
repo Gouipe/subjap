@@ -19,7 +19,8 @@ export class CueNavigator {
   private seekAnchor: SubtitleCue | null = null;
 
   observe(cues: SubtitleCue[]): void {
-    const observed = this.canonicalizeCues(this.applySeekAnchor(cues));
+    const meaningfulCues = cues.filter((cue) => normalizeCueText(cue.text).length > 0);
+    const observed = this.canonicalizeCues(this.applySeekAnchor(meaningfulCues));
     this.currentCues = observed;
     for (const cue of observed) {
       this.observedCues.set(this.keyFor(cue), cue);
@@ -29,6 +30,7 @@ export class CueNavigator {
   /** Add authoritative track cues to navigation without rendering them. */
   remember(cues: SubtitleCue[]): void {
     for (const cue of cues) {
+      if (normalizeCueText(cue.text).length === 0) continue;
       this.observedCues.set(this.keyFor(cue), cue);
     }
   }

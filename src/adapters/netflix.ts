@@ -61,6 +61,10 @@ function compactCueText(text: string): string {
   return normalizeCueText(text).replace(/\s+/gu, "");
 }
 
+function hasMeaningfulCueText(text: string): boolean {
+  return normalizeCueText(text).length > 0;
+}
+
 /**
  * Read Netflix's visible subtitle base text without ruby annotations.
  *
@@ -510,10 +514,12 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private composeCues(japanese: SubtitleCue[]): SubtitleCue[] {
-    const japaneseCues = japanese.length
-      ? japanese
-      : this.getActiveTrackCue("ja")
-        ? [this.getActiveTrackCue("ja") as SubtitleCue]
+    const visibleJapanese = japanese.filter((cue) => hasMeaningfulCueText(cue.text));
+    const activeTrackCue = this.getActiveTrackCue("ja");
+    const japaneseCues = visibleJapanese.length
+      ? visibleJapanese
+      : activeTrackCue && hasMeaningfulCueText(activeTrackCue.text)
+        ? [activeTrackCue]
         : [];
     const translation = this.getActiveTranslationCue();
     return translation ? [...japaneseCues, translation] : japaneseCues;
@@ -611,6 +617,7 @@ export class NetflixAdapter implements PlatformAdapter {
         if (!active) continue;
         for (let j = 0; j < active.length; j++) {
           const cue = active[j] as VTTCue;
+          if (!hasMeaningfulCueText(cue.text)) continue;
           cues.push({
             id: cue.id || `${track.language}-${j}-${cue.startTime}`,
             start: cue.startTime,

@@ -11,11 +11,16 @@ import type {
   SubtitleTranslation,
 } from "@/core/types";
 import { DEFAULT_OPTIONS } from "@/core/options";
-import { toHiragana } from "@/core/kana";
-import { getFrequencyHighlight } from "@/core/frequency";
+import { containsKanjiOrKatakana, toHiragana } from "@/core/kana";
+import {
+  getFrequencyHighlight,
+  isSingleMiningCandidate,
+  type FrequencyHighlight,
+} from "@/core/frequency";
 
 const CONTAINER_ID = "subjap-overlay-container";
 const STYLE_ID = "subjap-overlay-styles";
+type MiningCandidateHighlight = "relevant" | "near";
 
 // ── CSS ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +94,27 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       cursor: pointer;
       border-radius: 0.16em;
       transition: color 0.15s, background-color 0.15s;
+    }
+    #${CONTAINER_ID} .subjap-token--mine-candidate {
+      /* Keep the signal local to the word while making it unmistakable. An
+         outline does not change the phrase layout like a border would. */
+      position: relative;
+      z-index: 0;
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 1px transparent;
+    }
+    #${CONTAINER_ID} .subjap-token--mine-candidate--relevant {
+      outline-color: ${opts.highlightKnown ? opts.knownColor : "#22c55e"};
+      box-shadow:
+        0 0 0 1px rgba(34, 197, 94, 0.35),
+        0 0 10px rgba(34, 197, 94, 0.45);
+    }
+    #${CONTAINER_ID} .subjap-token--mine-candidate--near {
+      outline-color: #60a5fa;
+      box-shadow:
+        0 0 0 1px rgba(96, 165, 250, 0.35),
+        0 0 10px rgba(96, 165, 250, 0.45);
     }
     #${CONTAINER_ID} .subjap-token:not(.subjap-token--parenthetical):hover {
       color: #facc15;
@@ -251,22 +277,24 @@ export class OverlayRenderer {
   private buildCueLine(rc: RenderedCue): HTMLDivElement {
     const line = document.createElement("div");
     line.className = "subjap-cue-line";
+    const candidateHighlights = this.getMiningCandidateHighlights(rc);
 
     for (const st of rc.spans) {
-      const span = this.buildTokenSpan(st);
+      const span = this.buildTokenSpan(st, candidateHighlights.get(st.index));
       line.appendChild(span);
     }
 
     return line;
   }
 
-  private buildTokenSpan(st: SpanToken): HTMLSpanElement {
+  private buildTokenSpan(
+    st: SpanToken,
+    candidateHighlight: MiningCandidateHighlight | undefined = undefined,
+  ): HTMLSpanElement {
     const span = document.createElement("span");
     span.className = "subjap-token";
-    const isPunctuation =
-      st.token.partOfSpeech.includes("記号") ||
-      /^[、。！？!?.,，．：；「」『』（）()…]+$/.test(st.token.surface);
-    if (isPunctuation) {
+    const isNonWord = this.isNonWord(st);
+    if (isNonWord) {
       span.classList.add("subjap-token--punctuation");
     }
     const reading = toHiragana(st.token.reading);
@@ -279,8 +307,12 @@ export class OverlayRenderer {
       span.classList.add("subjap-token--parenthetical");
       span.dataset.parenthetical = "true";
     }
+    if (candidateHighlight) {
+      span.classList.add("subjap-token--mine-candidate");
+      span.classList.add(`subjap-token--mine-candidate--${candidateHighlight}`);
+    }
 
-    if (isPunctuation) {
+    if (isNonWord) {
       span.classList.add("subjap-neutral");
     } else {
       const highlight = getFrequencyHighlight(
@@ -307,7 +339,12 @@ export class OverlayRenderer {
     span.textContent = st.token.surface;
 
     // Optionally append furigana
-    if (this.options.showFurigana && reading && reading !== st.token.surface) {
+    if (
+      this.options.showFurigana &&
+      containsKanjiOrKatakana(st.token.surface) &&
+      reading &&
+      reading !== st.token.surface
+    ) {
       const ruby = document.createElement("span");
       ruby.className = "subjap-furigana";
       ruby.textContent = reading;
@@ -315,6 +352,39 @@ export class OverlayRenderer {
     }
 
     return span;
+  }
+
+  private getMiningCandidateHighlights(
+    rc: RenderedCue,
+  ): Map<number, MiningCandidateHighlight> {
+    const highlights: Array<FrequencyHighlight | null> = rc.spans.map((st) => {
+      if (st.isParenthetical || this.isNonWord(st)) return null;
+      return getFrequencyHighlight(
+        st.wordState,
+        st.frequencyRank,
+        this.knownWordCount,
+        st.ankiNoteCount,
+      );
+    });
+    if (!isSingleMiningCandidate(highlights)) return new Map();
+
+    return new Map(
+      rc.spans
+        .flatMap((st, index) => {
+          const highlight = highlights[index];
+          return highlight === "relevant" || highlight === "near"
+            ? [[st.index, highlight]]
+            : [];
+        })
+    );
+  }
+
+  private isNonWord(st: SpanToken): boolean {
+    return (
+      st.token.surface.trim().length === 0 ||
+      st.token.partOfSpeech.includes("記号") ||
+      /^[、。！？!?.,，．：；「」『』（）()…]+$/.test(st.token.surface)
+    );
   }
 
   // ── Mounting ──────────────────────────────────────────────────────────

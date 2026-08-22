@@ -60,6 +60,7 @@ const frequencyRanks = new Map<string, number>(
       { key: "し", rank: 3 },
       { key: "ます", rank: 500 },
       { key: "やばい", rank: 4 },
+      { key: "発表", rank: 1 },
     ],
     [
       { key: "日本語", rank: 8 },
@@ -69,6 +70,7 @@ const frequencyRanks = new Map<string, number>(
       { key: "し", rank: 20 },
       { key: "ます", rank: 900 },
       { key: "やばい", rank: 10 },
+      { key: "発表", rank: 1 },
     ],
   ).map(({ key, rank }) => [key, rank] as const),
 );
@@ -220,6 +222,15 @@ const tokens: Token[] = [
   { surface: "ます", lemma: "ます", reading: "ます", partOfSpeech: ["助動詞"] },
   { surface: "。", lemma: "。", reading: "。", partOfSpeech: ["記号"] },
 ];
+const candidateTokens = tokens.slice(0, 2);
+const greenWhiteTokens: Token[] = [
+  tokens[0]!,
+  { surface: "発表", lemma: "発表", reading: "ハッピョウ", partOfSpeech: ["名詞"] },
+];
+const whitespaceCandidateTokens: Token[] = [
+  { surface: "発表", lemma: "発表", reading: "ハッピョウ", partOfSpeech: ["名詞"] },
+  { surface: " ", lemma: " ", reading: " ", partOfSpeech: ["記号"] },
+];
 const parentheticalTokens: Token[] = [
   { surface: "-（", lemma: "-（", reading: "-（", partOfSpeech: ["記号"] },
   { surface: "田中", lemma: "田中", reading: "タナカ", partOfSpeech: ["名詞"] },
@@ -311,6 +322,10 @@ const mixedAdjectiveTokens: Token[] = [
     reading: "やばくない",
     partOfSpeech: ["形容詞"],
   },
+];
+const furiganaRuleTokens: Token[] = [
+  { surface: "言っ", lemma: "言う", reading: "いっ", partOfSpeech: ["動詞"] },
+  { surface: "てんだ", lemma: "てる", reading: "てるのだ", partOfSpeech: ["助動詞"] },
 ];
 
 function installSimulatedMediaClock(video: HTMLVideoElement): void {
@@ -517,6 +532,24 @@ document.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", ()
   activeTokens = tokens;
   currentTranslation = null;
   nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。"));
+});
+
+document.querySelector<HTMLButtonElement>("#candidate")!.addEventListener("click", () => {
+  activeTokens = candidateTokens;
+  currentTranslation = null;
+  nativeSubtitles.replaceChildren(nativeLine("日本語を", "12", "16"));
+});
+
+document.querySelector<HTMLButtonElement>("#green-white")!.addEventListener("click", () => {
+  activeTokens = greenWhiteTokens;
+  currentTranslation = null;
+  nativeSubtitles.replaceChildren(nativeLine("日本語発表", "12", "16"));
+});
+
+document.querySelector<HTMLButtonElement>("#whitespace-candidate")!.addEventListener("click", () => {
+  activeTokens = whitespaceCandidateTokens;
+  currentTranslation = null;
+  nativeSubtitles.replaceChildren(nativeLine("発表 ", "12", "16"));
 });
 
 document.querySelector<HTMLButtonElement>("#parenthetical")!.addEventListener("click", () => {
@@ -766,6 +799,11 @@ function renderRubyCue(): void {
 document.querySelector<HTMLButtonElement>("#mixed-adjective")!.addEventListener("click", () => {
   activeTokens = mixedAdjectiveTokens;
   nativeSubtitles.replaceChildren(nativeLine("ヤバくない", "16", "20"));
+});
+
+document.querySelector<HTMLButtonElement>("#furigana-rule")!.addEventListener("click", () => {
+  activeTokens = furiganaRuleTokens;
+  nativeSubtitles.replaceChildren(nativeLine("言ってんだ", "16", "20"));
 });
 
 document.querySelector<HTMLButtonElement>("#explanatory")!.addEventListener("click", () => {

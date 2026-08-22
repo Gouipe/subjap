@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getFrequencyHighlight, NEAR_FREQUENCY_WINDOW } from "@/core/frequency";
+import {
+  getFrequencyHighlight,
+  isSingleMiningCandidate,
+  NEAR_FREQUENCY_WINDOW,
+} from "@/core/frequency";
 
 describe("getFrequencyHighlight", () => {
   it("keeps known words neutral even when highly frequent", () => {
@@ -60,5 +64,18 @@ describe("getFrequencyHighlight", () => {
         2,
       ),
     ).toBe("known");
+  });
+
+  it("accepts exactly one green or blue word when no word is orange", () => {
+    expect(
+      isSingleMiningCandidate(["known", "relevant", "learning", null]),
+    ).toBe(true);
+    expect(isSingleMiningCandidate(["known", "near", "learning", null])).toBe(
+      true,
+    );
+    expect(isSingleMiningCandidate(["known", "relevant", "unknown"])).toBe(
+      false,
+    );
+    expect(isSingleMiningCandidate(["known", "relevant", "near"])).toBe(false);
   });
 });

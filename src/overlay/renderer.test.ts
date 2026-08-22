@@ -86,7 +86,7 @@ describe("OverlayRenderer", () => {
 
     const cue = renderedCue();
     cue.spans[0]!.frequencyRank = 1;
-    cue.spans[1]!.frequencyRank = 2;
+    cue.spans[1]!.frequencyRank = 1;
     const overlay = new OverlayRenderer(video);
     overlay.setKnownWordCount(2);
     overlay.updateCues([cue]);
@@ -100,6 +100,98 @@ describe("OverlayRenderer", () => {
     expect(tokens[1]?.classList.contains("subjap-unknown--relevant")).toBe(
       true,
     );
+
+    overlay.destroy();
+  });
+
+  it("encadre le seul mot vert ou bleu quand la phrase n’a aucun orange", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    const cue = renderedCue();
+    cue.spans[1]!.frequencyRank = 1;
+    const overlay = new OverlayRenderer(video);
+    overlay.setKnownWordCount(1);
+    overlay.updateCues([cue]);
+
+    let tokens = document.querySelectorAll(".subjap-token");
+    expect(tokens[0]?.classList.contains("subjap-token--mine-candidate")).toBe(
+      false,
+    );
+    expect(tokens[1]?.classList.contains("subjap-token--mine-candidate")).toBe(
+      true,
+    );
+    expect(
+      tokens[1]?.classList.contains("subjap-token--mine-candidate--relevant"),
+    ).toBe(true);
+
+    cue.spans.push({
+      ...cue.spans[1]!,
+      index: 2,
+      token: {
+        ...cue.spans[1]!.token,
+        surface: "遠い",
+        lemma: "遠い",
+      },
+      frequencyRank: 999,
+    });
+    overlay.updateCues([cue]);
+    tokens = document.querySelectorAll(".subjap-token--mine-candidate");
+    expect(tokens).toHaveLength(0);
+
+    overlay.destroy();
+  });
+
+  it("ignore les tokens d’espacement pour détecter un candidat", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    const cue = renderedCue();
+    cue.spans = [
+      {
+        ...cue.spans[0]!,
+        index: 0,
+        token: {
+          ...cue.spans[0]!.token,
+          surface: "発表",
+          lemma: "発表",
+          reading: "はっぴょう",
+        },
+        wordState: null,
+        frequencyRank: 1,
+      },
+      {
+        ...cue.spans[1]!,
+        index: 1,
+        token: {
+          ...cue.spans[1]!.token,
+          surface: " ",
+          lemma: " ",
+          reading: " ",
+          partOfSpeech: ["記号"],
+        },
+        wordState: null,
+        frequencyRank: undefined,
+      },
+    ];
+    const overlay = new OverlayRenderer(video);
+    overlay.setKnownWordCount(1);
+    overlay.updateCues([cue]);
+
+    expect(
+      document
+        .querySelector('[data-surface="発表"]')
+        ?.classList.contains("subjap-token--mine-candidate"),
+    ).toBe(true);
+    expect(
+      document
+        .querySelector('[data-surface=" "]')
+        ?.classList.contains("subjap-token--punctuation"),
+    ).toBe(true);
 
     overlay.destroy();
   });
@@ -148,6 +240,45 @@ describe("OverlayRenderer", () => {
     expect(
       document.querySelector(".subjap-furigana")?.textContent,
     ).toBe("にほんご");
+
+    overlay.destroy();
+  });
+
+  it("n’ajoute pas de furigana au-dessus d’un token entièrement en hiragana", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    const cue = renderedCue();
+    cue.spans = [
+      {
+        ...cue.spans[0]!,
+        token: {
+          ...cue.spans[0]!.token,
+          surface: "てんだ",
+          reading: "てるのだ",
+        },
+      },
+      {
+        ...cue.spans[0]!,
+        index: 1,
+        token: {
+          ...cue.spans[0]!.token,
+          surface: "コイツ",
+          reading: "こいつ",
+        },
+      },
+    ];
+    const overlay = new OverlayRenderer(video, { showFurigana: true });
+    overlay.updateCues([cue]);
+
+    expect(
+      document.querySelector('[data-surface="てんだ"] .subjap-furigana'),
+    ).toBeNull();
+    expect(
+      document.querySelector('[data-surface="コイツ"] .subjap-furigana')?.textContent,
+    ).toBe("こいつ");
 
     overlay.destroy();
   });

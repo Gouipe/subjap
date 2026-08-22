@@ -31,6 +31,18 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("previous", 111.2)).toBe(105);
   });
 
+  it("ignores whitespace-only cues in navigation history", () => {
+    const navigator = new CueNavigator();
+    const previous = cue("previous", 10, 12);
+    const blank = { ...cue("blank", 13, 14), text: " \u00a0 " };
+    const current = cue("current", 15, 18);
+
+    navigator.remember([previous, blank, current]);
+    navigator.observe([current]);
+
+    expect(navigator.getSeekTime("previous", 16)).toBe(10);
+  });
+
   it("returns the latest observed cue from a gap after subtitles", () => {
     const navigator = new CueNavigator();
     navigator.observe([cue("last", 10, 12)]);

@@ -123,6 +123,19 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("n’affiche le furigana que pour les tokens kanji ou katakana", async ({
+    page,
+  }) => {
+    await page.getByTestId("furigana-rule-cue").click();
+
+    await expect(
+      page.locator('[data-surface="言っ"] .subjap-furigana'),
+    ).toHaveText("いっ");
+    await expect(
+      page.locator('[data-surface="てんだ"] .subjap-furigana'),
+    ).toHaveCount(0);
+  });
+
   test("fait primer KNOWN sur UNKNOWN entre formes lexicales UniDic", async ({
     page,
   }) => {
@@ -206,6 +219,57 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
     await expect(tokens.nth(4)).toHaveCSS("color", "rgb(251, 146, 60)");
     await expect(tokens.nth(3)).toHaveCSS("color", "rgb(192, 132, 252)");
+    await expect(tokens.locator(".subjap-token--mine-candidate")).toHaveCount(0);
+  });
+
+  test("encadre en bleu le seul mot vert ou bleu sans mot orange", async ({
+    page,
+  }) => {
+    await page.getByTestId("candidate-cue").click();
+
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    await expect(tokens).toHaveCount(2);
+    await expect(tokens.nth(0)).not.toHaveClass(/subjap-token--mine-candidate/);
+    await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
+    await expect(tokens.nth(1)).toHaveClass(/subjap-token--mine-candidate/);
+    await expect(tokens.nth(1)).toHaveClass(
+      /subjap-token--mine-candidate--near/,
+    );
+    await expect(tokens.nth(1)).toHaveCSS("outline-width", "2px");
+    await expect(tokens.nth(1)).toHaveCSS(
+      "outline-color",
+      "rgb(96, 165, 250)",
+    );
+  });
+
+  test("encadre en vert un mot vert entouré de mots blancs", async ({ page }) => {
+    await page.getByTestId("green-white-cue").click();
+
+    const candidate = page.locator('[data-surface="発表"]');
+    await expect(candidate).toHaveClass(/subjap-unknown--relevant/);
+    await expect(candidate).toHaveClass(/subjap-token--mine-candidate/);
+    await expect(candidate).toHaveClass(
+      /subjap-token--mine-candidate--relevant/,
+    );
+    await expect(candidate).toHaveCSS("outline-width", "2px");
+    await expect(candidate).toHaveCSS(
+      "outline-color",
+      "rgb(34, 197, 94)",
+    );
+    await expect(page.locator('[data-surface="日本語"]')).not.toHaveClass(
+      /subjap-token--mine-candidate/,
+    );
+  });
+
+  test("ignore un espace invisible dans la détection du candidat", async ({ page }) => {
+    await page.getByTestId("whitespace-candidate-cue").click();
+
+    await expect(page.locator('[data-surface="発表"]')).toHaveClass(
+      /subjap-token--mine-candidate/,
+    );
+    await expect(page.locator('[data-surface=" "]')).toHaveClass(
+      /subjap-token--punctuation/,
+    );
   });
 
   test("ouvre la popover au survol et modifie l’état connu", async ({ page }) => {
@@ -352,6 +416,9 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.first()).toHaveAttribute("data-reading", "やばくない");
     await expect(tokens.first()).toHaveAttribute("data-pos", /形容詞/);
 
+    await page.getByTestId("video-stage").evaluate((stage) => {
+      stage.scrollIntoView({ block: "start" });
+    });
     await tokens.first().hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("ヤバくない");
