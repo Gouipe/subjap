@@ -1,8 +1,5 @@
 # SubJap — instructions projet
 
-Pour tout développement d’une nouvelle fonctionnalité ou toute modification
-d’une fonctionnalité existante, travaille dans un worktree isolé que tu mergeras à master une fois que la fonctionnalité est testée et fonctionne. Ceci pour permettre des devs en parallèles par plusieurs agents.
-
 Quand je te demande de modifier/ajouter une fonctionnalité, brainstormons ensemble la spécification fonctionnelle. Une fois que c'est fait tu peux dev.
 
 Aborde une question à la fois. Sinon c'est trop compliqué pour moi. Donne une recommandation pour me faciliter la tâche.
