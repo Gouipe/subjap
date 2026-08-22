@@ -6,6 +6,8 @@ import { sendMessage } from "@/core/messaging";
 
 const BUFFER_SECONDS = 90;
 const PROCESSOR_BUFFER_SIZE = 4096;
+const PHRASE_CAPTURE_SETTLE_MS = 250;
+const PHRASE_CAPTURE_TIMEOUT_MS = 20000;
 
 interface AudioBlock {
   startVideoTime: number;
@@ -188,6 +190,44 @@ export class VideoAudioCapture {
     return encodeWavDataUrl(output, sampleRate);
   }
 
+  /**
+   * Capture a phrase even when the learner mined it while Netflix was paused.
+   * The tab stream only contains audio while the tab is playing, so briefly
+   * replay the subtitle interval and restore the original playback state.
+   */
+  async capturePhrase(start: number, end: number, marginSeconds = 0.3): Promise<string | undefined> {
+    if (end <= start) return undefined;
+    if (!this.tabVideo) await this.startTabCapture();
+    if (!this.tabVideo) return this.captureSegment(start, end, marginSeconds);
+
+    const from = Math.max(0, start - marginSeconds);
+    const to = end + marginSeconds;
+    const initialTime = this.video.currentTime;
+    const initialPaused = this.video.paused;
+    const initialRate = this.video.playbackRate;
+
+    try {
+      this.video.currentTime = from;
+      // Keep this call before the first await when tab capture is already
+      // ready: a Send-to-Anki click can then authorize playback as a gesture.
+      await this.video.play();
+      await this.waitForVideoTime(to);
+      await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
+      return this.captureSegment(start, end, marginSeconds);
+    } catch (err) {
+      console.warn("[SubJap] Phrase audio replay unavailable:", err);
+      return undefined;
+    } finally {
+      this.video.playbackRate = initialRate;
+      this.video.currentTime = initialTime;
+      if (initialPaused) {
+        this.video.pause();
+      } else {
+        void this.video.play().catch(() => undefined);
+      }
+    }
+  }
+
   destroy(): void {
     if (this.processor) this.processor.disconnect();
     if (this.source) this.source.disconnect();
@@ -286,5 +326,15 @@ export class VideoAudioCapture {
     this.blocks = this.blocks.filter(
       (block) => block.startVideoTime + block.samples.length / this.sampleRate >= cutoff,
     );
+  }
+
+  private async waitForVideoTime(target: number): Promise<void> {
+    const deadline = performance.now() + PHRASE_CAPTURE_TIMEOUT_MS;
+    while (this.video.currentTime < target) {
+      if (performance.now() >= deadline) {
+        throw new Error(`Timed out waiting for Netflix playback at ${target.toFixed(2)}s`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
   }
 }
