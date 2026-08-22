@@ -45,6 +45,15 @@ describe("dictionary index", () => {
     expect(lookup("たべもの")?.headword).toBe("食べ物");
   });
 
+  it("resolves every preserved JMdict spelling through the alias index", () => {
+    const yabai = entry("やばい", "やばい", ["dangerous"]);
+    yabai.aliases = ["ヤバい", "ヤバイ"];
+    loadDictionary([yabai]);
+
+    expect(lookup("ヤバい")?.headword).toBe("やばい");
+    expect(lookup("ヤバイ")?.headword).toBe("やばい");
+  });
+
   it("returns null for unknown lemmas", () => {
     loadDictionary(ENTRIES);
     expect(lookup("存在しない")).toBeNull();

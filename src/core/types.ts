@@ -68,6 +68,8 @@ export interface Tokenizer {
 export interface DictionaryEntry {
   headword: string;
   reading: string;
+  /** Alternative JMdict spellings indexed for exact lookup. */
+  aliases?: string[];
   partOfSpeech: string[];
   senses: { glosses: string[]; tags?: string[] }[];
   frequencyRank?: number;
