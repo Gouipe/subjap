@@ -7,6 +7,7 @@ import type {
   RenderedCue,
   SpanToken,
   SubtitleCue,
+  SubtitleTranslation,
 } from "@/core/types";
 import { DEFAULT_OPTIONS } from "@/core/options";
 import { toHiragana } from "@/core/kana";
@@ -62,6 +63,20 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-cue-line + .subjap-cue-line {
       margin-top: 4px;
+    }
+    #${CONTAINER_ID} .subjap-translation-line {
+      margin-top: 5px;
+      padding: 0.08em 0.3em 0.12em;
+      pointer-events: none;
+      font-size: ${Math.round(opts.fontSize * 0.72)}px;
+      font-family: ${opts.fontFamily};
+      color: #e2e8f0;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      text-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.95),
+        0 0 1px #000,
+        0 0 8px rgba(0, 0, 0, 0.55);
     }
     #${CONTAINER_ID} .subjap-token {
       display: inline-flex;
@@ -124,6 +139,7 @@ export class OverlayRenderer {
   private options: OverlayOptions;
   private knownWordCount = 0;
   private cues: RenderedCue[] = [];
+  private translation: SubtitleTranslation | null = null;
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
   private visible = false;
@@ -169,6 +185,11 @@ export class OverlayRenderer {
     this.render();
   }
 
+  updateTranslation(translation: SubtitleTranslation | null): void {
+    this.translation = translation;
+    this.render();
+  }
+
   /**
    * Update styling options and re-render.
    */
@@ -201,6 +222,14 @@ export class OverlayRenderer {
 
     for (const rc of this.cues) {
       const line = this.buildCueLine(rc);
+      this.container.appendChild(line);
+    }
+    if (this.translation) {
+      const line = document.createElement("div");
+      line.className = "subjap-translation-line";
+      line.lang = this.translation.language;
+      line.dataset.language = this.translation.language;
+      line.textContent = this.translation.text;
       this.container.appendChild(line);
     }
 

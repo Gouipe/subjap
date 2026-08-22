@@ -4,9 +4,25 @@ import {
   handleNetflixSeek,
   installNetflixBridge,
   resolveNetflixPlayer,
+  collectNetflixTimedTextTracks,
 } from "./netflix-bridge";
 
 describe("Netflix page seek bridge", () => {
+  it("extrait les URLs timed-text par langue depuis les métadonnées Netflix", () => {
+    expect(
+      collectNetflixTimedTextTracks({
+        result: {
+          timedtexttracks: [
+            { bcp47: "fr-FR", ttDownloadables: { webvtt: "https://cdn.example/timedtext/fr.vtt" } },
+            { bcp47: "en", ttDownloadables: { webvtt: "https://cdn.example/timedtext/en.vtt" } },
+          ],
+        },
+      }),
+    ).toEqual([
+      { language: "fr-FR", url: "https://cdn.example/timedtext/fr.vtt" },
+      { language: "en", url: "https://cdn.example/timedtext/en.vtt" },
+    ]);
+  });
   it("selects the watch player session", () => {
     const watchPlayer = { seek: vi.fn() };
     const otherPlayer = { seek: vi.fn() };

@@ -322,6 +322,43 @@ describe("NetflixAdapter", () => {
     adapter.destroy();
   });
 
+  it("combine la piste japonaise et la traduction française capturées", async () => {
+    installNetflixPlayer();
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+    const sendTimedText = (language: string, text: string) => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: window,
+          data: {
+            source: "subjap",
+            type: "subjap:netflix-timed-text",
+            payload: {
+              url: `https://cdn.example/timedtext/${language}.vtt`,
+              language,
+              body: `WEBVTT\n\n00:00:00.000 --> 00:00:10.000\n${text}`,
+            },
+          },
+        }),
+      );
+    };
+
+    sendTimedText("ja", "日本語の字幕");
+    sendTimedText("fr", "Sous-titre français");
+    sendTimedText("en", "English subtitle");
+    await flushCueDebounce();
+
+    expect(received.at(-1)).toEqual([
+      expect.objectContaining({ language: "ja", text: "日本語の字幕" }),
+      expect.objectContaining({ language: "fr", text: "Sous-titre français" }),
+    ]);
+    expect(received.at(-1)?.some((cue) => cue.language === "en")).toBe(false);
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
   it("délègue le seek au transport sans écrire currentTime", async () => {
     const { video } = installNetflixPlayer();
     const currentTimeSetter = vi.spyOn(video, "currentTime", "set");

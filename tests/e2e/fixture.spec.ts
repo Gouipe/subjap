@@ -46,6 +46,22 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("affiche la traduction française Netflix sous le japonais", async ({
+    page,
+  }) => {
+    await page.getByTestId("bilingual-cue").click();
+
+    const overlay = page.locator("#subjap-overlay-container");
+    const translation = overlay.locator(".subjap-translation-line");
+
+    await expect(overlay).toBeVisible();
+    await expect(translation).toHaveText("J’étudie le japonais.");
+    await expect(translation).toHaveAttribute("lang", "fr");
+    await expect(translation).toHaveAttribute("data-language", "fr");
+    await expect(overlay.locator(".subjap-token")).toHaveCount(6);
+    await expect(page.getByTestId("native-subtitles")).toBeHidden();
+  });
+
   test("distingue connu, pertinence, apprentissage et inconnu orange", async ({
     page,
   }) => {

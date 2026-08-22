@@ -73,6 +73,13 @@ sous-titres natifs.
    navigation SPA ;
 5. une voie `textTracks` est conservée comme fallback.
 
+Pour le mode bilingue, le bridge Netflix est injecté dans le monde de la page
+à `document_start`. Il observe les métadonnées `timedtexttracks`, récupère en
+mémoire les pistes officielles TTML/DFXP/VTT disponibles, puis l’adaptateur
+sélectionne automatiquement le français avant l’anglais. Le japonais reste
+la piste d’apprentissage ; le DOM Netflix est préféré lorsqu’il est visible,
+avec la piste japonaise capturée comme repli.
+
 Le masquage des sous-titres natifs est piloté par une classe sur `<html>` et
 une règle CSS document-level. Cette approche résiste à la recréation du DOM
 Netflix et aux styles `visibility` inline de ses descendants. La préférence

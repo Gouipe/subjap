@@ -15,6 +15,7 @@ export {
   parseSRT,
   parseVTT,
   parseASS,
+  parseTTML,
   detectFormat,
   parseSubtitleFile,
 } from "./parse";

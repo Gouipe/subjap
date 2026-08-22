@@ -493,7 +493,7 @@ function OnboardingWizard(props: {
           <div style={s.row}>
             <div style={s.rowLabel}>
               <span>Masquer les sous-titres natifs</span>
-              <span style={s.rowHint}>l'overlay remplace la piste japonaise du lecteur</span>
+              <span style={s.rowHint}>l'overlay remplace les pistes de sous-titres du lecteur</span>
             </div>
             <div style={s.rowControl}>
               <Toggle
@@ -804,7 +804,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </Row>
             <Row
               label="Masquer les sous-titres natifs"
-              hint="l'overlay remplace la piste japonaise du lecteur"
+              hint="l'overlay remplace les pistes de sous-titres du lecteur"
             >
               <Toggle
                 checked={options.hideNativeSubtitles}

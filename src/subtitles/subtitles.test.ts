@@ -12,6 +12,7 @@ import {
   parseSRT,
   parseVTT,
   parseASS,
+  parseTTML,
   parseTimestamp,
   parseAssTimestamp,
   detectFormat,
@@ -165,6 +166,23 @@ Dialogue: 0,0:00:07.00,0:00:09.00,Default,,0,0,0,,a, b, c
     expect(parseAssTimestamp("1:02:03.25")).toBeCloseTo(3723.25, 5);
     expect(parseAssTimestamp("bad")).toBeNull();
   });
+
+  it("parse les cues TTML Netflix et leurs retours à la ligne", () => {
+    expect(
+      parseTTML(
+        '<tt><body><p begin="00:00:01.200" end="00:00:03.500">Bonjour<br/>tout le monde</p></body></tt>',
+        "fr",
+      ),
+    ).toEqual([
+      {
+        id: "ttml-1",
+        start: 1.2,
+        end: 3.5,
+        text: "Bonjour\ntout le monde",
+        language: "fr",
+      },
+    ]);
+  });
 });
 
 describe("timestamps", () => {
@@ -182,6 +200,7 @@ describe("detectFormat / parseSubtitleFile", () => {
     expect(detectFormat("ep1.vtt", "")).toBe("vtt");
     expect(detectFormat("ep1.ass", "")).toBe("ass");
     expect(detectFormat("ep1.ssa", "")).toBe("ass");
+    expect(detectFormat("ep1.ttml", "")).toBe("ttml");
   });
 
   it("sniffs content when the extension is unknown", () => {
