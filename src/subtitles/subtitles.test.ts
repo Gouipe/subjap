@@ -51,6 +51,12 @@ describe("markParentheticalTokens", () => {
       ]),
     ).toEqual([true, true, true, true, true, true, false, false]);
   });
+
+  it("marks a parenthesis embedded in a token surface", () => {
+    expect(
+      markParentheticalTokens([token("-（"), token("田中"), token("）")]),
+    ).toEqual([true, true, true]);
+  });
 });
 
 describe("normalizeCueText", () => {
