@@ -211,24 +211,28 @@ export class VideoAudioCapture {
 
     let offscreenRecording = false;
     let offscreenStartPromise: Promise<void> | null = null;
-    try {
+    const startOffscreenRecording = async (): Promise<void> => {
       try {
-        offscreenStartPromise = sendMessage("tabCapture:phraseStart", {})
-          .then(() => {
-            offscreenRecording = true;
-          })
-          .catch((err) => {
-            console.info("[SubJap] Offscreen phrase capture unavailable; using tab buffer:", err);
-          });
+        await sendMessage("tabCapture:phraseStart", {});
+        offscreenRecording = true;
       } catch (err) {
         console.info("[SubJap] Offscreen phrase capture unavailable; using tab buffer:", err);
       }
-
-      await offscreenStartPromise;
+    };
+    try {
       if (this.seekTo) {
-        const seekOk = await this.seekTo(from, true);
-        if (!seekOk) throw new Error("Netflix seek bridge refused phrase replay");
+        // Netflix's player transport can seek without replacing the DRM video
+        // element. Prepare the exact cue start while paused, then start the
+        // recorder before asking the player to resume from that position.
+        this.video.pause();
+        const seekOk = await this.seekTo(start, false);
+        if (!seekOk) throw new Error("Netflix seek bridge refused phrase start");
+        await this.waitForVideoTime(start);
+        await startOffscreenRecording();
+        const playOk = await this.seekTo(start, true);
+        if (!playOk) throw new Error("Netflix seek bridge refused phrase playback");
       } else {
+        offscreenStartPromise = startOffscreenRecording();
         this.video.currentTime = from;
         // Start playback immediately so a mining click can authorize it. The
         // seek may interrupt this first attempt; after `seeked`, retry below.
@@ -236,9 +240,11 @@ export class VideoAudioCapture {
         await this.waitForVideoSeek(from);
         await initialPlay;
         if (this.video.paused) await this.video.play();
+        await offscreenStartPromise;
       }
-      await this.waitForVideoTime(to);
-      await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
+      await this.waitForVideoTime(this.seekTo ? end : to);
+      if (this.seekTo) this.video.pause();
+      else await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
       if (offscreenRecording) {
         const { dataUrl } = await sendMessage("tabCapture:phraseStop", {});
         offscreenRecording = false;

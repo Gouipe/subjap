@@ -41,6 +41,12 @@ describe("MiningModal", () => {
   it("captures the video frame when the modal opens", async () => {
     const video = document.createElement("video");
     const modal = new MiningModal(video);
+    captureFrameMock.mockImplementation(() => {
+      expect(document.querySelector("#subjap-mining-modal")?.getAttribute("style")).toContain(
+        "display: none",
+      );
+      return Promise.resolve("data:image/jpeg;base64,fixture");
+    });
     const cue = {
       cue: { text: "約束した", start: 1, end: 2 },
       spans: [],
@@ -119,6 +125,9 @@ describe("MiningModal", () => {
         ),
       ).toBe(true);
     });
+    await vi.waitFor(() => {
+      expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe("flex");
+    });
 
     (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
     await vi.waitFor(() => expect(document.querySelector("#subjap-mining-modal")?.getAttribute("style")).toContain("none"));
@@ -169,6 +178,9 @@ describe("MiningModal", () => {
       definitions: ["promise"],
     });
     await vi.waitFor(() => expect(document.querySelector(".subjap-screenshot-info")).not.toBeNull());
+    await vi.waitFor(() => {
+      expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe("flex");
+    });
     (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
     await vi.waitFor(() => {
       expect(document.querySelector(".subjap-local-info")?.textContent).toContain("localement");
