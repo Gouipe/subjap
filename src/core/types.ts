@@ -169,6 +169,14 @@ export interface MessageMap {
   "tabCapture:offscreenResult": { ready: boolean };
   "tabCapture:offscreenStream": { streamId: string };
   "tabCapture:offscreenStreamResult": Record<string, never>;
+  "tabCapture:phraseStart": Record<string, never>;
+  "tabCapture:phraseStartResult": { ready: boolean };
+  "tabCapture:phraseStop": Record<string, never>;
+  "tabCapture:phraseStopResult": { dataUrl: string | null };
+  "tabCapture:offscreenPhraseStart": Record<string, never>;
+  "tabCapture:offscreenPhraseStartResult": { ready: boolean };
+  "tabCapture:offscreenPhraseStop": Record<string, never>;
+  "tabCapture:offscreenPhraseStopResult": { dataUrl: string | null };
 
   // Stats
   "stats:get": Record<string, never>;
