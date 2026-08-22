@@ -197,7 +197,6 @@ export class VideoAudioCapture {
    */
   async capturePhrase(start: number, end: number, marginSeconds = 0.3): Promise<string | undefined> {
     if (end <= start) return undefined;
-    if (!this.tabVideo) await this.startTabCapture();
 
     const from = Math.max(0, start - marginSeconds);
     const to = end + marginSeconds;
@@ -206,18 +205,28 @@ export class VideoAudioCapture {
     const initialRate = this.video.playbackRate;
 
     let offscreenRecording = false;
+    let offscreenStartPromise: Promise<void> | null = null;
     try {
       try {
-        await sendMessage("tabCapture:phraseStart", {});
-        offscreenRecording = true;
+        offscreenStartPromise = sendMessage("tabCapture:phraseStart", {})
+          .then(() => {
+            offscreenRecording = true;
+          })
+          .catch((err) => {
+            console.info("[SubJap] Offscreen phrase capture unavailable; using tab buffer:", err);
+          });
       } catch (err) {
         console.info("[SubJap] Offscreen phrase capture unavailable; using tab buffer:", err);
       }
 
       this.video.currentTime = from;
-      // Keep this call before the first await when tab capture is already
-      // ready: a Send-to-Anki click can then authorize playback as a gesture.
-      await this.video.play();
+      // Start playback immediately so a mining click can authorize it. The
+      // seek may interrupt this first attempt; after `seeked`, retry below.
+      const initialPlay = this.video.play().catch(() => undefined);
+      await this.waitForVideoSeek(from);
+      await initialPlay;
+      if (this.video.paused) await this.video.play();
+      await offscreenStartPromise;
       await this.waitForVideoTime(to);
       await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
       if (offscreenRecording) {
@@ -362,5 +371,20 @@ export class VideoAudioCapture {
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+  }
+
+  private async waitForVideoSeek(target: number): Promise<void> {
+    if (Math.abs(this.video.currentTime - target) < 0.05) return;
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        this.video.removeEventListener("seeked", onSeeked);
+        reject(new Error(`Timed out waiting for Netflix seek to ${target.toFixed(2)}s`));
+      }, 5000);
+      const onSeeked = (): void => {
+        window.clearTimeout(timeout);
+        resolve();
+      };
+      this.video.addEventListener("seeked", onSeeked, { once: true });
+    });
   }
 }
