@@ -108,7 +108,7 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
-  test("reconnaît une carte connue via une autre forme lexicale UniDic", async ({
+  test("fait primer KNOWN sur UNKNOWN entre formes lexicales UniDic", async ({
     page,
   }) => {
     await page.goto("/tests/fixture/index.html?scenario=lexical-alias");

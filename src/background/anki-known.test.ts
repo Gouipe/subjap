@@ -43,6 +43,15 @@ describe("Anki word-state import", () => {
     ).toEqual([{ key: "やる", status: "ignored" }]);
   });
 
+  it("fait primer KNOWN sur UNKNOWN pour une même identité lexicale", () => {
+    expect(
+      extractAnkiWordStates([
+        { fields: { Mot: { value: "しっかり" } }, tags: ["UNKNOWN"] },
+        { fields: { Mot: { value: "しっかり" } }, tags: ["KNOWN"] },
+      ]),
+    ).toEqual([{ key: "しっかり", status: "known" }]);
+  });
+
   it("compte toutes les cartes Anki par mot, même sans tag de statut", () => {
     expect(
       extractAnkiWordPresences([
