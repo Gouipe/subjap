@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  countAnkiWordPresenceChanges,
+  extractAnkiWordPresences,
   extractAnkiWordStates,
   normalizeAnkiWord,
   planImportedStateReconciliation,
@@ -25,6 +27,35 @@ describe("Anki word-state import", () => {
       { key: "猫", status: "ignored" },
       { key: "犬", status: "unknown" },
     ]);
+  });
+
+  it("compte toutes les cartes Anki par mot, même sans tag de statut", () => {
+    expect(
+      extractAnkiWordPresences([
+        { fields: { Mot: { value: "<ruby>感動<rt>かんどう</rt></ruby>" } } },
+        { fields: { Mot: { value: "感動" } }, tags: ["UNKNOWN"] },
+        { fields: { Mot: { value: "猫" } }, tags: [] },
+        { fields: { Front: { value: "sans champ Mot" } }, tags: ["KNOWN"] },
+      ]),
+    ).toEqual([
+      { key: "感動", noteCount: 2 },
+      { key: "猫", noteCount: 1 },
+    ]);
+  });
+
+  it("détecte les ajouts, suppressions et changements de quantité", () => {
+    expect(
+      countAnkiWordPresenceChanges(
+        [
+          { key: "感動", noteCount: 1 },
+          { key: "猫", noteCount: 1 },
+        ],
+        [
+          { key: "感動", noteCount: 2 },
+          { key: "犬", noteCount: 1 },
+        ],
+      ),
+    ).toBe(3);
   });
 
   it("retire les imports obsolètes sans écraser les décisions manuelles", () => {

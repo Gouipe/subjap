@@ -22,7 +22,9 @@ SubJap crée automatiquement le deck `SubJap` et son type de note
 4. Réviser les nouvelles cartes dans le deck `SubJap` d’Anki.
 
 Couleurs : vert = inconnu très pertinent, bleu = plutôt pertinent, orange =
-`UNKNOWN` ou peu pertinent, violet = `LEARNING`, blanc = `KNOWN` ou `IGNORED`.
+inconnu peu pertinent, violet = `LEARNING` ou déjà présent dans Anki, blanc =
+`KNOWN` ou `IGNORED`. La popover affiche toujours le rang disponible et le
+nombre de cartes Anki existantes.
 
 ## Reconstruire et importer l’export Migaku
 

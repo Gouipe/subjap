@@ -10,6 +10,8 @@ import { markDictionaryLoaded } from "@/onboarding";
 import { fetchNetflixTimedText } from "./netflix-timed-text";
 import { synthesizeVoicevox, warmupVoicevox } from "@/mining/voicevox";
 import {
+  countAnkiWordPresenceChanges,
+  extractAnkiWordPresences,
   extractAnkiWordStates,
   planImportedStateReconciliation,
 } from "./anki-known";
@@ -178,8 +180,11 @@ onMessage("dict:download", async ({ url }) => {
 
 // ── word:get ──────────────────────────────────────────────────────────────
 onMessage("word:get", async ({ key }) => {
-  const state = await db.wordStates.get(key);
-  return { state: state ?? null };
+  const [state, ankiWord] = await Promise.all([
+    db.wordStates.get(key),
+    db.ankiWords.get(key),
+  ]);
+  return { state: state ?? null, ankiNoteCount: ankiWord?.noteCount ?? 0 };
 });
 
 // ── word:set ──────────────────────────────────────────────────────────────
@@ -268,6 +273,7 @@ onMessage("stats:get", async () => {
 // control for that.
 
 onMessage("data:reset", async () => {
+  await db.ankiWords.clear();
   await db.wordStates.clear();
   await db.mineCards.clear();
   await db.dictionaryEntries.clear();
@@ -380,14 +386,9 @@ interface AnkiNoteInfo {
   tags: string[];
 }
 
-/** Reconcile Migaku/Anki vocabulary tags across every deck. */
+/** Reconcile vocabulary presence and status tags across every Anki deck. */
 onMessage("anki:syncKnown", async () => {
-  const idLists = await Promise.all(
-    ["KNOWN", "IGNORED", "UNKNOWN", "LEARNING"].map((tag) =>
-      ankiInvoke<number[]>("findNotes", { query: `tag:${tag}` }),
-    ),
-  );
-  const noteIds = [...new Set(idLists.flat())];
+  const noteIds = await ankiInvoke<number[]>("findNotes", { query: "Mot:*" });
   const notes: AnkiNoteInfo[] = [];
   for (let offset = 0; offset < noteIds.length; offset += 500) {
     notes.push(
@@ -397,16 +398,31 @@ onMessage("anki:syncKnown", async () => {
     );
   }
   const desired = extractAnkiWordStates(notes);
-  const current = await db.wordStates.toArray();
+  const desiredPresences = extractAnkiWordPresences(notes);
+  const [current, currentPresences] = await Promise.all([
+    db.wordStates.toArray(),
+    db.ankiWords.toArray(),
+  ]);
   const { upserts, removals } = planImportedStateReconciliation(current, desired);
-  await db.transaction("rw", db.wordStates, async () => {
+  const presenceChanged = countAnkiWordPresenceChanges(
+    currentPresences,
+    desiredPresences,
+  );
+  await db.transaction("rw", db.wordStates, db.ankiWords, async () => {
     if (removals.length > 0) await db.wordStates.bulkDelete(removals);
     if (upserts.length > 0) await db.wordStates.bulkPut(upserts);
+    if (presenceChanged > 0) {
+      await db.ankiWords.clear();
+      if (desiredPresences.length > 0) {
+        await db.ankiWords.bulkPut(desiredPresences);
+      }
+    }
   });
   return {
     imported: desired.length,
     removed: removals.length,
     changed: upserts.length,
+    presenceChanged,
   };
 });
 

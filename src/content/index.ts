@@ -15,7 +15,6 @@
 
 import { NetflixAdapter } from "@/adapters/netflix";
 import { adapterRegistry } from "@/core/adapters/registry";
-import { getFrequencyHighlight } from "@/core/frequency";
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookup } from "@/dictionary";
@@ -132,6 +131,9 @@ const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
 /** lemma → last resolved status (synchronous reads for the popover). */
 const wordStatusByLemma = new Map<string, WordStatus | null>();
 
+/** lemma → number of matching notes from the latest successful Anki sync. */
+const ankiNoteCountByLemma = new Map<string, number>();
+
 /** Cached learner vocabulary size used by the frequency colour bands. */
 let knownWordCount = 0;
 let knownWordCountPromise: Promise<number> | null = null;
@@ -141,11 +143,13 @@ const wordStateCache = new WordStateCache((lemma) =>
   sendMessage("word:get", { key: lemma })
     .then((result) => {
       wordStatusByLemma.set(lemma, result.state?.status ?? null);
+      ankiNoteCountByLemma.set(lemma, result.ankiNoteCount);
       return result.state;
     })
     .catch((err: unknown) => {
       console.warn(`[SubJap] word:get failed for "${lemma}":`, err);
       wordStatusByLemma.set(lemma, null);
+      ankiNoteCountByLemma.set(lemma, 0);
       return null;
     }),
 );
@@ -222,10 +226,15 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
     lastAnkiSyncAt = Date.now();
     try {
       const result = await sendMessage("anki:syncKnown", {});
-      if (result.changed === 0 && result.removed === 0) return;
+      if (
+        result.changed === 0 &&
+        result.removed === 0 &&
+        result.presenceChanged === 0
+      ) return;
 
       wordStateCache.clear();
       wordStatusByLemma.clear();
+      ankiNoteCountByLemma.clear();
       knownWordCountPromise = null;
       lastSignature = "";
       if (lastCues.length > 0) void handleCues(lastCues);
@@ -382,7 +391,13 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
         const state = await getWordState(token.lemma);
         const frequencyRank =
           frequencyRanks[token.lemma] ?? frequencyRanks[token.surface];
-        return { index, token, wordState: state, frequencyRank };
+        return {
+          index,
+          token,
+          wordState: state,
+          ankiNoteCount: ankiNoteCountByLemma.get(token.lemma) ?? 0,
+          frequencyRank,
+        };
       }),
     );
 
@@ -527,20 +542,13 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
   const renderedSpan = lastRenderedCues
     .flatMap((cue) => cue.spans)
     .find((span) => span.token === token);
-  const frequencyHighlight = renderedSpan
-    ? getFrequencyHighlight(renderedSpan.wordState, renderedSpan.frequencyRank, knownWordCount)
-    : "unknown";
-  const frequencyRank =
-    frequencyHighlight === "relevant" || frequencyHighlight === "near"
-      ? renderedSpan?.frequencyRank
-      : undefined;
-
   showPopover({
     anchor,
     token,
     entry: dictEntry,
     wordStatus: wordStatusByLemma.get(token.lemma) ?? null,
-    frequencyRank,
+    frequencyRank: renderedSpan?.frequencyRank,
+    ankiNoteCount: renderedSpan?.ankiNoteCount ?? 0,
   });
 }
 

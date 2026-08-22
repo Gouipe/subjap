@@ -1,5 +1,4 @@
 import { NetflixAdapter } from "../../src/adapters/netflix";
-import { getFrequencyHighlight } from "../../src/core/frequency";
 import { OverlayRenderer } from "../../src/overlay/renderer";
 import { getPopover, hidePopover, showPopover } from "../../src/overlay/popover";
 import {
@@ -52,6 +51,7 @@ const frequencyRanks = new Map<string, number>([
   ["し", 3],
   ["ます", 500],
 ]);
+const ankiNoteCounts = new Map<string, number>([["勉強", 2]]);
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
 let hovered: HTMLElement | null = null;
@@ -138,9 +138,12 @@ function renderedCue(cue: SubtitleCue): RenderedCue {
         ? { key: token.lemma, status: "ignored", source: "manual" }
         : knownLemmas.has(token.lemma)
           ? { key: token.lemma, status: "known", source: "manual" }
+          : token.lemma === "を"
+            ? { key: token.lemma, status: "unknown", source: "import" }
           : token.lemma === "する"
             ? { key: token.lemma, status: "learning", source: "import" }
             : null,
+      ankiNoteCount: ankiNoteCounts.get(token.lemma) ?? 0,
       frequencyRank: frequencyRanks.get(token.lemma),
     })),
   };
@@ -221,29 +224,19 @@ function showPopoverForToken(anchor: HTMLElement, token: Token): void {
     ? "ignored"
     : knownLemmas.has(token.lemma)
       ? "known"
-      : null;
+      : token.lemma === "を"
+        ? "unknown"
+        : token.lemma === "する"
+          ? "learning"
+          : null;
   const frequencyRank = frequencyRanks.get(token.lemma);
-  const wordState = ignoredLemmas.has(token.lemma)
-    ? { key: token.lemma, status: "ignored" as const, source: "manual" as const }
-    : knownLemmas.has(token.lemma)
-      ? { key: token.lemma, status: "known" as const, source: "manual" as const }
-      : token.lemma === "する"
-        ? { key: token.lemma, status: "learning" as const, source: "import" as const }
-        : null;
-  const frequencyHighlight = getFrequencyHighlight(
-    wordState,
-    frequencyRank,
-    knownLemmas.size,
-  );
   showPopover({
     anchor,
     token,
     entry,
     wordStatus: currentStatus,
-    frequencyRank:
-      frequencyHighlight === "relevant" || frequencyHighlight === "near"
-        ? frequencyRank
-        : undefined,
+    frequencyRank,
+    ankiNoteCount: ankiNoteCounts.get(token.lemma) ?? 0,
   });
 }
 

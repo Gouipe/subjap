@@ -122,18 +122,18 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.getByTestId("native-subtitles")).toBeHidden();
   });
 
-  test("distingue connu, pertinence, apprentissage, ignoré et inconnu orange", async ({
+  test("distingue connu, UNKNOWN fréquent, carte Anki, apprentissage et orange", async ({
     page,
   }) => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
 
-    // N = 1: green <= N, blue in the next 300, violet for LEARNING,
-    // orange for a low-priority unknown, and white for KNOWN/IGNORED.
+    // N = 1: explicit UNKNOWN can stay blue, while an existing Anki card and
+    // LEARNING are violet; low-priority unknown is orange and KNOWN is white.
     await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
-    await expect(tokens.nth(2)).toHaveClass(/subjap-unknown--relevant/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
+    await expect(tokens.nth(2)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(3)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
@@ -171,23 +171,44 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
-  test("affiche le rang de fréquence uniquement pour les mots verts et bleus", async ({
+  test("affiche le rang de fréquence pour toutes les couleurs", async ({
     page,
   }) => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
     const frequency = page.locator(".subjap-popover__freq");
 
-    // 勉強 is green (rank 1), を is blue (rank 2), while ます is orange.
-    await tokens.nth(2).hover();
+    // 日本語 is known/white, 勉強 in Anki/violet, を explicit UNKNOWN/blue,
+    // する learning/violet and ます orange. Every one keeps its rank.
+    await tokens.nth(0).hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(frequency).toHaveText("Frequency rank: #1");
+
+    await tokens.nth(2).hover();
     await expect(frequency).toHaveText("Frequency rank: #1");
 
     await tokens.nth(1).hover();
     await expect(frequency).toHaveText("Frequency rank: #2");
 
+    await tokens.nth(3).hover();
+    await expect(frequency).toHaveText("Frequency rank: #3");
+
     await tokens.nth(4).hover();
-    await expect(frequency).toHaveText("");
+    await expect(frequency).toHaveText("Frequency rank: #500");
+  });
+
+  test("avertit dans la popover quand des cartes existent déjà dans Anki", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    const existingCardNotice = page.locator(".subjap-popover__anki");
+
+    await page.locator(".subjap-token").nth(2).hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(existingCardNotice).toHaveText("Déjà dans Anki · 2 cartes");
+
+    await page.locator(".subjap-token").nth(1).hover();
+    await expect(existingCardNotice).toHaveText("");
   });
 
   test("capture automatiquement le screenshot à l’ouverture du mining", async ({

@@ -20,11 +20,12 @@ export function getFrequencyHighlight(
   wordState: WordState | null,
   frequencyRank: number | undefined,
   knownWordCount: number,
+  ankiNoteCount = 0,
 ): FrequencyHighlight {
   if (wordState?.status === "known") return "known";
   if (wordState?.status === "ignored") return "ignored";
   if (wordState?.status === "learning") return "learning";
-  if (wordState?.status === "unknown") return "unknown";
+  if (ankiNoteCount > 0) return "learning";
   if (
     frequencyRank == null ||
     !Number.isFinite(frequencyRank) ||
