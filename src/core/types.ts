@@ -48,6 +48,11 @@ export interface Token {
   lemma: string; // forme de dictionnaire (食べる)
   reading: string; // lecture en kana
   partOfSpeech: string[];
+  /** Kuromoji conjugation metadata, when the token is inflected. */
+  conjugationType?: string;
+  conjugationForm?: string;
+  /** Morphological tokens represented by one pedagogical display unit. */
+  components?: Token[];
 }
 
 export interface Tokenizer {

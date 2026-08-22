@@ -12,22 +12,12 @@
 import DictionaryLoader from "kuromoji/src/loader/DictionaryLoader";
 import KuromojiTokenizerClass from "kuromoji/src/Tokenizer";
 import type { Token, Tokenizer } from "@/core/types";
-import { toHiragana } from "@/core/kana";
 import { LRUCache } from "./lru-cache";
-
-/** Raw token shape emitted by kuromoji. */
-interface KuromojiToken {
-  surface_form: string;
-  basic_form: string;
-  reading: string | undefined;
-  pos: string; // comma-separated like "助詞,格助詞,一般"
-  word_type: string;
-  word_position: number;
-}
+import { toToken, type RawKuromojiToken } from "./convert";
 
 /** The built tokenizer object (kuromoji's Tokenizer class). */
 interface KuromojiTokenizerInstance {
-  tokenize(text: string): KuromojiToken[];
+  tokenize(text: string): RawKuromojiToken[];
 }
 
 // ── Singleton state ──────────────────────────────────────────────────────
@@ -114,16 +104,6 @@ function ensureCache(): LRUCache<string, Token[]> {
     cache = new LRUCache<string, Token[]>(TOKENIZER_CACHE_SIZE);
   }
   return cache;
-}
-
-/** Convert a single kuromoji token into our shared Token shape. */
-function toToken(kt: KuromojiToken): Token {
-  return {
-    surface: kt.surface_form,
-    lemma: kt.basic_form === "*" ? kt.surface_form : kt.basic_form,
-    reading: toHiragana(kt.reading ?? kt.surface_form),
-    partOfSpeech: kt.pos.split(",").filter(Boolean),
-  };
 }
 
 /** Lazily build the kuromoji tokenizer (called only once). */

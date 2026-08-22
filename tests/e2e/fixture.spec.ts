@@ -58,6 +58,35 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("regroupe une construction grammaticale en une seule unité", async ({
+    page,
+  }) => {
+    await page.getByTestId("grouped-cue").click();
+
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    await expect(tokens).toHaveCount(1);
+    await expect(tokens.first()).toHaveText("じゃなくって");
+
+    await tokens.first().hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("じゃなくって");
+  });
+
+  test("regroupe la forme explicative なんです sans absorber le nom", async ({
+    page,
+  }) => {
+    await page.getByTestId("explanatory-cue").click();
+
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    await expect(tokens).toHaveCount(2);
+    await expect(tokens.nth(0)).toHaveAttribute("data-surface", "孫");
+    await expect(tokens.nth(1)).toHaveAttribute("data-surface", "なんです");
+
+    await tokens.nth(1).hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("なんです");
+  });
+
   test("réagit à l’effacement, aux options live et au remplacement SPA", async ({
     page,
   }) => {

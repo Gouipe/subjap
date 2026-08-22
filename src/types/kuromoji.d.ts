@@ -7,6 +7,8 @@ interface KuromojiToken {
   pos: string;
   word_type: string;
   word_position: number;
+  conjugated_type?: string;
+  conjugated_form?: string;
 }
 
 declare module "kuromoji" {

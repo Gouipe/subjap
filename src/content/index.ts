@@ -22,6 +22,7 @@ import { MiningModal } from "@/mining";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
 import { normalizeCueText, splitIntoSentences } from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
+import { groupTokens } from "@/tokenizer/group";
 import type {
   DictionaryEntry,
   EpisodeContext,
@@ -252,7 +253,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     const spans: SpanToken[] = [];
 
     for (const sentence of sentences) {
-      const tokens = tokenizer.tokenize(sentence);
+      const tokens = groupTokens(tokenizer.tokenize(sentence));
       const sentenceSpans = await Promise.all(
         tokens.map(async (token): Promise<SpanToken> => {
           const index = globalIndex++;

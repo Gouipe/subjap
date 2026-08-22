@@ -1,6 +1,7 @@
 import { NetflixAdapter } from "../../src/adapters/netflix";
 import { OverlayRenderer } from "../../src/overlay/renderer";
 import { getPopover, hidePopover, showPopover } from "../../src/overlay/popover";
+import { groupTokens } from "../../src/tokenizer/group";
 import type {
   DictionaryEntry,
   RenderedCue,
@@ -38,6 +39,20 @@ const tokens: Token[] = [
   { surface: "ます", lemma: "ます", reading: "ます", partOfSpeech: ["助動詞"] },
   { surface: "。", lemma: "。", reading: "。", partOfSpeech: ["記号"] },
 ];
+let activeTokens = tokens;
+
+const groupedTokens = groupTokens([
+  { surface: "じゃ", lemma: "だ", reading: "じゃ", partOfSpeech: ["助動詞"] },
+  { surface: "なくっ", lemma: "ない", reading: "なくっ", partOfSpeech: ["形容詞"] },
+  { surface: "て", lemma: "て", reading: "て", partOfSpeech: ["助詞"] },
+]);
+
+const explanatoryTokens = groupTokens([
+  { surface: "孫", lemma: "孫", reading: "まご", partOfSpeech: ["名詞"] },
+  { surface: "な", lemma: "だ", reading: "な", partOfSpeech: ["助動詞"] },
+  { surface: "ん", lemma: "ん", reading: "ん", partOfSpeech: ["名詞"] },
+  { surface: "です", lemma: "です", reading: "です", partOfSpeech: ["助動詞"] },
+]);
 
 function setStatus(message: string): void {
   status.textContent = message;
@@ -55,7 +70,7 @@ function nativeLine(text: string, start = "12", end = "16"): HTMLDivElement {
 function renderedCue(cue: SubtitleCue): RenderedCue {
   return {
     cue,
-    spans: tokens.map((token, index) => ({
+    spans: activeTokens.map((token, index) => ({
       index,
       token,
       wordState: knownLemmas.has(token.lemma)
@@ -131,7 +146,7 @@ document.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
   const span = target.closest<HTMLElement>(".subjap-token");
   if (!span) return;
-  const token = tokens[Number(span.dataset.index)];
+  const token = activeTokens[Number(span.dataset.index)];
   if (token) {
     clearTimers();
     showPopoverForToken(span, token);
@@ -144,7 +159,7 @@ document.addEventListener("mouseover", (event) => {
   if (!span) return;
   clearTimers();
   hovered = span;
-  const token = tokens[Number(span.dataset.index)];
+  const token = activeTokens[Number(span.dataset.index)];
   if (!token) return;
   hoverTimer = setTimeout(() => {
     if (hovered === span) showPopoverForToken(span, token);
@@ -161,7 +176,18 @@ document.addEventListener("mouseout", (event) => {
 }, true);
 
 document.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", () => {
+  activeTokens = tokens;
   nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。"));
+});
+
+document.querySelector<HTMLButtonElement>("#grouped")!.addEventListener("click", () => {
+  activeTokens = groupedTokens;
+  nativeSubtitles.replaceChildren(nativeLine("じゃなくって"));
+});
+
+document.querySelector<HTMLButtonElement>("#explanatory")!.addEventListener("click", () => {
+  activeTokens = explanatoryTokens;
+  nativeSubtitles.replaceChildren(nativeLine("孫なんです"));
 });
 
 document.querySelector<HTMLButtonElement>("#clear")!.addEventListener("click", () => {
