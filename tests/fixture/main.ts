@@ -738,6 +738,7 @@ document.querySelector<HTMLButtonElement>("#mine")!.addEventListener("click", ()
     cue: rendered,
     targetToken: rendered.spans[0],
     lemmaReading: rendered.spans[0].token.reading,
+    translation: currentTranslation?.text,
     episodeContext: {
       platform: "fixture",
       title: "Fixture episode",

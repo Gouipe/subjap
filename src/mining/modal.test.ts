@@ -112,6 +112,7 @@ describe("MiningModal", () => {
         token: { surface: "約束", lemma: "約束", reading: "やくそく" },
       } as unknown as SpanToken,
       lemmaReading: "やくそく",
+      translation: "I made a promise.",
       episodeContext: {
         platform: "fixture",
         title: "Fixture episode",
@@ -148,7 +149,10 @@ describe("MiningModal", () => {
       ([type]) => type === "anki:addNote",
     );
     expect(ankiAddNoteCall?.[1]).toMatchObject({
-      fields: { Définitions: "to promise<br>personal note" },
+      fields: {
+        Définitions: "to promise<br>personal note",
+        Traduction: "I made a promise.",
+      },
     });
   });
 
