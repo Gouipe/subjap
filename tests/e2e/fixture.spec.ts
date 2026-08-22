@@ -426,7 +426,10 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(1)).toHaveAttribute("data-lemma", "する");
     await expect(tokens.nth(1)).toHaveAttribute("data-pos", /動詞/);
 
-    await tokens.nth(1).hover();
+    await page.getByTestId("video-stage").evaluate((stage) => {
+      stage.scrollIntoView({ block: "start" });
+    });
+    await tokens.nth(1).click();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("しました");
     await expect(page.locator(".subjap-popover__defs")).toHaveText("to do");
@@ -442,7 +445,10 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(1)).toHaveAttribute("data-lemma", "する");
     await expect(tokens.nth(1)).toHaveAttribute("data-pos", /動詞/);
 
-    await tokens.nth(1).hover();
+    await page.getByTestId("video-stage").evaluate((stage) => {
+      stage.scrollIntoView({ block: "start" });
+    });
+    await tokens.nth(1).click();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("された");
     await expect(page.locator(".subjap-popover__defs")).toHaveText("to do");
@@ -577,6 +583,26 @@ test.describe("SubJap UX fixture", () => {
     await expect(status).toHaveAttribute(
       "data-scenario",
       "seek-overlap-complete",
+    );
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "困るんですよ生徒に示しがつかないから",
+    );
+
+    await page.locator("body").press("q");
+    await expect(video).toHaveJSProperty("currentTime", 105);
+  });
+
+  test("Q utilise le timestamp de la piste Netflix après une observation DOM tardive", async ({
+    page,
+  }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+
+    await page.getByTestId("authoritative-timing-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-scenario",
+      "authoritative-timing-complete",
     );
     await expect(status).toHaveAttribute(
       "data-cue",
