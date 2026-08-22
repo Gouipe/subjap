@@ -4,14 +4,15 @@
 //
 // Opened from the content script when the user mines a word from the popover.
 // Shows the sentence with the target highlighted, the reading and selectable
-// definitions; the user can generate TTS audio and a video-frame screenshot,
+// definitions; the user can generate word audio and a video-frame screenshot,
 // then push the card to the local IndexedDB store and (best-effort) to Anki.
 
 import type { RenderedCue, SpanToken, EpisodeContext } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
 import { normalizeCueText } from "@/subtitles";
-import { speak } from "./tts";
 import { captureFrame } from "./capture";
+import { formatMigakuDefinitions, formatMigakuSentence, formatMigakuWord } from "./migaku";
+import type { VideoAudioCapture } from "./audio-capture";
 
 const MODAL_ID = "subjap-mining-modal";
 
@@ -21,7 +22,8 @@ interface MiningState {
   episodeContext: EpisodeContext;
   definitions: string[];
   selectedDefinitions: Set<number>;
-  audioDataUrl: string | null;
+  wordAudioDataUrl: string | null;
+  phraseAudioDataUrl: string | null;
   screenshotDataUrl: string | null;
   sending: boolean;
 }
@@ -39,11 +41,13 @@ function escapeHtml(text: string): string {
 export class MiningModal {
   private container: HTMLDivElement;
   private video: HTMLVideoElement;
+  private audioCapture: VideoAudioCapture | null;
   private state: MiningState | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
 
-  constructor(video: HTMLVideoElement) {
+  constructor(video: HTMLVideoElement, audioCapture: VideoAudioCapture | null = null) {
     this.video = video;
+    this.audioCapture = audioCapture;
     this.container = this.buildContainer();
     document.body.appendChild(this.container);
     this.injectStyles();
@@ -77,7 +81,8 @@ export class MiningModal {
       episodeContext: state.episodeContext,
       definitions: state.definitions,
       selectedDefinitions: new Set(state.definitions.map((_, i) => i)),
-      audioDataUrl: null,
+      wordAudioDataUrl: null,
+      phraseAudioDataUrl: null,
       screenshotDataUrl: null,
       sending: false,
     };
@@ -111,7 +116,7 @@ export class MiningModal {
         </div>
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
-          <button class="subjap-modal-btn subjap-modal-btn-audio">🔊 Audio</button>
+          <button class="subjap-modal-btn subjap-modal-btn-audio">🔊 Word audio</button>
           <button class="subjap-modal-btn subjap-modal-btn-screenshot">📷 Screenshot</button>
           <button class="subjap-modal-btn subjap-modal-btn-send">📤 Send to Anki</button>
         </div>
@@ -216,8 +221,11 @@ export class MiningModal {
          <div class="subjap-reading">${escapeHtml(targetToken.token.reading)}</div>`
       : "";
 
-    const audioInfo = this.state.audioDataUrl
-      ? '<div class="subjap-audio-info">✓ Audio generated</div>'
+    const audioInfo = this.state.wordAudioDataUrl
+      ? '<div class="subjap-audio-info">✓ Word audio ready</div>'
+      : "";
+    const phraseAudioInfo = this.state.phraseAudioDataUrl
+      ? '<div class="subjap-audio-info">✓ Netflix phrase audio ready</div>'
       : "";
     const screenshotInfo = this.state.screenshotDataUrl
       ? '<div class="subjap-screenshot-info">✓ Screenshot captured</div>'
@@ -230,24 +238,23 @@ export class MiningModal {
       ${readingHtml}
       ${defListHtml}
       ${audioInfo}
+      ${phraseAudioInfo}
       ${screenshotInfo}
     `;
 
     // Wire definition checkboxes (delegated container listener does the rest).
-    body.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(
-      (input) => {
-        input.addEventListener("change", () => {
-          const idx = Number(input.id.replace("subjap-def-", ""));
-          if (Number.isInteger(idx) && this.state) {
-            if (input.checked) {
-              this.state.selectedDefinitions.add(idx);
-            } else {
-              this.state.selectedDefinitions.delete(idx);
-            }
+    body.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        const idx = Number(input.id.replace("subjap-def-", ""));
+        if (Number.isInteger(idx) && this.state) {
+          if (input.checked) {
+            this.state.selectedDefinitions.add(idx);
+          } else {
+            this.state.selectedDefinitions.delete(idx);
           }
-        });
-      },
-    );
+        }
+      });
+    });
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────
@@ -255,15 +262,15 @@ export class MiningModal {
   private async generateAudio(): Promise<void> {
     if (!this.state) return;
     try {
-      await speak(
-        normalizeCueText(this.state.cue.cue.text) ||
-          this.state.targetToken.token.surface,
-      );
-      // Best-effort marker: real audio capture (MediaRecorder) is a follow-up.
-      this.state.audioDataUrl = "tts://generated";
+      const result = await sendMessage("tts:generate", {
+        text: this.state.targetToken.token.reading || this.state.targetToken.token.surface,
+      });
+      this.state.wordAudioDataUrl = result.dataUrl;
+      const preview = new Audio(result.dataUrl);
+      void preview.play().catch(() => undefined);
       this.render();
     } catch (err) {
-      console.error("[SubJap] TTS failed:", err);
+      console.error("[SubJap] VOICEVOX word audio failed:", err);
     }
   }
 
@@ -284,19 +291,17 @@ export class MiningModal {
    */
   private async sendToAnki(): Promise<void> {
     if (!this.state || this.state.sending) return;
-    const { cue, targetToken, episodeContext, definitions, selectedDefinitions } =
-      this.state;
+    const { cue, targetToken, episodeContext, definitions, selectedDefinitions } = this.state;
 
-    const sentence =
-      normalizeCueText(cue.cue.text) || targetToken.token.surface;
-    const selectedDefs = definitions.filter((_, i) =>
-      selectedDefinitions.has(i),
-    );
+    const sentence = normalizeCueText(cue.cue.text) || targetToken.token.surface;
+    const selectedDefs = definitions.filter((_, i) => selectedDefinitions.has(i));
+    const phraseAudioDataUrl =
+      this.state.phraseAudioDataUrl ??
+      this.audioCapture?.captureSegment(cue.cue.start, cue.cue.end);
+    this.state.phraseAudioDataUrl = phraseAudioDataUrl ?? null;
 
     this.state.sending = true;
-    const sendBtn = this.container.querySelector<HTMLButtonElement>(
-      ".subjap-modal-btn-send",
-    );
+    const sendBtn = this.container.querySelector<HTMLButtonElement>(".subjap-modal-btn-send");
     if (sendBtn) {
       sendBtn.disabled = true;
       sendBtn.textContent = "Envoi…";
@@ -310,6 +315,7 @@ export class MiningModal {
         targetSurface: targetToken.token.surface,
         targetReading: targetToken.token.reading,
         definitions: selectedDefs,
+        audioDataUrl: phraseAudioDataUrl,
         screenshotDataUrl: this.state.screenshotDataUrl ?? undefined,
         source: episodeContext,
         cueStart: cue.cue.start,
@@ -328,36 +334,47 @@ export class MiningModal {
 
       // Best-effort Anki push.
       try {
+        let wordAudioDataUrl: string | undefined = this.state.wordAudioDataUrl ?? undefined;
+        if (!wordAudioDataUrl) {
+          try {
+            wordAudioDataUrl = (
+              await sendMessage("tts:generate", {
+                text: targetToken.token.reading || targetToken.token.surface,
+              })
+            ).dataUrl;
+          } catch (err) {
+            console.warn("[SubJap] VOICEVOX word audio unavailable:", err);
+          }
+        }
+
         const status = await sendMessage("anki:status", {});
         if (status.connected && status.deckNames.length > 0) {
           // Prefer the dedicated SubJap deck when it exists; otherwise fall
           // back to the first deck in Anki's list.
           const deckName =
-            status.deckNames.find((d) => d === "SubJap") ??
-            status.deckNames[0] ??
-            "Default";
-          const episodeLabel = episodeContext.episode
-            ? `S${episodeContext.season ?? "?"}E${episodeContext.episode}`
-            : "";
-          const back = [
-            targetToken.token.reading,
-            ...selectedDefs,
-            episodeContext.title + (episodeLabel ? ` — ${episodeLabel}` : ""),
-          ].filter(Boolean);
+            status.deckNames.find((d) => d === "SubJap") ?? status.deckNames[0] ?? "Default";
           await sendMessage("anki:addNote", {
             deckName,
-            modelName: "Basic",
+            modelName: "Migaku Memory",
             fields: {
-              Front: sentence,
-              Back: back.join("\n"),
+              Mot: formatMigakuWord(targetToken.token.surface, targetToken.token.reading),
+              Lecture: targetToken.token.reading,
+              Phrase: formatMigakuSentence(cue, targetToken),
+              Traduction: "",
+              Définitions: formatMigakuDefinitions(selectedDefs),
+              Notes: "",
+              Image: "",
+              AudioMot: "",
+              AudioPhrase: "",
             },
+            audioMotDataUrl: wordAudioDataUrl,
+            audioPhraseDataUrl: phraseAudioDataUrl ?? undefined,
+            imageDataUrl: this.state.screenshotDataUrl ?? undefined,
+            tags: ["subjap", episodeContext.platform],
           });
         }
       } catch (err) {
-        console.warn(
-          "[SubJap] Anki push failed (local card kept):",
-          err,
-        );
+        console.warn("[SubJap] Anki push failed (local card kept):", err);
       }
 
       this.close();
