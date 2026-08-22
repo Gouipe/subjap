@@ -116,9 +116,12 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-token--parenthetical,
     #${CONTAINER_ID} .subjap-token--parenthetical:hover {
-      color: #94a3b8;
+      color: #64748b;
       cursor: default;
       pointer-events: none;
+    }
+    #${CONTAINER_ID} .subjap-token--parenthetical .subjap-furigana {
+      color: #64748b;
     }
     #${CONTAINER_ID} .subjap-furigana {
       display: ${opts.showFurigana ? "block" : "none"};
