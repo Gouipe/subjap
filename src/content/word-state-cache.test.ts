@@ -20,4 +20,21 @@ describe("WordStateCache", () => {
     await expect(cache.get("食べる")).resolves.toEqual(state);
     expect(load).toHaveBeenCalledTimes(2);
   });
+
+  it("clears all cached states", async () => {
+    const load = vi.fn((lemma: string) =>
+      Promise.resolve<WordState>({
+        key: lemma,
+        status: "known",
+        source: "import",
+      }),
+    );
+    const cache = new WordStateCache(load);
+
+    await cache.get("食べる");
+    cache.clear();
+    await cache.get("食べる");
+
+    expect(load).toHaveBeenCalledTimes(2);
+  });
 });

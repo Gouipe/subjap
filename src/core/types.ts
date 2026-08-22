@@ -175,6 +175,8 @@ export interface MessageMap {
   // AnkiConnect
   "anki:status": Record<string, never>;
   "anki:statusResult": { connected: boolean; deckNames: string[] };
+  "anki:syncKnown": Record<string, never>;
+  "anki:syncKnownResult": { imported: number };
   "anki:addNote": {
     deckName: string;
     modelName: string;
