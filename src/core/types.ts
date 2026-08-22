@@ -49,18 +49,45 @@ export interface PlatformAdapter {
 
 // ── Tokeniseur ────────────────────────────────────────────────────────────
 
+export interface GrammarAnnotation {
+  surface: string;
+  kind: "plural-suffix" | "other";
+}
+
 export interface Token {
   surface: string; // forme à l'écran (ex. 食べて)
-  lemma: string; // forme de dictionnaire (食べる)
+  /** Natural dictionary form in the orthography used by the subtitle. */
+  dictionaryForm?: string;
+  /** Stable internal identity shared by orthographic variants. */
+  canonicalKey?: string;
+  /** Ordered dictionary terms, from the natural form to fallbacks. */
+  lookupTerms?: string[];
+  /** @deprecated Use dictionaryForm/canonicalKey. Kept for old serialized data. */
+  lemma: string;
   reading: string; // lecture en kana
   partOfSpeech: string[];
-  /** Kuromoji POS details such as 自立, 非自立 or 接尾. */
+  /** Morphological POS details such as 自立, 非自立 or 接尾. */
   partOfSpeechDetails?: string[];
-  /** Kuromoji conjugation metadata, when the token is inflected. */
+  /** Conjugation metadata, when the token is inflected. */
   conjugationType?: string;
   conjugationForm?: string;
   /** Morphological tokens represented by one pedagogical display unit. */
   components?: Token[];
+  /** Explanations attached to a pedagogical unit, not separate click targets. */
+  grammar?: GrammarAnnotation[];
+}
+
+/** Read the tokenizer-independent lexical fields with legacy-token fallback. */
+export function tokenDictionaryForm(token: Token): string {
+  return token.dictionaryForm ?? token.lemma;
+}
+
+export function tokenCanonicalKey(token: Token): string {
+  return token.canonicalKey ?? token.lemma;
+}
+
+export function tokenLookupTerms(token: Token): string[] {
+  return token.lookupTerms ?? [tokenDictionaryForm(token), token.surface, token.reading];
 }
 
 export interface Tokenizer {
@@ -91,14 +118,14 @@ export interface PitchAccent {
 export type WordStatus = "known" | "unknown" | "learning" | "ignored";
 
 export interface WordState {
-  key: string; // lemme (ex. 食べる)
+  key: string; // canonical lexeme identity
   status: WordStatus;
   knownAt?: number;
   source: "manual" | "frequency-list" | "import";
 }
 
 export interface AnkiWordPresence {
-  key: string; // lemme normalisé depuis le champ Anki `Mot`
+  key: string; // normalized lexical identity from the Anki `Mot` field
   noteCount: number;
 }
 

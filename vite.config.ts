@@ -4,6 +4,16 @@ import { resolve } from "path";
 import manifest from "./src/manifest";
 
 export default defineConfig(({ mode }) => ({
+  optimizeDeps: {
+    // The package's generated WASM loader must remain a runtime module so it
+    // can resolve its adjacent .wasm asset in the extension bundle.
+    exclude: ["lindera-wasm-web-unidic"],
+  },
+  server: {
+    cors: {
+      origin: [/^chrome-extension:\/\//],
+    },
+  },
   plugins: [
     crx({
       manifest:
@@ -20,8 +30,6 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
-      // kuromoji's DictionaryLoader uses Node's `path.join` — polyfill for the browser.
-      path: "path-browserify",
     },
   },
   build: {

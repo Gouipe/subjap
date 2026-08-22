@@ -8,6 +8,11 @@ import {
 } from "@/background/anki-known";
 
 describe("Anki word-state import", () => {
+  it("partage l’identité UniDic entre les graphies d’un même lexème", () => {
+    expect(normalizeAnkiWord("コイツ")).toBe("此奴");
+    expect(normalizeAnkiWord("<ruby>こいつ<rt>こいつ</rt></ruby>")).toBe("此奴");
+  });
+
   it("normalise ruby, syntaxe Migaku et ponctuation périphérique", () => {
     expect(normalizeAnkiWord("着[つ;k1,o]く")).toBe("着く");
     expect(normalizeAnkiWord("<ruby>食べる<rt>たべる</rt></ruby>")).toBe("食べる");

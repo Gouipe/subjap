@@ -2,7 +2,14 @@
 // SubJap — word popover (vanilla DOM)
 // ---------------------------------------------------------------------------
 
-import type { DictionaryEntry, PitchAccent, Token, WordStatus } from "@/core/types";
+import {
+  tokenCanonicalKey,
+  tokenDictionaryForm,
+  type DictionaryEntry,
+  type PitchAccent,
+  type Token,
+  type WordStatus,
+} from "@/core/types";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -89,7 +96,7 @@ export class WordPopover {
 
     this.currentToken = token;
     this.currentEntry = entry ?? null;
-    this.currentLemma = token.lemma;
+    this.currentLemma = tokenCanonicalKey(token);
     this.currentStatus = wordStatus ?? null;
     this.currentFrequencyRank = frequencyRank;
     this.currentAnkiNoteCount = Math.max(0, ankiNoteCount ?? 0);
@@ -144,8 +151,10 @@ export class WordPopover {
     el.innerHTML = `
       <div class="subjap-popover__header">
         <div class="subjap-popover__surface"></div>
+        <div class="subjap-popover__dictionary"></div>
         <div class="subjap-popover__reading"></div>
         <div class="subjap-popover__pos"></div>
+        <div class="subjap-popover__grammar"></div>
       </div>
       <div class="subjap-popover__content">
         <div class="subjap-popover__defs"></div>
@@ -216,6 +225,11 @@ export class WordPopover {
         font-weight: 700;
         color: #fff;
       }
+      .subjap-popover__dictionary {
+        font-size: 13px;
+        color: #cbd5e1;
+        margin-top: 1px;
+      }
       .subjap-popover__header,
       .subjap-popover__actions {
         flex: none;
@@ -235,6 +249,11 @@ export class WordPopover {
         font-size: 11px;
         text-transform: uppercase;
         color: #64748b;
+        margin-top: 4px;
+      }
+      .subjap-popover__grammar {
+        font-size: 12px;
+        color: #facc15;
         margin-top: 4px;
       }
       .subjap-popover__defs {
@@ -325,6 +344,11 @@ export class WordPopover {
     const surfaceEl = this.el.querySelector(".subjap-popover__surface")!;
     surfaceEl.textContent = token.surface;
 
+    const dictionaryEl = this.el.querySelector(".subjap-popover__dictionary")!;
+    const dictionaryForm = tokenDictionaryForm(token);
+    dictionaryEl.textContent =
+      dictionaryForm !== token.surface ? `Base: ${dictionaryForm}` : "";
+
     // Reading
     const readingEl = this.el.querySelector(".subjap-popover__reading")!;
     readingEl.textContent = token.reading ? `読み: ${token.reading}` : "";
@@ -335,6 +359,15 @@ export class WordPopover {
       .map((p) => POS_LABELS[p] ?? p)
       .filter(Boolean);
     posEl.textContent = posLabels.length > 0 ? posLabels.join(" · ") : "";
+
+    const grammarEl = this.el.querySelector(".subjap-popover__grammar")!;
+    grammarEl.textContent = (token.grammar ?? [])
+      .map((annotation) =>
+        annotation.kind === "plural-suffix"
+          ? `${annotation.surface} — suffixe pluriel`
+          : annotation.surface,
+      )
+      .join(" · ");
 
     // Definitions
     const defsContainer = this.el.querySelector(".subjap-popover__defs")!;

@@ -16,7 +16,7 @@ Les interfaces entre ces deux contextes sont centralisées dans
 flowchart LR
   V[Lecteur vidéo / sous-titres] --> A[Adaptateur de plateforme]
   A --> C[Content script\nnormalisation + segmentation]
-  C --> T[Kuromoji\ntokenisation + cache LRU]
+  C --> T[Lindera + UniDic WASM\ncontrat + cache LRU]
   C --> M[Service worker\nmessages typés]
   M --> D[(IndexedDB\nDexie)]
   C --> O[Overlay DOM\npopover + modal de mining]
@@ -33,7 +33,7 @@ Le manifeste est construit par Vite et `@crxjs/vite-plugin` à partir de
 - un service worker : [`src/background/service-worker.ts`](../src/background/service-worker.ts) ;
 - un content script lancé à `document_end` sur les plateformes ciblées ;
 - une popup React et une page Options React ;
-- les fichiers de dictionnaire Kuromoji exposés depuis `public/dict/` ;
+  - le binaire Lindera + UniDic embarqué dans le bundle du content script ;
 - les permissions de stockage, d’injection et les accès réseau nécessaires au
   téléchargement de JMdict et à AnkiConnect.
 
@@ -45,7 +45,7 @@ Les principaux modules sont organisés ainsi :
 | `src/background/` | Persistance, lookups, statistiques, création de cartes, AnkiConnect et installation. |
 | `src/content/` | Orchestration du pipeline dans la page vidéo et gestion des interactions. |
 | `src/adapters/` | Adaptateurs de lecteurs ; Netflix est l’adaptateur réellement utilisé pour le MVP. |
-| `src/tokenizer/` | Adaptateur Kuromoji, chargement des dictionnaires et cache LRU. |
+| `src/tokenizer/` | Adaptateur Lindera + UniDic, contrat morphologique, regroupements et cache LRU. |
 | `src/subtitles/` | Normalisation, segmentation et parseurs SRT/VTT/ASS prêts pour l’import local. |
 | `src/dictionary/` | Conversion JMdict et index de recherche ; le service worker interroge les entrées persistées. |
 | `src/overlay/` | Rendu DOM vanilla des cues et popover de définition. |
@@ -108,12 +108,13 @@ Le chemin principal est le suivant :
 3. [`splitIntoSentences()`](../src/subtitles/segment.ts) sépare les phrases,
    respecte les retours à la ligne et limite les segments trop longs à 80
    caractères par défaut.
-4. Le tokenizer Kuromoji est initialisé paresseusement. Son loader utilise
-   `fetch()` + `DecompressionStream("gzip")`, avec timeout et erreurs
-   explicites ; `kuromoji.builder()` n’est volontairement pas utilisé car son
-   loader XHR peut rester bloqué dans un content script.
-5. Chaque token est converti vers le type partagé `Token` : surface, lemme,
-   lecture et parties du discours.
+4. Lindera + UniDic est initialisé paresseusement depuis le monde isolé du
+   content script. Le chargement WASM est singleton, borné par un timeout et
+   réinitialisable après erreur.
+5. Chaque token est converti vers le contrat partagé `Token` : surface, forme
+   de dictionnaire naturelle, identité canonique, termes de lookup, lecture,
+   POS, conjugaison et composants. Les offsets UTF-8 de Lindera sont vérifiés
+   afin que la concaténation des surfaces reproduise exactement la phrase.
 6. Les états de mots (`known`, `unknown`, `learning` ou `ignored`) sont
    demandés au service worker, avec déduplication des requêtes en vol. Un mot
    ignoré est rendu blanc comme un mot connu, mais reste exclu du compteur de
@@ -131,6 +132,9 @@ Le chemin principal est le suivant :
 
 Le tokenizer est un singleton par content script et possède un cache LRU de
 500 phrases. Les cues identiques sont ignorés grâce à une signature de texte.
+Les unités pédagogiques regroupent notamment les suffixes pluriels `ら`, `たち`,
+`ども` et `がた` uniquement lorsque UniDic les marque comme suffixes ; les
+composants morphologiques restent disponibles pour la popover et le mining.
 Si Netflix remplace l’élément `<video>`, l’ancien overlay et le modal de mining
 sont détruits puis recréés pour le nouveau lecteur.
 

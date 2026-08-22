@@ -1,167 +1,95 @@
-// ---------------------------------------------------------------------------
-// Kuromoji tokenizer adapter — implements the shared Tokenizer interface.
-//
-// kuromoji.builder() loads its dictionary through a hardcoded XMLHttpRequest
-// loader that can stall silently in extension content scripts (the build
-// callback never fires and no error surfaces — observed on Netflix). We
-// therefore bypass the builder and drive kuromoji's DictionaryLoader with our
-// own fetch()-based loadArrayBuffer: explicit per-file errors, a hard timeout,
-// and progress logs.
-// ---------------------------------------------------------------------------
-
-import DictionaryLoader from "kuromoji/src/loader/DictionaryLoader";
-import KuromojiTokenizerClass from "kuromoji/src/Tokenizer";
+import initLindera, { TokenizerBuilder } from "lindera-wasm-web-unidic";
 import type { Token, Tokenizer } from "@/core/types";
 import { LRUCache } from "./lru-cache";
-import type { RawKuromojiToken } from "./convert";
-import { repairKatakanaAdjectives } from "./repair";
-
-/** The built tokenizer object (kuromoji's Tokenizer class). */
-interface KuromojiTokenizerInstance {
-  tokenize(text: string): RawKuromojiToken[];
-}
-
-// ── Singleton state ──────────────────────────────────────────────────────
+import {
+  assertLinderaSurfaceCoverage,
+  toLinderaToken,
+  type RawLinderaToken,
+} from "./convert";
 
 const TOKENIZER_CACHE_SIZE = 500;
-const DICT_FILE_TIMEOUT_MS = 20000;
+const WASM_LOAD_TIMEOUT_MS = 30_000;
 
-let instancePromise: Promise<KuromojiTokenizerInstance> | null = null;
+interface LinderaTokenizerInstance {
+  tokenize(text: string): unknown;
+}
+
+let instancePromise: Promise<LinderaTokenizerInstance> | null = null;
 let cache: LRUCache<string, Token[]> | null = null;
 
-// ── Fetch-based dictionary loader ─────────────────────────────────────────
-
-/**
- * Fetch + decompress one gzip'd kuromoji dictionary file. Uses the native
- * DecompressionStream (Chrome 80+) instead of zlibjs; rejects with a clear
- * error (and a hard timeout) instead of hanging silently.
- */
-async function fetchDictFile(url: string): Promise<ArrayBuffer> {
-  const name = url.split("/").pop() ?? url;
-  console.log(`[SubJap] tokenizer: fetch ${name}`);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DICT_FILE_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { signal: controller.signal, credentials: "omit" });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`);
-    }
-    const compressed = await res.arrayBuffer();
-    const decompressed = await new Response(
-      new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip")),
-    ).arrayBuffer();
-    console.log(
-      `[SubJap] tokenizer: ${name} ok (${(decompressed.byteLength / 1024).toFixed(0)} KiB)`,
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${WASM_LOAD_TIMEOUT_MS}ms`)),
+      WASM_LOAD_TIMEOUT_MS,
     );
-    return decompressed;
-  } catch (err) {
-    console.error(`[SubJap] tokenizer: ${name} failed:`, err);
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** DictionaryLoader whose loadArrayBuffer uses fetch() instead of XHR. */
-class FetchDictionaryLoader extends DictionaryLoader {
-  override loadArrayBuffer(
-    url: string,
-    callback: (err: Error | null, buffer?: ArrayBuffer) => void,
-  ): void {
-    fetchDictFile(url)
-      .then((buffer) => callback(null, buffer))
-      .catch((err: unknown) => {
-        callback(
-          err instanceof Error ? err : new Error(String(err)),
-          undefined,
-        );
-      });
-  }
-}
-
-/** Build the kuromoji tokenizer with our own dictionary loader. */
-function buildKuromojiTokenizer(
-  dicPath: string,
-  callback: (
-    err: Error | null,
-    tokenizer: KuromojiTokenizerInstance | null,
-  ) => void,
-): void {
-  console.log(`[SubJap] tokenizer: start (${dicPath})`);
-  const loader = new FetchDictionaryLoader(dicPath);
-  loader.load((err, dic) => {
-    if (err || !dic) {
-      callback(err ?? new Error("kuromoji dictionary load failed"), null);
-      return;
-    }
-    callback(null, new KuromojiTokenizerClass(dic));
+    promise.then(resolve, reject).finally(() => clearTimeout(timer));
   });
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-
 function ensureCache(): LRUCache<string, Token[]> {
-  if (!cache) {
-    cache = new LRUCache<string, Token[]>(TOKENIZER_CACHE_SIZE);
-  }
+  if (!cache) cache = new LRUCache<string, Token[]>(TOKENIZER_CACHE_SIZE);
   return cache;
 }
 
-/** Lazily build the kuromoji tokenizer (called only once). */
-function loadKuromojiTokenizer(): Promise<KuromojiTokenizerInstance> {
-  if (!instancePromise) {
-    instancePromise = new Promise<KuromojiTokenizerInstance>(
-      (resolve, reject) => {
-        // In the extension the dictionary files are served from the extension
-        // origin (dist/dict, exposed via web_accessible_resources). In tests
-        // (Node/jsdom, no `chrome` global) fall back to a plain path.
-        const dicPath =
-          typeof chrome !== "undefined" &&
-          typeof chrome.runtime?.getURL === "function"
-            ? chrome.runtime.getURL("dict/")
-            : "/dict/";
+function isRawLinderaToken(value: unknown): value is RawLinderaToken {
+  if (!value || typeof value !== "object") return false;
+  const token = value as Partial<RawLinderaToken>;
+  return (
+    typeof token.surface === "string" &&
+    typeof token.byteStart === "number" &&
+    typeof token.byteEnd === "number" &&
+    typeof token.partOfSpeech === "string"
+  );
+}
 
-        buildKuromojiTokenizer(dicPath, (err, tokenizer) => {
-          if (err || !tokenizer) {
-            reject(err ?? new Error("kuromoji build failed"));
-          } else {
-            console.log("[SubJap] tokenizer: ready");
-            resolve(tokenizer);
-          }
-        });
-      },
-    );
+async function loadLinderaTokenizer(): Promise<LinderaTokenizerInstance> {
+  if (!instancePromise) {
+    instancePromise = (async () => {
+      console.log("[SubJap] tokenizer: loading Lindera UniDic 2.0.0");
+      await withTimeout(initLindera(), "Lindera UniDic WASM load");
+      const builder = new TokenizerBuilder();
+      builder.setDictionary("embedded://unidic");
+      builder.setMode("normal");
+      builder.setKeepWhitespace(true);
+      const tokenizer = builder.build();
+      console.log("[SubJap] tokenizer: Lindera UniDic ready");
+      return tokenizer;
+    })().catch((error: unknown) => {
+      instancePromise = null;
+      const cause = error instanceof Error ? error : new Error(String(error));
+      console.error("[SubJap] tokenizer: Lindera UniDic failed:", cause);
+      throw new Error(`Impossible de charger UniDic: ${cause.message}`, { cause });
+    });
   }
   return instancePromise;
 }
 
-// ── Public API ────────────────────────────────────────────────────────────
+function convertTokens(sentence: string, rawValue: unknown): Token[] {
+  if (!Array.isArray(rawValue) || !rawValue.every(isRawLinderaToken)) {
+    throw new Error("Lindera UniDic returned an invalid token array");
+  }
+  const rawTokens = rawValue as RawLinderaToken[];
+  assertLinderaSurfaceCoverage(sentence, rawTokens);
+  return rawTokens.map(toLinderaToken);
+}
 
-/**
- * Create (or reuse) the singleton kuromoji-backed `Tokenizer`.
- *
- * The underlying kuromoji instance is lazily initialised on first call and
- * then reused across all subsequent calls.  A 500-entry LRU cache avoids
- * re-tokenising sentences that repeat across subtitle cues.
- */
+/** Create the singleton production tokenizer backed by embedded UniDic. */
 export async function createTokenizer(): Promise<Tokenizer> {
-  const kt = await loadKuromojiTokenizer();
-  const c = ensureCache();
-
-  const tokenize = (sentence: string): Token[] => {
-    // Fast path: exact cache hit.
-    const cached = c.get(sentence);
-    if (cached) return cached;
-
-    const raw = kt.tokenize(sentence);
-    const tokens = repairKatakanaAdjectives(
-      sentence,
-      raw,
-      (normalized) => kt.tokenize(normalized),
-    );
-    c.set(sentence, tokens);
-    return tokens;
+  const engine = await loadLinderaTokenizer();
+  const sentenceCache = ensureCache();
+  return {
+    tokenize(sentence: string): Token[] {
+      const cached = sentenceCache.get(sentence);
+      if (cached) return cached;
+      const tokens = convertTokens(sentence, engine.tokenize(sentence));
+      sentenceCache.set(sentence, tokens);
+      return tokens;
+    },
   };
+}
 
-  return { tokenize };
+/** Clear only the sentence cache; the WASM singleton remains warm. */
+export function clearTokenizerCache(): void {
+  cache = null;
 }

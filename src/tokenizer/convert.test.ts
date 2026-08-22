@@ -1,30 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { toToken } from "@/tokenizer/convert";
+import { toLinderaToken } from "./convert";
 
-describe("toToken", () => {
-  it("conserve le lemme et les métadonnées de conjugaison Kuromoji", () => {
-    const result = toToken({
-      surface_form: "思っ",
-      basic_form: "思う",
-      reading: "オモッ",
-      pos: "動詞",
-      pos_detail_1: "自立",
-      pos_detail_2: "*",
-      pos_detail_3: "*",
-      word_type: "KNOWN",
-      word_position: 1,
-      conjugated_type: "五段・ワ行促音便",
-      conjugated_form: "連用タ接続",
+describe("toLinderaToken", () => {
+  it("conserve la forme naturelle et l’identité lexicale UniDic", () => {
+    const result = toLinderaToken({
+      surface: "コイツ",
+      byteStart: 0,
+      byteEnd: 9,
+      lexeme: "此奴",
+      orthographicBaseForm: "コイツ",
+      orthographicSurfaceForm: "コイツ",
+      phonologicalBaseForm: "コイツ",
+      phonologicalSurfaceForm: "コイツ",
+      reading: "コイツ",
+      partOfSpeech: "代名詞",
+      partOfSpeechSubcategory1: "*",
+      partOfSpeechSubcategory2: "*",
+      partOfSpeechSubcategory3: "*",
+      conjugationType: "*",
+      conjugationForm: "*",
     });
 
     expect(result).toMatchObject({
-      surface: "思っ",
-      lemma: "思う",
-      reading: "おもっ",
-      partOfSpeech: ["動詞"],
-      partOfSpeechDetails: ["自立"],
-      conjugationType: "五段・ワ行促音便",
-      conjugationForm: "連用タ接続",
+      surface: "コイツ",
+      dictionaryForm: "コイツ",
+      canonicalKey: "此奴",
+      lookupTerms: ["コイツ", "此奴", "こいつ"],
+      reading: "こいつ",
+      partOfSpeech: ["代名詞"],
     });
   });
 });

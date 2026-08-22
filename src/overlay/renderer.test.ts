@@ -127,7 +127,7 @@ describe("OverlayRenderer", () => {
     overlay.destroy();
   });
 
-  it("affiche les lectures kuromoji en hiragana", () => {
+  it("affiche les lectures UniDic en hiragana", () => {
     vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
 

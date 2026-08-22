@@ -1,4 +1,5 @@
 import type { AnkiWordPresence, WordState, WordStatus } from "@/core/types";
+import { canonicalizeLexicalKey } from "@/core/lexical-key";
 
 export interface AnkiNoteInfoForWordStates {
   fields: Record<string, { value: string }>;
@@ -27,7 +28,7 @@ const STATUS_PRIORITY: Record<WordStatus, number> = {
 
 /** Normalize Migaku bracket syntax and SubJap/Anki ruby HTML to a lemma key. */
 export function normalizeAnkiWord(value: string): string {
-  return value
+  const normalized = value
     .normalize("NFC")
     .replace(/<rt\b[^>]*>[\s\S]*?<\/rt>/gi, "")
     .replace(/<[^>]*>/g, "")
@@ -43,6 +44,7 @@ export function normalizeAnkiWord(value: string): string {
     .replace(/^["'“”‘’「」『』（）()【】、。！？!?.,，．…]+/, "")
     .replace(/["'“”‘’「」『』（）()【】、。！？!?.,，．…]+$/, "")
     .trim();
+  return canonicalizeLexicalKey(normalized);
 }
 
 export function extractAnkiWordStates(

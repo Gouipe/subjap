@@ -1,4 +1,4 @@
-/** Convert full-width katakana readings (as returned by kuromoji) to hiragana. */
+/** Convert full-width katakana readings (as returned by UniDic) to hiragana. */
 export function toHiragana(text: string): string {
   return Array.from(text, (char) => {
     const codePoint = char.codePointAt(0);

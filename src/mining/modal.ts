@@ -8,7 +8,13 @@
 // retaken), then the card is pushed to the local IndexedDB store and
 // (best-effort) to Anki.
 
-import type { RenderedCue, SpanToken, EpisodeContext } from "@/core/types";
+import {
+  tokenCanonicalKey,
+  tokenDictionaryForm,
+  type RenderedCue,
+  type SpanToken,
+  type EpisodeContext,
+} from "@/core/types";
 import { sendMessage } from "@/core/messaging";
 import { normalizeCueText } from "@/subtitles";
 import { captureFrame } from "./capture";
@@ -231,7 +237,7 @@ export class MiningModal {
 
     const sentenceHtml = cue.spans
       .map((st) => {
-        const isTarget = st.token.lemma === targetToken.token.lemma;
+        const isTarget = tokenCanonicalKey(st.token) === tokenCanonicalKey(targetToken.token);
         const cls = isTarget ? "subjap-target" : "";
         return `<span class="${cls}">${escapeHtml(st.token.surface)}</span>`;
       })
@@ -264,7 +270,7 @@ export class MiningModal {
     body.innerHTML = `
       <div class="subjap-label">Sentence — ${escapeHtml(this.state.episodeContext.title)}</div>
       <div class="subjap-sentence">${sentenceHtml}</div>
-      <div class="subjap-label">Target Word — ${escapeHtml(targetToken.token.lemma)}</div>
+      <div class="subjap-label">Target Word — ${escapeHtml(tokenDictionaryForm(targetToken.token))}</div>
       ${readingHtml}
       ${defListHtml}
       ${audioInfo}
@@ -289,7 +295,7 @@ export class MiningModal {
     if (!state) return;
     try {
       const result = await sendMessage("tts:generate", {
-        text: state.lemmaReading || state.targetToken.token.lemma,
+        text: state.lemmaReading || tokenDictionaryForm(state.targetToken.token),
       });
       // Ignore a late response if the modal was closed and reopened for a
       // different card while VOICEVOX was synthesizing.
@@ -407,7 +413,7 @@ export class MiningModal {
         const { id } = await sendMessage("mine:create", {
           sentence,
           sentenceReading: "",
-          targetWord: targetToken.token.lemma,
+          targetWord: tokenDictionaryForm(targetToken.token),
           targetSurface: targetToken.token.surface,
           targetReading: state.lemmaReading,
           definitions: editedDefinitions,
@@ -436,7 +442,7 @@ export class MiningModal {
           try {
             wordAudioDataUrl = (
               await sendMessage("tts:generate", {
-                text: state.lemmaReading || targetToken.token.lemma,
+                text: state.lemmaReading || tokenDictionaryForm(targetToken.token),
               })
             ).dataUrl;
           } catch (err) {
@@ -448,7 +454,7 @@ export class MiningModal {
         await sendMessage("anki:addNote", {
           deckName,
           fields: {
-            Mot: formatMigakuWord(targetToken.token.lemma, state.lemmaReading),
+            Mot: formatMigakuWord(tokenDictionaryForm(targetToken.token), state.lemmaReading),
             Lecture: state.lemmaReading,
             Phrase: formatMigakuSentence(cue, targetToken),
             Traduction: "",

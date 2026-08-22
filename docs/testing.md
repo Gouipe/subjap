@@ -63,7 +63,9 @@ du DOM de production.
 Le test Playwright démarre automatiquement la fixture, lance Chromium et
 vérifie les scénarios UX critiques : positionnement au-dessus des contrôles,
 masquage des natifs, hover, popover, changement d’état, options live, effacement
-et remplacement SPA.
+et remplacement SPA. Il charge aussi le WASM UniDic réel et vérifie `こいつら`,
+`生徒たち`, `どいつら`, `彼ら`, `生徒達`, `らしい` ainsi que l’annotation du
+suffixe pluriel sans cible cliquable imbriquée.
 
 Installation initiale du navigateur :
 

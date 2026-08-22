@@ -6,7 +6,7 @@
 // Pipeline stages:
 //   1. Register platform adapters (Netflix first, others as they land).
 //   2. Subscribe to subtitle cues from the active adapter.
-//   3. Tokenise each cue with kuromoji.
+//   3. Tokenise each cue with Lindera + UniDic.
 //   4. Cross-reference tokens with word states (via the service worker) and
 //      dictionary glosses (in-memory, when the dictionary is loaded).
 //   5. Render the annotated cue through the overlay; wire popover interactions
@@ -35,6 +35,7 @@ import {
   subtitleTextForClipboard,
 } from "./shortcuts";
 import { WordStateCache } from "./word-state-cache";
+import { tokenCanonicalKey, tokenDictionaryForm } from "@/core/types";
 import type {
   DictionaryEntry,
   EpisodeContext,
@@ -380,7 +381,11 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
 
   const frequencyTerms = [
     ...new Set(
-      allTokens.flatMap((token) => [token.lemma, token.surface]),
+      allTokens.flatMap((token) => [
+        tokenCanonicalKey(token),
+        tokenDictionaryForm(token),
+        token.surface,
+      ]),
     ),
   ];
   const [frequencyRanks, resolvedKnownWordCount] = await Promise.all([
@@ -398,15 +403,18 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
       tokens.map(async (token, tokenIndex): Promise<SpanToken> => {
         const index = globalIndex++;
         nextSpanRegistry.set(index, { cue, token });
-        const state = await getWordState(token.lemma);
+        const lexicalKey = tokenCanonicalKey(token);
+        const state = await getWordState(lexicalKey);
         const frequencyRank =
-          frequencyRanks[token.lemma] ?? frequencyRanks[token.surface];
+          frequencyRanks[lexicalKey] ??
+          frequencyRanks[tokenDictionaryForm(token)] ??
+          frequencyRanks[token.surface];
         return {
           index,
           token,
           wordState: state,
           isParenthetical: parentheticalFlags[tokenIndex],
-          ankiNoteCount: ankiNoteCountByLemma.get(token.lemma) ?? 0,
+          ankiNoteCount: ankiNoteCountByLemma.get(lexicalKey) ?? 0,
           frequencyRank,
         };
       }),
@@ -543,7 +551,7 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
       async (term) => (await sendMessage("dict:lookup", { lemma: term })).entry,
     );
   } catch (err: unknown) {
-    console.warn(`[SubJap] dict:lookup failed for "${token.lemma}":`, err);
+    console.warn(`[SubJap] dict:lookup failed for "${tokenDictionaryForm(token)}":`, err);
   }
 
   // The lookup is async: the cue may have been re-rendered (anchor gone) or
@@ -559,7 +567,7 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
     anchor,
     token,
     entry: dictEntry,
-    wordStatus: wordStatusByLemma.get(token.lemma) ?? null,
+    wordStatus: wordStatusByLemma.get(tokenCanonicalKey(token)) ?? null,
     frequencyRank: renderedSpan?.frequencyRank,
     ankiNoteCount: renderedSpan?.ankiNoteCount ?? 0,
   });

@@ -6,7 +6,7 @@ Extension navigateur Manifest V3 pour l'apprentissage du japonais via les sous-t
 
 ## Stack
 - TypeScript strict, Vite + @crxjs/vite-plugin, React (popup/options)
-- Dexie (IndexedDB), kuromoji.js (tokenizer japonais), speechSynthesis (TTS offline)
+- Dexie (IndexedDB), Lindera + UniDic WASM (tokenizer japonais), speechSynthesis (TTS offline)
 - Chrome/Edge MV3, AnkiConnect (localhost:8765)
 
 ## Build

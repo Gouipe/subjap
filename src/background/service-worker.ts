@@ -4,6 +4,7 @@
 
 import { db } from "@/core/db";
 import { onMessage } from "@/core/messaging";
+import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import {
   fetchJapaneseFrequencyRanks,
@@ -208,23 +209,28 @@ onMessage("dict:download", async ({ url }) => {
 
 // ── word:get ──────────────────────────────────────────────────────────────
 onMessage("word:get", async ({ key }) => {
-  const [state, ankiWord] = await Promise.all([
-    db.wordStates.get(key),
-    db.ankiWords.get(key),
+  const keys = lexicalKeyCandidates(key);
+  const [states, ankiWords] = await Promise.all([
+    Promise.all(keys.map((candidate) => db.wordStates.get(candidate))),
+    Promise.all(keys.map((candidate) => db.ankiWords.get(candidate))),
   ]);
+  const state = states.find((candidate) => candidate != null);
+  const ankiWord = ankiWords.find((candidate) => candidate != null);
   return { state: state ?? null, ankiNoteCount: ankiWord?.noteCount ?? 0 };
 });
 
 // ── word:set ──────────────────────────────────────────────────────────────
 
 onMessage("word:set", async (payload) => {
-  await db.wordStates.put(payload);
+  await db.wordStates.put({ ...payload, key: canonicalizeLexicalKey(payload.key) });
 });
 
 // ── word:batch ────────────────────────────────────────────────────────────
 
 onMessage("word:batch", async (payload) => {
-  await db.wordStates.bulkPut(payload);
+  await db.wordStates.bulkPut(
+    payload.map((state) => ({ ...state, key: canonicalizeLexicalKey(state.key) })),
+  );
 });
 
 // ── frequency:batch ──────────────────────────────────────────────────────

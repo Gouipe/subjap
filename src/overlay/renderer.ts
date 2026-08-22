@@ -2,6 +2,7 @@
 // SubJap — vanilla-DOM subtitle overlay renderer
 // ---------------------------------------------------------------------------
 
+import { tokenCanonicalKey } from "@/core/types";
 import type {
   OverlayOptions,
   RenderedCue,
@@ -269,7 +270,7 @@ export class OverlayRenderer {
       span.classList.add("subjap-token--punctuation");
     }
     const reading = toHiragana(st.token.reading);
-    span.dataset.lemma = st.token.lemma;
+    span.dataset.lemma = tokenCanonicalKey(st.token);
     span.dataset.reading = reading;
     span.dataset.surface = st.token.surface;
     span.dataset.pos = st.token.partOfSpeech.join(",");

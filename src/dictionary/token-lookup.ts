@@ -2,7 +2,7 @@
 // Dictionary lookup candidates for tokenized subtitle words.
 // ---------------------------------------------------------------------------
 
-import type { DictionaryEntry, Token } from "@/core/types";
+import { tokenLookupTerms, type DictionaryEntry, type Token } from "@/core/types";
 
 export type DictionaryLookup = (
   term: string,
@@ -11,12 +11,12 @@ export type DictionaryLookup = (
 /**
  * Return the lookup forms in the order most likely to identify the word.
  *
- * Kuromoji can produce a lemma whose orthography differs from JMdict's
- * headword (for example ケンカ vs 喧嘩), while the token reading is normalized
- * to hiragana. Keep all three forms as fallbacks and remove duplicates.
+ * UniDic exposes a natural orthographic form and a stable lexeme identity.
+ * Keep both, plus surface/reading fallbacks, so aliases never dictate the
+ * form shown in the overlay or written to Anki.
  */
 export function getTokenLookupTerms(token: Token): string[] {
-  return [...new Set([token.lemma, token.surface, token.reading].filter(Boolean))];
+  return [...new Set([...tokenLookupTerms(token), token.surface, token.reading].filter(Boolean))];
 }
 
 /** Look up a token locally first, then through the supplied remote lookup. */

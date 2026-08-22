@@ -446,6 +446,55 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator(".subjap-popover__surface")).toHaveText("じゃなくって");
   });
 
+  test("rend les unités plurielles et leurs annotations avec UniDic réel", async ({
+    page,
+  }) => {
+    await page.getByTestId("unidic-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-scenario",
+      "unidic-plurals",
+      { timeout: 10_000 },
+    );
+
+    const tokens = page.locator("#subjap-overlay-container .subjap-token");
+    await expect(tokens.first()).toHaveAttribute("data-surface", "こいつら");
+    await expect(tokens.first()).toHaveAttribute("data-lemma", "此奴");
+    await expect(tokens.filter({ hasText: "生徒たち" })).toHaveCount(1);
+    await expect(tokens.filter({ hasText: "ら" })).toHaveCount(1);
+
+    await page.getByTestId("video-stage").evaluate((stage) => {
+      stage.scrollIntoView({ block: "start" });
+    });
+    await tokens.first().hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("こいつら");
+    await expect(page.locator(".subjap-popover__dictionary")).toHaveText("Base: こいつ");
+    await expect(page.locator(".subjap-popover__grammar")).toHaveText(
+      "ら — suffixe pluriel",
+    );
+    await expect(page.locator(".subjap-popover .subjap-token")).toHaveCount(0);
+  });
+
+  test("garde les variantes UniDic séparées quand elles ne sont pas des pluriels", async ({
+    page,
+  }) => {
+    await page.getByTestId("unidic-variants-cue").click();
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-scenario",
+      "unidic-variants",
+      { timeout: 10_000 },
+    );
+
+    const surfaces = await page
+      .locator("#subjap-overlay-container .subjap-token")
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-surface")));
+    expect(surfaces).toContain("どいつら");
+    expect(surfaces).toContain("らしい");
+    expect(surfaces).toContain("彼ら");
+    expect(surfaces).toContain("生徒達");
+    await expect(page.locator(".subjap-popover__grammar")).toHaveCount(1);
+  });
+
   test("regroupe la forme explicative なんです sans absorber le nom", async ({
     page,
   }) => {
@@ -456,6 +505,9 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(0)).toHaveAttribute("data-surface", "孫");
     await expect(tokens.nth(1)).toHaveAttribute("data-surface", "なんです");
 
+    await page.getByTestId("video-stage").evaluate((stage) => {
+      stage.scrollIntoView({ block: "start" });
+    });
     await tokens.nth(1).hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("なんです");
