@@ -108,6 +108,34 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("grise toute expression entre parenthèses et la rend non interactive", async ({
+    page,
+  }) => {
+    await page.getByTestId("parenthetical-cue").click();
+
+    const parenthetical = page.locator(
+      "#subjap-overlay-container .subjap-token--parenthetical",
+    );
+    await expect(parenthetical).toHaveCount(3);
+    await expect(parenthetical.first()).toHaveCSS(
+      "color",
+      "rgb(148, 163, 184)",
+    );
+    await expect(parenthetical.first()).toHaveCSS("pointer-events", "none");
+    await expect(parenthetical.first()).toHaveCSS("cursor", "default");
+
+    await parenthetical.first().dispatchEvent("mouseover");
+    await parenthetical.first().dispatchEvent("click");
+    await page.waitForTimeout(450);
+    await expect(page.locator("#subjap-popover")).not.toHaveClass(
+      /subjap-popover--visible/,
+    );
+
+    await expect(
+      page.locator("#subjap-overlay-container .subjap-token").nth(3),
+    ).not.toHaveClass(/subjap-token--parenthetical/);
+  });
+
   test("affiche la traduction française Netflix sous le japonais", async ({
     page,
   }) => {

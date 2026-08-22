@@ -89,7 +89,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       border-radius: 0.16em;
       transition: color 0.15s, background-color 0.15s;
     }
-    #${CONTAINER_ID} .subjap-token:hover {
+    #${CONTAINER_ID} .subjap-token:not(.subjap-token--parenthetical):hover {
       color: #facc15;
       background-color: rgba(250, 204, 21, 0.16);
     }
@@ -113,6 +113,12 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-neutral {
       color: #ffffff;
+    }
+    #${CONTAINER_ID} .subjap-token--parenthetical,
+    #${CONTAINER_ID} .subjap-token--parenthetical:hover {
+      color: #94a3b8;
+      cursor: default;
+      pointer-events: none;
     }
     #${CONTAINER_ID} .subjap-furigana {
       display: ${opts.showFurigana ? "block" : "none"};
@@ -264,6 +270,10 @@ export class OverlayRenderer {
     span.dataset.surface = st.token.surface;
     span.dataset.pos = st.token.partOfSpeech.join(",");
     span.dataset.index = String(st.index);
+    if (st.isParenthetical) {
+      span.classList.add("subjap-token--parenthetical");
+      span.dataset.parenthetical = "true";
+    }
 
     if (isPunctuation) {
       span.classList.add("subjap-neutral");

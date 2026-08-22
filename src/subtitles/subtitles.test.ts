@@ -17,7 +17,41 @@ import {
   parseAssTimestamp,
   detectFormat,
   parseSubtitleFile,
+  markParentheticalTokens,
 } from "@/subtitles";
+
+describe("markParentheticalTokens", () => {
+  const token = (surface: string) => ({ surface });
+
+  it("marks complete ASCII and full-width parenthetical expressions", () => {
+    expect(
+      markParentheticalTokens([
+        token("（"),
+        token("田中"),
+        token("）"),
+        token("こんにちは"),
+        token("("),
+        token("speaker"),
+        token(")"),
+      ]),
+    ).toEqual([true, true, true, false, true, true, true]);
+  });
+
+  it("supports nesting and leaves unmatched delimiters untouched", () => {
+    expect(
+      markParentheticalTokens([
+        token("("),
+        token("外"),
+        token("（"),
+        token("内"),
+        token("）"),
+        token(")"),
+        token("("),
+        token("未完"),
+      ]),
+    ).toEqual([true, true, true, true, true, true, false, false]);
+  });
+});
 
 describe("normalizeCueText", () => {
   it("strips HTML tags", () => {
