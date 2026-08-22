@@ -98,6 +98,7 @@ export class MiningModal {
     this.render();
     this.registerKeyboard();
     void this.generateAudio();
+    void this.audioCapture?.startTabCapture();
     void this.captureScreenshot().finally(() => {
       if (this.state === modalState) this.show();
     });
@@ -308,7 +309,8 @@ export class MiningModal {
     const state = this.state;
     if (!state) return;
     try {
-      const screenshotDataUrl = await captureFrame(this.video);
+      const tabVideo = await this.audioCapture?.getTabVideo();
+      const screenshotDataUrl = await captureFrame(this.video, undefined, tabVideo);
       // Ignore a late capture if the modal was closed and reopened for a
       // different card while the video frame was being read.
       if (this.state !== state) return;

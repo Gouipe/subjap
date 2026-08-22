@@ -300,6 +300,38 @@ onMessage("screenshot:capture", async (_payload, sender) => {
   };
 });
 
+async function getTabCaptureStreamId(tabId: number): Promise<string> {
+  const streamId = await new Promise<string>((resolve, reject) => {
+    chrome.tabCapture.getMediaStreamId(
+      { targetTabId: tabId, consumerTabId: tabId },
+      (id) => {
+        const runtimeError = chrome.runtime.lastError;
+        if (runtimeError) {
+          reject(new Error(runtimeError.message));
+          return;
+        }
+        resolve(id);
+      },
+    );
+  });
+  return streamId;
+}
+
+onMessage("tabCapture:streamId", async (_payload, sender) => {
+  const tabId = sender.tab?.id;
+  if (tabId == null) throw new Error("No tab available for tab capture");
+  return { streamId: await getTabCaptureStreamId(tabId) };
+});
+
+// Opening the action popup is the explicit extension invocation required by
+// Chrome. Prepare capture immediately so the rolling buffer contains the
+// complete subtitle phrase when the user mines a word later.
+onMessage("tabCapture:prepare", async ({ tabId }) => {
+  const streamId = await getTabCaptureStreamId(tabId);
+  await chrome.tabs.sendMessage(tabId, { type: "tabCapture:stream", streamId });
+  return { ready: true };
+});
+
 // ── anki:status ───────────────────────────────────────────────────────────
 
 onMessage("anki:status", async () => {
