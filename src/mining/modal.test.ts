@@ -61,7 +61,8 @@ describe("MiningModal", () => {
     });
 
     await vi.waitFor(() => {
-      expect(captureFrameMock).toHaveBeenCalledWith(video);
+      expect(captureFrameMock).toHaveBeenCalled();
+      expect(captureFrameMock.mock.calls[0]?.[0]).toBe(video);
       expect(document.querySelector(".subjap-screenshot-info")?.textContent).toContain(
         "✓ Screenshot captured",
       );

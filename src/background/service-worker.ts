@@ -297,6 +297,26 @@ onMessage("screenshot:capture", async (_payload, sender) => {
   };
 });
 
+onMessage("tabCapture:streamId", async (_payload, sender) => {
+  const tabId = sender.tab?.id;
+  if (tabId == null) throw new Error("No tab available for tab capture");
+
+  const streamId = await new Promise<string>((resolve, reject) => {
+    chrome.tabCapture.getMediaStreamId(
+      { targetTabId: tabId, consumerTabId: tabId },
+      (id) => {
+        const runtimeError = chrome.runtime.lastError;
+        if (runtimeError) {
+          reject(new Error(runtimeError.message));
+          return;
+        }
+        resolve(id);
+      },
+    );
+  });
+  return { streamId };
+});
+
 // ── anki:status ───────────────────────────────────────────────────────────
 
 onMessage("anki:status", async () => {

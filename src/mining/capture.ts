@@ -17,8 +17,10 @@ import { sendMessage } from "@/core/messaging";
 export function captureFrame(
   video: HTMLVideoElement,
   time?: number,
+  tabVideo?: HTMLVideoElement | null,
 ): Promise<string> {
   if (time === undefined) {
+    if (tabVideo) return captureTabVideo(video, tabVideo);
     return captureVisibleVideo(video).catch((error: unknown) => {
       console.warn("[SubJap] Visible-tab screenshot unavailable; using canvas fallback:", error);
       return captureCanvasFrame(video);
@@ -26,6 +28,45 @@ export function captureFrame(
   }
 
   return captureCanvasFrame(video, time);
+}
+
+function captureTabVideo(sourceVideo: HTMLVideoElement, tabVideo: HTMLVideoElement): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const rect = sourceVideo.getBoundingClientRect();
+    const sourceWidth = tabVideo.videoWidth || window.innerWidth;
+    const sourceHeight = tabVideo.videoHeight || window.innerHeight;
+    const scaleX = sourceWidth / Math.max(window.innerWidth, 1);
+    const scaleY = sourceHeight / Math.max(window.innerHeight, 1);
+    const sourceX = Math.max(0, Math.round(rect.left * scaleX));
+    const sourceY = Math.max(0, Math.round(rect.top * scaleY));
+    const cropWidth = Math.min(sourceWidth - sourceX, Math.round(rect.width * scaleX));
+    const cropHeight = Math.min(sourceHeight - sourceY, Math.round(rect.height * scaleY));
+    if (cropWidth <= 0 || cropHeight <= 0) {
+      reject(new Error("Tab capture video is outside the visible browser area"));
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      reject(new Error("Failed to get 2d context from tab capture"));
+      return;
+    }
+    context.drawImage(
+      tabVideo,
+      sourceX,
+      sourceY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      cropWidth,
+      cropHeight,
+    );
+    resolve(canvas.toDataURL("image/png"));
+  });
 }
 
 async function captureVisibleVideo(video: HTMLVideoElement): Promise<string> {

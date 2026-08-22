@@ -2,6 +2,8 @@
 // SubJap — real video audio capture
 // ---------------------------------------------------------------------------
 
+import { sendMessage } from "@/core/messaging";
+
 const BUFFER_SECONDS = 90;
 const PROCESSOR_BUFFER_SIZE = 4096;
 
@@ -71,6 +73,9 @@ export class VideoAudioCapture {
   private blocks: AudioBlock[] = [];
   private sampleRate = 44100;
   private running = false;
+  private tabVideo: HTMLVideoElement | null = null;
+  private tabStream: MediaStream | null = null;
+  private tabCapturePromise: Promise<void> | null = null;
 
   constructor(video: HTMLVideoElement) {
     this.video = video as CaptureVideo;
@@ -124,6 +129,25 @@ export class VideoAudioCapture {
     void this.context?.resume().catch(() => undefined);
   }
 
+  /**
+   * Try to capture the rendered tab. Netflix's DRM player may reject direct
+   * media-element capture, while tabCapture can expose the compositor output.
+   */
+  startTabCapture(): Promise<void> {
+    if (this.tabVideo) return Promise.resolve();
+    if (this.tabCapturePromise) return this.tabCapturePromise;
+
+    this.tabCapturePromise = this.initializeTabCapture().finally(() => {
+      this.tabCapturePromise = null;
+    });
+    return this.tabCapturePromise;
+  }
+
+  async getTabVideo(): Promise<HTMLVideoElement | null> {
+    if (this.tabCapturePromise) await this.tabCapturePromise;
+    return this.tabVideo;
+  }
+
   /** Cut a subtitle interval with a small leading/trailing margin. */
   captureSegment(start: number, end: number, marginSeconds = 0.3): string | undefined {
     if (!this.blocks.length || end <= start) return undefined;
@@ -175,6 +199,64 @@ export class VideoAudioCapture {
     this.blocks = [];
     this.running = false;
     if (context) void context.close().catch(() => undefined);
+    this.tabStream?.getTracks().forEach((track) => track.stop());
+    this.tabStream = null;
+    this.tabVideo?.remove();
+    this.tabVideo = null;
+  }
+
+  private async initializeTabCapture(): Promise<void> {
+    try {
+      const { streamId } = await sendMessage("tabCapture:streamId", {});
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          mandatory: {
+            chromeMediaSource: "tab",
+            chromeMediaSourceId: streamId,
+          },
+        } as MediaTrackConstraints,
+        video: {
+          mandatory: {
+            chromeMediaSource: "tab",
+            chromeMediaSourceId: streamId,
+          },
+        } as MediaTrackConstraints,
+      });
+
+      const tabVideo = document.createElement("video");
+      tabVideo.muted = true;
+      tabVideo.playsInline = true;
+      tabVideo.srcObject = stream;
+      tabVideo.style.display = "none";
+      document.body.appendChild(tabVideo);
+      await tabVideo.play();
+
+      this.destroy();
+      this.tabStream = stream;
+      this.tabVideo = tabVideo;
+      this.startAudioGraph(new AudioContext(), stream);
+      console.info("[SubJap] Tab media capture ready");
+    } catch (err) {
+      console.warn("[SubJap] Tab media capture unavailable:", err);
+    }
+  }
+
+  private startAudioGraph(context: AudioContext, stream: MediaStream): void {
+    this.context = context;
+    this.sampleRate = context.sampleRate;
+    const source = context.createMediaStreamSource(stream);
+    const processor = context.createScriptProcessor(PROCESSOR_BUFFER_SIZE, 2, 1);
+    const silentGain = context.createGain();
+    silentGain.gain.value = 0;
+    this.source = source;
+    this.processor = processor;
+    this.silentGain = silentGain;
+    processor.onaudioprocess = (event) => this.collect(event);
+    source.connect(processor);
+    processor.connect(silentGain);
+    silentGain.connect(context.destination);
+    this.running = true;
+    void context.resume().catch(() => undefined);
   }
 
   private collect(event: AudioProcessingEvent): void {
