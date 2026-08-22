@@ -288,13 +288,15 @@ export class VideoAudioCapture {
     const source = context.createMediaStreamSource(stream);
     const processor = context.createScriptProcessor(PROCESSOR_BUFFER_SIZE, 2, 1);
     const silentGain = context.createGain();
-    // tabCapture mutes the original tab output. Route the captured audio
-    // back to the speakers while also feeding the rolling PCM processor.
-    silentGain.gain.value = 1;
+    // tabCapture mutes the original tab output. Route the raw captured audio
+    // directly back to the speakers; the ScriptProcessor is only for copying
+    // samples into the rolling phrase buffer and does not fill its output.
+    silentGain.gain.value = 0;
     this.source = source;
     this.processor = processor;
     this.silentGain = silentGain;
     processor.onaudioprocess = (event) => this.collect(event);
+    source.connect(context.destination);
     source.connect(processor);
     processor.connect(silentGain);
     silentGain.connect(context.destination);
