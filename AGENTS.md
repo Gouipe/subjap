@@ -1,5 +1,9 @@
 # SubJap — instructions projet
 
+Pour tout développement d’une nouvelle fonctionnalité ou toute modification
+d’une fonctionnalité existante, utiliser d’abord
+`$superpowers:using-git-worktrees` afin de travailler dans un worktree isolé.
+
 Pour tout changement du content script, des adaptateurs, de l’overlay, de la
 popover, du mining, du popup ou des Options, utiliser `$subjap-ux-harness`.
 Son `SKILL.md` est la source de vérité pour le harnais, les commandes de
