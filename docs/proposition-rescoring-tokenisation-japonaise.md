@@ -1,5 +1,10 @@
 # Proposition : rescoring conservateur de la tokenisation japonaise
 
+> **Statut : proposition remplacée.** Après brainstorming, la solution cible
+> est une migration évaluée vers Lindera + UniDic, suivie de corrections
+> morphologiques ciblées et de regroupements pédagogiques. Voir
+> [`plan-implementation-tokenisation-unidic.md`](plan-implementation-tokenisation-unidic.md).
+
 ## Contexte
 
 SubJap utilise Kuromoji/IPADIC pour découper les sous-titres japonais avant de
