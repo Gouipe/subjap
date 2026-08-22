@@ -54,7 +54,7 @@ function Test-Voicevox {
 function Ensure-Voicevox {
   if (-not (Test-Voicevox)) {
     if (-not (Test-Path -LiteralPath $VoicevoxPath -PathType Leaf)) {
-      throw "VOICEVOX executable not found: $VoicevoxPath"
+      throw "VOICEVOX engine not found: $VoicevoxPath"
     }
     Start-Process -FilePath $VoicevoxPath -WindowStyle Hidden | Out-Null
 
