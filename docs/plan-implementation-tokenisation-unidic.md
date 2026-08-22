@@ -326,7 +326,7 @@ et préserver les données existantes.
 - Vérifier la synchronisation Anki : les notes existantes doivent être reconnues
   même si leur champ `Mot` utilise une autre graphie du même lexème.
 - Adapter la fréquence afin qu’un lexème UniDic et ses variantes puissent
-  retrouver les rangs TUBELEX/CEJC disponibles.
+  retrouver les rangs de la liste de sous-titres disponible.
 - Pour une unité plurielle, colorer et compter l’unité selon le mot de base.
 - Pour le mining :
   - `targetWord` ou le champ principal Anki reçoit la forme de base naturelle ;

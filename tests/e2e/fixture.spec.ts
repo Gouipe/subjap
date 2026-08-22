@@ -435,15 +435,15 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.first()).toHaveClass(/subjap-known/);
   });
 
-  test("affiche le meilleur rang TUBELEX ou CEJC pour toutes les couleurs", async ({
+  test("affiche le rang de fréquence pour toutes les couleurs", async ({
     page,
   }) => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
     const frequency = page.locator(".subjap-popover__freq");
 
-    // 日本語 and する keep their lower TUBELEX rank; 勉強 and を use
-    // their lower CEJC rank. Known/Anki/UNKNOWN colours do not hide that rank.
+    // The fixture provides deterministic ranks for each token. Known/Anki/
+    // UNKNOWN colours do not hide the frequency rank.
     await tokens.nth(0).hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(frequency).toHaveText("Frequency rank: #1");

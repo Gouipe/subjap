@@ -1,57 +1,32 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import xzDecompress from "xz-decompress";
 
-const TUBELEX_URL =
-  "https://raw.githubusercontent.com/naist-nlp/tubelex/main/frequencies/tubelex-ja-lemma-pos.tsv.xz";
-const OUTPUT_PATH = resolve("public/frequency/tubelex-ja-lemma-top50k.tsv");
-const MAX_ENTRIES = 50_000;
+const SUBTITLE_FREQUENCY_URL =
+  "https://raw.githubusercontent.com/jkindrix/japanese-language-data/main/data/enrichment/frequency-subtitles.json";
+const OUTPUT_PATH = resolve("public/frequency/opensubtitles-ja-jmdict-top8598.tsv");
 
-function isLearningEntry(word, partOfSpeech) {
-  return (
-    word.length > 0 &&
-    word !== "[TOTAL]" &&
-    !partOfSpeech.includes("補助記号") &&
-    !partOfSpeech.includes("記号") &&
-    !partOfSpeech.includes("固有名詞")
+const response = await fetch(SUBTITLE_FREQUENCY_URL);
+if (!response.ok) {
+  throw new Error(
+    `Subtitle frequency source HTTP ${response.status}: ${response.statusText}`,
   );
 }
 
-const response = await fetch(TUBELEX_URL);
-if (!response.ok || !response.body) {
-  throw new Error(`TUBELEX HTTP ${response.status}: ${response.statusText}`);
+const payload = await response.json();
+if (!Array.isArray(payload?.entries)) {
+  throw new Error("Unexpected subtitle frequency source shape");
 }
 
-const { XzReadableStream } = xzDecompress;
-const text = await new Response(new XzReadableStream(response.body)).text();
-const rows = text.split(/\r?\n/);
-const header = rows.shift()?.split("\t") ?? [];
-const wordIndex = header.indexOf("word");
-const posIndex = header.indexOf("pos");
-
-if (wordIndex < 0 || posIndex < 0) {
-  throw new Error("Unexpected TUBELEX header");
-}
-
-const entries = [];
-const seen = new Set();
-let sourceRank = 0;
-
-for (const row of rows) {
-  if (!row) continue;
-  const columns = row.split("\t");
-  const word = (columns[wordIndex] ?? "").trim().normalize("NFKC");
-  const partOfSpeech = columns[posIndex] ?? "";
-  if (word === "[TOTAL]") continue;
-
-  sourceRank += 1;
-  if (!isLearningEntry(word, partOfSpeech) || seen.has(word)) continue;
-
-  seen.add(word);
-  entries.push(`${word}\t${sourceRank}`);
-  if (entries.length === MAX_ENTRIES) break;
-}
+const entries = payload.entries
+  .filter(
+    (entry) =>
+      typeof entry?.text === "string" &&
+      entry.text.trim().length > 0 &&
+      Number.isInteger(entry.rank) &&
+      entry.rank > 0,
+  )
+  .map((entry) => `${entry.text.trim().normalize("NFKC")}\t${entry.rank}`);
 
 await mkdir(dirname(OUTPUT_PATH), { recursive: true });
 await writeFile(OUTPUT_PATH, `${entries.join("\n")}\n`, "utf8");
-console.log(`Wrote ${entries.length} TUBELEX ranks to ${OUTPUT_PATH}`);
+console.log(`Wrote ${entries.length} subtitle frequency ranks to ${OUTPUT_PATH}`);
