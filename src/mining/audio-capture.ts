@@ -206,18 +206,34 @@ export class VideoAudioCapture {
     const initialPaused = this.video.paused;
     const initialRate = this.video.playbackRate;
 
+    let offscreenRecording = false;
     try {
+      try {
+        await sendMessage("tabCapture:phraseStart", {});
+        offscreenRecording = true;
+      } catch (err) {
+        console.info("[SubJap] Offscreen phrase capture unavailable; using tab buffer:", err);
+      }
+
       this.video.currentTime = from;
       // Keep this call before the first await when tab capture is already
       // ready: a Send-to-Anki click can then authorize playback as a gesture.
       await this.video.play();
       await this.waitForVideoTime(to);
       await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
+      if (offscreenRecording) {
+        const { dataUrl } = await sendMessage("tabCapture:phraseStop", {});
+        offscreenRecording = false;
+        if (dataUrl) return dataUrl;
+      }
       return this.captureSegment(start, end, marginSeconds);
     } catch (err) {
       console.warn("[SubJap] Phrase audio replay unavailable:", err);
       return undefined;
     } finally {
+      if (offscreenRecording) {
+        void sendMessage("tabCapture:phraseStop", {}).catch(() => undefined);
+      }
       this.video.playbackRate = initialRate;
       this.video.currentTime = initialTime;
       if (initialPaused) {

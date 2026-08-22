@@ -348,6 +348,16 @@ onMessage("tabCapture:offscreen", async ({ streamId }) => {
   return { ready: true };
 });
 
+onMessage("tabCapture:phraseStart", async () => {
+  await ensureAudioOffscreen();
+  return chrome.runtime.sendMessage({ type: "tabCapture:offscreenPhraseStart" });
+});
+
+onMessage("tabCapture:phraseStop", async () => {
+  await ensureAudioOffscreen();
+  return chrome.runtime.sendMessage({ type: "tabCapture:offscreenPhraseStop" });
+});
+
 // ── anki:status ───────────────────────────────────────────────────────────
 
 onMessage("anki:status", async () => {
