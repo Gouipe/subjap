@@ -9,6 +9,7 @@ export {
   normalizeCueText,
 } from "./normalize";
 export { splitIntoSentences } from "./segment";
+export { markParentheticalTokens } from "./parenthetical";
 export {
   parseTimestamp,
   parseAssTimestamp,

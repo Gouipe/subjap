@@ -11,6 +11,7 @@ import { MiningModal } from "../../src/mining/modal";
 import { groupTokens } from "../../src/tokenizer/group";
 import { repairKatakanaAdjectives } from "../../src/tokenizer/repair";
 import { mergeFrequencyRanks } from "../../src/dictionary/frequency";
+import { markParentheticalTokens } from "../../src/subtitles";
 import type { RawKuromojiToken } from "../../src/tokenizer/convert";
 import type {
   DictionaryEntry,
@@ -168,6 +169,12 @@ const tokens: Token[] = [
   { surface: "し", lemma: "する", reading: "し", partOfSpeech: ["動詞"] },
   { surface: "ます", lemma: "ます", reading: "ます", partOfSpeech: ["助動詞"] },
   { surface: "。", lemma: "。", reading: "。", partOfSpeech: ["記号"] },
+];
+const parentheticalTokens: Token[] = [
+  { surface: "（", lemma: "（", reading: "（", partOfSpeech: ["記号"] },
+  { surface: "田中", lemma: "田中", reading: "タナカ", partOfSpeech: ["名詞"] },
+  { surface: "）", lemma: "）", reading: "）", partOfSpeech: ["記号"] },
+  ...tokens,
 ];
 const longDefinitionTokens: Token[] = [
   { surface: "する", lemma: "為る", reading: "する", partOfSpeech: ["動詞"] },
@@ -339,11 +346,13 @@ function nativeLine(
 }
 
 function renderedCue(cue: SubtitleCue): RenderedCue {
+  const parentheticalFlags = markParentheticalTokens(activeTokens);
   return {
     cue,
     spans: activeTokens.map((token, index) => ({
       index,
       token,
+      isParenthetical: parentheticalFlags[index],
       wordState: ignoredLemmas.has(token.lemma)
         ? { key: token.lemma, status: "ignored", source: "manual" }
         : knownLemmas.has(token.lemma)
@@ -462,6 +471,7 @@ document.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
   const span = target.closest<HTMLElement>(".subjap-token");
   if (!span) return;
+  if (span.dataset.parenthetical === "true") return;
   const token = activeTokens[Number(span.dataset.index)];
   if (token) {
     clearTimers();
@@ -473,6 +483,7 @@ document.addEventListener("mouseover", (event) => {
   const target = event.target as HTMLElement;
   const span = target.closest<HTMLElement>(".subjap-token");
   if (!span) return;
+  if (span.dataset.parenthetical === "true") return;
   clearTimers();
   hovered = span;
   const token = activeTokens[Number(span.dataset.index)];
@@ -495,6 +506,12 @@ document.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", ()
   activeTokens = tokens;
   currentTranslation = null;
   nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。"));
+});
+
+document.querySelector<HTMLButtonElement>("#parenthetical")!.addEventListener("click", () => {
+  activeTokens = parentheticalTokens;
+  currentTranslation = null;
+  nativeSubtitles.replaceChildren(nativeLine("（田中）日本語を勉強します。"));
 });
 
 document.querySelector<HTMLButtonElement>("#bilingual")!.addEventListener("click", () => {

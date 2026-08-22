@@ -21,7 +21,11 @@ import { lookup } from "@/dictionary";
 import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
-import { normalizeCueText, splitIntoSentences } from "@/subtitles";
+import {
+  markParentheticalTokens,
+  normalizeCueText,
+  splitIntoSentences,
+} from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
 import { groupTokens } from "@/tokenizer/group";
 import {
@@ -389,8 +393,9 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   let globalIndex = 0;
 
   for (const { cue, tokens } of tokenizedCues) {
+    const parentheticalFlags = markParentheticalTokens(tokens);
     const spans: SpanToken[] = await Promise.all(
-      tokens.map(async (token): Promise<SpanToken> => {
+      tokens.map(async (token, tokenIndex): Promise<SpanToken> => {
         const index = globalIndex++;
         nextSpanRegistry.set(index, { cue, token });
         const state = await getWordState(token.lemma);
@@ -400,6 +405,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
           index,
           token,
           wordState: state,
+          isParenthetical: parentheticalFlags[tokenIndex],
           ankiNoteCount: ankiNoteCountByLemma.get(token.lemma) ?? 0,
           frequencyRank,
         };
@@ -451,6 +457,7 @@ function onOverlayClick(event: MouseEvent): void {
   const target = event.target as HTMLElement | null;
   const span = target?.closest(".subjap-token") as HTMLElement | null;
   if (!span) return;
+  if (span.dataset.parenthetical === "true") return;
 
   const indexStr = span.dataset.index;
   if (indexStr == null) return;
@@ -476,6 +483,7 @@ function onOverlayMouseOver(event: MouseEvent): void {
     if (target?.closest("#subjap-popover")) clearHideTimer();
     return;
   }
+  if (span.dataset.parenthetical === "true") return;
 
   clearHoverTimer();
   clearHideTimer();
