@@ -81,6 +81,7 @@ test.describe("SubJap UX fixture", () => {
     page,
   }) => {
     await page.getByTestId("next-cue").click();
+    await expect(page.locator("#subjap-overlay-container")).toBeVisible();
     await page.evaluate(() => {
       const context = { drawImage: () => undefined };
       Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {

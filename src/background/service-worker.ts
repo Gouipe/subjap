@@ -288,6 +288,15 @@ onMessage("tts:generate", async ({ text }) => ({
   dataUrl: await synthesizeVoicevox(text),
 }));
 
+onMessage("screenshot:capture", async (_payload, sender) => {
+  const windowId = sender.tab?.windowId;
+  if (windowId == null) throw new Error("No browser window associated with the tab");
+
+  return {
+    dataUrl: await chrome.tabs.captureVisibleTab(windowId, { format: "png" }),
+  };
+});
+
 // ── anki:status ───────────────────────────────────────────────────────────
 
 onMessage("anki:status", async () => {
