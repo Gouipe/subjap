@@ -25,6 +25,18 @@ function Find-VoicevoxEngine {
     (Join-Path ${env:LOCALAPPDATA} "VOICEVOX\vv-engine\run.exe"),
     (Join-Path ${env:LOCALAPPDATA} "VOICEVOX\VOICEVOX.exe")
   )
+  $wingetPackagesRoot = Join-Path ${env:LOCALAPPDATA} "Microsoft\WinGet\Packages"
+  if (Test-Path -LiteralPath $wingetPackagesRoot -PathType Container) {
+    $candidates += Get-ChildItem `
+      -LiteralPath $wingetPackagesRoot `
+      -Directory `
+      -Filter "HiroshibaKazuyuki.VOICEVOX*" `
+      -ErrorAction SilentlyContinue |
+      Sort-Object LastWriteTime -Descending |
+      ForEach-Object {
+        Join-Path $_.FullName "VOICEVOX\vv-engine\run.exe"
+      }
+  }
   return $candidates | Where-Object {
     Test-Path -LiteralPath $_ -PathType Leaf
   } | Select-Object -First 1
