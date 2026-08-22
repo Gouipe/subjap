@@ -171,7 +171,7 @@ const tokens: Token[] = [
   { surface: "。", lemma: "。", reading: "。", partOfSpeech: ["記号"] },
 ];
 const parentheticalTokens: Token[] = [
-  { surface: "（", lemma: "（", reading: "（", partOfSpeech: ["記号"] },
+  { surface: "-（", lemma: "-（", reading: "-（", partOfSpeech: ["記号"] },
   { surface: "田中", lemma: "田中", reading: "タナカ", partOfSpeech: ["名詞"] },
   { surface: "）", lemma: "）", reading: "）", partOfSpeech: ["記号"] },
   ...tokens,
@@ -511,7 +511,7 @@ document.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", ()
 document.querySelector<HTMLButtonElement>("#parenthetical")!.addEventListener("click", () => {
   activeTokens = parentheticalTokens;
   currentTranslation = null;
-  nativeSubtitles.replaceChildren(nativeLine("（田中）日本語を勉強します。"));
+  nativeSubtitles.replaceChildren(nativeLine("-（田中）日本語を勉強します。"));
 });
 
 document.querySelector<HTMLButtonElement>("#bilingual")!.addEventListener("click", () => {

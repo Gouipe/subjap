@@ -17,18 +17,24 @@ export function markParentheticalTokens(
   const openingIndexes: number[] = [];
 
   tokens.forEach((token, index) => {
-    if (OPENING_PARENTHESES.has(token.surface)) {
-      openingIndexes.push(index);
-      return;
-    }
+    for (const character of token.surface) {
+      if (OPENING_PARENTHESES.has(character)) {
+        openingIndexes.push(index);
+        continue;
+      }
 
-    if (!CLOSING_PARENTHESES.has(token.surface)) return;
+      if (!CLOSING_PARENTHESES.has(character)) continue;
 
-    const openingIndex = openingIndexes.pop();
-    if (openingIndex == null) return;
+      const openingIndex = openingIndexes.pop();
+      if (openingIndex == null) continue;
 
-    for (let markedIndex = openingIndex; markedIndex <= index; markedIndex += 1) {
-      marked[markedIndex] = true;
+      for (
+        let markedIndex = openingIndex;
+        markedIndex <= index;
+        markedIndex += 1
+      ) {
+        marked[markedIndex] = true;
+      }
     }
   });
 
