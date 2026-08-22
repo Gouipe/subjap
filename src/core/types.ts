@@ -153,6 +153,8 @@ export interface MessageMap {
   // Mining
   "mine:create": CreateMineCardPayload;
   "mine:createResult": { id: string };
+  "screenshot:capture": Record<string, never>;
+  "screenshot:captureResult": { dataUrl: string };
 
   // Stats
   "stats:get": Record<string, never>;

@@ -241,6 +241,7 @@ document.querySelector<HTMLButtonElement>("#mine")!.addEventListener("click", ()
   miningModal.open({
     cue: rendered,
     targetToken: rendered.spans[0],
+    lemmaReading: rendered.spans[0].token.reading,
     episodeContext: {
       platform: "fixture",
       title: "Fixture episode",

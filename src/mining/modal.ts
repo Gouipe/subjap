@@ -90,10 +90,12 @@ export class MiningModal {
       screenshotDataUrl: null,
       sending: false,
     };
+    const modalState = this.state;
     this.render();
-    this.show();
     this.registerKeyboard();
-    void this.captureScreenshot();
+    void this.captureScreenshot().finally(() => {
+      if (this.state === modalState) this.show();
+    });
   }
 
   close(): void {
