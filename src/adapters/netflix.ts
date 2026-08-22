@@ -647,6 +647,10 @@ export class NetflixAdapter implements PlatformAdapter {
     return this.getVideoElement()?.playbackRate ?? 1;
   }
 
+  getNavigationCues(): SubtitleCue[] {
+    return [...(this.timedTextTracks.get("ja") ?? [])];
+  }
+
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean> {
     this.pendingSeekTarget = timeSeconds;
     this.pendingSeekKeepsActiveCue = Boolean(
