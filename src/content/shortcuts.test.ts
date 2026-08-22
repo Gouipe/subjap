@@ -56,6 +56,40 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("current", 11)).toBe(10);
   });
 
+  it("treats whitespace-only Netflix rebuilds as the same cue", () => {
+    const navigator = new CueNavigator();
+    navigator.observe([
+      {
+        id: "real-previous",
+        start: 50,
+        end: 52,
+        text: "本当の前の字幕",
+        language: "ja",
+      },
+    ]);
+    navigator.observe([
+      {
+        id: "first-dom-build",
+        start: 59.4,
+        end: 59.7,
+        text: "（篠原 ）でも すごいですね",
+        language: "ja",
+      },
+    ]);
+    navigator.observe([]);
+    navigator.observe([
+      {
+        id: "seek-rebuild",
+        start: 59.7,
+        end: 60.5,
+        text: "（篠原）でも すごいですね",
+        language: "ja",
+      },
+    ]);
+
+    expect(navigator.getSeekTime("previous", 60)).toBe(50);
+  });
+
   it("returns the next observed cue when it is known", () => {
     const navigator = new CueNavigator();
     navigator.observe([cue("one", 10, 12)]);

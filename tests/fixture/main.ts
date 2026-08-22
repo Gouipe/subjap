@@ -324,6 +324,40 @@ document.querySelector<HTMLButtonElement>("#rolling")!.addEventListener("click",
   }, 200);
 });
 
+document.querySelector<HTMLButtonElement>("#seek-rebuild")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  const video = document.querySelector<HTMLVideoElement>("#video")!;
+
+  // Netflix can briefly remove and recreate one logical cue around a seek.
+  // The two DOM builds differ only by presentation whitespace.
+  video.currentTime = 50;
+  nativeSubtitles.replaceChildren(nativeLine("本当の前の字幕", "50", "52"));
+  setTimeout(() => {
+    video.currentTime = 59.55;
+    nativeSubtitles.replaceChildren(
+      nativeLine("（篠原 ）でも すごいですね", null, null),
+    );
+  }, 100);
+  setTimeout(() => {
+    video.currentTime = 59.7;
+    nativeSubtitles.replaceChildren();
+  }, 200);
+  setTimeout(() => {
+    video.currentTime = 59.85;
+    nativeSubtitles.replaceChildren(
+      nativeLine("（篠原）でも すごいですね", null, null),
+    );
+  }, 300);
+  setTimeout(() => {
+    video.currentTime = 60.5;
+    nativeSubtitles.replaceChildren();
+  }, 400);
+  setTimeout(() => {
+    video.currentTime = 61;
+    nativeSubtitles.replaceChildren(nativeLine("教育シンポジウムです", "61", "64"));
+  }, 500);
+});
+
 document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click", () => {
   activeTokens = tokens;
   nextRenderDelayMs = 400;

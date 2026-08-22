@@ -95,11 +95,7 @@ export class CueNavigator {
 
     let matched = false;
     const stabilized = cues.map((cue) => {
-      if (
-        cue.text !== anchor.text ||
-        cue.language !== anchor.language ||
-        Math.abs(cue.start - anchor.start) > REEMITTED_CUE_TOLERANCE_SECONDS
-      ) {
+      if (!this.isEquivalentCue(cue, anchor)) {
         return cue;
       }
       matched = true;
@@ -113,15 +109,24 @@ export class CueNavigator {
   private canonicalizeCues(cues: SubtitleCue[]): SubtitleCue[] {
     const observed = [...this.observedCues.values()];
     return cues.map((cue) => {
-      const equivalent = observed.find(
-        (candidate) =>
-          candidate.text === cue.text &&
-          candidate.language === cue.language &&
-          Math.abs(candidate.start - cue.start) <=
-            REEMITTED_CUE_TOLERANCE_SECONDS,
+      const equivalent = observed.find((candidate) =>
+        this.isEquivalentCue(candidate, cue),
       );
       return equivalent ?? cue;
     });
+  }
+
+  private isEquivalentCue(a: SubtitleCue, b: SubtitleCue): boolean {
+    return (
+      a.language === b.language &&
+      this.comparisonText(a.text) === this.comparisonText(b.text) &&
+      Math.abs(a.start - b.start) <= REEMITTED_CUE_TOLERANCE_SECONDS
+    );
+  }
+
+  /** Netflix rebuilds the same Japanese cue with unstable presentation spaces. */
+  private comparisonText(text: string): string {
+    return normalizeCueText(text).replace(/\s+/gu, "");
   }
 }
 
