@@ -5,7 +5,7 @@ const manifest: ManifestV3Export = {
   name: "SubJap",
   version: "0.1.0",
   description: "Apprendre le japonais en regardant des anime",
-  permissions: ["storage", "scripting", "activeTab"],
+  permissions: ["storage", "scripting", "activeTab", "nativeMessaging"],
   host_permissions: [
     "*://*.netflix.com/*",
     "*://*.youtube.com/*",
@@ -13,6 +13,7 @@ const manifest: ManifestV3Export = {
     "*://*.primevideo.com/*",
     "*://*.disneyplus.com/*",
     "http://127.0.0.1:8765/*",
+    "http://127.0.0.1:50021/*",
     // Dictionary downloads: GitHub Release "latest" URLs redirect to the
     // versioned asset on objects/release-assets.githubusercontent.com. Both
     // hosts must be permitted or the SW fetch is CORS-blocked.

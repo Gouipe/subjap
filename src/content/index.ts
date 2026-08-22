@@ -18,7 +18,7 @@ import { adapterRegistry } from "@/core/adapters/registry";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookup } from "@/dictionary";
-import { MiningModal } from "@/mining";
+import { MiningModal, VideoAudioCapture } from "@/mining";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
 import { normalizeCueText, splitIntoSentences } from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
@@ -44,10 +44,7 @@ import type {
 
 adapterRegistry.register(new NetflixAdapter());
 
-const adapter: PlatformAdapter = adapterRegistry.findActive(
-  document,
-  window.location.href,
-);
+const adapter: PlatformAdapter = adapterRegistry.findActive(document, window.location.href);
 
 const cueNavigator = new CueNavigator();
 
@@ -60,6 +57,7 @@ console.log(`[SubJap] Platform: ${adapter.id}`);
 let tokenizer: Tokenizer | null = null;
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
+let audioCapture: VideoAudioCapture | null = null;
 let nativeSubtitlesHidden = false;
 
 /** Effective overlay options (loaded from storage, live-updated). */
@@ -180,6 +178,8 @@ function ensureOverlay(): OverlayRenderer | null {
   if (overlay && currentVideo !== video) {
     overlay.destroy();
     overlay = null;
+    audioCapture?.destroy();
+    audioCapture = null;
     currentVideo = null;
     cueNavigator.reset();
     miningModal?.destroy();
@@ -190,6 +190,8 @@ function ensureOverlay(): OverlayRenderer | null {
 
   if (!overlay) {
     overlay = new OverlayRenderer(video, overlayOptions);
+    audioCapture = new VideoAudioCapture(video);
+    audioCapture.start();
     currentVideo = video;
   }
 
@@ -334,10 +336,7 @@ function onOverlayMouseOver(event: MouseEvent): void {
     if (!hoveredToken) return;
     // Hover shows the popover in ephemeral (non-pinned) mode.
     popoverPinned = false;
-    console.log(
-      "[SubJap] hover: opening popover for",
-      hoveredToken.token.surface,
-    );
+    console.log("[SubJap] hover: opening popover for", hoveredToken.token.surface);
     void showPopoverForToken(hoveredToken.span, hoveredToken.token);
   }, HOVER_OPEN_DELAY_MS);
 }
@@ -369,10 +368,7 @@ function onOverlayMouseOut(event: MouseEvent): void {
  * (when loaded); otherwise falls back to a dict:lookup round-trip through
  * the service worker.
  */
-async function showPopoverForToken(
-  anchor: HTMLElement,
-  token: Token,
-): Promise<void> {
+async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<void> {
   let dictEntry: DictionaryEntry | null = lookup(token.lemma);
 
   if (!dictEntry) {
@@ -408,9 +404,7 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   if (!video) return;
 
   // Locate the rendered cue that introduced this token (last match wins).
-  const rendered = lastRenderedCues.find((rc) =>
-    rc.spans.some((st) => st.token === token),
-  );
+  const rendered = lastRenderedCues.find((rc) => rc.spans.some((st) => st.token === token));
   const targetSpan = rendered?.spans.find((st) => st.token === token);
   if (!rendered || !targetSpan) return;
 
@@ -422,7 +416,7 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   };
 
   miningModal?.destroy();
-  miningModal = new MiningModal(video);
+  miningModal = new MiningModal(video, audioCapture);
   miningModal.open({
     cue: rendered,
     targetToken: targetSpan,
@@ -431,10 +425,7 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   });
 }
 
-function onToggleKnown(
-  lemma: string,
-  currentStatus: "known" | "unknown" | null,
-): void {
+function onToggleKnown(lemma: string, currentStatus: "known" | "unknown" | null): void {
   const next: WordState = {
     key: lemma,
     status: currentStatus === "known" ? "unknown" : "known",
@@ -493,12 +484,16 @@ getPopover({
   },
 });
 
-const removePlaybackShortcuts = installPlaybackShortcuts(
-  document,
-  adapter,
-  cueNavigator,
+const removePlaybackShortcuts = installPlaybackShortcuts(document, adapter, cueNavigator);
+window.addEventListener(
+  "pagehide",
+  () => {
+    removePlaybackShortcuts();
+    audioCapture?.destroy();
+    audioCapture = null;
+  },
+  { once: true },
 );
-window.addEventListener("pagehide", removePlaybackShortcuts, { once: true });
 
 // Click delegation (capture phase — the overlay container may be rebuilt).
 document.addEventListener("click", onOverlayClick, true);

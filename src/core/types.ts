@@ -5,12 +5,7 @@
 // ── Plateformes ───────────────────────────────────────────────────────────
 
 export type PlatformId =
-  | "netflix"
-  | "youtube"
-  | "crunchyroll"
-  | "primevideo"
-  | "disneyplus"
-  | "generic-html5";
+  "netflix" | "youtube" | "crunchyroll" | "primevideo" | "disneyplus" | "generic-html5";
 
 export interface SubtitleCue {
   id: string;
@@ -121,8 +116,10 @@ export interface SrsState {
  * so audio/screenshot travel as base64 data URLs and are converted back to
  * Blobs by the service worker before IndexedDB storage.
  */
-export interface CreateMineCardPayload
-  extends Omit<MineCard, "id" | "createdAt" | "screenshot" | "audio"> {
+export interface CreateMineCardPayload extends Omit<
+  MineCard,
+  "id" | "createdAt" | "screenshot" | "audio"
+> {
   screenshotDataUrl?: string;
   audioDataUrl?: string;
 }
@@ -168,11 +165,21 @@ export interface MessageMap {
   // TTS
   "tts:speak": { text: string };
   "tts:speakResult": void;
+  "tts:generate": { text: string };
+  "tts:generateResult": { dataUrl: string };
 
   // AnkiConnect
   "anki:status": Record<string, never>;
   "anki:statusResult": { connected: boolean; deckNames: string[] };
-  "anki:addNote": { deckName: string; modelName: string; fields: Record<string, string>; audioUrl?: string; screenshotUrl?: string };
+  "anki:addNote": {
+    deckName: string;
+    modelName: string;
+    fields: Record<string, string>;
+    audioMotDataUrl?: string;
+    audioPhraseDataUrl?: string;
+    imageDataUrl?: string;
+    tags?: string[];
+  };
   "anki:addNoteResult": { noteId: number; modelName: string };
   "anki:setup": Record<string, never>;
   "anki:setupResult": { deckName: string; modelName: string };
@@ -182,14 +189,13 @@ export interface MessageMap {
 
 export type MessageType = keyof MessageMap;
 export type MessagePayload<T extends MessageType> = MessageMap[T];
-export type MessageResult<T extends MessageType> =
-  T extends keyof MessageMap
-    ? T extends `${string}Result`
-      ? never
-      : `${T}Result` extends keyof MessageMap
-        ? MessageMap[`${T}Result`]
-        : void
-    : void;
+export type MessageResult<T extends MessageType> = T extends keyof MessageMap
+  ? T extends `${string}Result`
+    ? never
+    : `${T}Result` extends keyof MessageMap
+      ? MessageMap[`${T}Result`]
+      : void
+  : void;
 
 // ── UI ────────────────────────────────────────────────────────────────────
 

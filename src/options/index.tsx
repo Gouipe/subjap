@@ -74,10 +74,7 @@ function Row(props: { label: string; children: React.ReactNode; hint?: string })
   );
 }
 
-function Toggle(props: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}): JSX.Element {
+function Toggle(props: { checked: boolean; onChange: (v: boolean) => void }): JSX.Element {
   return (
     <label style={s.toggleWrap}>
       <input
@@ -185,17 +182,11 @@ const App: React.FC = () => {
     );
   }
 
-  return (
-    <SettingsPanel onStartOnboarding={() => void startOnboarding()} />
-  );
+  return <SettingsPanel onStartOnboarding={() => void startOnboarding()} />;
 };
 
 function Page(props: { children: React.ReactNode; maxWidth?: number }): JSX.Element {
-  return (
-    <div style={{ ...s.page, maxWidth: props.maxWidth ?? 720 }}>
-      {props.children}
-    </div>
-  );
+  return <div style={{ ...s.page, maxWidth: props.maxWidth ?? 720 }}>{props.children}</div>;
 }
 
 function Header(props: { children?: React.ReactNode }): JSX.Element {
@@ -309,8 +300,8 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>Configuration terminée 🎉</h2>
           <p style={s.muted}>
-            SubJap est prêt. Ouvrez une série avec des sous-titres japonais pour
-            voir l'overlay interactif.
+            SubJap est prêt. Ouvrez une série avec des sous-titres japonais pour voir l'overlay
+            interactif.
           </p>
           <div style={s.btnRow}>
             <Btn
@@ -355,8 +346,8 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>1 · Dictionnaire</h2>
           <p style={s.muted}>
-            SubJap a besoin d'un dictionnaire japonais → anglais pour afficher
-            les définitions au clic (~22 000 mots courants).
+            SubJap a besoin d'un dictionnaire japonais → anglais pour afficher les définitions au
+            clic (~22 000 mots courants).
           </p>
           {dict?.installed ? (
             <p style={{ color: C.green }}>
@@ -365,13 +356,10 @@ function OnboardingWizard(props: {
           ) : (
             <>
               <Btn onClick={() => void installDictionary()} disabled={downloading}>
-                {downloading
-                  ? "Téléchargement…"
-                  : "Installer le dictionnaire (~22k mots)"}
+                {downloading ? "Téléchargement…" : "Installer le dictionnaire (~22k mots)"}
               </Btn>
               <p style={s.mutedSmall}>
-                Environ 1,4 Mo à télécharger. Cette étape peut prendre quelques
-                secondes.
+                Environ 1,4 Mo à télécharger. Cette étape peut prendre quelques secondes.
               </p>
             </>
           )}
@@ -402,8 +390,8 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>2 · Anki</h2>
           <p style={s.muted}>
-            Optionnel — AnkiConnect (port 8765) permet d'envoyer vos cartes de
-            vocabulaire vers Anki. Détecté automatiquement si Anki est ouvert.
+            Optionnel — AnkiConnect (port 8765) permet d'envoyer vos cartes de vocabulaire vers
+            Anki. Détecté automatiquement si Anki est ouvert.
           </p>
           {anki === null ? (
             <p style={s.muted}>Vérification…</p>
@@ -414,8 +402,8 @@ function OnboardingWizard(props: {
             </p>
           ) : (
             <p style={{ color: C.amber }}>
-              AnkiConnect introuvable. Ouvrez Anki (avec le plugin AnkiConnect),
-              puis vérifiez à nouveau, ou passez cette étape.
+              AnkiConnect introuvable. Ouvrez Anki (avec le plugin AnkiConnect), puis vérifiez à
+              nouveau, ou passez cette étape.
             </p>
           )}
           <div style={s.btnRow}>
@@ -496,25 +484,19 @@ function OnboardingWizard(props: {
                 type="color"
                 value={options.knownColor}
                 style={s.colorInput}
-                onChange={(e) =>
-                  setOptions({ ...options, knownColor: e.target.value })
-                }
+                onChange={(e) => setOptions({ ...options, knownColor: e.target.value })}
               />
             </div>
           </div>
           <div style={s.row}>
             <div style={s.rowLabel}>
               <span>Masquer les sous-titres natifs</span>
-              <span style={s.rowHint}>
-                l'overlay remplace la piste japonaise du lecteur
-              </span>
+              <span style={s.rowHint}>l'overlay remplace la piste japonaise du lecteur</span>
             </div>
             <div style={s.rowControl}>
               <Toggle
                 checked={options.hideNativeSubtitles}
-                onChange={(v) =>
-                  setOptions({ ...options, hideNativeSubtitles: v })
-                }
+                onChange={(v) => setOptions({ ...options, hideNativeSubtitles: v })}
               />
             </div>
           </div>
@@ -564,19 +546,16 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   }, [refresh]);
 
   /** Save a partial options update and refresh the local state. */
-  const updateOptions = useCallback(
-    async (partial: Partial<OverlayOptions>) => {
-      try {
-        const next = await saveOptions(partial);
-        setOptions(next);
-        setSavedAt(Date.now());
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    },
-    [],
-  );
+  const updateOptions = useCallback(async (partial: Partial<OverlayOptions>) => {
+    try {
+      const next = await saveOptions(partial);
+      setOptions(next);
+      setSavedAt(Date.now());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
 
   const installDictionary = useCallback(async () => {
     setDownloading(true);
@@ -624,7 +603,11 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   }, []);
 
   const resetData = useCallback(async () => {
-    if (!window.confirm("Tout effacer ? Cette action supprime les états de mots, cartes, dictionnaire et réglages (données locales uniquement).")) {
+    if (
+      !window.confirm(
+        "Tout effacer ? Cette action supprime les états de mots, cartes, dictionnaire et réglages (données locales uniquement).",
+      )
+    ) {
       return;
     }
     setResetting(true);
@@ -643,18 +626,14 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
     <Page>
       <Header />
       {error && <div style={s.errorBox}>{error}</div>}
-      {savedAt && (
-        <div style={s.noticeBox}>Réglages enregistrés ✓</div>
-      )}
+      {savedAt && <div style={s.noticeBox}>Réglages enregistrés ✓</div>}
 
       <Section title="Dictionnaire">
         <Row label="Statut">
           {dict === null ? (
             <span style={s.muted}>…</span>
           ) : dict.installed ? (
-            <span style={{ color: C.green }}>
-              Installé — {dict.count.toLocaleString()} entrées
-            </span>
+            <span style={{ color: C.green }}>Installé — {dict.count.toLocaleString()} entrées</span>
           ) : (
             <span style={{ color: C.amber }}>Non installé</span>
           )}
@@ -697,13 +676,10 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             <span style={s.muted}>…</span>
           ) : anki.connected ? (
             <span style={{ color: C.green }}>
-              Connecté — {anki.deckNames.length}{" "}
-              {anki.deckNames.length > 1 ? "decks" : "deck"}
+              Connecté — {anki.deckNames.length} {anki.deckNames.length > 1 ? "decks" : "deck"}
             </span>
           ) : (
-            <span style={{ color: C.amber }}>
-              Déconnecté (port 8765)
-            </span>
+            <span style={{ color: C.amber }}>Déconnecté (port 8765)</span>
           )}
         </Row>
         <Row label="Vérification">
@@ -711,7 +687,10 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             {checkingAnki ? "Vérification…" : "Vérifier la connexion"}
           </Btn>
         </Row>
-        <Row label="Deck dédié" hint="crée le deck « SubJap » + le modèle « SubJap Basic » dans Anki (sans effet si déjà présents)">
+        <Row
+          label="Deck dédié"
+          hint="crée le deck « SubJap » + le modèle compatible « Migaku Memory » dans Anki (sans effet si déjà présents)"
+        >
           <div style={s.btnRow}>
             <Btn onClick={() => void setupAnki()} disabled={settingUpAnki || !anki?.connected}>
               {settingUpAnki ? "Création…" : "Créer le deck « SubJap »"}
@@ -738,9 +717,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                   max={64}
                   value={options.fontSize}
                   style={s.range}
-                  onChange={(e) =>
-                    void updateOptions({ fontSize: Number(e.target.value) })
-                  }
+                  onChange={(e) => void updateOptions({ fontSize: Number(e.target.value) })}
                 />
                 <span style={s.inputSuffix}>{options.fontSize} px</span>
               </div>
@@ -782,9 +759,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 type="color"
                 value={options.knownColor}
                 style={s.colorInput}
-                onChange={(e) =>
-                  void updateOptions({ knownColor: e.target.value })
-                }
+                onChange={(e) => void updateOptions({ knownColor: e.target.value })}
               />
             </Row>
             <Row

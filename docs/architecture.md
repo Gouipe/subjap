@@ -171,8 +171,7 @@ Le bus MV3 transporte des objets sérialisables. Les `Blob` ne traversent donc
 pas directement `chrome.runtime.sendMessage` : le contrat de création de carte
 prévoit des data URLs (`screenshotDataUrl`, `audioDataUrl`), puis le service
 worker les reconvertit en `Blob` avant l’écriture IndexedDB. La capture
-d’écran est déjà persistée de cette manière ; l’audio réel reste à brancher,
-le TTS actuel servant de marqueur foreground.
+d’écran et l’extrait audio réel suivent ce chemin.
 
 Les réglages légers sont séparés dans `chrome.storage.local`, sous la clé
 `subjap_options`. [`DEFAULT_OPTIONS`](../src/core/options.ts) est la source
@@ -203,18 +202,24 @@ Le mining est déclenché depuis la popover et ouvre
 [`MiningModal`](../src/mining/modal.ts), qui présente la phrase, le token cible,
 la lecture et les glosses sélectionnables. Le modal peut :
 
-- lire la phrase avec `speechSynthesis` ;
+- générer l’audio du mot avec VOICEVOX local à partir de sa lecture ;
+- découper l’audio réel du lecteur dans `AudioPhrase` quand le navigateur
+  expose le flux audio ;
 - capturer une image de la vidéo lorsque le navigateur l’autorise ;
 - créer d’abord une carte locale dans IndexedDB ;
 - pousser ensuite une copie vers AnkiConnect, en best effort.
 
 La carte locale reste la source de vérité : une indisponibilité d’Anki ne fait
 pas perdre le mining. Le service worker communique avec AnkiConnect sur
-`127.0.0.1:8765`, préfère le deck `SubJap` et garantit le modèle dédié
-`SubJap Basic` avec les champs `Front`, `Back`, `Audio` et `Picture`.
-Sur les profils Anki localisés, le modèle est résolu par existence puis par
-présence des champs `Front` / `Back`, avec création automatique du modèle
-dédié en dernier recours.
+`127.0.0.1:8765`, préfère le deck `SubJap` et garantit le type de note exact
+`Migaku Memory` avec les champs `Mot`, `Lecture`, `Phrase`, `Traduction`,
+`Définitions`, `Notes`, `Image`, `AudioMot` et `AudioPhrase`. Les médias sont
+stockés par `storeMediaFile`, puis référencés dans les champs Migaku.
+
+VOICEVOX est démarré localement par un Native Messaging host Windows enregistré
+une seule fois ; voir [`docs/voicevox.md`](voicevox.md). Si la capture du flux
+Netflix est bloquée par le navigateur ou le DRM, `AudioPhrase` reste vide et
+la carte demeure valide.
 
 ## Interfaces utilisateur
 
@@ -256,8 +261,6 @@ Les évolutions naturelles sont :
 
 - alimenter l’accent tonal et ajouter les raccourcis clavier ;
 - compléter les statistiques et l’historique ;
-- remplacer le marqueur audio TTS par une capture audio réelle et attacher les
-  médias à Anki ;
 - ajouter un sélecteur de deck dans les Options ;
 - brancher YouTube, Crunchyroll et Prime ;
 - ajouter l’UI d’import SRT/ASS, l’export/import JSON et l’i18n FR/EN.

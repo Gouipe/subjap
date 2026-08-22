@@ -6,6 +6,7 @@ import { db } from "@/core/db";
 import { onMessage } from "@/core/messaging";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import { markDictionaryLoaded } from "@/onboarding";
+import { synthesizeVoicevox, warmupVoicevox } from "@/mining/voicevox";
 import type { MineCard, SrsState } from "@/core/types";
 
 // ---------------------------------------------------------------------------
@@ -16,6 +17,12 @@ chrome.runtime.onInstalled.addListener((details) => {
   if ((details.reason as string) === "install") {
     void chrome.runtime.openOptionsPage();
   }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void warmupVoicevox().catch((err) => {
+    console.info("[SubJap] VOICEVOX warm-up unavailable:", err);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -89,17 +96,11 @@ db.open().catch((err) => {
 // ── dict:lookup ───────────────────────────────────────────────────────────
 
 onMessage("dict:lookup", async ({ lemma }) => {
-  const entry = await db.dictionaryEntries
-    .where("headword")
-    .equals(lemma)
-    .first();
+  const entry = await db.dictionaryEntries.where("headword").equals(lemma).first();
 
   // If not found by headword, try reading index
   if (!entry) {
-    const byReading = await db.dictionaryEntries
-      .where("reading")
-      .equals(lemma)
-      .first();
+    const byReading = await db.dictionaryEntries.where("reading").equals(lemma).first();
     return { entry: byReading ?? null };
   }
 
@@ -192,18 +193,12 @@ onMessage("mine:create", async (payload) => {
 // ── stats:get ─────────────────────────────────────────────────────────────
 
 onMessage("stats:get", async () => {
-  const knownWords = await db.wordStates
-    .where("status")
-    .equals("known")
-    .count();
+  const knownWords = await db.wordStates.where("status").equals("known").count();
 
   const totalCards = await db.mineCards.count();
 
   const now = Date.now();
-  const cardsDue = await db.mineCards
-    .where("srs.due")
-    .belowOrEqual(now)
-    .count();
+  const cardsDue = await db.mineCards.where("srs.due").belowOrEqual(now).count();
 
   return { knownWords, totalCards, cardsDue };
 });
@@ -236,6 +231,10 @@ onMessage("tts:speak", ({ text }) => {
   console.log("[SubJap] TTS requested for:", text, "(foreground-only; no-op in SW)");
 });
 
+onMessage("tts:generate", async ({ text }) => ({
+  dataUrl: await synthesizeVoicevox(text),
+}));
+
 // ── anki:status ───────────────────────────────────────────────────────────
 
 onMessage("anki:status", async () => {
@@ -250,99 +249,132 @@ onMessage("anki:status", async () => {
 
 // ── anki:addNote ──────────────────────────────────────────────────────────
 
-/**
- * Ensure a note model with the given name exists in Anki. Creates it
- * (idempotent) with Front/Back (+ Audio/Picture reserved for later media
- * attachment) when missing.
- */
-async function ensureAnkiModel(modelName: string): Promise<void> {
+const MIGAKU_MODEL_NAME = "Migaku Memory";
+const MIGAKU_FIELDS = [
+  "Mot",
+  "Lecture",
+  "Phrase",
+  "Traduction",
+  "Définitions",
+  "Notes",
+  "Image",
+  "AudioMot",
+  "AudioPhrase",
+] as const;
+
+const MIGAKU_CSS =
+  '.card { font-family: "Hiragino Kaku Gothic ProN", "Meiryo", Arial, sans-serif; text-align: center; font-size: 20px; }\n' +
+  ".word { font-size: 40px; font-weight: bold; }\n" +
+  ".reading { color: #666; font-size: 20px; margin-bottom: 8px; }\n" +
+  ".sentence { font-size: 22px; line-height: 1.8; margin: 12px 0; }\n" +
+  ".translation { margin-top: 12px; color: #333; }\n" +
+  ".definitions { text-align: left; margin: 12px auto; max-width: 600px; }\n" +
+  ".notes { text-align: left; margin: 12px auto; max-width: 600px; color: #555; font-size: 14px; }\n" +
+  ".target { font-weight: bold; }\n" +
+  "ruby rt { font-size: 0.5em; color: #888; }";
+
+/** Ensure the exact note type used by migaku-export exists in Anki. */
+async function ensureMigakuModel(): Promise<void> {
   const names = await ankiInvoke<string[]>("modelNames");
-  if (names.includes(modelName)) return;
+  if (names.includes(MIGAKU_MODEL_NAME)) {
+    const fields = await ankiInvoke<string[]>("modelFieldNames", {
+      modelName: MIGAKU_MODEL_NAME,
+    });
+    const exact =
+      fields.length === MIGAKU_FIELDS.length &&
+      MIGAKU_FIELDS.every((field, index) => fields[index] === field);
+    if (!exact) {
+      throw new Error(
+        `Anki model "${MIGAKU_MODEL_NAME}" has incompatible fields; expected ${MIGAKU_FIELDS.join(", ")}`,
+      );
+    }
+    return;
+  }
+
   try {
     await ankiInvoke("createModel", {
-      modelName,
-      inOrderFields: ["Front", "Back", "Audio", "Picture"],
-      css: "",
+      modelName: MIGAKU_MODEL_NAME,
+      inOrderFields: [...MIGAKU_FIELDS],
+      css: MIGAKU_CSS,
       cardTemplates: [
         {
-          Name: "Card 1",
-          Front: "{{Front}}",
-          Back: "{{Front}}<br>{{Back}}",
+          Name: MIGAKU_MODEL_NAME,
+          Front:
+            '<div class="word">{{Mot}}</div>\n' +
+            '<div class="reading">{{Lecture}}</div>\n' +
+            '<div class="audio">{{AudioMot}}</div>',
+          Back:
+            '{{FrontSide}}\n\n<hr id="answer">\n\n' +
+            '<div class="sentence">{{Phrase}}</div>\n' +
+            '<div class="audio">{{AudioPhrase}}</div>\n' +
+            "{{Image}}\n" +
+            '<div class="translation">{{Traduction}}</div>\n' +
+            '<div class="definitions">{{Définitions}}</div>\n' +
+            '<div class="notes">{{Notes}}</div>',
         },
       ],
     });
   } catch (err) {
     // Already exists (e.g. from a previous attempt)? Use it; otherwise report.
     const after = await ankiInvoke<string[]>("modelNames");
-    if (!after.includes(modelName)) throw err;
+    if (!after.includes(MIGAKU_MODEL_NAME)) throw err;
   }
 }
 
-/**
- * Resolve a note model name that actually exists in Anki.
- *
- * Anki profiles are not always English: the built-in "Basic" type is renamed
- * in localized profiles (e.g. "Basique" in French) and its fields may be
- * localized too. Resolution order:
- *   1. the requested name (usually "Basic") if it exists;
- *   2. the first model exposing English "Front"/"Back" fields;
- *   3. a dedicated "SubJap Basic" model created on demand (idempotent).
- */
-async function resolveAnkiModel(preferred: string): Promise<string> {
-  const names = await ankiInvoke<string[]>("modelNames");
-  if (names.includes(preferred)) return preferred;
-
-  for (const name of names) {
-    try {
-      const fields = await ankiInvoke<string[]>("modelFieldNames", {
-        modelName: name,
-      });
-      if (fields.includes("Front") && fields.includes("Back")) return name;
-    } catch {
-      // Unusable model — keep scanning.
-    }
-  }
-
-  await ensureAnkiModel("SubJap Basic");
-  return "SubJap Basic";
+function dataUrlToBase64(dataUrl: string): string {
+  const comma = dataUrl.indexOf(",");
+  if (comma === -1) throw new Error("Invalid media data URL");
+  return dataUrl.slice(comma + 1);
 }
 
-onMessage("anki:addNote", async ({ deckName, modelName, fields, audioUrl, screenshotUrl }) => {
-  const resolvedModel = await resolveAnkiModel(modelName ?? "Basic");
-  const note: Record<string, unknown> = {
-    deckName,
-    modelName: resolvedModel,
-    fields,
-    options: {
-      allowDuplicate: false,
-      duplicateScope: "deck",
-    },
-  };
-
-  if (audioUrl) {
-    note.audio = {
-      url: audioUrl,
-      filename: `subjap_audio_${Date.now()}.mp3`,
-      fields: ["Audio"],
-    };
-  }
-
-  if (screenshotUrl) {
-    note.picture = {
-      url: screenshotUrl,
-      filename: `subjap_screenshot_${Date.now()}.png`,
-      fields: ["Picture"],
-    };
-  }
-
-  const noteId = await ankiInvoke<number>("addNote", { note });
-  console.log("[SubJap] Anki note added:", {
-    noteId,
-    deckName,
-    modelName: resolvedModel,
+async function storeAnkiMedia(dataUrl: string, prefix: string, extension: string): Promise<string> {
+  const filename = `${prefix}_${Date.now()}_${crypto.randomUUID()}.${extension}`;
+  await ankiInvoke("storeMediaFile", {
+    filename,
+    data: dataUrlToBase64(dataUrl),
   });
-  return { noteId, modelName: resolvedModel };
-});
+  return filename;
+}
+
+onMessage(
+  "anki:addNote",
+  async ({ deckName, fields, audioMotDataUrl, audioPhraseDataUrl, imageDataUrl, tags }) => {
+    await ensureMigakuModel();
+    const noteFields = { ...fields };
+
+    if (audioMotDataUrl) {
+      const filename = await storeAnkiMedia(audioMotDataUrl, "subjap_mot", "wav");
+      noteFields.AudioMot = `[sound:${filename}]`;
+    }
+    if (audioPhraseDataUrl) {
+      const filename = await storeAnkiMedia(audioPhraseDataUrl, "subjap_phrase", "wav");
+      noteFields.AudioPhrase = `[sound:${filename}]`;
+    }
+    if (imageDataUrl) {
+      const filename = await storeAnkiMedia(imageDataUrl, "subjap_image", "png");
+      noteFields.Image = `<div><img src="${filename}"></div>`;
+    }
+
+    const note: Record<string, unknown> = {
+      deckName,
+      modelName: MIGAKU_MODEL_NAME,
+      fields: noteFields,
+      tags: tags ?? ["subjap"],
+      options: {
+        allowDuplicate: false,
+        duplicateScope: "deck",
+      },
+    };
+
+    const noteId = await ankiInvoke<number>("addNote", { note });
+    console.log("[SubJap] Anki note added:", {
+      noteId,
+      deckName,
+      modelName: MIGAKU_MODEL_NAME,
+    });
+    return { noteId, modelName: MIGAKU_MODEL_NAME };
+  },
+);
 
 // ── anki:setup ────────────────────────────────────────────────────────────
 
@@ -352,13 +384,13 @@ onMessage("anki:addNote", async ({ deckName, modelName, fields, audioUrl, screen
  */
 onMessage("anki:setup", async () => {
   const deckName = "SubJap";
-  const modelName = "SubJap Basic";
+  const modelName = MIGAKU_MODEL_NAME;
 
   const deckNames = await ankiInvoke<string[]>("deckNames");
   if (!deckNames.includes(deckName)) {
     await ankiInvoke("createDeck", { deck: deckName });
   }
-  await ensureAnkiModel(modelName);
+  await ensureMigakuModel();
 
   console.log("[SubJap] Anki setup ensured:", { deckName, modelName });
   return { deckName, modelName };

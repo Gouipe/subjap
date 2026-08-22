@@ -6,4 +6,12 @@ export { checkAnkiConnect, createAnkiNote, getDueCount, storeMediaFile } from ".
 export type { AnkiStatus } from "./anki";
 export { speak, isTtsAvailable } from "./tts";
 export { captureFrame } from "./capture";
+export { VideoAudioCapture, encodeWavDataUrl } from "./audio-capture";
+export { ensureVoicevoxProcess, synthesizeVoicevox, warmupVoicevox } from "./voicevox";
+export {
+  escapeAnkiHtml,
+  formatMigakuDefinitions,
+  formatMigakuSentence,
+  formatMigakuWord,
+} from "./migaku";
 export { MiningModal } from "./modal";
