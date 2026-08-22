@@ -42,6 +42,7 @@ describe("MiningModal", () => {
     modal.open({
       cue,
       targetToken,
+      lemmaReading: "やくそく",
       episodeContext,
       definitions: ["promise"],
     });
