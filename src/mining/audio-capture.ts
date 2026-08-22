@@ -133,12 +133,12 @@ export class VideoAudioCapture {
    * Try to capture the rendered tab. Netflix's DRM player may reject direct
    * media-element capture, while tabCapture can expose the compositor output.
    */
-  startTabCapture(): Promise<void> {
+  startTabCapture(streamId?: string): Promise<void> {
     if (this.tabVideo) return Promise.resolve();
     if (this.tabCapturePromise) return this.tabCapturePromise;
 
     console.info("[SubJap] Requesting rendered tab capture");
-    this.tabCapturePromise = this.initializeTabCapture().finally(() => {
+    this.tabCapturePromise = this.initializeTabCapture(streamId).finally(() => {
       this.tabCapturePromise = null;
     });
     return this.tabCapturePromise;
@@ -206,20 +206,20 @@ export class VideoAudioCapture {
     this.tabVideo = null;
   }
 
-  private async initializeTabCapture(): Promise<void> {
+  private async initializeTabCapture(streamId?: string): Promise<void> {
     try {
-      const { streamId } = await sendMessage("tabCapture:streamId", {});
+      const captureId = streamId ?? (await sendMessage("tabCapture:streamId", {})).streamId;
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           mandatory: {
             chromeMediaSource: "tab",
-            chromeMediaSourceId: streamId,
+            chromeMediaSourceId: captureId,
           },
         } as MediaTrackConstraints,
         video: {
           mandatory: {
             chromeMediaSource: "tab",
-            chromeMediaSourceId: streamId,
+            chromeMediaSourceId: captureId,
           },
         } as MediaTrackConstraints,
       });

@@ -44,6 +44,18 @@ const Popup: React.FC = () => {
       setConnected(false);
       setError(err instanceof Error ? err.message : String(err));
     });
+
+    // Opening this popup is the user's explicit invocation of the extension.
+    // Use that gesture to authorize and start the rendered-tab audio buffer
+    // before the next mining action; failures remain silent on non-video tabs.
+    void chrome.tabs
+      .query({ active: true, currentWindow: true })
+      .then((tabs) => {
+        const tab = tabs[0];
+        if (tab?.id == null) return;
+        return sendMessage("tabCapture:prepare", { tabId: tab.id });
+      })
+      .catch(() => undefined);
   }, [refresh]);
 
   const installDictionary = useCallback(async () => {
