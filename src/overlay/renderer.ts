@@ -117,6 +117,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-token--parenthetical,
     #${CONTAINER_ID} .subjap-token--parenthetical:hover {
       color: #64748b;
+      opacity: 0.7;
       cursor: default;
       pointer-events: none;
     }

@@ -125,6 +125,7 @@ test.describe("SubJap UX fixture", () => {
       "color",
       "rgb(100, 116, 139)",
     );
+    await expect(parenthetical.first()).toHaveCSS("opacity", "0.7");
     await expect(parenthetical.first()).toHaveCSS("pointer-events", "none");
     await expect(parenthetical.first()).toHaveCSS("cursor", "default");
 
