@@ -323,21 +323,13 @@ onMessage("tabCapture:streamId", async (_payload, sender) => {
   return { streamId: await getTabCaptureStreamId(tabId) };
 });
 
-/** Start tab capture from the actual action click, which grants activeTab. */
-async function activateTabCapture(tabId: number): Promise<void> {
+// Kept as a typed fallback for extension pages that cannot call tabCapture
+// directly. The popup activation normally calls the API in its foreground
+// context so Chrome associates it with the explicit activation click.
+onMessage("tabCapture:prepare", async ({ tabId }) => {
   const streamId = await getTabCaptureStreamId(tabId);
   await chrome.tabs.sendMessage(tabId, { type: "tabCapture:stream", streamId });
-  await chrome.action.setBadgeText({ tabId, text: "ON" });
-  await chrome.action.setBadgeBackgroundColor({ tabId, color: "#22c55e" });
-  console.info("[SubJap] Tab capture activated from action", { tabId });
-}
-
-chrome.action.onClicked.addListener((tab) => {
-  const tabId = tab.id;
-  if (tabId == null) return;
-  void activateTabCapture(tabId).catch((err: unknown) => {
-    console.warn("[SubJap] Action tab capture unavailable:", err);
-  });
+  return { ready: true };
 });
 
 // ── anki:status ───────────────────────────────────────────────────────────

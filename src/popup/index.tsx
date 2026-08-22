@@ -25,6 +25,8 @@ const Popup: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [onboarded, setOnboarded] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [captureStatus, setCaptureStatus] = useState<"idle" | "activating" | "active">("idle");
+  const [captureError, setCaptureError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [statsResult, dictResult, onboardedResult] = await Promise.all([
@@ -45,6 +47,35 @@ const Popup: React.FC = () => {
       setError(err instanceof Error ? err.message : String(err));
     });
   }, [refresh]);
+
+  const activateCapture = useCallback(async () => {
+    setCaptureStatus("activating");
+    setCaptureError(null);
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id == null) throw new Error("Aucun onglet actif");
+      const streamId = await new Promise<string>((resolve, reject) => {
+        chrome.tabCapture.getMediaStreamId(
+          { targetTabId: tab.id, consumerTabId: tab.id },
+          (id) => {
+            const runtimeError = chrome.runtime.lastError;
+            if (runtimeError) {
+              reject(new Error(runtimeError.message));
+              return;
+            }
+            resolve(id);
+          },
+        );
+      });
+      await chrome.tabs.sendMessage(tab.id, { type: "tabCapture:stream", streamId });
+      await chrome.action.setBadgeText({ tabId: tab.id, text: "ON" });
+      await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: "#22c55e" });
+      setCaptureStatus("active");
+    } catch (err: unknown) {
+      setCaptureStatus("idle");
+      setCaptureError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
 
   const installDictionary = useCallback(async () => {
     setDownloading(true);
@@ -83,6 +114,22 @@ const Popup: React.FC = () => {
       </div>
 
       {error && <p style={styles.error}>{error}</p>}
+
+      <div style={styles.captureBox}>
+        <button
+          style={styles.captureButton}
+          onClick={() => void activateCapture()}
+          disabled={captureStatus !== "idle"}
+        >
+          {captureStatus === "activating"
+            ? "Activation…"
+            : captureStatus === "active"
+              ? "✓ Audio Netflix actif"
+              : "Activer l’audio Netflix"}
+        </button>
+        {captureError && <p style={styles.captureError}>{captureError}</p>}
+        <p style={styles.captureHint}>À faire une seule fois par onglet Netflix.</p>
+      </div>
 
       {!onboarded && (
         <div style={styles.onboardingBox}>
@@ -193,6 +240,34 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 10,
     paddingTop: 10,
     borderTop: "1px solid #334155",
+  },
+  captureBox: {
+    marginTop: 10,
+    padding: "10px 0",
+    borderTop: "1px solid #334155",
+    borderBottom: "1px solid #334155",
+  },
+  captureButton: {
+    width: "100%",
+    padding: "8px 12px",
+    border: "1px solid #22c55e",
+    borderRadius: 6,
+    background: "#166534",
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  captureHint: {
+    margin: "6px 0 0",
+    fontSize: 10,
+    color: "#94a3b8",
+  },
+  captureError: {
+    margin: "6px 0 0",
+    fontSize: 10,
+    color: "#f38ba8",
+    wordBreak: "break-word",
   },
   dictStatus: {
     fontSize: 12,
