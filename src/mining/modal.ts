@@ -76,8 +76,6 @@ export class MiningModal {
         void this.sendToAnki();
       } else if (target.classList.contains("subjap-modal-close")) {
         this.close();
-      } else if (target.classList.contains("subjap-modal-backdrop")) {
-        this.close();
       }
     });
   }
@@ -143,7 +141,7 @@ export class MiningModal {
       <div class="subjap-modal-panel">
         <div class="subjap-modal-header">
           <span class="subjap-modal-title">Mine Card</span>
-          <button class="subjap-modal-close" title="Close (Escape)">✕</button>
+          <button class="subjap-modal-close" title="Close">✕</button>
         </div>
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
@@ -190,7 +188,7 @@ export class MiningModal {
       .subjap-modal-body .subjap-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
       .subjap-modal-body .subjap-reading { color: #a78bfa; margin-bottom: 8px; }
       .subjap-modal-body .subjap-definitions {
-        display: block; box-sizing: border-box; width: 100%; min-height: 132px;
+        display: block; box-sizing: border-box; width: 100%; min-height: 280px;
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
         background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
         border-radius: 6px; font: inherit; line-height: 1.45;
@@ -507,9 +505,9 @@ export class MiningModal {
   private registerKeyboard(): void {
     this.keyHandler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        this.close();
-      } else if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
-        void this.sendToAnki();
+        // The mining form is intentionally modal: only the close button may
+        // dismiss it manually, so Escape must not discard an in-progress edit.
+        e.preventDefault();
       }
     };
     document.addEventListener("keydown", this.keyHandler);
