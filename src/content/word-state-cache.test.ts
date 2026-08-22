@@ -37,4 +37,20 @@ describe("WordStateCache", () => {
 
     expect(load).toHaveBeenCalledTimes(2);
   });
+
+  it("passes lexical aliases to the loader while caching by canonical lemma", async () => {
+    const load = vi.fn((_lemma: string, _aliases?: string[]) =>
+      Promise.resolve<WordState | null>({
+        key: "いろんな",
+        status: "known",
+        source: "import",
+      }),
+    );
+    const cache = new WordStateCache(load);
+
+    await expect(cache.get("色んな", ["色んな", "いろんな"])).resolves.toMatchObject({
+      status: "known",
+    });
+    expect(load).toHaveBeenCalledWith("色んな", ["色んな", "いろんな"]);
+  });
 });

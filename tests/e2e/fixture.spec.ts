@@ -108,6 +108,23 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("reconnaît une carte connue via une autre forme lexicale UniDic", async ({
+    page,
+  }) => {
+    await page.goto("/tests/fixture/index.html?scenario=lexical-alias");
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-scenario",
+      "unidic-lexical-alias",
+      { timeout: 10_000 },
+    );
+
+    const token = page.locator("#subjap-overlay-container .subjap-token").first();
+    await expect(token).toHaveText("いろんな");
+    await expect(token).toHaveAttribute("data-lemma", "色んな");
+    await expect(token).toHaveClass(/subjap-known/);
+    await expect(token).toHaveCSS("color", "rgb(255, 255, 255)");
+  });
+
   test("grise toute expression entre parenthèses et la rend non interactive", async ({
     page,
   }) => {

@@ -12,6 +12,7 @@ import { groupTokens } from "../../src/tokenizer/group";
 import { createTokenizer } from "../../src/tokenizer";
 import { mergeFrequencyRanks } from "../../src/dictionary/frequency";
 import { markParentheticalTokens } from "../../src/subtitles";
+import { tokenCanonicalKey, tokenLookupTerms } from "../../src/core/types";
 import type {
   DictionaryEntry,
   RenderedCue,
@@ -77,6 +78,21 @@ let miningModal: MiningModal | null = null;
 let nextRenderDelayMs = 0;
 let unidicTokenizer: Tokenizer | null = null;
 let unidicTokenizerPromise: Promise<Tokenizer> | null = null;
+
+function tokenLookupKeys(token: Token): string[] {
+  return [...new Set([tokenCanonicalKey(token), ...tokenLookupTerms(token)])];
+}
+
+function tokenMatches(keys: Set<string>, token: Token): boolean {
+  return tokenLookupKeys(token).some((key) => keys.has(key));
+}
+
+function tokenAnkiNoteCount(token: Token): number {
+  return tokenLookupKeys(token).reduce(
+    (count, key) => count + (ankiNoteCounts.get(key) ?? 0),
+    0,
+  );
+}
 
 const dictionaryEntry: DictionaryEntry = {
   headword: "日本語",
@@ -312,16 +328,16 @@ function renderedCue(cue: SubtitleCue): RenderedCue {
       index,
       token,
       isParenthetical: parentheticalFlags[index],
-      wordState: ignoredLemmas.has(token.lemma)
+      wordState: tokenMatches(ignoredLemmas, token)
         ? { key: token.lemma, status: "ignored", source: "manual" }
-        : knownLemmas.has(token.lemma)
+        : tokenMatches(knownLemmas, token)
           ? { key: token.lemma, status: "known", source: "manual" }
           : token.lemma === "を"
             ? { key: token.lemma, status: "unknown", source: "import" }
           : token.lemma === "する"
             ? { key: token.lemma, status: "learning", source: "import" }
             : null,
-      ankiNoteCount: ankiNoteCounts.get(token.lemma) ?? 0,
+      ankiNoteCount: tokenAnkiNoteCount(token),
       frequencyRank: frequencyRanks.get(token.lemma),
     })),
   };
@@ -419,9 +435,9 @@ const popoverCallbacks = {
 
 function showPopoverForToken(anchor: HTMLElement, token: Token): void {
   const entry = dictionaryEntries.get(token.lemma) ?? null;
-  const currentStatus = ignoredLemmas.has(token.lemma)
+  const currentStatus = tokenMatches(ignoredLemmas, token)
     ? "ignored"
-    : knownLemmas.has(token.lemma)
+    : tokenMatches(knownLemmas, token)
       ? "known"
       : token.lemma === "を"
         ? "unknown"
@@ -435,7 +451,7 @@ function showPopoverForToken(anchor: HTMLElement, token: Token): void {
     entry,
     wordStatus: currentStatus,
     frequencyRank,
-    ankiNoteCount: ankiNoteCounts.get(token.lemma) ?? 0,
+    ankiNoteCount: tokenAnkiNoteCount(token),
   });
 }
 
@@ -801,6 +817,13 @@ adapter.subscribeCues((cues) => {
 });
 adapter.setNativeSubtitlesVisible(false);
 nativeSubtitles.replaceChildren(nativeLine("待ってください。", "0", "4"));
+
+if (new URLSearchParams(window.location.search).get("scenario") === "lexical-alias") {
+  // Simulate an Anki KNOWN note storing UniDic's displayed spelling while the
+  // tokenizer exposes the canonical lexeme 色んな.
+  knownLemmas.add("いろんな");
+  void renderUniDic("いろんなことがあった", "unidic-lexical-alias");
+}
 
 window.addEventListener("beforeunload", () => {
   clearTimers();
