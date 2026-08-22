@@ -99,7 +99,6 @@ export class MiningModal {
     this.render();
     this.registerKeyboard();
     void this.generateAudio();
-    void this.audioCapture?.startTabCapture();
     this.phraseAudioPromise = this.capturePhraseAudio(modalState);
     void this.captureScreenshot().finally(() => {
       if (this.state === modalState) this.show();
