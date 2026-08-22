@@ -5,6 +5,7 @@ import {
   installNetflixBridge,
   resolveNetflixPlayer,
   collectNetflixTimedTextTracks,
+  selectNetflixSecondaryTrack,
 } from "./netflix-bridge";
 
 describe("Netflix page seek bridge", () => {
@@ -22,6 +23,25 @@ describe("Netflix page seek bridge", () => {
       { language: "fr-FR", url: "https://cdn.example/timedtext/fr.vtt" },
       { language: "en", url: "https://cdn.example/timedtext/en.vtt" },
     ]);
+  });
+  it("préfère le français et conserve la piste japonaise native", () => {
+    const ja = { bcp47: "ja-JP" };
+    const fr = { bcp47: "fr-FR" };
+    const en = { bcp47: "en-US" };
+
+    expect(selectNetflixSecondaryTrack([ja, en, fr], ja)).toEqual({
+      native: ja,
+      secondary: fr,
+    });
+  });
+  it("utilise l'anglais si aucune piste française n'est disponible", () => {
+    const ja = { bcp47: "ja-JP" };
+    const en = { bcp47: "en-US" };
+
+    expect(selectNetflixSecondaryTrack([ja, en], ja)).toEqual({
+      native: ja,
+      secondary: en,
+    });
   });
   it("selects the watch player session", () => {
     const watchPlayer = { seek: vi.fn() };

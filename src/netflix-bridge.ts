@@ -20,6 +20,34 @@ interface NetflixVideoPlayerApi extends NetflixPlayer {
   ) => NetflixPlayer | null | undefined;
 }
 
+interface NetflixTimedTextTrackOption {
+  bcp47?: unknown;
+  language?: unknown;
+  locale?: unknown;
+  displayName?: unknown;
+  isNoneTrack?: unknown;
+}
+
+interface NetflixTimedTextSession extends NetflixPlayer {
+  getTimedTextTrackList?: () => NetflixTimedTextTrackOption[];
+  getTimedTextTrack?: () => NetflixTimedTextTrackOption | null | undefined;
+  setTimedTextTrack?: (track: NetflixTimedTextTrackOption) => unknown;
+}
+
+export function selectNetflixSecondaryTrack(
+  tracks: NetflixTimedTextTrackOption[],
+  current?: NetflixTimedTextTrackOption | null,
+): { native: NetflixTimedTextTrackOption; secondary: NetflixTimedTextTrackOption } | null {
+  const native =
+    current && !isNoneTimedTextTrack(current)
+      ? current
+      : tracks.find((track) => /^ja(?:-|_|$)/i.test(readTimedTextLanguage(track)));
+  const secondary =
+    tracks.find((track) => /^fr(?:-|_|$)/i.test(readTimedTextLanguage(track))) ??
+    tracks.find((track) => /^en(?:-|_|$)/i.test(readTimedTextLanguage(track)));
+  return native && secondary ? { native, secondary } : null;
+}
+
 interface NetflixPageWindow extends Window {
   netflix?: {
     appContext?: {
@@ -242,6 +270,40 @@ function installTimedTextCapture(page: Window): void {
 
   const seenUrls = new Set<string>();
   const discoveredTracks = new Map<string, NetflixTimedTextTrack>();
+  let pendingSecondaryLanguage = "";
+  let pendingNativeTrack: NetflixTimedTextTrackOption | null = null;
+  let pendingSecondaryRestore: number | null = null;
+  const probedSessions = new WeakSet<object>();
+  const loggedTrackLists = new WeakSet<object>();
+
+  const restoreNativeTrack = (
+    session: NetflixTimedTextSession,
+    nativeTrack: NetflixTimedTextTrackOption,
+  ): void => {
+    if (pendingSecondaryRestore !== null) {
+      page.clearTimeout(pendingSecondaryRestore);
+      pendingSecondaryRestore = null;
+    }
+    pendingSecondaryLanguage = "";
+    pendingNativeTrack = null;
+    try {
+      session.setTimedTextTrack?.(nativeTrack);
+    } catch {
+      // Netflix can replace the session while a track request is in flight.
+    }
+  };
+
+  const scheduleNativeTrackRestore = (
+    session: NetflixTimedTextSession,
+    nativeTrack: NetflixTimedTextTrackOption,
+  ): void => {
+    if (pendingSecondaryRestore !== null) page.clearTimeout(pendingSecondaryRestore);
+    pendingSecondaryRestore = page.setTimeout(() => {
+      pendingSecondaryRestore = null;
+      restoreNativeTrack(session, nativeTrack);
+    }, 1800);
+  };
+
   const fetchTrack = (track: NetflixTimedTextTrack): void => {
     if (seenUrls.has(track.url)) return;
     seenUrls.add(track.url);
@@ -251,6 +313,12 @@ function installTimedTextCapture(page: Window): void {
     // extension content script can use the page session without that clash.
     console.log(`[SubJap] Netflix timed-text track discovered: ${track.language}`);
     emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
+  };
+  const emitTimedTextUrl = (url: string, language = ""): void => {
+    fetchTrack({
+      url,
+      language: language || pendingSecondaryLanguage,
+    });
   };
   const inspectTimedTextValue = (value: unknown): void => {
     for (const track of collectNetflixTimedTextTracks(value)) fetchTrack(track);
@@ -297,10 +365,17 @@ function installTimedTextCapture(page: Window): void {
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (TIMED_TEXT_URL_PATTERN.test(url)) {
-        emit(NETFLIX_TIMED_TEXT_URL_EVENT, {
-          url,
-          language: inferLanguage(url),
-        });
+        const language = inferLanguage(url) || pendingSecondaryLanguage;
+        emitTimedTextUrl(url, language);
+        if (pendingSecondaryLanguage) {
+          // The service worker has already received the URL message; restoring
+          // the native track here prevents the temporary probe from changing
+          // what the user sees.
+          const session = resolveNetflixTimedTextSession(page);
+          if (session && pendingNativeTrack) {
+            scheduleNativeTrackRestore(session, pendingNativeTrack);
+          }
+        }
       }
       const response = await fetchImpl(input, init);
       inspectJsonResponse(response, url);
@@ -331,6 +406,16 @@ function installTimedTextCapture(page: Window): void {
     ) {
       this.addEventListener("load", () => {
         const url = this.responseURL || xhrUrls.get(this) || "";
+        if (TIMED_TEXT_URL_PATTERN.test(url)) {
+          const language = inferLanguage(url) || pendingSecondaryLanguage;
+          emitTimedTextUrl(url, language);
+          if (pendingSecondaryLanguage) {
+            const session = resolveNetflixTimedTextSession(page);
+            if (session && pendingNativeTrack) {
+              scheduleNativeTrackRestore(session, pendingNativeTrack);
+            }
+          }
+        }
         const contentType = this.getResponseHeader("content-type") ?? "";
         if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) {
           return;
@@ -351,6 +436,60 @@ function installTimedTextCapture(page: Window): void {
       });
       return nativeSend.call(this, body);
     };
+  }
+
+  const probeSecondaryTimedTextTrack = (): void => {
+    const session = resolveNetflixTimedTextSession(page);
+    if (!session || probedSessions.has(session)) return;
+    let tracks: NetflixTimedTextTrackOption[] = [];
+    try {
+      tracks = session.getTimedTextTrackList?.() ?? [];
+    } catch {
+      return;
+    }
+    if (!Array.isArray(tracks) || tracks.length === 0) return;
+    if (!loggedTrackLists.has(session)) {
+      loggedTrackLists.add(session);
+      console.log(
+        `[SubJap] Netflix timed-text tracks: ${tracks
+          .map((track) => readTimedTextLanguage(track) || "none")
+          .join(", ")}`,
+      );
+    }
+    let currentTrack: NetflixTimedTextTrackOption | null | undefined;
+    try {
+      currentTrack = session.getTimedTextTrack?.();
+    } catch {
+      currentTrack = null;
+    }
+    const selectedTracks = selectNetflixSecondaryTrack(tracks, currentTrack);
+    if (!selectedTracks || typeof session.setTimedTextTrack !== "function") {
+      probedSessions.add(session);
+      return;
+    }
+    const nativeTrack = selectedTracks.native;
+    const secondaryTrack = selectedTracks.secondary;
+    try {
+      pendingSecondaryLanguage = readTimedTextLanguage(secondaryTrack);
+      pendingNativeTrack = nativeTrack;
+      session.setTimedTextTrack(secondaryTrack);
+      probedSessions.add(session);
+      scheduleNativeTrackRestore(session, nativeTrack);
+      console.log(`[SubJap] Netflix probing secondary track: ${pendingSecondaryLanguage}`);
+    } catch {
+      pendingSecondaryLanguage = "";
+      pendingNativeTrack = null;
+    }
+  };
+
+  let trackProbeCount = 0;
+  const setInterval = page.setInterval?.bind(page);
+  if (setInterval) {
+    const trackProbeTimer = setInterval(() => {
+      probeSecondaryTimedTextTrack();
+      trackProbeCount += 1;
+      if (trackProbeCount >= 120) page.clearInterval(trackProbeTimer);
+    }, 500);
   }
 
   page.addEventListener("message", (event) => {
@@ -378,4 +517,53 @@ function inferLanguage(url: string): string {
   } catch {
     return encoded;
   }
+
+}
+
+function readTimedTextLanguage(track: NetflixTimedTextTrackOption): string {
+  return String(track.bcp47 ?? track.language ?? track.locale ?? "").trim();
+}
+
+function isNoneTimedTextTrack(track: NetflixTimedTextTrackOption): boolean {
+  return track.isNoneTrack === true || /^none|off$/i.test(readTimedTextLanguage(track));
+}
+
+function resolveNetflixTimedTextSession(page: Window): NetflixTimedTextSession | null {
+  const netflixPage = page as NetflixPageWindow;
+  let videoPlayer: NetflixVideoPlayerApi | undefined;
+  try {
+    videoPlayer = netflixPage.netflix?.appContext?.state?.playerApp
+      ?.getAPI?.().videoPlayer;
+  } catch {
+    return null;
+  }
+  if (!videoPlayer || typeof videoPlayer.getVideoPlayerBySessionId !== "function") {
+    return null;
+  }
+  let sessionIds: string[] = [];
+  try {
+    sessionIds = videoPlayer.getAllPlayerSessionIds?.() ?? [];
+  } catch {
+    return null;
+  }
+  if (sessionIds.length === 0) sessionIds.push("watch");
+  const selectedIds = [
+    ...sessionIds.filter((id) => /watch/i.test(id)),
+    ...sessionIds.filter((id) => !/watch/i.test(id)),
+  ];
+  for (const sessionId of selectedIds) {
+    try {
+      const session = videoPlayer.getVideoPlayerBySessionId(sessionId);
+      if (
+        session &&
+        (typeof (session as NetflixTimedTextSession).getTimedTextTrackList === "function" ||
+          typeof (session as NetflixTimedTextSession).setTimedTextTrack === "function")
+      ) {
+        return session as NetflixTimedTextSession;
+      }
+    } catch {
+      // A stale session can disappear while Netflix navigates between episodes.
+    }
+  }
+  return null;
 }
