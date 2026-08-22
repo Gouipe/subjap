@@ -4,6 +4,7 @@
 
 const VOICEVOX_URL = "http://127.0.0.1:50021";
 const VOICEVOX_HOST = "com.subjap.voicevox";
+const VOICEVOX_VERSION_URL = `${VOICEVOX_URL}/version`;
 // Keep this configurable in one place until an Options control is needed.
 const DEFAULT_SPEAKER_ID = 3;
 
@@ -12,8 +13,27 @@ interface NativeResponse {
   error?: string;
 }
 
-export function ensureVoicevoxProcess(): Promise<void> {
-  return new Promise((resolve, reject) => {
+async function isVoicevoxReady(): Promise<boolean> {
+  try {
+    const response = await fetch(VOICEVOX_VERSION_URL, {
+      method: "GET",
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensure the local engine is available without needlessly invoking Chrome's
+ * native-messaging bridge. The bridge is only needed when VOICEVOX is not
+ * already running; this keeps a transient bridge error from blocking audio.
+ */
+export async function ensureVoicevoxProcess(): Promise<void> {
+  if (await isVoicevoxReady()) return;
+
+  await new Promise<void>((resolve, reject) => {
     chrome.runtime.sendNativeMessage(
       VOICEVOX_HOST,
       { action: "ensure-running" },
