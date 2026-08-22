@@ -68,6 +68,7 @@ function bytesToBase64(bytes: Uint8Array): string {
  */
 export class VideoAudioCapture {
   private readonly video: CaptureVideo;
+  private readonly seekTo: ((timeSeconds: number, resume: boolean) => Promise<boolean>) | null;
   private context: AudioContext | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: AudioNode | null = null;
@@ -79,8 +80,12 @@ export class VideoAudioCapture {
   private tabStream: MediaStream | null = null;
   private tabCapturePromise: Promise<void> | null = null;
 
-  constructor(video: HTMLVideoElement) {
+  constructor(
+    video: HTMLVideoElement,
+    seekTo: ((timeSeconds: number, resume: boolean) => Promise<boolean>) | null = null,
+  ) {
     this.video = video as CaptureVideo;
+    this.seekTo = seekTo;
   }
 
   start(): void {
@@ -219,14 +224,19 @@ export class VideoAudioCapture {
         console.info("[SubJap] Offscreen phrase capture unavailable; using tab buffer:", err);
       }
 
-      this.video.currentTime = from;
-      // Start playback immediately so a mining click can authorize it. The
-      // seek may interrupt this first attempt; after `seeked`, retry below.
-      const initialPlay = this.video.play().catch(() => undefined);
-      await this.waitForVideoSeek(from);
-      await initialPlay;
-      if (this.video.paused) await this.video.play();
       await offscreenStartPromise;
+      if (this.seekTo) {
+        const seekOk = await this.seekTo(from, true);
+        if (!seekOk) throw new Error("Netflix seek bridge refused phrase replay");
+      } else {
+        this.video.currentTime = from;
+        // Start playback immediately so a mining click can authorize it. The
+        // seek may interrupt this first attempt; after `seeked`, retry below.
+        const initialPlay = this.video.play().catch(() => undefined);
+        await this.waitForVideoSeek(from);
+        await initialPlay;
+        if (this.video.paused) await this.video.play();
+      }
       await this.waitForVideoTime(to);
       await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
       if (offscreenRecording) {
@@ -243,11 +253,15 @@ export class VideoAudioCapture {
         void sendMessage("tabCapture:phraseStop", {}).catch(() => undefined);
       }
       this.video.playbackRate = initialRate;
-      this.video.currentTime = initialTime;
-      if (initialPaused) {
-        this.video.pause();
+      if (this.seekTo) {
+        await this.seekTo(initialTime, !initialPaused);
       } else {
-        void this.video.play().catch(() => undefined);
+        this.video.currentTime = initialTime;
+        if (initialPaused) {
+          this.video.pause();
+        } else {
+          void this.video.play().catch(() => undefined);
+        }
       }
     }
   }
