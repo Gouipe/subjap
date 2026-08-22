@@ -5,7 +5,11 @@
 import { db } from "@/core/db";
 import { onMessage } from "@/core/messaging";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
-import { fetchJapaneseFrequencyRanks } from "@/dictionary/frequency";
+import {
+  fetchJapaneseFrequencyRanks,
+  FREQUENCY_DATA_VERSION,
+  type FrequencyEntry,
+} from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
 import { fetchNetflixTimedText } from "./netflix-timed-text";
 import { synthesizeVoicevox, warmupVoicevox } from "@/mining/voicevox";
@@ -25,9 +29,11 @@ chrome.runtime.onInstalled.addListener((details) => {
   if ((details.reason as string) === "install") {
     void chrome.runtime.openOptionsPage();
   }
+  void ensureFrequencyRanks();
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  void ensureFrequencyRanks();
   void warmupVoicevox().catch((err) => {
     console.info("[SubJap] VOICEVOX warm-up unavailable:", err);
   });
@@ -100,16 +106,39 @@ db.open().catch((err) => {
 // Frequency data is loaded lazily so existing installations receive the new
 // highlighting without needing to reinstall their dictionary manually.
 let frequencyLoadPromise: Promise<void> | null = null;
+const FREQUENCY_VERSION_SETTING_KEY = "frequencyDataVersion";
+const FREQUENCY_BATCH_SIZE = 10_000;
+
+async function replaceFrequencyRanks(entries: FrequencyEntry[]): Promise<void> {
+  await db.transaction("rw", db.frequencyEntries, db.settings, async () => {
+    await db.frequencyEntries.clear();
+    for (let i = 0; i < entries.length; i += FREQUENCY_BATCH_SIZE) {
+      await db.frequencyEntries.bulkPut(
+        entries.slice(i, i + FREQUENCY_BATCH_SIZE),
+      );
+    }
+    await db.settings.put({
+      key: FREQUENCY_VERSION_SETTING_KEY,
+      value: FREQUENCY_DATA_VERSION,
+    });
+  });
+}
 
 async function ensureFrequencyRanks(): Promise<void> {
-  if ((await db.frequencyEntries.count()) > 0) return;
+  const [entryCount, versionSetting] = await Promise.all([
+    db.frequencyEntries.count(),
+    db.settings.get(FREQUENCY_VERSION_SETTING_KEY),
+  ]);
+  if (
+    entryCount > 0 &&
+    versionSetting?.value === FREQUENCY_DATA_VERSION
+  ) {
+    return;
+  }
   if (frequencyLoadPromise) return frequencyLoadPromise;
 
   frequencyLoadPromise = fetchJapaneseFrequencyRanks()
-    .then(async (entries) => {
-      await db.frequencyEntries.clear();
-      await db.frequencyEntries.bulkPut(entries);
-    })
+    .then(replaceFrequencyRanks)
     .catch((err: unknown) => {
       console.warn("[SubJap] Japanese frequency list unavailable:", err);
     })
@@ -167,8 +196,7 @@ onMessage("dict:download", async ({ url }) => {
   }
 
   if (frequencyRanks) {
-    await db.frequencyEntries.clear();
-    await db.frequencyEntries.bulkPut(frequencyRanks);
+    await replaceFrequencyRanks(frequencyRanks);
   }
 
   // Persist the "loaded" flag so popup/options/onboarding can detect it

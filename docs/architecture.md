@@ -118,11 +118,16 @@ Le chemin principal est le suivant :
    demandés au service worker, avec déduplication des requêtes en vol. Un mot
    ignoré est rendu blanc comme un mot connu, mais reste exclu du compteur de
    vocabulaire connu.
-7. Le content script récupère le nombre de mots connus et les rangs d’une
-   liste de fréquence issue de sous-titres japonais. Le renderer construit des
-   spans par token, ajoute éventuellement le furigana ; les mots connus restent
-   blancs, les inconnus jusqu’au rang connu sont verts et les 300 rangs suivants
-   sont bleus.
+7. Le content script récupère le nombre de mots connus et un rang pratique par
+   lemme. Ce rang est le minimum entre TUBELEX (vidéos et sous-titres modernes)
+   et la liste CEJC du NINJAL (conversations quotidiennes enregistrées). La
+   version réduite de TUBELEX est livrée avec SubJap ; le ZIP CEJC, dont la
+   redistribution est interdite, est lu directement depuis le NINJAL par deux
+   requêtes partielles (en-tête ZIP puis entrée TSV compressée, environ 2 Mo)
+   pour l’usage éducatif local puis seuls les couples lemme/rang sont conservés
+   dans IndexedDB. Le renderer construit des spans par token, ajoute
+   éventuellement le furigana ; les mots connus restent blancs, les inconnus
+   jusqu’au rang connu sont verts et les 300 rangs suivants sont bleus.
 
 Le tokenizer est un singleton par content script et possède un cache LRU de
 500 phrases. Les cues identiques sont ignorés grâce à une signature de texte.

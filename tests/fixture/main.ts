@@ -10,6 +10,7 @@ import {
 import { MiningModal } from "../../src/mining/modal";
 import { groupTokens } from "../../src/tokenizer/group";
 import { repairKatakanaAdjectives } from "../../src/tokenizer/repair";
+import { mergeFrequencyRanks } from "../../src/dictionary/frequency";
 import type { RawKuromojiToken } from "../../src/tokenizer/convert";
 import type {
   DictionaryEntry,
@@ -45,15 +46,28 @@ let currentTranslation: SubtitleTranslation | null = null;
 // One known word gives deterministic green/blue/orange frequency bands.
 let knownLemmas = new Set<string>(["日本語"]);
 let ignoredLemmas = new Set<string>();
-const frequencyRanks = new Map<string, number>([
-  ["日本語", 1],
-  ["を", 2],
-  ["勉強", 1],
-  ["する", 3],
-  ["し", 3],
-  ["ます", 500],
-  ["やばい", 4],
-]);
+const frequencyRanks = new Map<string, number>(
+  mergeFrequencyRanks(
+    [
+      { key: "日本語", rank: 1 },
+      { key: "を", rank: 8 },
+      { key: "勉強", rank: 12 },
+      { key: "する", rank: 3 },
+      { key: "し", rank: 3 },
+      { key: "ます", rank: 500 },
+      { key: "やばい", rank: 4 },
+    ],
+    [
+      { key: "日本語", rank: 8 },
+      { key: "を", rank: 2 },
+      { key: "勉強", rank: 1 },
+      { key: "する", rank: 20 },
+      { key: "し", rank: 20 },
+      { key: "ます", rank: 900 },
+      { key: "やばい", rank: 10 },
+    ],
+  ).map(({ key, rank }) => [key, rank] as const),
+);
 const ankiNoteCounts = new Map<string, number>([["勉強", 2]]);
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;

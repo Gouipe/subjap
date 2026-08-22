@@ -34,6 +34,9 @@ const manifest: ManifestV3Export = {
     "https://raw.githubusercontent.com/*",
     "https://objects.githubusercontent.com/*",
     "https://release-assets.githubusercontent.com/*",
+    // CEJC vocabulary ranks are downloaded directly for local educational use;
+    // the archive is intentionally not redistributed with the extension.
+    "https://www2.ninjal.ac.jp/*",
   ],
   background: {
     service_worker: "src/background/service-worker.ts",
