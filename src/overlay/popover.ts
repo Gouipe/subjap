@@ -292,15 +292,19 @@ export class WordPopover {
     // Definitions
     const defsContainer = this.el.querySelector(".subjap-popover__defs")!;
     defsContainer.replaceChildren();
-    if (entry?.senses) {
-      for (const sense of entry.senses) {
-        for (const gloss of sense.glosses) {
-          const defDiv = document.createElement("div");
-          defDiv.className = "subjap-popover__def";
-          defDiv.textContent = gloss;
-          defsContainer.appendChild(defDiv);
-        }
+    const glosses = entry?.senses.flatMap((sense) => sense.glosses) ?? [];
+    if (glosses.length > 0) {
+      for (const gloss of glosses) {
+        const defDiv = document.createElement("div");
+        defDiv.className = "subjap-popover__def";
+        defDiv.textContent = gloss;
+        defsContainer.appendChild(defDiv);
       }
+    } else {
+      const defDiv = document.createElement("div");
+      defDiv.className = "subjap-popover__def";
+      defDiv.textContent = "Definition not found";
+      defsContainer.appendChild(defDiv);
     }
 
     // Frequency

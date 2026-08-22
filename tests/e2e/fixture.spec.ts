@@ -88,11 +88,26 @@ test.describe("SubJap UX fixture", () => {
     await firstToken.hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("日本語");
+    await expect(page.locator(".subjap-popover__defs")).toHaveText(
+      "Japanese language",
+    );
 
     await page.locator(".subjap-btn--toggle-known").click();
     await expect(page.getByTestId("status")).toContainText("日本語");
     await expect(page.locator(".subjap-token").first()).not.toHaveClass(
       /subjap-known/,
+    );
+  });
+
+  test("affiche un message quand la définition est introuvable", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    await page.locator(".subjap-token").nth(1).hover();
+
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-popover__defs")).toHaveText(
+      "Definition not found",
     );
   });
 
