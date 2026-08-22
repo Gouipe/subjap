@@ -58,6 +58,22 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("met à jour la couleur quand un mot inconnu devient connu", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    const unknownToken = page.locator(".subjap-token").nth(2);
+
+    await unknownToken.hover();
+    await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator(".subjap-btn--toggle-known")).toHaveText(
+      "Mark Known",
+    );
+
+    await page.locator(".subjap-btn--toggle-known").click();
+    await expect(unknownToken).toHaveClass(/subjap-known/);
+  });
+
   test("regroupe une construction grammaticale en une seule unité", async ({
     page,
   }) => {

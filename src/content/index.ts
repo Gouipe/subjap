@@ -24,6 +24,7 @@ import { normalizeCueText, splitIntoSentences } from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
 import { groupTokens } from "@/tokenizer/group";
 import { CueNavigator, installPlaybackShortcuts } from "./shortcuts";
+import { WordStateCache } from "./word-state-cache";
 import type {
   DictionaryEntry,
   EpisodeContext,
@@ -106,8 +107,19 @@ const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
 /** lemma → last resolved status (synchronous reads for the popover). */
 const wordStatusByLemma = new Map<string, "known" | "unknown" | null>();
 
-/** lemma → in-flight/er promise; deduplicates word:get round-trips. */
-const wordStatePromises = new Map<string, Promise<WordState | null>>();
+/** Cached word-state reads, invalidated after a manual state change. */
+const wordStateCache = new WordStateCache((lemma) =>
+  sendMessage("word:get", { key: lemma })
+    .then((result) => {
+      wordStatusByLemma.set(lemma, result.state?.status ?? null);
+      return result.state;
+    })
+    .catch((err: unknown) => {
+      console.warn(`[SubJap] word:get failed for "${lemma}":`, err);
+      wordStatusByLemma.set(lemma, null);
+      return null;
+    }),
+);
 
 // ---------------------------------------------------------------------------
 // Hover interaction state (popover shown on hover, pinned on click)
@@ -152,21 +164,7 @@ function schedulePopoverHide(): void {
 // ---------------------------------------------------------------------------
 
 function getWordState(lemma: string): Promise<WordState | null> {
-  let promise = wordStatePromises.get(lemma);
-  if (!promise) {
-    promise = sendMessage("word:get", { key: lemma })
-      .then((result) => {
-        wordStatusByLemma.set(lemma, result.state?.status ?? null);
-        return result.state;
-      })
-      .catch((err: unknown) => {
-        console.warn(`[SubJap] word:get failed for "${lemma}":`, err);
-        wordStatusByLemma.set(lemma, null);
-        return null;
-      });
-    wordStatePromises.set(lemma, promise);
-  }
-  return promise;
+  return wordStateCache.get(lemma);
 }
 
 // ---------------------------------------------------------------------------
@@ -449,6 +447,7 @@ function onToggleKnown(
   });
 
   wordStatusByLemma.set(lemma, next.status);
+  wordStateCache.invalidate(lemma);
 
   // Re-render immediately so known/unknown colours update.
   lastSignature = "";
