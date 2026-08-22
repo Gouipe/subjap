@@ -221,6 +221,9 @@ garantit le type de note exact
 `Migaku Memory` avec les champs `Mot`, `Lecture`, `Phrase`, `Traduction`,
 `Définitions`, `Notes`, `Image`, `AudioMot` et `AudioPhrase`. Les médias sont
 stockés par `storeMediaFile`, puis référencés dans les champs Migaku.
+Le paquet externe utilise un type distinct, `Migaku Memory Import`, avec ce
+même contrat de champs : cela évite le renommage automatique `Migaku Memory+`
+par Anki tout en permettant la synchronisation globale des statuts.
 
 Les tags Anki `KNOWN`, `IGNORED`, `UNKNOWN` et `LEARNING` sont recherchés dans
 tous les decks au démarrage, au retour sur l’onglet et périodiquement. Le champ

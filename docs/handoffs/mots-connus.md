@@ -24,6 +24,9 @@ redevient visible, toutes les deux minutes et depuis le bouton des Options.
 - AnkiConnect reste local sur `http://127.0.0.1:8765`.
 - Le mining crée d’abord la carte IndexedDB, puis garantit le deck `SubJap` et
   le modèle `Migaku Memory` avant l’envoi.
+- L’export externe reste dans le deck `Migaku Memory` et utilise le modèle
+  `Migaku Memory Import`, compatible par ses champs mais volontairement
+  distinct pour éviter un suffixe Anki `+`.
 - Un échec Anki reste visible dans le modal et peut être réessayé sans créer une
   seconde carte locale.
 - Plusieurs phrases pour un même `Mot` sont autorisées dans le deck SubJap.

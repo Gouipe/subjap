@@ -407,7 +407,7 @@ const MIGAKU_CSS =
   ".target { font-weight: bold; }\n" +
   "ruby rt { font-size: 0.5em; color: #888; }";
 
-/** Ensure the exact note type used by migaku-export exists in Anki. */
+/** Ensure SubJap's mining note type implements the shared Migaku field contract. */
 async function ensureMigakuModel(): Promise<void> {
   const names = await ankiInvoke<string[]>("modelNames");
   if (names.includes(MIGAKU_MODEL_NAME)) {
