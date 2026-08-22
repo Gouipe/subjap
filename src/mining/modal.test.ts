@@ -10,6 +10,9 @@ const { sendMessageMock } = vi.hoisted(() => ({
 const { capturePhraseMock } = vi.hoisted(() => ({
   capturePhraseMock: vi.fn(),
 }));
+const { audioPlayMock } = vi.hoisted(() => ({
+  audioPlayMock: vi.fn(),
+}));
 
 vi.mock("./capture", () => ({
   captureFrame: captureFrameMock,
@@ -26,12 +29,14 @@ describe("MiningModal", () => {
     document.body.innerHTML = "";
     captureFrameMock.mockReset();
     captureFrameMock.mockResolvedValue("data:image/jpeg;base64,fixture");
+    audioPlayMock.mockReset();
     sendMessageMock.mockReset();
     sendMessageMock.mockResolvedValue({ dataUrl: "data:audio/wav;base64,fixture" });
     vi.stubGlobal(
       "Audio",
       class {
         play(): Promise<void> {
+          audioPlayMock();
           return Promise.resolve();
         }
       },
@@ -42,9 +47,7 @@ describe("MiningModal", () => {
     const video = document.createElement("video");
     const modal = new MiningModal(video);
     captureFrameMock.mockImplementation(() => {
-      expect(document.querySelector("#subjap-mining-modal")?.getAttribute("style")).toContain(
-        "display: none",
-      );
+      expect(document.querySelector("#subjap-mining-modal")).toBeNull();
       return Promise.resolve("data:image/jpeg;base64,fixture");
     });
     const cue = {
@@ -79,6 +82,7 @@ describe("MiningModal", () => {
       expect(document.querySelector(".subjap-audio-info")?.textContent).toContain(
         "✓ Word audio ready",
       );
+      expect(audioPlayMock).not.toHaveBeenCalled();
     });
   });
 
