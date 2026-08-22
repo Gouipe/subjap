@@ -19,4 +19,8 @@ export class WordStateCache {
   invalidate(lemma: string): void {
     this.promises.delete(lemma);
   }
+
+  clear(): void {
+    this.promises.clear();
+  }
 }

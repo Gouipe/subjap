@@ -185,6 +185,22 @@ function getKnownWordCount(): Promise<number> {
   return knownWordCountPromise;
 }
 
+async function syncKnownWordsFromAnki(): Promise<void> {
+  try {
+    const result = await sendMessage("anki:syncKnown", {});
+    if (result.imported === 0) return;
+
+    wordStateCache.clear();
+    wordStatusByLemma.clear();
+    knownWordCountPromise = null;
+    lastSignature = "";
+    if (lastCues.length > 0) void handleCues(lastCues);
+  } catch (err: unknown) {
+    // Anki is optional; a missing AnkiConnect must not affect subtitle use.
+    console.info("[SubJap] Anki known-word sync unavailable:", err);
+  }
+}
+
 async function getFrequencyRanks(
   terms: string[],
 ): Promise<Record<string, number>> {
@@ -516,6 +532,8 @@ void getOptions().then((opts) => {
   // cue arrives (the player may already be showing Japanese subtitles).
   applyNativeSubtitleVisibility();
 });
+
+void syncKnownWordsFromAnki();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;

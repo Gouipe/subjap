@@ -160,7 +160,8 @@ Les handlers enregistrés dans le bus couvrent :
 - `word:get`, `word:set` et `word:batch` ;
 - `mine:create` et `stats:get` ;
 - `data:reset` ;
-- `anki:status`, `anki:setup`, `anki:addNote` et `anki:dueCount` ;
+- `anki:status`, `anki:syncKnown`, `anki:setup`, `anki:addNote` et
+  `anki:dueCount` ;
 - `tts:speak`, actuellement sans effet dans le service worker car
   `speechSynthesis` est utilisé dans les contextes foreground.
 
@@ -218,6 +219,11 @@ pas perdre le mining. Le service worker communique avec AnkiConnect sur
 `Migaku Memory` avec les champs `Mot`, `Lecture`, `Phrase`, `Traduction`,
 `Définitions`, `Notes`, `Image`, `AudioMot` et `AudioPhrase`. Les médias sont
 stockés par `storeMediaFile`, puis référencés dans les champs Migaku.
+
+Au démarrage d’un content script, le tag Anki `KNOWN` est recherché dans les
+notes et le champ `Mot` est normalisé pour alimenter `wordStates` avec une
+provenance `import`. Le SRS Anki n’est pas modifié et un état manuel local
+reste prioritaire.
 
 VOICEVOX est démarré localement par un Native Messaging host Windows enregistré
 une seule fois ; voir [`docs/voicevox.md`](voicevox.md). Si la capture du flux

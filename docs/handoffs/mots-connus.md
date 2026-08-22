@@ -2,25 +2,25 @@
 
 ## État
 
-Sujet étudié, mais pas encore implémenté. L’objectif est de déduire les mots
-connus depuis un deck Anki distant afin que plusieurs navigateurs partagent le
-même état. Le correctif précédent sur le rafraîchissement de la couleur des
-mots est déjà intégré dans `master` (`ce504e9`).
+La synchronisation initiale est implémentée. Au démarrage du content script,
+SubJap recherche les notes Anki portant le tag `KNOWN`, normalise leur champ
+`Mot` (syntaxe Migaku ou ruby HTML), puis crée des `WordState` locaux avec la
+provenance `import`. Un état `manual` local n’est pas écrasé.
 
 ## Comportement actuel
 
 - `wordStates` est une table IndexedDB locale à l’extension ; `word:get` et
   `word:set` lisent et écrivent uniquement cette table.
 - Le bouton « Mark Known » crée ou modifie un `WordState` local.
-- AnkiConnect sert actuellement à vérifier la connexion, lister les decks,
-  créer le deck/modèle, compter les cartes dues et envoyer les nouvelles cartes
-  après un mining.
-- Aucun appel actuel à `findNotes` ou `notesInfo` ne synchronise les mots
-  depuis Anki.
+- AnkiConnect sert à vérifier la connexion, lister les decks, rechercher les
+  notes `KNOWN`, créer le modèle, compter les cartes dues et envoyer les
+  nouvelles cartes après un mining.
+- `findNotes` + `notesInfo` synchronisent les mots connus au démarrage ; le
+  calendrier SRS n’est pas modifié.
 - L’URL AnkiConnect est codée en dur sur `http://127.0.0.1:8765` ; AnkiWeb
   n’est pas utilisé directement.
-- Les notes envoyées ne contiennent pas encore le lemme dans un champ dédié :
-  `Front` contient la phrase et `Back` la lecture/définition/contexte.
+- Les notes envoyées utilisent le modèle `Migaku Memory` ; le champ `Mot`
+  contient la forme affichée, mais pas encore un champ dédié au lemme.
 
 ## Décisions à prendre
 
@@ -34,18 +34,15 @@ mots est déjà intégré dans `master` (`ce504e9`).
 5. Comment arbitrer les états : Anki comme source de vérité, ou possibilité de
    conserver des exceptions locales `unknown` ?
 
-## Piste d’implémentation
+## Suite possible
 
 1. Rendre l’hôte/URL AnkiConnect configurable et traiter explicitement les
    contraintes CORS, authentification et sécurité réseau.
-2. Ajouter le lemme aux nouvelles notes et faire évoluer le modèle SubJap.
-3. Implémenter dans le service worker une lecture `findNotes`/`notesInfo` du ou
-   des decks configurés.
-4. Convertir les lemmes récupérés en `WordState` (`source: "import"`) via
-   `word:batch`, ou les servir par un cache distant sans écraser les états
-   manuels selon la décision prise.
-5. Ajouter des tests unitaires avec un AnkiConnect simulé et un scénario E2E
-   couvrant le rafraîchissement/synchronisation visible.
+2. Ajouter le lemme aux nouvelles notes et faire évoluer le modèle SubJap si
+   la normalisation du champ `Mot` devient insuffisante.
+3. Ajouter une synchronisation périodique ou déclenchée depuis les Options.
+4. Ajouter une suppression des anciens `source: "import"` lorsque le tag
+   `KNOWN` est retiré dans Anki.
 
 ## Fichiers utiles
 

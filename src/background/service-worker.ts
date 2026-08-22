@@ -8,6 +8,7 @@ import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import { fetchJapaneseFrequencyRanks } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
 import { synthesizeVoicevox, warmupVoicevox } from "@/mining/voicevox";
+import { extractKnownAnkiWords } from "./anki-known";
 import type { MineCard, SrsState } from "@/core/types";
 
 // ---------------------------------------------------------------------------
@@ -297,6 +298,42 @@ onMessage("anki:status", async () => {
     console.warn("[SubJap] AnkiConnect not reachable:", err);
     return { connected: false, deckNames: [] };
   }
+});
+
+// ── anki:syncKnown ────────────────────────────────────────────────────────
+
+interface AnkiNoteInfo {
+  fields: Record<string, { value: string }>;
+}
+
+/** Import Migaku's KNOWN tag into the local vocabulary state. */
+onMessage("anki:syncKnown", async () => {
+  const noteIds = await ankiInvoke<number[]>("findNotes", {
+    query: "tag:KNOWN",
+  });
+  if (noteIds.length === 0) return { imported: 0 };
+
+  const notes = await ankiInvoke<AnkiNoteInfo[]>("notesInfo", {
+    notes: noteIds,
+  });
+  const words = extractKnownAnkiWords(notes);
+  const now = Date.now();
+  const states = [];
+
+  for (const key of words) {
+    const current = await db.wordStates.get(key);
+    // A manual decision in SubJap wins over an imported Anki hint.
+    if (current?.source === "manual") continue;
+    states.push({
+      key,
+      status: "known" as const,
+      knownAt: current?.knownAt ?? now,
+      source: "import" as const,
+    });
+  }
+
+  if (states.length > 0) await db.wordStates.bulkPut(states);
+  return { imported: states.length };
 });
 
 // ── anki:addNote ──────────────────────────────────────────────────────────
