@@ -275,6 +275,7 @@ function installTimedTextCapture(page: Window): void {
   let pendingNativeTrack: NetflixTimedTextTrackOption | null = null;
   let pendingSecondaryRestore: number | null = null;
   let uiProbeAttempted = false;
+  let uiProbeDiagnosticLogged = false;
   let uiNativeRestore: number | null = null;
   const probedSessions = new WeakSet<object>();
   const loggedTrackLists = new WeakSet<object>();
@@ -472,7 +473,10 @@ function installTimedTextCapture(page: Window): void {
     } catch {
       return;
     }
-    if (!Array.isArray(tracks) || tracks.length === 0) return;
+    if (!Array.isArray(tracks) || tracks.length === 0) {
+      probeSecondaryTrackThroughUi();
+      return;
+    }
     if (!loggedTrackLists.has(session)) {
       loggedTrackLists.add(session);
       console.log(
@@ -530,7 +534,15 @@ function installTimedTextCapture(page: Window): void {
   function probeSecondaryTrackThroughUi(): void {
     if (uiProbeAttempted) return;
     const audioButton = findNetflixUiElement(page, "Audio & Subtitles");
-    if (!audioButton) return;
+    if (!audioButton) {
+      if (!uiProbeDiagnosticLogged) {
+        uiProbeDiagnosticLogged = true;
+        console.log(
+          `[SubJap] Netflix secondary probe waiting: netflix=${typeof pageWithNetflix.netflix}`,
+        );
+      }
+      return;
+    }
     uiProbeAttempted = true;
     pendingSecondaryLanguage = "fr";
     audioButton.click();
@@ -542,6 +554,7 @@ function installTimedTextCapture(page: Window): void {
           return findNetflixUiElement(page, "English");
         })();
       if (!secondaryTrack) {
+        console.log("[SubJap] Netflix secondary probe: French/English option not found");
         pendingSecondaryLanguage = "";
         return;
       }
