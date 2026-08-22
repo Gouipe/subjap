@@ -33,7 +33,8 @@ const NETFLIX_TIMEDTEXT_LINE_SELECTOR = '.player-timedtext-text-container';
 const EMIT_DEBOUNCE_MS = 60;
 /** Start slightly before the DOM transition so the first syllable is audible. */
 const FALLBACK_CUE_PREROLL_SECONDS = 0.15;
-const FALLBACK_CUE_DURATION_SECONDS = 2;
+/** Match the brief timed-text disappearance caused by a seek to its target. */
+const SEEK_TARGET_TOLERANCE_SECONDS = 0.5;
 
 export class NetflixAdapter implements PlatformAdapter {
   id: PlatformId = 'netflix';
@@ -48,7 +49,11 @@ export class NetflixAdapter implements PlatformAdapter {
   private rootObserver: MutationObserver | null = null;
   private timedtextObserver: MutationObserver | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingFallbackStart: number | null = null;
+  private pendingObservationTime: number | null = null;
+  private activeDomCue: SubtitleCue | null = null;
+  private nextDomCueId = 0;
+  private pendingSeekTarget: number | null = null;
+  private pendingSeekKeepsActiveCue = false;
   private cueCallback: ((cues: SubtitleCue[]) => void) | null = null;
   private trackUnsubscriber: (() => void) | null = null;
   private videoHuntTimer: ReturnType<typeof setInterval> | null = null;
@@ -227,7 +232,10 @@ export class NetflixAdapter implements PlatformAdapter {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
-    this.pendingFallbackStart = null;
+    this.pendingObservationTime = null;
+    this.activeDomCue = null;
+    this.pendingSeekTarget = null;
+    this.pendingSeekKeepsActiveCue = false;
     if (this.videoHuntTimer !== null) {
       clearInterval(this.videoHuntTimer);
       this.videoHuntTimer = null;
@@ -237,25 +245,22 @@ export class NetflixAdapter implements PlatformAdapter {
   private scheduleEmit(): void {
     // Capture the media clock on the first mutation in the batch. Reading it
     // after the debounce makes every untimed Netflix cue start too late.
-    if (this.pendingFallbackStart === null) {
+    if (this.pendingObservationTime === null) {
       const currentTime = this.getVideoElement()?.currentTime;
       if (currentTime !== undefined && Number.isFinite(currentTime)) {
-        this.pendingFallbackStart = Math.max(
-          0,
-          Math.round((currentTime - FALLBACK_CUE_PREROLL_SECONDS) * 1000) / 1000,
-        );
+        this.pendingObservationTime = Math.round(currentTime * 1000) / 1000;
       }
     }
     if (this.debounceTimer !== null) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      const fallbackStart = this.pendingFallbackStart;
-      this.pendingFallbackStart = null;
-      this.emitCues(fallbackStart);
+      const observationTime = this.pendingObservationTime;
+      this.pendingObservationTime = null;
+      this.emitCues(observationTime);
     }, EMIT_DEBOUNCE_MS);
   }
 
-  private emitCues(capturedFallbackStart: number | null = null): void {
+  private emitCues(capturedObservationTime: number | null = null): void {
     const cb = this.cueCallback;
     if (!cb) return;
 
@@ -264,7 +269,8 @@ export class NetflixAdapter implements PlatformAdapter {
     // it, so don't gate emission on its presence.
     const video = this.getVideoElement();
     const container = this.timedtext ?? this.findTimedTextContainer();
-    const cues: SubtitleCue[] = [];
+    const observationTime = capturedObservationTime ?? video?.currentTime ?? 0;
+    const lines: Array<{ text: string; start: number; end: number }> = [];
 
     if (container) {
       let lineEls = Array.from(
@@ -277,11 +283,6 @@ export class NetflixAdapter implements PlatformAdapter {
         );
       }
 
-      const fallbackTime = capturedFallbackStart ?? Math.max(
-        0,
-        (video?.currentTime ?? 0) - FALLBACK_CUE_PREROLL_SECONDS,
-      );
-      let idx = 0;
       for (const line of lineEls) {
         const text = line.textContent?.replace(/\s+/g, ' ').trim() ?? '';
         if (!text) continue;
@@ -296,22 +297,85 @@ export class NetflixAdapter implements PlatformAdapter {
         const start = startAttr ? Number.parseFloat(startAttr) : NaN;
         const end = endAttr ? Number.parseFloat(endAttr) : NaN;
 
-        cues.push({
-          id: `tt-${idx++}-${startAttr ?? fallbackTime}`,
-          start: Number.isFinite(start) ? start : fallbackTime,
-          end: Number.isFinite(end)
-            ? end
-            : fallbackTime + FALLBACK_CUE_DURATION_SECONDS,
-          text,
-          language: 'ja',
-        });
+        lines.push({ text, start, end });
       }
     }
 
-    if (cues.length > 0) {
-      console.log(`[SubJap] Netflix cues: ${cues.length} line(s)`);
+    if (lines.length === 0) {
+      this.finalizeActiveDomCue(observationTime);
+      cb([]);
+      return;
     }
-    cb(cues);
+
+    const text = lines.map((line) => line.text).join("\n");
+    if (this.activeDomCue?.text === text) {
+      // The destination has reappeared, so a later disappearance is genuine.
+      this.pendingSeekTarget = null;
+      this.pendingSeekKeepsActiveCue = false;
+      cb([this.activeDomCue]);
+      return;
+    }
+
+    if (
+      this.activeDomCue &&
+      this.pendingSeekKeepsActiveCue &&
+      this.pendingSeekTarget !== null &&
+      Math.abs(observationTime - this.pendingSeekTarget) <=
+        SEEK_TARGET_TOLERANCE_SECONDS
+    ) {
+      // Seeking to this cue's own fallback start can briefly expose the
+      // preceding subtitle. Do not replace the occurrence that audio capture
+      // is waiting to finish.
+      cb([this.activeDomCue]);
+      return;
+    }
+
+    this.finalizeActiveDomCue(observationTime);
+    const allStartsKnown = lines.every((line) => Number.isFinite(line.start));
+    const allEndsKnown = lines.every((line) => Number.isFinite(line.end));
+    const start = allStartsKnown
+      ? Math.min(...lines.map((line) => line.start))
+      : Math.max(0, observationTime - FALLBACK_CUE_PREROLL_SECONDS);
+    const endConfirmed = allEndsKnown;
+    const end = endConfirmed
+      ? Math.max(...lines.map((line) => line.end))
+      : start;
+    const cue: SubtitleCue = {
+      id: `tt-${++this.nextDomCueId}`,
+      start,
+      end,
+      endConfirmed,
+      text,
+      language: "ja",
+    };
+    this.activeDomCue = cue;
+    this.pendingSeekTarget = null;
+    this.pendingSeekKeepsActiveCue = false;
+    console.log(`[SubJap] Netflix cue: ${lines.length} line(s)`);
+    cb([cue]);
+  }
+
+  private finalizeActiveDomCue(observationTime: number): void {
+    const active = this.activeDomCue;
+    if (!active) return;
+    if (active.endConfirmed !== false) {
+      this.activeDomCue = null;
+      return;
+    }
+
+    // Seeking makes Netflix briefly remove timed text. Keep the same open
+    // occurrence until the destination cue has reappeared.
+    if (
+      this.pendingSeekTarget !== null &&
+      Math.abs(observationTime - this.pendingSeekTarget) <=
+        SEEK_TARGET_TOLERANCE_SECONDS
+    ) {
+      return;
+    }
+
+    active.end = Math.max(active.start, observationTime);
+    active.endConfirmed = true;
+    this.activeDomCue = null;
   }
 
   // -----------------------------------------------------------------------
@@ -380,7 +444,25 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean> {
-    return this.seekTransport.seek(timeSeconds, resume);
+    this.pendingSeekTarget = timeSeconds;
+    this.pendingSeekKeepsActiveCue = Boolean(
+      this.activeDomCue?.endConfirmed === false &&
+      Math.abs(timeSeconds - this.activeDomCue.start) <= 0.001,
+    );
+    return this.seekTransport.seek(timeSeconds, resume).then(
+      (accepted) => {
+        if (!accepted) {
+          this.pendingSeekTarget = null;
+          this.pendingSeekKeepsActiveCue = false;
+        }
+        return accepted;
+      },
+      (error: unknown) => {
+        this.pendingSeekTarget = null;
+        this.pendingSeekKeepsActiveCue = false;
+        throw error;
+      },
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -458,6 +540,9 @@ export class NetflixAdapter implements PlatformAdapter {
     this.videoObserver = new MutationObserver(() => {
       if (!this.video?.isConnected) {
         this.video = null;
+        this.activeDomCue = null;
+        this.pendingSeekTarget = null;
+        this.pendingSeekKeepsActiveCue = false;
         // Try to re-discover the video.
         for (const sel of NETFLIX_VIDEO_SELECTORS) {
           const el = document.querySelector(sel);

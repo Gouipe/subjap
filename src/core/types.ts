@@ -11,6 +11,8 @@ export interface SubtitleCue {
   id: string;
   start: number; // secondes
   end: number; // secondes
+  /** False while a DOM-only platform has not observed the cue disappear yet. */
+  endConfirmed?: boolean;
   text: string; // texte brut (kana/kanji)
   language?: string;
 }
