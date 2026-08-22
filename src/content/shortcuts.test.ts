@@ -15,6 +15,14 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("previous", 15)).toBe(10);
   });
 
+  it("returns the latest observed cue from a gap after subtitles", () => {
+    const navigator = new CueNavigator();
+    navigator.observe([cue("last", 10, 12)]);
+    navigator.observe([]);
+
+    expect(navigator.getSeekTime("previous", 13)).toBe(10);
+  });
+
   it("returns the current cue start for replay", () => {
     const navigator = new CueNavigator();
     navigator.observe([cue("current", 10, 12)]);
