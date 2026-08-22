@@ -559,6 +559,40 @@ document.querySelector<HTMLButtonElement>("#seek-rebuild")!.addEventListener("cl
   }, 500);
 });
 
+document.querySelector<HTMLButtonElement>("#seek-overlap")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  const video = document.querySelector<HTMLVideoElement>("#video")!;
+
+  video.currentTime = 109;
+  nativeSubtitles.replaceChildren(
+    nativeLine("廊下を走らないって言ってるでしょう", "105", "110.778"),
+  );
+  setTimeout(() => {
+    video.currentTime = 111;
+    nativeSubtitles.replaceChildren(
+      nativeLine("困るんですよ 生徒に示しがつかないから", "110.778", "114"),
+    );
+  }, 100);
+  setTimeout(() => {
+    // A seek can flash the preceding cue again near its old end. Netflix does
+    // not attach timings to this rebuilt DOM node, so the fallback start is
+    // several seconds later than the real start at 105 seconds.
+    video.currentTime = 110.639;
+    nativeSubtitles.replaceChildren(
+      nativeLine("廊下を走らないって言ってるでしょう", null, null),
+    );
+  }, 200);
+  setTimeout(() => {
+    video.currentTime = 111;
+    nativeSubtitles.replaceChildren(
+      nativeLine("困るんですよ生徒に示しがつかないから", "110.778", "114"),
+    );
+  }, 300);
+  setTimeout(() => {
+    status.dataset.scenario = "seek-overlap-complete";
+  }, 400);
+});
+
 document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click", () => {
   activeTokens = tokens;
   nextRenderDelayMs = 400;

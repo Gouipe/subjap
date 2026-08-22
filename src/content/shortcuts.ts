@@ -117,10 +117,15 @@ export class CueNavigator {
   }
 
   private isEquivalentCue(a: SubtitleCue, b: SubtitleCue): boolean {
+    const aEnd = Math.max(a.start, a.end);
+    const bEnd = Math.max(b.start, b.end);
+    const startsNear =
+      Math.abs(a.start - b.start) <= REEMITTED_CUE_TOLERANCE_SECONDS;
+    const rangesOverlap = a.start < bEnd && b.start < aEnd;
     return (
       a.language === b.language &&
       this.comparisonText(a.text) === this.comparisonText(b.text) &&
-      Math.abs(a.start - b.start) <= REEMITTED_CUE_TOLERANCE_SECONDS
+      (startsNear || rangesOverlap)
     );
   }
 

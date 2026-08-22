@@ -567,6 +567,26 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 50);
   });
 
+  test("Q garde le vrai début d'une phrase réaffichée à la fin d'un seek", async ({
+    page,
+  }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+
+    await page.getByTestId("seek-overlap-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-scenario",
+      "seek-overlap-complete",
+    );
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "困るんですよ生徒に示しがつかないから",
+    );
+
+    await page.locator("body").press("q");
+    await expect(video).toHaveJSProperty("currentTime", 105);
+  });
+
   test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({
     page,
   }) => {
