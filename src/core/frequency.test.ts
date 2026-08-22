@@ -20,11 +20,20 @@ describe("getFrequencyHighlight", () => {
     expect(
       getFrequencyHighlight(null, 101 + NEAR_FREQUENCY_WINDOW - 1, 100),
     ).toBe("near");
-    expect(getFrequencyHighlight(null, 401, 100)).toBe("neutral");
+    expect(getFrequencyHighlight(null, 401, 100)).toBe("unknown");
   });
 
-  it("keeps missing or invalid ranks neutral", () => {
-    expect(getFrequencyHighlight(null, undefined, 100)).toBe("neutral");
-    expect(getFrequencyHighlight(null, 0, 100)).toBe("neutral");
+  it("uses orange unknown as the fallback and preserves explicit Anki states", () => {
+    expect(getFrequencyHighlight(null, undefined, 100)).toBe("unknown");
+    expect(getFrequencyHighlight(null, 0, 100)).toBe("unknown");
+    expect(
+      getFrequencyHighlight({ key: "x", status: "unknown", source: "import" }, 1, 100),
+    ).toBe("unknown");
+    expect(
+      getFrequencyHighlight({ key: "x", status: "learning", source: "import" }, 1, 100),
+    ).toBe("learning");
+    expect(
+      getFrequencyHighlight({ key: "x", status: "ignored", source: "import" }, 1, 100),
+    ).toBe("ignored");
   });
 });

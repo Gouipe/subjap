@@ -74,9 +74,11 @@ export interface PitchAccent {
 
 // ── Modèle de données (IndexedDB) ─────────────────────────────────────────
 
+export type WordStatus = "known" | "unknown" | "learning" | "ignored";
+
 export interface WordState {
   key: string; // lemme (ex. 食べる)
-  status: "known" | "unknown";
+  status: WordStatus;
   knownAt?: number;
   source: "manual" | "frequency-list" | "import";
 }
@@ -178,17 +180,16 @@ export interface MessageMap {
   "anki:status": Record<string, never>;
   "anki:statusResult": { connected: boolean; deckNames: string[] };
   "anki:syncKnown": Record<string, never>;
-  "anki:syncKnownResult": { imported: number };
+  "anki:syncKnownResult": { imported: number; removed: number; changed: number };
   "anki:addNote": {
     deckName: string;
-    modelName: string;
     fields: Record<string, string>;
     audioMotDataUrl?: string;
     audioPhraseDataUrl?: string;
     imageDataUrl?: string;
     tags?: string[];
   };
-  "anki:addNoteResult": { noteId: number; modelName: string };
+  "anki:addNoteResult": { noteId: number; modelName: string; deckName: string };
   "anki:setup": Record<string, never>;
   "anki:setupResult": { deckName: string; modelName: string };
   "anki:dueCount": Record<string, never>;

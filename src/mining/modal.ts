@@ -27,6 +27,8 @@ interface MiningState {
   wordAudioDataUrl: string | null;
   phraseAudioDataUrl: string | null;
   screenshotDataUrl: string | null;
+  localCardId: string | null;
+  ankiError: string | null;
   sending: boolean;
 }
 
@@ -88,6 +90,8 @@ export class MiningModal {
       wordAudioDataUrl: null,
       phraseAudioDataUrl: null,
       screenshotDataUrl: null,
+      localCardId: null,
+      ankiError: null,
       sending: false,
     };
     const modalState = this.state;
@@ -173,6 +177,7 @@ export class MiningModal {
         font-size: 13px; color: #22c55e; margin-top: 6px;
       }
       .subjap-modal-body .subjap-error { font-size: 13px; color: #f38ba8; margin-top: 6px; }
+      .subjap-modal-body .subjap-local-info { font-size: 13px; color: #facc15; margin-top: 8px; }
       .subjap-modal-footer {
         display: flex; gap: 8px; flex-wrap: wrap;
         border-top: 1px solid #333; padding-top: 12px;
@@ -238,6 +243,12 @@ export class MiningModal {
     const screenshotInfo = this.state.screenshotDataUrl
       ? '<div class="subjap-screenshot-info">✓ Screenshot captured</div>'
       : "";
+    const localInfo = this.state.localCardId
+      ? '<div class="subjap-local-info">✓ Carte sauvegardée localement</div>'
+      : "";
+    const ankiError = this.state.ankiError
+      ? `<div class="subjap-error">Erreur d’envoi : ${escapeHtml(this.state.ankiError)}</div>`
+      : "";
 
     body.innerHTML = `
       <div class="subjap-label">Sentence — ${escapeHtml(this.state.episodeContext.title)}</div>
@@ -248,6 +259,8 @@ export class MiningModal {
       ${audioInfo}
       ${phraseAudioInfo}
       ${screenshotInfo}
+      ${localInfo}
+      ${ankiError}
     `;
 
     // Wire definition checkboxes (delegated container listener does the rest).
@@ -322,7 +335,9 @@ export class MiningModal {
       this.audioCapture?.captureSegment(cue.cue.start, cue.cue.end);
     this.state.phraseAudioDataUrl = phraseAudioDataUrl ?? null;
 
-    this.state.sending = true;
+    const state = this.state;
+    state.sending = true;
+    state.ankiError = null;
     const sendBtn = this.container.querySelector<HTMLButtonElement>(".subjap-modal-btn-send");
     if (sendBtn) {
       sendBtn.disabled = true;
@@ -330,38 +345,40 @@ export class MiningModal {
     }
 
     try {
-      const { id } = await sendMessage("mine:create", {
-        sentence,
-        sentenceReading: "",
-        targetWord: targetToken.token.lemma,
-        targetSurface: targetToken.token.surface,
-        targetReading: this.state.lemmaReading,
-        definitions: selectedDefs,
-        audioDataUrl: phraseAudioDataUrl,
-        screenshotDataUrl: this.state.screenshotDataUrl ?? undefined,
-        source: episodeContext,
-        cueStart: cue.cue.start,
-        cueEnd: cue.cue.end,
-        srs: {
-          state: "new",
-          intervalDays: 0,
-          ease: 2.5,
-          due: Date.now(),
-          reps: 0,
-          lapses: 0,
-        },
-        tags: [],
-      });
-      console.log(`[SubJap] Card created: ${id}`);
+      if (!state.localCardId) {
+        const { id } = await sendMessage("mine:create", {
+          sentence,
+          sentenceReading: "",
+          targetWord: targetToken.token.lemma,
+          targetSurface: targetToken.token.surface,
+          targetReading: state.lemmaReading,
+          definitions: selectedDefs,
+          audioDataUrl: phraseAudioDataUrl,
+          screenshotDataUrl: state.screenshotDataUrl ?? undefined,
+          source: episodeContext,
+          cueStart: cue.cue.start,
+          cueEnd: cue.cue.end,
+          srs: {
+            state: "new",
+            intervalDays: 0,
+            ease: 2.5,
+            due: Date.now(),
+            reps: 0,
+            lapses: 0,
+          },
+          tags: [],
+        });
+        state.localCardId = id;
+        console.log(`[SubJap] Card created: ${id}`);
+      }
 
-      // Best-effort Anki push.
       try {
-        let wordAudioDataUrl: string | undefined = this.state.wordAudioDataUrl ?? undefined;
+        let wordAudioDataUrl: string | undefined = state.wordAudioDataUrl ?? undefined;
         if (!wordAudioDataUrl) {
           try {
             wordAudioDataUrl = (
               await sendMessage("tts:generate", {
-                text: this.state.lemmaReading || targetToken.token.lemma,
+                text: state.lemmaReading || targetToken.token.lemma,
               })
             ).dataUrl;
           } catch (err) {
@@ -369,40 +386,45 @@ export class MiningModal {
           }
         }
 
-        const status = await sendMessage("anki:status", {});
-        if (status.connected && status.deckNames.length > 0) {
-          // Prefer the dedicated SubJap deck when it exists; otherwise fall
-          // back to the first deck in Anki's list.
-          const deckName =
-            status.deckNames.find((d) => d === "SubJap") ?? status.deckNames[0] ?? "Default";
-          await sendMessage("anki:addNote", {
-            deckName,
-            modelName: "Migaku Memory",
-            fields: {
-              Mot: formatMigakuWord(targetToken.token.lemma, this.state.lemmaReading),
-              Lecture: this.state.lemmaReading,
-              Phrase: formatMigakuSentence(cue, targetToken),
-              Traduction: "",
-              Définitions: formatMigakuDefinitions(selectedDefs),
-              Notes: "",
-              Image: "",
-              AudioMot: "",
-              AudioPhrase: "",
-            },
-            audioMotDataUrl: wordAudioDataUrl,
-            audioPhraseDataUrl: phraseAudioDataUrl ?? undefined,
-            imageDataUrl: this.state.screenshotDataUrl ?? undefined,
-            tags: ["subjap", episodeContext.platform],
-          });
-        }
+        const { deckName } = await sendMessage("anki:setup", {});
+        await sendMessage("anki:addNote", {
+          deckName,
+          fields: {
+            Mot: formatMigakuWord(targetToken.token.lemma, state.lemmaReading),
+            Lecture: state.lemmaReading,
+            Phrase: formatMigakuSentence(cue, targetToken),
+            Traduction: "",
+            Définitions: formatMigakuDefinitions(selectedDefs),
+            Notes: "",
+            Image: "",
+            AudioMot: "",
+            AudioPhrase: "",
+          },
+          audioMotDataUrl: wordAudioDataUrl,
+          audioPhraseDataUrl: phraseAudioDataUrl ?? undefined,
+          imageDataUrl: state.screenshotDataUrl ?? undefined,
+          tags: ["subjap", episodeContext.platform],
+        });
       } catch (err) {
         console.warn("[SubJap] Anki push failed (local card kept):", err);
+        if (this.state === state) {
+          state.ankiError = err instanceof Error ? err.message : String(err);
+          state.sending = false;
+          this.render();
+          if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.textContent = "↻ Réessayer Anki";
+          }
+        }
+        return;
       }
 
       this.close();
     } catch (err) {
       console.error("[SubJap] Failed to create card:", err);
-      this.state.sending = false;
+      state.sending = false;
+      state.ankiError = err instanceof Error ? err.message : String(err);
+      this.render();
       if (sendBtn) {
         sendBtn.disabled = false;
         sendBtn.textContent = "📤 Send to Anki";

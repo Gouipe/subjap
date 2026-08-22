@@ -523,6 +523,8 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [downloading, setDownloading] = useState(false);
   const [checkingAnki, setCheckingAnki] = useState(false);
   const [settingUpAnki, setSettingUpAnki] = useState(false);
+  const [syncingAnki, setSyncingAnki] = useState(false);
+  const [ankiSyncNote, setAnkiSyncNote] = useState<string | null>(null);
   const [ankiNote, setAnkiNote] = useState<{ deckName: string; modelName: string } | null>(null);
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -601,6 +603,21 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSettingUpAnki(false);
+    }
+  }, []);
+
+  const syncAnki = useCallback(async () => {
+    setSyncingAnki(true);
+    setError(null);
+    try {
+      const result = await sendMessage("anki:syncKnown", {});
+      setAnkiSyncNote(
+        `${result.imported} états Anki lus · ${result.changed} modifiés · ${result.removed} retirés`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSyncingAnki(false);
     }
   }, []);
 
@@ -706,6 +723,21 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </span>
           </Row>
         )}
+        <Row
+          label="Statuts des mots"
+          hint="synchronise KNOWN, IGNORED, UNKNOWN et LEARNING dans tous les decks"
+        >
+          <div style={s.btnRow}>
+            <Btn
+              variant="ghost"
+              onClick={() => void syncAnki()}
+              disabled={syncingAnki || !anki?.connected}
+            >
+              {syncingAnki ? "Synchronisation…" : "Synchroniser maintenant"}
+            </Btn>
+            {ankiSyncNote && <span style={{ color: C.green }}>{ankiSyncNote}</span>}
+          </div>
+        </Row>
       </Section>
 
       <Section title="Affichage des sous-titres">
@@ -763,6 +795,12 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 style={s.colorInput}
                 onChange={(e) => void updateOptions({ knownColor: e.target.value })}
               />
+            </Row>
+            <Row
+              label="Légende"
+              hint="vert : très pertinent · bleu : pertinent · orange : inconnu peu prioritaire · violet : en apprentissage · blanc : connu ou ignoré"
+            >
+              <span style={s.muted}>Couleurs combinées avec les statuts Anki</span>
             </Row>
             <Row
               label="Masquer les sous-titres natifs"

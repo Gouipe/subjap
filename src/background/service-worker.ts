@@ -8,7 +8,10 @@ import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import { fetchJapaneseFrequencyRanks } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
 import { synthesizeVoicevox, warmupVoicevox } from "@/mining/voicevox";
-import { extractKnownAnkiWords } from "./anki-known";
+import {
+  extractAnkiWordStates,
+  planImportedStateReconciliation,
+} from "./anki-known";
 import type { MineCard, SrsState } from "@/core/types";
 
 // ---------------------------------------------------------------------------
@@ -313,36 +316,37 @@ onMessage("anki:status", async () => {
 
 interface AnkiNoteInfo {
   fields: Record<string, { value: string }>;
+  tags: string[];
 }
 
-/** Import Migaku's KNOWN tag into the local vocabulary state. */
+/** Reconcile Migaku/Anki vocabulary tags across every deck. */
 onMessage("anki:syncKnown", async () => {
-  const noteIds = await ankiInvoke<number[]>("findNotes", {
-    query: "tag:KNOWN",
-  });
-  if (noteIds.length === 0) return { imported: 0 };
-
-  const notes = await ankiInvoke<AnkiNoteInfo[]>("notesInfo", {
-    notes: noteIds,
-  });
-  const words = extractKnownAnkiWords(notes);
-  const now = Date.now();
-  const states = [];
-
-  for (const key of words) {
-    const current = await db.wordStates.get(key);
-    // A manual decision in SubJap wins over an imported Anki hint.
-    if (current?.source === "manual") continue;
-    states.push({
-      key,
-      status: "known" as const,
-      knownAt: current?.knownAt ?? now,
-      source: "import" as const,
-    });
+  const idLists = await Promise.all(
+    ["KNOWN", "IGNORED", "UNKNOWN", "LEARNING"].map((tag) =>
+      ankiInvoke<number[]>("findNotes", { query: `tag:${tag}` }),
+    ),
+  );
+  const noteIds = [...new Set(idLists.flat())];
+  const notes: AnkiNoteInfo[] = [];
+  for (let offset = 0; offset < noteIds.length; offset += 500) {
+    notes.push(
+      ...(await ankiInvoke<AnkiNoteInfo[]>("notesInfo", {
+        notes: noteIds.slice(offset, offset + 500),
+      })),
+    );
   }
-
-  if (states.length > 0) await db.wordStates.bulkPut(states);
-  return { imported: states.length };
+  const desired = extractAnkiWordStates(notes);
+  const current = await db.wordStates.toArray();
+  const { upserts, removals } = planImportedStateReconciliation(current, desired);
+  await db.transaction("rw", db.wordStates, async () => {
+    if (removals.length > 0) await db.wordStates.bulkDelete(removals);
+    if (upserts.length > 0) await db.wordStates.bulkPut(upserts);
+  });
+  return {
+    imported: desired.length,
+    removed: removals.length,
+    changed: upserts.length,
+  };
 });
 
 // ── anki:addNote ──────────────────────────────────────────────────────────
@@ -419,6 +423,11 @@ async function ensureMigakuModel(): Promise<void> {
   }
 }
 
+async function ensureAnkiDeck(deckName: string): Promise<void> {
+  const names = await ankiInvoke<string[]>("deckNames");
+  if (!names.includes(deckName)) await ankiInvoke("createDeck", { deck: deckName });
+}
+
 function dataUrlToBase64(dataUrl: string): string {
   const comma = dataUrl.indexOf(",");
   if (comma === -1) throw new Error("Invalid media data URL");
@@ -437,6 +446,7 @@ async function storeAnkiMedia(dataUrl: string, prefix: string, extension: string
 onMessage(
   "anki:addNote",
   async ({ deckName, fields, audioMotDataUrl, audioPhraseDataUrl, imageDataUrl, tags }) => {
+    await ensureAnkiDeck(deckName);
     await ensureMigakuModel();
     const noteFields = { ...fields };
 
@@ -459,7 +469,8 @@ onMessage(
       fields: noteFields,
       tags: tags ?? ["subjap"],
       options: {
-        allowDuplicate: false,
+        // Phrase mining intentionally allows multiple contexts for one lemma.
+        allowDuplicate: true,
         duplicateScope: "deck",
       },
     };
@@ -470,7 +481,7 @@ onMessage(
       deckName,
       modelName: MIGAKU_MODEL_NAME,
     });
-    return { noteId, modelName: MIGAKU_MODEL_NAME };
+    return { noteId, modelName: MIGAKU_MODEL_NAME, deckName };
   },
 );
 
@@ -484,10 +495,7 @@ onMessage("anki:setup", async () => {
   const deckName = "SubJap";
   const modelName = MIGAKU_MODEL_NAME;
 
-  const deckNames = await ankiInvoke<string[]>("deckNames");
-  if (!deckNames.includes(deckName)) {
-    await ankiInvoke("createDeck", { deck: deckName });
-  }
+  await ensureAnkiDeck(deckName);
   await ensureMigakuModel();
 
   console.log("[SubJap] Anki setup ensured:", { deckName, modelName });

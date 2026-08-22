@@ -104,6 +104,29 @@ describe("OverlayRenderer", () => {
     overlay.destroy();
   });
 
+  it("affiche les états Anki explicites en violet, orange et blanc", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    const cue = renderedCue();
+    const first = cue.spans[0];
+    const second = cue.spans[1];
+    if (!first || !second) throw new Error("Expected fixture spans");
+    cue.spans = [
+      { ...first, wordState: { key: "a", status: "learning", source: "import" } },
+      { ...second, wordState: { key: "b", status: "unknown", source: "import" } },
+      { ...second, wordState: { key: "c", status: "ignored", source: "import" } },
+    ];
+    const overlay = new OverlayRenderer(video);
+    overlay.updateCues([cue]);
+    const tokens = document.querySelectorAll(".subjap-token");
+    expect(tokens[0]?.classList.contains("subjap-learning")).toBe(true);
+    expect(tokens[1]?.classList.contains("subjap-unknown")).toBe(true);
+    expect(tokens[2]?.classList.contains("subjap-known")).toBe(true);
+    overlay.destroy();
+  });
+
   it("affiche les lectures kuromoji en hiragana", () => {
     vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});

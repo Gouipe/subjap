@@ -32,13 +32,12 @@ const cueNavigator = new CueNavigator();
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let currentCues: SubtitleCue[] = [];
-// The fixture simulates two known words so the green (within vocabulary) and
-// blue (+300 words) bands can be exercised deterministically.
-let knownLemmas = new Set<string>(["日本語", "を"]);
+// One known word gives deterministic green/blue/orange frequency bands.
+let knownLemmas = new Set<string>(["日本語"]);
 const frequencyRanks = new Map<string, number>([
   ["日本語", 1],
   ["を", 2],
-  ["勉強", 2],
+  ["勉強", 1],
   ["する", 3],
   ["し", 3],
   ["ます", 500],
@@ -111,7 +110,9 @@ function renderedCue(cue: SubtitleCue): RenderedCue {
       token,
       wordState: knownLemmas.has(token.lemma)
         ? { key: token.lemma, status: "known", source: "manual" }
-        : null,
+        : token.lemma === "する"
+          ? { key: token.lemma, status: "learning", source: "import" }
+          : null,
       frequencyRank: frequencyRanks.get(token.lemma),
     })),
   };

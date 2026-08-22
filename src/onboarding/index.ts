@@ -12,6 +12,7 @@
 // guide through steps, and persist progress via chrome.storage.local.
 
 import { checkAnkiConnect } from "@/mining/anki";
+import { sendMessage } from "@/core/messaging";
 import { DEFAULT_OPTIONS, saveOptions } from "@/core/options";
 import type { OverlayOptions } from "@/core/types";
 
@@ -70,6 +71,7 @@ export async function completeAnkiStep(): Promise<boolean> {
   if (!connected || deckNames.length === 0) {
     return false;
   }
+  await sendMessage("anki:setup", {});
 
   const state = await getOnboardingState();
   state.ankiConfigured = true;

@@ -36,6 +36,7 @@ import type {
   Token,
   Tokenizer,
   WordState,
+  WordStatus,
 } from "@/core/types";
 
 // ---------------------------------------------------------------------------
@@ -103,7 +104,7 @@ let miningModal: MiningModal | null = null;
 const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
 
 /** lemma → last resolved status (synchronous reads for the popover). */
-const wordStatusByLemma = new Map<string, "known" | "unknown" | null>();
+const wordStatusByLemma = new Map<string, WordStatus | null>();
 
 /** Cached learner vocabulary size used by the frequency colour bands. */
 let knownWordCount = 0;
@@ -185,20 +186,31 @@ function getKnownWordCount(): Promise<number> {
   return knownWordCountPromise;
 }
 
-async function syncKnownWordsFromAnki(): Promise<void> {
-  try {
-    const result = await sendMessage("anki:syncKnown", {});
-    if (result.imported === 0) return;
+let lastAnkiSyncAt = 0;
+let ankiSyncPromise: Promise<void> | null = null;
 
-    wordStateCache.clear();
-    wordStatusByLemma.clear();
-    knownWordCountPromise = null;
-    lastSignature = "";
-    if (lastCues.length > 0) void handleCues(lastCues);
-  } catch (err: unknown) {
-    // Anki is optional; a missing AnkiConnect must not affect subtitle use.
-    console.info("[SubJap] Anki known-word sync unavailable:", err);
-  }
+async function syncKnownWordsFromAnki(force = false): Promise<void> {
+  if (!force && Date.now() - lastAnkiSyncAt < 30_000) return;
+  if (ankiSyncPromise) return ankiSyncPromise;
+  ankiSyncPromise = (async () => {
+    lastAnkiSyncAt = Date.now();
+    try {
+      const result = await sendMessage("anki:syncKnown", {});
+      if (result.changed === 0 && result.removed === 0) return;
+
+      wordStateCache.clear();
+      wordStatusByLemma.clear();
+      knownWordCountPromise = null;
+      lastSignature = "";
+      if (lastCues.length > 0) void handleCues(lastCues);
+    } catch (err: unknown) {
+      // Anki is optional; a missing AnkiConnect must not affect subtitle use.
+      console.info("[SubJap] Anki known-word sync unavailable:", err);
+    }
+  })().finally(() => {
+    ankiSyncPromise = null;
+  });
+  return ankiSyncPromise;
 }
 
 async function getFrequencyRanks(
@@ -499,7 +511,7 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   });
 }
 
-function onToggleKnown(lemma: string, currentStatus: "known" | "unknown" | null): void {
+function onToggleKnown(lemma: string, currentStatus: WordStatus | null): void {
   const next: WordState = {
     key: lemma,
     status: currentStatus === "known" ? "unknown" : "known",
@@ -538,7 +550,11 @@ void getOptions().then((opts) => {
   applyNativeSubtitleVisibility();
 });
 
-void syncKnownWordsFromAnki();
+void syncKnownWordsFromAnki(true);
+window.setInterval(() => void syncKnownWordsFromAnki(), 120_000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void syncKnownWordsFromAnki();
+});
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;

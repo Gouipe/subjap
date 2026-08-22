@@ -2,7 +2,13 @@ import type { WordState } from "./types";
 
 export const NEAR_FREQUENCY_WINDOW = 300;
 
-export type FrequencyHighlight = "known" | "relevant" | "near" | "neutral";
+export type FrequencyHighlight =
+  | "known"
+  | "ignored"
+  | "learning"
+  | "relevant"
+  | "near"
+  | "unknown";
 
 /**
  * Classify a token for the subtitle overlay.
@@ -16,6 +22,9 @@ export function getFrequencyHighlight(
   knownWordCount: number,
 ): FrequencyHighlight {
   if (wordState?.status === "known") return "known";
+  if (wordState?.status === "ignored") return "ignored";
+  if (wordState?.status === "learning") return "learning";
+  if (wordState?.status === "unknown") return "unknown";
   if (
     frequencyRank == null ||
     !Number.isFinite(frequencyRank) ||
@@ -23,9 +32,9 @@ export function getFrequencyHighlight(
     !Number.isFinite(knownWordCount) ||
     knownWordCount < 0
   ) {
-    return "neutral";
+    return "unknown";
   }
   if (frequencyRank <= knownWordCount) return "relevant";
   if (frequencyRank <= knownWordCount + NEAR_FREQUENCY_WINDOW) return "near";
-  return "neutral";
+  return "unknown";
 }

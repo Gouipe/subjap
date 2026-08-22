@@ -85,13 +85,19 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: #ffffff;
     }
     #${CONTAINER_ID} .subjap-unknown {
-      color: #ffffff;
+      color: #fb923c;
     }
     #${CONTAINER_ID} .subjap-unknown--relevant {
       color: ${opts.highlightKnown ? opts.knownColor : "#22c55e"};
     }
     #${CONTAINER_ID} .subjap-unknown--near {
       color: #60a5fa;
+    }
+    #${CONTAINER_ID} .subjap-learning {
+      color: #c084fc;
+    }
+    #${CONTAINER_ID} .subjap-neutral {
+      color: #ffffff;
     }
     #${CONTAINER_ID} .subjap-furigana {
       display: ${opts.showFurigana ? "block" : "none"};
@@ -217,10 +223,10 @@ export class OverlayRenderer {
   private buildTokenSpan(st: SpanToken): HTMLSpanElement {
     const span = document.createElement("span");
     span.className = "subjap-token";
-    if (
+    const isPunctuation =
       st.token.partOfSpeech.includes("記号") ||
-      /^[、。！？!?.,，．：；「」『』（）()…]+$/.test(st.token.surface)
-    ) {
+      /^[、。！？!?.,，．：；「」『』（）()…]+$/.test(st.token.surface);
+    if (isPunctuation) {
       span.classList.add("subjap-token--punctuation");
     }
     const reading = toHiragana(st.token.reading);
@@ -230,20 +236,26 @@ export class OverlayRenderer {
     span.dataset.pos = st.token.partOfSpeech.join(",");
     span.dataset.index = String(st.index);
 
-    // Known / unknown + frequency hint. Known words remain white; only
-    // unknown words use the green/blue learning colours.
-    span.classList.add(
-      st.wordState?.status === "known" ? "subjap-known" : "subjap-unknown",
-    );
-    const frequencyHighlight = getFrequencyHighlight(
-      st.wordState,
-      st.frequencyRank,
-      this.knownWordCount,
-    );
-    if (frequencyHighlight === "relevant") {
-      span.classList.add("subjap-unknown--relevant");
-    } else if (frequencyHighlight === "near") {
-      span.classList.add("subjap-unknown--near");
+    if (isPunctuation) {
+      span.classList.add("subjap-neutral");
+    } else {
+      const highlight = getFrequencyHighlight(
+        st.wordState,
+        st.frequencyRank,
+        this.knownWordCount,
+      );
+      if (highlight === "known" || highlight === "ignored") {
+        span.classList.add("subjap-known");
+      } else if (highlight === "learning") {
+        span.classList.add("subjap-learning");
+      } else {
+        span.classList.add("subjap-unknown");
+        if (highlight === "relevant") {
+          span.classList.add("subjap-unknown--relevant");
+        } else if (highlight === "near") {
+          span.classList.add("subjap-unknown--near");
+        }
+      }
     }
 
     // Text content

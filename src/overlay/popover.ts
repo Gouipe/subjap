@@ -2,7 +2,7 @@
 // SubJap — word popover (vanilla DOM)
 // ---------------------------------------------------------------------------
 
-import type { DictionaryEntry, PitchAccent, Token } from "@/core/types";
+import type { DictionaryEntry, PitchAccent, Token, WordStatus } from "@/core/types";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ const POS_LABELS: Record<string, string> = {
 
 export interface PopoverCallbacks {
   /** Called when the user clicks "Mark Known" / "Mark Unknown" */
-  onToggleKnown: (lemma: string, currentStatus: "known" | "unknown" | null) => void;
+  onToggleKnown: (lemma: string, currentStatus: WordStatus | null) => void;
   /** Called when the user clicks "Mine this" */
   onMine: (token: Token, entry: DictionaryEntry | null) => void;
 }
@@ -40,7 +40,7 @@ export class WordPopover {
   private callbacks: PopoverCallbacks;
   private visible = false;
   private currentLemma = "";
-  private currentStatus: "known" | "unknown" | null = null;
+  private currentStatus: WordStatus | null = null;
   private currentToken: Token | null = null;
   private currentEntry: DictionaryEntry | null = null;
   private boundOnKeydown: (e: KeyboardEvent) => void;
@@ -63,7 +63,7 @@ export class WordPopover {
     token: Token;
     entry?: DictionaryEntry | null;
     pitchAccent?: PitchAccent | null;
-    wordStatus?: "known" | "unknown" | null;
+    wordStatus?: WordStatus | null;
   }): void {
     const { anchor, token, entry, pitchAccent, wordStatus } = params;
 
@@ -252,7 +252,7 @@ export class WordPopover {
     token: Token,
     entry: DictionaryEntry | null | undefined,
     pitchAccent: PitchAccent | null | undefined,
-    wordStatus: "known" | "unknown" | null | undefined,
+    wordStatus: WordStatus | null | undefined,
   ): void {
     // Surface
     const surfaceEl = this.el.querySelector(".subjap-popover__surface")!;

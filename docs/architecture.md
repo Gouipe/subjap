@@ -214,16 +214,21 @@ la lecture et les glosses sélectionnables. Le modal peut :
 - pousser ensuite une copie vers AnkiConnect, en best effort.
 
 La carte locale reste la source de vérité : une indisponibilité d’Anki ne fait
-pas perdre le mining. Le service worker communique avec AnkiConnect sur
-`127.0.0.1:8765`, préfère le deck `SubJap` et garantit le type de note exact
+pas perdre le mining. Le modal conserve alors la carte locale, affiche l’erreur
+et permet de réessayer sans créer de doublon local. Le service worker communique
+avec AnkiConnect sur `127.0.0.1:8765`, crée automatiquement le deck `SubJap` et
+garantit le type de note exact
 `Migaku Memory` avec les champs `Mot`, `Lecture`, `Phrase`, `Traduction`,
 `Définitions`, `Notes`, `Image`, `AudioMot` et `AudioPhrase`. Les médias sont
 stockés par `storeMediaFile`, puis référencés dans les champs Migaku.
 
-Au démarrage d’un content script, le tag Anki `KNOWN` est recherché dans les
-notes et le champ `Mot` est normalisé pour alimenter `wordStates` avec une
-provenance `import`. Le SRS Anki n’est pas modifié et un état manuel local
-reste prioritaire.
+Les tags Anki `KNOWN`, `IGNORED`, `UNKNOWN` et `LEARNING` sont recherchés dans
+tous les decks au démarrage, au retour sur l’onglet et périodiquement. Le champ
+`Mot` est normalisé vers le lemme de `wordStates`, puis les imports sont
+réconciliés : retirer un tag retire l’ancien état importé. Un état manuel local
+reste prioritaire. `KNOWN` et `IGNORED` sont blancs, `LEARNING` violet,
+`UNKNOWN` orange ; les mots sans état explicite suivent la fréquence (vert,
+bleu, puis orange).
 
 VOICEVOX est démarré localement par un Native Messaging host Windows enregistré
 une seule fois ; voir [`docs/voicevox.md`](voicevox.md). Si la capture du flux

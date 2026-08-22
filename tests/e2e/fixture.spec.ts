@@ -46,20 +46,23 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
-  test("distingue les inconnus pertinents, proches et éloignés", async ({
+  test("distingue connu, pertinence, apprentissage et inconnu orange", async ({
     page,
   }) => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
 
-    // The fixture simulates N = 2 known words: rank <= N is green, the next
-    // 300 ranks are blue, and more distant words stay white.
+    // N = 1: green <= N, blue in the next 300, violet for LEARNING,
+    // orange for a low-priority unknown, and white for KNOWN.
     await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
     await expect(tokens.nth(2)).toHaveClass(/subjap-unknown--relevant/);
-    await expect(tokens.nth(3)).toHaveClass(/subjap-unknown--near/);
+    await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
+    await expect(tokens.nth(3)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
+    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(251, 146, 60)");
+    await expect(tokens.nth(3)).toHaveCSS("color", "rgb(192, 132, 252)");
   });
 
   test("ouvre la popover au survol et modifie l’état connu", async ({ page }) => {

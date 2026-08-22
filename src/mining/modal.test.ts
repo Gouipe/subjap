@@ -71,4 +71,63 @@ describe("MiningModal", () => {
       );
     });
   });
+
+  it("conserve la carte locale, affiche l’erreur Anki et réessaie sans doublon local", async () => {
+    let setupAttempts = 0;
+    sendMessageMock.mockImplementation((type: string) => {
+      if (type === "tts:generate") return Promise.resolve({ dataUrl: "data:audio/wav;base64,fixture" });
+      if (type === "mine:create") return Promise.resolve({ id: "local-card" });
+      if (type === "anki:setup") {
+        setupAttempts++;
+        return setupAttempts === 1
+          ? Promise.reject(new Error("AnkiConnect indisponible"))
+          : Promise.resolve({ deckName: "SubJap", modelName: "Migaku Memory" });
+      }
+      if (type === "anki:addNote") {
+        return Promise.resolve({ noteId: 42, modelName: "Migaku Memory", deckName: "SubJap" });
+      }
+      return Promise.resolve(undefined);
+    });
+    const modal = new MiningModal(document.createElement("video"));
+    modal.open({
+      cue: {
+        cue: { id: "fixture", text: "約束した", start: 1, end: 2 },
+        spans: [{
+          index: 0,
+          token: { surface: "約束", lemma: "約束", reading: "やくそく", partOfSpeech: ["名詞"] },
+          wordState: null,
+        }],
+      },
+      targetToken: {
+        index: 0,
+        token: { surface: "約束", lemma: "約束", reading: "やくそく", partOfSpeech: ["名詞"] },
+        wordState: null,
+      },
+      lemmaReading: "やくそく",
+      episodeContext: {
+        platform: "netflix",
+        title: "Fixture",
+        language: "ja",
+        url: "https://example.test",
+      },
+      definitions: ["promise"],
+    });
+    await vi.waitFor(() => expect(document.querySelector(".subjap-screenshot-info")).not.toBeNull());
+    (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
+    await vi.waitFor(() => {
+      expect(document.querySelector(".subjap-local-info")?.textContent).toContain("localement");
+      expect(document.querySelector(".subjap-error")?.textContent).toContain("AnkiConnect");
+    });
+    expect(sendMessageMock.mock.calls.filter(([type]) => type === "mine:create")).toHaveLength(1);
+
+    (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
+    await vi.waitFor(() => {
+      expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe("none");
+    });
+    expect(sendMessageMock.mock.calls.filter(([type]) => type === "mine:create")).toHaveLength(1);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      "anki:addNote",
+      expect.objectContaining({ deckName: "SubJap" }),
+    );
+  });
 });
