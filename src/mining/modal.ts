@@ -27,6 +27,7 @@ interface MiningState {
   cue: RenderedCue;
   targetToken: SpanToken;
   lemmaReading: string;
+  translation: string;
   episodeContext: EpisodeContext;
   definitions: string[];
   definitionText: string;
@@ -91,6 +92,7 @@ export class MiningModal {
     cue: RenderedCue;
     targetToken: SpanToken;
     lemmaReading: string;
+    translation?: string;
     episodeContext: EpisodeContext;
     definitions: string[];
   }): void {
@@ -98,6 +100,7 @@ export class MiningModal {
       cue: state.cue,
       targetToken: state.targetToken,
       lemmaReading: state.lemmaReading,
+      translation: state.translation ?? "",
       episodeContext: state.episodeContext,
       definitions: state.definitions,
       definitionText: state.definitions.join("\n"),
@@ -457,7 +460,7 @@ export class MiningModal {
             Mot: formatMigakuWord(tokenDictionaryForm(targetToken.token), state.lemmaReading),
             Lecture: state.lemmaReading,
             Phrase: formatMigakuSentence(cue, targetToken),
-            Traduction: "",
+            Traduction: state.translation,
             Définitions: formatMigakuDefinitions(editedDefinitions),
             Notes: "",
             Image: "",

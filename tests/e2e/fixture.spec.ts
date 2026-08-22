@@ -413,6 +413,57 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator("#subjap-mining-modal")).toBeHidden();
   });
 
+  test("envoie automatiquement la traduction française avec la carte minée", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      const messages: Array<Record<string, unknown>> = [];
+      Object.defineProperty(window, "__subjapFixtureMessages", {
+        configurable: true,
+        value: messages,
+      });
+      (window as unknown as { chrome: unknown }).chrome = {
+        runtime: {
+          sendMessage: async (message: Record<string, unknown>) => {
+            messages.push(message);
+            switch (message.type) {
+              case "tts:generate":
+                return { dataUrl: "data:audio/wav;base64:fixture" };
+              case "mine:create":
+                return { id: "fixture-card" };
+              case "anki:setup":
+                return { deckName: "SubJap", modelName: "Migaku Memory" };
+              case "anki:addNote":
+                return { noteId: 42, modelName: "Migaku Memory", deckName: "SubJap" };
+              default:
+                return undefined;
+            }
+          },
+        },
+      };
+    });
+
+    await page.getByTestId("bilingual-cue").click();
+    await expect(page.locator(".subjap-translation-line")).toHaveText(
+      "J’étudie le japonais.",
+    );
+    await page.getByTestId("mine-cue").click();
+    await page.locator(".subjap-modal-btn-send").click();
+    await expect(page.locator("#subjap-mining-modal")).toBeHidden();
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const messages = (window as unknown as {
+            __subjapFixtureMessages?: Array<Record<string, unknown>>;
+          }).__subjapFixtureMessages;
+          const ankiMessage = messages?.find((message) => message.type === "anki:addNote");
+          return (ankiMessage?.fields as Record<string, unknown> | undefined)?.Traduction;
+        }),
+      )
+      .toBe("J’étudie le japonais.");
+  });
+
   test("met à jour la couleur quand un mot inconnu devient connu", async ({
     page,
   }) => {
