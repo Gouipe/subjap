@@ -49,6 +49,7 @@ export class MiningModal {
   private state: MiningState | null = null;
   private phraseAudioPromise: Promise<string | undefined> | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private isOpen = false;
 
   constructor(video: HTMLVideoElement, audioCapture: VideoAudioCapture | null = null) {
     this.video = video;
@@ -60,7 +61,7 @@ export class MiningModal {
     this.container.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains("subjap-modal-btn-audio")) {
-        void this.generateAudio();
+        void this.generateAudio(true);
       } else if (target.classList.contains("subjap-modal-btn-screenshot")) {
         void this.captureScreenshot();
       } else if (target.classList.contains("subjap-modal-btn-send")) {
@@ -96,6 +97,7 @@ export class MiningModal {
       sending: false,
     };
     const modalState = this.state;
+    this.isOpen = true;
     this.render();
     this.show();
     this.registerKeyboard();
@@ -105,11 +107,13 @@ export class MiningModal {
   }
 
   close(): void {
+    this.isOpen = false;
     this.hide();
     this.unregisterKeyboard();
   }
 
   destroy(): void {
+    this.isOpen = false;
     this.close();
     this.phraseAudioPromise = null;
     this.container.remove();
@@ -282,7 +286,7 @@ export class MiningModal {
 
   // ── Actions ─────────────────────────────────────────────────────────────
 
-  private async generateAudio(): Promise<void> {
+  private async generateAudio(playPreview = false): Promise<void> {
     const state = this.state;
     if (!state) return;
     try {
@@ -293,12 +297,14 @@ export class MiningModal {
       // different card while VOICEVOX was synthesizing.
       if (this.state !== state) return;
       state.wordAudioDataUrl = result.dataUrl;
-      const preview = new Audio(result.dataUrl);
-      try {
-        void Promise.resolve(preview.play()).catch(() => undefined);
-      } catch {
-        // Preview playback can be blocked by autoplay policy; the data URL
-        // remains available for Anki regardless.
+      if (playPreview) {
+        const preview = new Audio(result.dataUrl);
+        try {
+          void Promise.resolve(preview.play()).catch(() => undefined);
+        } catch {
+          // Preview playback can be blocked by autoplay policy; the data URL
+          // remains available for Anki regardless.
+        }
       }
       this.render();
     } catch (err) {
@@ -309,12 +315,13 @@ export class MiningModal {
   private async captureScreenshot(): Promise<void> {
     const state = this.state;
     if (!state) return;
-    const wasVisible = this.container.style.display !== "none";
+    const wasVisible = this.isOpen && this.container.style.display !== "none";
     if (wasVisible) {
       // Capture the Netflix frame without the SubJap mining dialog covering
       // it. Restore the dialog as soon as the browser capture has completed.
       this.hide();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      this.container.remove();
+      await this.waitForCapturePaint();
     }
     try {
       const tabVideo = await this.audioCapture?.getTabVideo();
@@ -326,9 +333,26 @@ export class MiningModal {
     } catch (err) {
       console.error("[SubJap] Screenshot capture failed:", err);
     } finally {
-      if (wasVisible && this.state === state) this.show();
-      if (this.state === state) this.render();
+      if (wasVisible && this.state === state && this.isOpen) {
+        document.body.appendChild(this.container);
+        this.show();
+      }
+      if (this.state === state && this.isOpen) this.render();
     }
+  }
+
+  private async waitForCapturePaint(): Promise<void> {
+    await new Promise<void>((resolve) => {
+      const raf = window.requestAnimationFrame;
+      if (typeof raf !== "function") {
+        setTimeout(resolve, 50);
+        return;
+      }
+      raf(() => raf(() => resolve()));
+    });
+    // Give Chrome's tab compositor one more short interval to publish the
+    // frame in which the modal is absent from the captured tab stream.
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   private async capturePhraseAudio(state: MiningState): Promise<string | undefined> {
