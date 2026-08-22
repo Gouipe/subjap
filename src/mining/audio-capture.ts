@@ -137,6 +137,7 @@ export class VideoAudioCapture {
     if (this.tabVideo) return Promise.resolve();
     if (this.tabCapturePromise) return this.tabCapturePromise;
 
+    console.info("[SubJap] Requesting rendered tab capture");
     this.tabCapturePromise = this.initializeTabCapture().finally(() => {
       this.tabCapturePromise = null;
     });

@@ -7,6 +7,9 @@ const manifest: ManifestV3Export = {
   description: "Apprendre le japonais en regardant des anime",
   permissions: ["storage", "scripting", "activeTab", "nativeMessaging", "tabCapture"],
   host_permissions: [
+    // Required by tabs.captureVisibleTab; the extension only captures the
+    // active tab after the user starts mining a card.
+    "<all_urls>",
     "*://*.netflix.com/*",
     "*://*.youtube.com/*",
     "*://*.crunchyroll.com/*",
