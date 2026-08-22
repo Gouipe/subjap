@@ -405,7 +405,11 @@ test.describe("SubJap UX fixture", () => {
     page,
   }) => {
     await page.getByTestId("next-cue").click();
-    const ignoredToken = page.locator(".subjap-token").nth(4);
+    // 勉強 has an existing Anki card in the fixture; IGNORED must override
+    // that presence and turn the token white instead of leaving it purple.
+    const ignoredToken = page.locator(".subjap-token").nth(2);
+
+    await expect(ignoredToken).toHaveClass(/subjap-learning/);
 
     await ignoredToken.hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
@@ -425,7 +429,8 @@ test.describe("SubJap UX fixture", () => {
     );
 
     await page.locator(".subjap-btn--toggle-ignored").click();
-    await expect(ignoredToken).toHaveClass(/subjap-unknown/);
+    await expect(ignoredToken).toHaveClass(/subjap-learning/);
+    await expect(ignoredToken).toHaveCSS("color", "rgb(192, 132, 252)");
     await expect(page.getByTestId("status")).toHaveAttribute(
       "data-known-count",
       "1",

@@ -32,6 +32,14 @@ describe("getFrequencyHighlight", () => {
     expect(
       getFrequencyHighlight({ key: "x", status: "ignored", source: "import" }, 1, 100),
     ).toBe("ignored");
+    expect(
+      getFrequencyHighlight(
+        { key: "x", status: "ignored", source: "import" },
+        1,
+        100,
+        2,
+      ),
+    ).toBe("ignored");
   });
 
   it("applies frequency bands to words explicitly tagged UNKNOWN in Anki", () => {

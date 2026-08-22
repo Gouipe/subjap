@@ -34,6 +34,15 @@ describe("Anki word-state import", () => {
     ]);
   });
 
+  it("fait primer IGNORED sur les autres tags du même mot", () => {
+    expect(
+      extractAnkiWordStates([
+        { fields: { Mot: { value: "やる" } }, tags: ["LEARNING"] },
+        { fields: { Mot: { value: "やる" } }, tags: ["IGNORED"] },
+      ]),
+    ).toEqual([{ key: "やる", status: "ignored" }]);
+  });
+
   it("compte toutes les cartes Anki par mot, même sans tag de statut", () => {
     expect(
       extractAnkiWordPresences([

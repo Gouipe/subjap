@@ -18,12 +18,13 @@ const TAG_STATUS: Record<string, WordStatus> = {
   LEARNING: "learning",
 };
 
-// When conflicting notes exist across decks, the state requiring attention wins.
+// IGNORED is an explicit opt-out and must win when notes/tags conflict across
+// decks; otherwise the presence of the same word in Anki can turn it purple.
 const STATUS_PRIORITY: Record<WordStatus, number> = {
-  ignored: 0,
   known: 1,
   unknown: 2,
   learning: 3,
+  ignored: 4,
 };
 
 /** Normalize Migaku bracket syntax and SubJap/Anki ruby HTML to a lemma key. */
