@@ -256,11 +256,14 @@ function installTimedTextCapture(page: Window): void {
     // extension content script can use the page session without that clash.
     emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
   };
+  const inspectTimedTextValue = (value: unknown): void => {
+    for (const track of collectNetflixTimedTextTracks(value)) fetchTrack(track);
+  };
 
   const nativeParse = pageWithJson.JSON.parse.bind(pageWithJson.JSON);
   pageWithJson.JSON.parse = ((text: string, reviver?: (key: string, value: unknown) => unknown) => {
     const value: unknown = nativeParse(text, reviver) as unknown;
-    for (const track of collectNetflixTimedTextTracks(value)) fetchTrack(track);
+    inspectTimedTextValue(value);
     return value;
   }) as typeof pageWithJson.JSON.parse;
 
@@ -269,6 +272,10 @@ function installTimedTextCapture(page: Window): void {
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const response = await fetchImpl(input, init);
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (/json/i.test(contentType)) {
+        void response.clone().json().then(inspectTimedTextValue).catch(() => undefined);
+      }
       if (TIMED_TEXT_URL_PATTERN.test(url)) {
         void response.clone().text().then((body) => {
           if (body) {
@@ -282,6 +289,46 @@ function installTimedTextCapture(page: Window): void {
       }
       return response;
     }) as typeof page.fetch;
+  }
+
+  const NativeXhr = (page as Window & { XMLHttpRequest?: typeof XMLHttpRequest })
+    .XMLHttpRequest;
+  if (NativeXhr) {
+    const xhrUrls = new WeakMap<XMLHttpRequest, string>();
+    const nativeOpen = NativeXhr.prototype.open;
+    NativeXhr.prototype.open = function (
+      this: XMLHttpRequest,
+      ...args: Parameters<typeof nativeOpen>
+    ) {
+      xhrUrls.set(this, String(args[1]));
+      return nativeOpen.apply(this, args);
+    } as typeof NativeXhr.prototype.open;
+
+    const nativeSend = NativeXhr.prototype.send;
+    NativeXhr.prototype.send = function (
+      this: XMLHttpRequest,
+      body?: Document | XMLHttpRequestBodyInit | null,
+    ) {
+      this.addEventListener("load", () => {
+        const url = this.responseURL || xhrUrls.get(this) || "";
+        const contentType = this.getResponseHeader("content-type") ?? "";
+        if (!/json/i.test(contentType) && !/metadata|manifest|playback|session/i.test(url)) {
+          return;
+        }
+        let value: unknown;
+        try {
+          if (this.responseType === "json") {
+            value = this.response;
+          } else if (this.responseType === "" || this.responseType === "text") {
+            value = nativeParse(this.responseText) as unknown;
+          }
+        } catch {
+          return;
+        }
+        inspectTimedTextValue(value);
+      });
+      return nativeSend.call(this, body);
+    };
   }
 
   page.addEventListener("message", (event) => {
