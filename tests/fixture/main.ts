@@ -468,6 +468,10 @@ const popoverCallbacks = {
     setStatus(`État modifié : ${lemma}`);
   },
   onMine: (minedToken: Token) => {
+    const popover = document.querySelector<HTMLElement>("#subjap-popover");
+    status.dataset.minePopoverHidden = String(
+      !popover || getComputedStyle(popover).display === "none",
+    );
     setStatus(`Mining demandé : ${minedToken.surface}`);
   },
 };

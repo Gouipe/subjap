@@ -516,6 +516,22 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator("#subjap-mining-modal")).toBeHidden();
   });
 
+  test("masque instantanément la popover avant le démarrage du mining", async ({
+    page,
+  }) => {
+    await page.getByTestId("next-cue").click();
+    await page.locator(".subjap-token").first().click();
+    await expect(page.locator("#subjap-popover")).toBeVisible();
+
+    await page.locator(".subjap-btn--mine").click();
+
+    await expect(page.locator("#subjap-popover")).toBeHidden();
+    await expect(page.getByTestId("status")).toHaveAttribute(
+      "data-mine-popover-hidden",
+      "true",
+    );
+  });
+
   test("envoie automatiquement la traduction française avec la carte minée", async ({
     page,
   }) => {

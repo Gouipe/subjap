@@ -109,6 +109,9 @@ export class WordPopover {
       frequencyRank,
       this.currentAnkiNoteCount,
     );
+    // A mining action may have hidden the popover with display:none so the
+    // browser screenshot cannot catch its opacity transition mid-flight.
+    this.el.style.removeProperty("display");
     this.positionNear(anchor);
     this.el.classList.add("subjap-popover--visible");
     this.visible = true;
@@ -121,11 +124,12 @@ export class WordPopover {
     });
   }
 
-  /** Hide the popover. */
-  hide(): void {
+  /** Hide the popover, optionally without leaving an opacity transition. */
+  hide(options: { immediate?: boolean } = {}): void {
     if (!this.visible) return;
     this.el.classList.remove("subjap-popover--visible");
     this.visible = false;
+    if (options.immediate) this.el.style.display = "none";
     document.removeEventListener("keydown", this.boundOnKeydown);
     document.removeEventListener("mousedown", this.boundOnClickOutside, true);
   }
@@ -532,8 +536,11 @@ export class WordPopover {
 
   private handleMine(): void {
     if (!this.currentToken) return;
+    // The callback starts screenshot capture synchronously. Hide first and do
+    // it immediately, otherwise the 180 ms opacity transition can be baked
+    // into the captured frame as a translucent popover.
+    this.hide({ immediate: true });
     this.callbacks.onMine(this.currentToken, this.currentEntry);
-    this.hide();
   }
 
   private onKeydown(e: KeyboardEvent): void {
