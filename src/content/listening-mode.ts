@@ -25,6 +25,7 @@ export class ListeningMode {
     video: HTMLVideoElement,
     adapter: PlatformAdapter,
     overlay: OverlayRenderer,
+    private readonly onClosed: () => void,
   ) {
     this.video = video;
     this.adapter = adapter;
@@ -83,7 +84,7 @@ export class ListeningMode {
   }
 
   destroy(): void {
-    this.close(false);
+    this.close();
     document.removeEventListener("keydown", this.handleKeydown, true);
     this.container.remove();
   }
@@ -208,25 +209,25 @@ export class ListeningMode {
   private async continuePlayback(): Promise<void> {
     if (!this.activeCue || this.phase !== "review") return;
     const cueEnd = this.activeCue.cue.end;
-    this.close(false);
+    this.close();
     await this.adapter.seekTo(cueEnd, true);
+    this.onClosed();
   }
 
   private async skip(): Promise<void> {
     if (!this.activeCue) return;
     const cueEnd = this.activeCue.cue.end;
-    this.close(false);
+    this.close();
     await this.adapter.seekTo(cueEnd, true);
+    this.onClosed();
   }
 
-  private close(restorePlayback: boolean): void {
-    const cue = this.activeCue;
+  private close(): void {
     this.sessionId += 1;
     this.stopTimer();
     this.activeCue = null;
     this.container.remove();
     this.overlay.clearSubtitleVisibilityOverride();
-    if (restorePlayback && cue) void this.adapter.seekTo(cue.cue.end, true);
   }
 
   private stopTimer(): void {

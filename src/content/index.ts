@@ -141,6 +141,8 @@ let lastRenderedCues: RenderedCue[] = [];
 let miningModal: MiningModal | null = null;
 let pendingCues: SubtitleCue[] | null = null;
 let cueProcessing = false;
+/** Latest cue snapshot observed while the listening panel owns playback. */
+let deferredCuesWhileListening: SubtitleCue[] | null = null;
 
 /** Global token index → { cue, token } for the currently rendered cues. */
 const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
@@ -294,6 +296,7 @@ function ensureOverlay(): OverlayRenderer | null {
     overlay.destroy();
     overlay = null;
     listeningExerciseKeys.clear();
+    deferredCuesWhileListening = null;
     audioCapture?.destroy();
     audioCapture = null;
     currentVideo = null;
@@ -306,7 +309,11 @@ function ensureOverlay(): OverlayRenderer | null {
 
   if (!overlay) {
     overlay = new OverlayRenderer(video, overlayOptions);
-    listeningMode = new ListeningMode(video, adapter, overlay);
+    listeningMode = new ListeningMode(video, adapter, overlay, () => {
+      const deferred = deferredCuesWhileListening;
+      deferredCuesWhileListening = null;
+      if (deferred !== null) enqueueCues(deferred);
+    });
     audioCapture = new VideoAudioCapture(video, (timeSeconds, resume) =>
       adapter.seekTo(timeSeconds, resume),
     );
@@ -357,7 +364,10 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   // Seeking back to the beginning of an exercise can make Netflix emit a
   // transient empty/incomplete cue set. Keep the frozen exercise sentence
   // and its translation while the listening panel owns playback.
-  if (listeningMode?.isActive) return;
+  if (listeningMode?.isActive) {
+    deferredCuesWhileListening = cues;
+    return;
+  }
   if (signature === lastSignature) return;
   lastCues = cues;
 

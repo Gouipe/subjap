@@ -31,10 +31,8 @@ Quand je mets un imprim ecran dans la conversation, c'est de l'existant, souvent
 
 ## Stratégie de vérification
 
-Par défaut, oublier la création et le lancement de tests : ne créer ni test
-unitaire, ni scénario E2E, ni fixture de régression, et ne lancer aucune suite
-de tests. Cette règle s’applique aussi aux tests ciblés et aux vérifications
-automatisées de type navigateur, sauf demande explicite contraire de
+Ne crée ni ne lance de tests.
+Pas de vérifications automatisées de type navigateur, sauf demande explicite contraire de
 l’utilisateur.
 
 Quand une implémentation est terminée et vérifiée, créer un commit avec les
