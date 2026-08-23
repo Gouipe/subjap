@@ -17,6 +17,8 @@ le suivre directement.
 
 Utiliser git worktree quand tu ajoutes/modifies une fonctionnalité afin de ne pas être en conflit avec un autre agent
 travaillant potentiellement en parallèle sur une autre feature.
+Une fois l’implémentation terminée et vérifiée dans le worktree, merger son commit
+dans `master` avant de rendre la main.
 
 Références du projet :
 
