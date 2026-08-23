@@ -75,7 +75,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-translation-line {
       margin-top: 5px;
       padding: 0.08em 0.3em 0.12em;
-      pointer-events: auto;
+      pointer-events: none;
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
       font-family: ${opts.fontFamily};
       color: #e2e8f0;
@@ -89,6 +89,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-translation-line--hidden {
       opacity: 0;
       cursor: default;
+      pointer-events: auto;
       transition: opacity 0.12s ease;
     }
     #${CONTAINER_ID} .subjap-translation-line--hidden:hover {
