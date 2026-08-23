@@ -14,7 +14,7 @@ d’être travaillées en parallèle. Pour une modification courte et isolée,
 travailler directement dans le worktree courant est acceptable. Si une seconde
 tâche parallèle apparaît ensuite, créer à ce moment-là un worktree dédié.
 Lorsqu’un worktree est utilisé, une fois l’implémentation terminée et vérifiée,
-merger son commit dans `master` avant de rendre la main.
+merger son commit dans `master` et  lancer un npm run build avant de rendre la main.
 
 Références du projet :
 
