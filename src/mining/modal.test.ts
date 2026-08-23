@@ -87,7 +87,7 @@ describe("MiningModal", () => {
     });
   });
 
-  it("sends notes to Anki while keeping definitions read-only", async () => {
+  it("sends edited definitions and notes to Anki", async () => {
     sendMessageMock.mockImplementation((type: string) => {
       if (type === "tts:generate") {
         return Promise.resolve({ dataUrl: "data:audio/wav;base64:word" });
@@ -126,12 +126,14 @@ describe("MiningModal", () => {
       expect(document.querySelector(".subjap-screenshot-info")).not.toBeNull();
     });
 
-    const definitions = document.querySelector<HTMLElement>(".subjap-definitions");
-    expect(definitions?.textContent).toBe("promise\na commitment");
-    expect(definitions?.tagName).toBe("DIV");
+    const definitions = document.querySelector<HTMLTextAreaElement>(".subjap-definitions");
+    expect(definitions?.value).toBe("promise\na commitment");
+    if (!definitions) throw new Error("Definitions textarea was not rendered");
+    definitions.value = "to promise\npersonal definition\n";
+    definitions.dispatchEvent(new Event("input", { bubbles: true }));
     const notes = document.querySelector<HTMLTextAreaElement>(".subjap-notes");
     if (!notes) throw new Error("Notes textarea was not rendered");
-    notes.value = "to promise\npersonal note\n";
+    notes.value = "personal note\n";
     notes.dispatchEvent(new Event("input", { bubbles: true }));
 
     (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
@@ -143,15 +145,15 @@ describe("MiningModal", () => {
 
     expect(sendMessageMock).toHaveBeenCalledWith(
       "mine:create",
-      expect.objectContaining({ definitions: ["promise", "a commitment"] }),
+      expect.objectContaining({ definitions: ["to promise", "personal definition"] }),
     );
     const ankiAddNoteCall = (sendMessageMock.mock.calls as unknown[][]).find(
       ([type]) => type === "anki:addNote",
     );
     expect(ankiAddNoteCall?.[1]).toMatchObject({
       fields: {
-        Définitions: "promise<br>a commitment",
-        Notes: "to promise\npersonal note\n",
+        Définitions: "to promise<br>personal definition",
+        Notes: "personal note\n",
         Traduction: "I made a promise.",
       },
     });

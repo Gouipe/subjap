@@ -199,11 +199,13 @@ export class MiningModal {
       .subjap-modal-body .subjap-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
       .subjap-modal-body .subjap-reading { color: #a78bfa; margin-bottom: 8px; }
       .subjap-modal-body .subjap-definitions {
-        display: block; box-sizing: border-box; width: 100%; height: calc(3 * 1.45em + 16px);
-        margin: 4px 0 12px; padding: 8px 10px; overflow-y: auto;
-        white-space: pre-line; overflow-wrap: anywhere;
+        display: block; box-sizing: border-box; width: 100%; height: calc(5 * 1.45em + 16px);
+        margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
         background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
         border-radius: 6px; font: inherit; line-height: 1.45;
+      }
+      .subjap-modal-body .subjap-definitions:focus {
+        outline: 2px solid #8b5cf6; outline-offset: 1px;
       }
       .subjap-modal-body .subjap-notes {
         display: block; box-sizing: border-box; width: 100%; min-height: 200px;
@@ -256,7 +258,7 @@ export class MiningModal {
       .join("");
 
     const defListHtml = `<div class="subjap-label">Definitions</div>
-      <div class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</div>
+      <textarea class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</textarea>
       <div class="subjap-label">Notes</div>
       <textarea class="subjap-notes" data-testid="mining-notes" aria-label="Notes" placeholder="Add a personal note for Anki…">${escapeHtml(this.state.notesText)}</textarea>`;
 
@@ -293,6 +295,11 @@ export class MiningModal {
       ${localInfo}
       ${ankiError}
     `;
+
+    const definitionsInput = body.querySelector<HTMLTextAreaElement>(".subjap-definitions");
+    definitionsInput?.addEventListener("input", () => {
+      if (this.state) this.state.definitionText = definitionsInput.value;
+    });
 
     const notesInput = body.querySelector<HTMLTextAreaElement>(".subjap-notes");
     notesInput?.addEventListener("input", () => {
