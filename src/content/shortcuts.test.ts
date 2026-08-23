@@ -459,21 +459,25 @@ describe("subtitle copy shortcut", () => {
       .fn()
       .mockRejectedValueOnce(new Error("denied"))
       .mockResolvedValue(undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const removeShortcut = installSubtitleCopyShortcut(document, {
       getText: () => "日本語",
       writeText,
     });
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
-    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+    try {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
 
-    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
-    await vi.waitFor(() =>
-      expect(document.querySelector("#subjap-copy-feedback")?.textContent).toBe(
-        "Copié",
-      ),
-    );
-    removeShortcut();
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() =>
+        expect(document.querySelector("#subjap-copy-feedback")?.textContent).toBe("Copié"),
+      );
+      expect(warn).toHaveBeenCalledWith("[SubJap] Subtitle copy failed:", expect.any(Error));
+    } finally {
+      removeShortcut();
+      warn.mockRestore();
+    }
   });
 });
