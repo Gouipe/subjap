@@ -17,23 +17,22 @@ import { toHiragana } from "@/core/kana";
 const POPOVER_ID = "subjap-popover";
 const VIEWPORT_MARGIN = 8;
 const SUBTITLE_GAP = 12;
-const SUBTITLE_SELECTOR =
-  ":scope > .subjap-cue-line, :scope > .subjap-translation-line";
+const SUBTITLE_SELECTOR = ":scope > .subjap-cue-line, :scope > .subjap-translation-line";
 const POS_LABELS: Record<string, string> = {
-  "名詞": "Noun",
-  "動詞": "Verb",
-  "形容詞": "Adj (i)",
-  "形容動詞": "Adj (na)",
-  "助詞": "Particle",
-  "助動詞": "Aux",
-  "副詞": "Adverb",
-  "連体詞": "Pre-noun",
-  "接続詞": "Conj",
-  "感動詞": "Interj",
-  "接頭辞": "Prefix",
-  "接尾辞": "Suffix",
-  "記号": "Symbol",
-  "フィラー": "Filler",
+  名詞: "Noun",
+  動詞: "Verb",
+  形容詞: "Adj (i)",
+  形容動詞: "Adj (na)",
+  助詞: "Particle",
+  助動詞: "Aux",
+  副詞: "Adverb",
+  連体詞: "Pre-noun",
+  接続詞: "Conj",
+  感動詞: "Interj",
+  接頭辞: "Prefix",
+  接尾辞: "Suffix",
+  記号: "Symbol",
+  フィラー: "Filler",
 };
 
 // ── Event interface ───────────────────────────────────────────────────────
@@ -84,15 +83,7 @@ export class WordPopover {
     /** Number of existing Anki notes whose normalized `Mot` matches the lemma. */
     ankiNoteCount?: number;
   }): void {
-    const {
-      anchor,
-      token,
-      entry,
-      pitchAccent,
-      wordStatus,
-      frequencyRank,
-      ankiNoteCount,
-    } = params;
+    const { anchor, token, entry, pitchAccent, wordStatus, frequencyRank, ankiNoteCount } = params;
 
     this.currentToken = token;
     this.currentEntry = entry ?? null;
@@ -354,9 +345,7 @@ export class WordPopover {
 
     // Part of speech
     const posEl = this.el.querySelector(".subjap-popover__pos")!;
-    const posLabels = token.partOfSpeech
-      .map((p) => POS_LABELS[p] ?? p)
-      .filter(Boolean);
+    const posLabels = token.partOfSpeech.map((p) => POS_LABELS[p] ?? p).filter(Boolean);
     posEl.textContent = posLabels.length > 0 ? posLabels.join(" · ") : "";
 
     const grammarEl = this.el.querySelector(".subjap-popover__grammar")!;
@@ -388,8 +377,7 @@ export class WordPopover {
 
     // Frequency
     const freqEl = this.el.querySelector(".subjap-popover__freq")!;
-    freqEl.textContent =
-      frequencyRank != null ? `Frequency rank: #${frequencyRank}` : "";
+    freqEl.textContent = frequencyRank != null ? `Frequency rank: #${frequencyRank}` : "";
 
     const ankiEl = this.el.querySelector<HTMLElement>(".subjap-popover__anki");
     if (ankiEl) {
@@ -410,9 +398,7 @@ export class WordPopover {
     }
 
     // Toggle button
-    const toggleBtn = this.el.querySelector(
-      ".subjap-btn--toggle-known",
-    ) as HTMLButtonElement;
+    const toggleBtn = this.el.querySelector(".subjap-btn--toggle-known") as HTMLButtonElement;
     if (wordStatus === "known") {
       toggleBtn.textContent = "✓ Known";
       toggleBtn.style.background = "#166534";
@@ -423,9 +409,7 @@ export class WordPopover {
       toggleBtn.style.borderColor = "#475569";
     }
 
-    const ignoreBtn = this.el.querySelector(
-      ".subjap-btn--toggle-ignored",
-    ) as HTMLButtonElement;
+    const ignoreBtn = this.el.querySelector(".subjap-btn--toggle-ignored") as HTMLButtonElement;
     if (wordStatus === "ignored") {
       ignoreBtn.textContent = "Unignore";
       ignoreBtn.style.background = "#166534";
@@ -447,10 +431,7 @@ export class WordPopover {
     // When subtitles are available, reserve the whole area below their top.
     this.el.style.removeProperty("max-height");
     if (subtitleTop !== null) {
-      const availableHeight = Math.max(
-        0,
-        Math.floor(subtitleTop - SUBTITLE_GAP - VIEWPORT_MARGIN),
-      );
+      const availableHeight = Math.max(0, Math.floor(subtitleTop - SUBTITLE_GAP - VIEWPORT_MARGIN));
       this.el.style.maxHeight = `${availableHeight}px`;
     }
 
@@ -515,8 +496,7 @@ export class WordPopover {
   private handleToggleIgnored(): void {
     this.callbacks.onToggleIgnored(this.currentLemma, this.currentStatus);
     // Unignore always returns the word to the regular unknown state.
-    this.currentStatus =
-      this.currentStatus === "ignored" ? "unknown" : "ignored";
+    this.currentStatus = this.currentStatus === "ignored" ? "unknown" : "ignored";
     this.populateContent(
       this.currentToken!,
       this.currentEntry,

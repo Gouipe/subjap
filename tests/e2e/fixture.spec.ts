@@ -10,16 +10,11 @@ test.describe("SubJap UX fixture", () => {
     await page.goto("/tests/fixture/index.html");
   });
 
-  test("copie avec C la phrase japonaise affichée sur une seule ligne", async ({
-    page,
-  }) => {
+  test("copie avec C la phrase japonaise affichée sur une seule ligne", async ({ page }) => {
     const pageBody = page.locator("body");
     const feedback = page.locator("#subjap-copy-feedback");
 
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-cue",
-      "待ってください。",
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-cue", "待ってください。");
     await pageBody.press("c");
     await expect(feedback).toHaveText("Copié");
     await expect(feedback).toBeVisible();
@@ -28,9 +23,7 @@ test.describe("SubJap UX fixture", () => {
       .toBe("待ってください。");
 
     await page.getByTestId("bilingual-cue").click();
-    await expect(page.locator(".subjap-translation-line")).toHaveText(
-      "J’étudie le japonais.",
-    );
+    await expect(page.locator(".subjap-translation-line")).toHaveText("J’étudie le japonais.");
     await pageBody.press("c");
     await expect
       .poll(() => page.evaluate(() => navigator.clipboard.readText()))
@@ -48,28 +41,20 @@ test.describe("SubJap UX fixture", () => {
     await expect(feedback).toBeHidden({ timeout: 2_000 });
   });
 
-  test("ignore C dans un champ et lorsqu'aucune phrase n'est affichée", async ({
-    page,
-  }) => {
+  test("ignore C dans un champ et lorsqu'aucune phrase n'est affichée", async ({ page }) => {
     await page.evaluate(() => navigator.clipboard.writeText("inchangé"));
     await page.getByLabel("Afficher le furigana").focus();
     await page.keyboard.press("c");
-    await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-      .toBe("inchangé");
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("inchangé");
 
     await page.getByTestId("clear-cue").click();
     await expect(page.getByTestId("status")).toHaveAttribute("data-cue", "");
     await page.locator("body").press("c");
-    await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-      .toBe("inchangé");
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("inchangé");
     await expect(page.locator("#subjap-copy-feedback")).toHaveCount(0);
   });
 
-  test("affiche les cues au-dessus des contrôles et masque les natifs", async ({
-    page,
-  }) => {
+  test("affiche les cues au-dessus des contrôles et masque les natifs", async ({ page }) => {
     await page.getByTestId("next-cue").click();
 
     const overlay = page.locator("#subjap-overlay-container");
@@ -81,22 +66,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(overlay.locator(".subjap-token--punctuation")).toHaveCount(1);
     await expect(overlay.locator(".subjap-furigana").first()).toHaveText("にほんご");
     await expect(nativeSubtitles).toBeHidden();
-    await expect(overlay.locator(".subjap-token").first()).toHaveClass(
-      /subjap-known/,
-    );
+    await expect(overlay.locator(".subjap-token").first()).toHaveClass(/subjap-known/);
 
     const cueLine = overlay.locator(".subjap-cue-line");
     await expect(cueLine).toHaveCSS("align-items", "flex-end");
-    await expect(cueLine).toHaveCSS(
-      "background-color",
-      "rgba(0, 0, 0, 0.62)",
-    );
+    await expect(cueLine).toHaveCSS("background-color", "rgba(0, 0, 0, 0.62)");
     const gapRatio = await cueLine.evaluate((element) => {
       const style = getComputedStyle(element);
-      return (
-        Number.parseFloat(style.columnGap) /
-        Number.parseFloat(style.fontSize)
-      );
+      return Number.parseFloat(style.columnGap) / Number.parseFloat(style.fontSize);
     });
     expect(gapRatio).toBeCloseTo(0.16, 2);
 
@@ -104,17 +81,11 @@ test.describe("SubJap UX fixture", () => {
     const controlsBox = await controls.boundingBox();
     expect(overlayBox).not.toBeNull();
     expect(controlsBox).not.toBeNull();
-    expect(await overlay.evaluate((el) => getComputedStyle(el).zIndex)).toBe(
-      "2147483646",
-    );
-    expect(overlayBox!.y + overlayBox!.height).toBeGreaterThan(
-      controlsBox!.y,
-    );
+    expect(await overlay.evaluate((el) => getComputedStyle(el).zIndex)).toBe("2147483646");
+    expect(overlayBox!.y + overlayBox!.height).toBeGreaterThan(controlsBox!.y);
   });
 
-  test("masque la traduction quand toutes les lignes sont connues", async ({
-    page,
-  }) => {
+  test("masque la traduction quand toutes les lignes sont connues", async ({ page }) => {
     await page.getByLabel("Masquer FR/EN si la phrase est connue").check();
     await page.getByTestId("bilingual-known-cue").click();
 
@@ -122,20 +93,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator(".subjap-translation-line")).toHaveCount(0);
 
     await page.getByLabel("Masquer FR/EN si la phrase est connue").uncheck();
-    await expect(page.locator(".subjap-translation-line")).toHaveText(
-      "J’étudie le japonais.",
-    );
+    await expect(page.locator(".subjap-translation-line")).toHaveText("J’étudie le japonais.");
   });
 
-  test("conserve la traduction dès qu’un mot reste inconnu", async ({
-    page,
-  }) => {
+  test("conserve la traduction dès qu’un mot reste inconnu", async ({ page }) => {
     await page.getByLabel("Masquer FR/EN si la phrase est connue").check();
     await page.getByTestId("bilingual-cue").click();
 
-    await expect(page.locator(".subjap-translation-line")).toHaveText(
-      "J’étudie le japonais.",
-    );
+    await expect(page.locator(".subjap-translation-line")).toHaveText("J’étudie le japonais.");
   });
 
   test("ignore le furigana ruby natif sans dupliquer le mot", async ({ page }) => {
@@ -148,27 +113,17 @@ test.describe("SubJap UX fixture", () => {
     const overlay = page.locator("#subjap-overlay-container");
     await expect(overlay.locator('[data-surface="親父"]')).toHaveCount(1);
     await expect(overlay.locator('[data-surface="おやじ"]')).toHaveCount(0);
-    await expect(overlay.locator('[data-surface="親父"] .subjap-furigana')).toHaveText(
-      "おやじ",
-    );
+    await expect(overlay.locator('[data-surface="親父"] .subjap-furigana')).toHaveText("おやじ");
   });
 
-  test("n’affiche le furigana que pour les tokens kanji ou katakana", async ({
-    page,
-  }) => {
+  test("n’affiche le furigana que pour les tokens kanji ou katakana", async ({ page }) => {
     await page.getByTestId("furigana-rule-cue").click();
 
-    await expect(
-      page.locator('[data-surface="言っ"] .subjap-furigana'),
-    ).toHaveText("いっ");
-    await expect(
-      page.locator('[data-surface="てんだ"] .subjap-furigana'),
-    ).toHaveCount(0);
+    await expect(page.locator('[data-surface="言っ"] .subjap-furigana')).toHaveText("いっ");
+    await expect(page.locator('[data-surface="てんだ"] .subjap-furigana')).toHaveCount(0);
   });
 
-  test("fait primer KNOWN sur UNKNOWN entre formes lexicales UniDic", async ({
-    page,
-  }) => {
+  test("fait primer KNOWN sur UNKNOWN entre formes lexicales UniDic", async ({ page }) => {
     await page.goto("/tests/fixture/index.html?scenario=lexical-alias");
     await expect(page.getByTestId("status")).toHaveAttribute(
       "data-scenario",
@@ -183,19 +138,12 @@ test.describe("SubJap UX fixture", () => {
     await expect(token).toHaveCSS("color", "rgb(255, 255, 255)");
   });
 
-  test("grise toute expression entre parenthèses et la rend non interactive", async ({
-    page,
-  }) => {
+  test("grise toute expression entre parenthèses et la rend non interactive", async ({ page }) => {
     await page.getByTestId("parenthetical-cue").click();
 
-    const parenthetical = page.locator(
-      "#subjap-overlay-container .subjap-token--parenthetical",
-    );
+    const parenthetical = page.locator("#subjap-overlay-container .subjap-token--parenthetical");
     await expect(parenthetical).toHaveCount(3);
-    await expect(parenthetical.first()).toHaveCSS(
-      "color",
-      "rgb(100, 116, 139)",
-    );
+    await expect(parenthetical.first()).toHaveCSS("color", "rgb(100, 116, 139)");
     await expect(parenthetical.nth(1).locator(".subjap-furigana")).toHaveCSS(
       "color",
       "rgb(100, 116, 139)",
@@ -207,18 +155,14 @@ test.describe("SubJap UX fixture", () => {
     await parenthetical.first().dispatchEvent("mouseover");
     await parenthetical.first().dispatchEvent("click");
     await page.waitForTimeout(450);
-    await expect(page.locator("#subjap-popover")).not.toHaveClass(
-      /subjap-popover--visible/,
-    );
+    await expect(page.locator("#subjap-popover")).not.toHaveClass(/subjap-popover--visible/);
 
-    await expect(
-      page.locator("#subjap-overlay-container .subjap-token").nth(3),
-    ).not.toHaveClass(/subjap-token--parenthetical/);
+    await expect(page.locator("#subjap-overlay-container .subjap-token").nth(3)).not.toHaveClass(
+      /subjap-token--parenthetical/,
+    );
   });
 
-  test("affiche la traduction française Netflix sous le japonais", async ({
-    page,
-  }) => {
+  test("affiche la traduction française Netflix sous le japonais", async ({ page }) => {
     await page.getByTestId("bilingual-cue").click();
 
     const overlay = page.locator("#subjap-overlay-container");
@@ -260,9 +204,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.locator(".subjap-token--mine-candidate")).toHaveCount(0);
   });
 
-  test("encadre en bleu le seul mot vert ou bleu sans mot orange", async ({
-    page,
-  }) => {
+  test("encadre en bleu le seul mot vert ou bleu sans mot orange", async ({ page }) => {
     await page.getByTestId("candidate-cue").click();
 
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
@@ -270,14 +212,9 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-token--mine-candidate/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-token--mine-candidate/);
-    await expect(tokens.nth(1)).toHaveClass(
-      /subjap-token--mine-candidate--near/,
-    );
+    await expect(tokens.nth(1)).toHaveClass(/subjap-token--mine-candidate--near/);
     await expect(tokens.nth(1)).toHaveCSS("outline-width", "2px");
-    await expect(tokens.nth(1)).toHaveCSS(
-      "outline-color",
-      "rgb(96, 165, 250)",
-    );
+    await expect(tokens.nth(1)).toHaveCSS("outline-color", "rgb(96, 165, 250)");
   });
 
   test("encadre en vert un mot vert entouré de mots blancs", async ({ page }) => {
@@ -286,14 +223,9 @@ test.describe("SubJap UX fixture", () => {
     const candidate = page.locator('[data-surface="発表"]');
     await expect(candidate).toHaveClass(/subjap-unknown--relevant/);
     await expect(candidate).toHaveClass(/subjap-token--mine-candidate/);
-    await expect(candidate).toHaveClass(
-      /subjap-token--mine-candidate--relevant/,
-    );
+    await expect(candidate).toHaveClass(/subjap-token--mine-candidate--relevant/);
     await expect(candidate).toHaveCSS("outline-width", "2px");
-    await expect(candidate).toHaveCSS(
-      "outline-color",
-      "rgb(34, 197, 94)",
-    );
+    await expect(candidate).toHaveCSS("outline-color", "rgb(34, 197, 94)");
     await expect(page.locator('[data-surface="日本語"]')).not.toHaveClass(
       /subjap-token--mine-candidate/,
     );
@@ -302,12 +234,8 @@ test.describe("SubJap UX fixture", () => {
   test("ignore un espace invisible dans la détection du candidat", async ({ page }) => {
     await page.getByTestId("whitespace-candidate-cue").click();
 
-    await expect(page.locator('[data-surface="発表"]')).toHaveClass(
-      /subjap-token--mine-candidate/,
-    );
-    await expect(page.locator('[data-surface=" "]')).toHaveClass(
-      /subjap-token--punctuation/,
-    );
+    await expect(page.locator('[data-surface="発表"]')).toHaveClass(/subjap-token--mine-candidate/);
+    await expect(page.locator('[data-surface=" "]')).toHaveClass(/subjap-token--punctuation/);
   });
 
   test("ouvre la popover au survol et modifie l’état connu", async ({ page }) => {
@@ -317,15 +245,11 @@ test.describe("SubJap UX fixture", () => {
     await firstToken.hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("日本語");
-    await expect(page.locator(".subjap-popover__defs")).toHaveText(
-      "Japanese language",
-    );
+    await expect(page.locator(".subjap-popover__defs")).toHaveText("Japanese language");
 
     await page.locator(".subjap-btn--toggle-known").click();
     await expect(page.getByTestId("status")).toContainText("日本語");
-    await expect(page.locator(".subjap-token").first()).not.toHaveClass(
-      /subjap-known/,
-    );
+    await expect(page.locator(".subjap-token").first()).not.toHaveClass(/subjap-known/);
   });
 
   test("permet de sélectionner les informations de la popover sans ses boutons", async ({
@@ -356,9 +280,7 @@ test.describe("SubJap UX fixture", () => {
       .toContain("to carry out");
   });
 
-  test("garde une longue définition défilable au-dessus des sous-titres", async ({
-    page,
-  }) => {
+  test("garde une longue définition défilable au-dessus des sous-titres", async ({ page }) => {
     await page.setViewportSize({ width: 960, height: 800 });
     await page.getByTestId("long-definition-cue").click();
     await page.getByTestId("video-stage").scrollIntoViewIfNeeded();
@@ -379,9 +301,7 @@ test.describe("SubJap UX fixture", () => {
       const headerRect = element
         .querySelector<HTMLElement>(".subjap-popover__header")!
         .getBoundingClientRect();
-      const contentElement = element.querySelector<HTMLElement>(
-        ".subjap-popover__content",
-      )!;
+      const contentElement = element.querySelector<HTMLElement>(".subjap-popover__content")!;
       const actionsRect = element
         .querySelector<HTMLElement>(".subjap-popover__actions")!
         .getBoundingClientRect();
@@ -417,9 +337,7 @@ test.describe("SubJap UX fixture", () => {
     await content.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
-    await expect
-      .poll(() => content.evaluate((element) => element.scrollTop))
-      .toBeGreaterThan(0);
+    await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 
     const headerAfterScroll = await header.boundingBox();
     const actionsAfterScroll = await actions.boundingBox();
@@ -430,21 +348,15 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.getByTestId("status")).toContainText("為る");
   });
 
-  test("affiche un message quand la définition est introuvable", async ({
-    page,
-  }) => {
+  test("affiche un message quand la définition est introuvable", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     await page.locator(".subjap-token").nth(1).hover();
 
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(page.locator(".subjap-popover__defs")).toHaveText(
-      "Definition not found",
-    );
+    await expect(page.locator(".subjap-popover__defs")).toHaveText("Definition not found");
   });
 
-  test("expose ヤバくない comme un adjectif unique lié à やばい", async ({
-    page,
-  }) => {
+  test("expose ヤバくない comme un adjectif unique lié à やばい", async ({ page }) => {
     await page.getByTestId("mixed-adjective-cue").click();
 
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
@@ -472,9 +384,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.first()).toHaveClass(/subjap-known/);
   });
 
-  test("affiche le rang de fréquence pour toutes les couleurs", async ({
-    page,
-  }) => {
+  test("affiche le rang de fréquence pour toutes les couleurs", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
     const frequency = page.locator(".subjap-popover__freq");
@@ -485,20 +395,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(frequency).toHaveText("Frequency rank: #1");
     const infoOrder = await page.locator(".subjap-popover__anki").evaluate((anki) => {
-      const frequencyElement = anki.parentElement?.querySelector(
-        ".subjap-popover__freq",
-      );
+      const frequencyElement = anki.parentElement?.querySelector(".subjap-popover__freq");
       return Boolean(
         frequencyElement &&
-          (anki.compareDocumentPosition(frequencyElement) &
-            Node.DOCUMENT_POSITION_FOLLOWING),
+        anki.compareDocumentPosition(frequencyElement) & Node.DOCUMENT_POSITION_FOLLOWING,
       );
     });
     expect(infoOrder).toBe(true);
-    await expect(page.locator(".subjap-popover__reading")).toHaveCSS(
-      "font-size",
-      "17px",
-    );
+    await expect(page.locator(".subjap-popover__reading")).toHaveCSS("font-size", "17px");
     await expect(frequency).toHaveCSS("font-size", "13px");
 
     await tokens.nth(2).hover();
@@ -514,9 +418,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(frequency).toHaveText("Frequency rank: #500");
   });
 
-  test("avertit dans la popover quand des cartes existent déjà dans Anki", async ({
-    page,
-  }) => {
+  test("avertit dans la popover quand des cartes existent déjà dans Anki", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     const existingCardNotice = page.locator(".subjap-popover__anki");
 
@@ -528,9 +430,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(existingCardNotice).toHaveText("");
   });
 
-  test("capture automatiquement le screenshot à l’ouverture du mining", async ({
-    page,
-  }) => {
+  test("capture automatiquement le screenshot à l’ouverture du mining", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     await expect(page.locator("#subjap-overlay-container")).toBeVisible();
     await page.evaluate(() => {
@@ -564,16 +464,12 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
     await page.locator(".subjap-modal-backdrop").dispatchEvent("click");
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
-    await expect(page.locator(".subjap-screenshot-info")).toHaveText(
-      "✓ Screenshot captured",
-    );
+    await expect(page.locator(".subjap-screenshot-info")).toHaveText("✓ Screenshot captured");
     await page.locator(".subjap-modal-close").click();
     await expect(page.locator("#subjap-mining-modal")).toBeHidden();
   });
 
-  test("masque instantanément la popover avant le démarrage du mining", async ({
-    page,
-  }) => {
+  test("masque instantanément la popover avant le démarrage du mining", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     await page.locator(".subjap-token").first().click();
     await expect(page.locator("#subjap-popover")).toBeVisible();
@@ -581,15 +477,10 @@ test.describe("SubJap UX fixture", () => {
     await page.locator(".subjap-btn--mine").click();
 
     await expect(page.locator("#subjap-popover")).toBeHidden();
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-mine-popover-hidden",
-      "true",
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-mine-popover-hidden", "true");
   });
 
-  test("envoie automatiquement la traduction française avec la carte minée", async ({
-    page,
-  }) => {
+  test("envoie automatiquement la traduction française avec la carte minée", async ({ page }) => {
     await page.evaluate(() => {
       const messages: Array<Record<string, unknown>> = [];
       Object.defineProperty(window, "__subjapFixtureMessages", {
@@ -618,9 +509,7 @@ test.describe("SubJap UX fixture", () => {
     });
 
     await page.getByTestId("bilingual-cue").click();
-    await expect(page.locator(".subjap-translation-line")).toHaveText(
-      "J’étudie le japonais.",
-    );
+    await expect(page.locator(".subjap-translation-line")).toHaveText("J’étudie le japonais.");
     await page.getByTestId("mine-cue").click();
     await page.getByTestId("mining-notes").fill("context from my study session");
     await page.locator(".subjap-modal-btn-send").click();
@@ -629,9 +518,11 @@ test.describe("SubJap UX fixture", () => {
     await expect
       .poll(() =>
         page.evaluate(() => {
-          const messages = (window as unknown as {
-            __subjapFixtureMessages?: Array<Record<string, unknown>>;
-          }).__subjapFixtureMessages;
+          const messages = (
+            window as unknown as {
+              __subjapFixtureMessages?: Array<Record<string, unknown>>;
+            }
+          ).__subjapFixtureMessages;
           const ankiMessage = messages?.find((message) => message.type === "anki:addNote");
           const fields = ankiMessage?.fields as Record<string, unknown> | undefined;
           return { translation: fields?.Traduction, notes: fields?.Notes };
@@ -643,25 +534,19 @@ test.describe("SubJap UX fixture", () => {
       });
   });
 
-  test("met à jour la couleur quand un mot inconnu devient connu", async ({
-    page,
-  }) => {
+  test("met à jour la couleur quand un mot inconnu devient connu", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     const unknownToken = page.locator(".subjap-token").nth(2);
 
     await unknownToken.hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(page.locator(".subjap-btn--toggle-known")).toHaveText(
-      "Mark Known",
-    );
+    await expect(page.locator(".subjap-btn--toggle-known")).toHaveText("Mark Known");
 
     await page.locator(".subjap-btn--toggle-known").click();
     await expect(unknownToken).toHaveClass(/subjap-known/);
   });
 
-  test("ignore un mot en blanc sans l’ajouter aux mots connus", async ({
-    page,
-  }) => {
+  test("ignore un mot en blanc sans l’ajouter aux mots connus", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     // 勉強 has an existing Anki card in the fixture; IGNORED must override
     // that presence and turn the token white instead of leaving it purple.
@@ -671,33 +556,21 @@ test.describe("SubJap UX fixture", () => {
 
     await ignoredToken.hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText(
-      "Ignore",
-    );
+    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText("Ignore");
 
     await page.locator(".subjap-btn--toggle-ignored").click();
     await expect(ignoredToken).toHaveClass(/subjap-known/);
     await expect(ignoredToken).toHaveCSS("color", "rgb(255, 255, 255)");
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-known-count",
-      "1",
-    );
-    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText(
-      "Unignore",
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-known-count", "1");
+    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText("Unignore");
 
     await page.locator(".subjap-btn--toggle-ignored").click();
     await expect(ignoredToken).toHaveClass(/subjap-learning/);
     await expect(ignoredToken).toHaveCSS("color", "rgb(192, 132, 252)");
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-known-count",
-      "1",
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-known-count", "1");
   });
 
-  test("regroupe une construction grammaticale en une seule unité", async ({
-    page,
-  }) => {
+  test("regroupe une construction grammaticale en une seule unité", async ({ page }) => {
     await page.getByTestId("grouped-cue").click();
 
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
@@ -712,18 +585,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator(".subjap-popover__surface")).toHaveText("じゃなくって");
   });
 
-  test("rend les unités plurielles et leurs annotations avec UniDic réel", async ({
-    page,
-  }) => {
+  test("rend les unités plurielles et leurs annotations avec UniDic réel", async ({ page }) => {
     await page.getByTestId("video-stage").evaluate((stage) => {
       stage.scrollIntoView({ block: "start" });
     });
     await page.getByTestId("unidic-cue").click();
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-scenario",
-      "unidic-plurals",
-      { timeout: 10_000 },
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-scenario", "unidic-plurals", {
+      timeout: 10_000,
+    });
 
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
     await expect(tokens.first()).toHaveAttribute("data-surface", "こいつら");
@@ -739,9 +608,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator(".subjap-popover__surface")).toHaveText("こいつ");
     await expect(page.locator(".subjap-popover__reading")).toHaveText("こいつら");
     await expect(page.locator(".subjap-popover__dictionary")).toHaveCount(0);
-    await expect(page.locator(".subjap-popover__grammar")).toHaveText(
-      "ら — suffixe pluriel",
-    );
+    await expect(page.locator(".subjap-popover__grammar")).toHaveText("ら — suffixe pluriel");
     await expect(page.locator(".subjap-popover .subjap-token")).toHaveCount(0);
   });
 
@@ -749,11 +616,9 @@ test.describe("SubJap UX fixture", () => {
     page,
   }) => {
     await page.getByTestId("unidic-variants-cue").click();
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-scenario",
-      "unidic-variants",
-      { timeout: 10_000 },
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-scenario", "unidic-variants", {
+      timeout: 10_000,
+    });
 
     const surfaces = await page
       .locator("#subjap-overlay-container .subjap-token")
@@ -765,9 +630,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator(".subjap-popover__grammar")).toHaveCount(1);
   });
 
-  test("regroupe la forme explicative なんです sans absorber le nom", async ({
-    page,
-  }) => {
+  test("regroupe la forme explicative なんです sans absorber le nom", async ({ page }) => {
     await page.getByTestId("explanatory-cue").click();
 
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
@@ -821,9 +684,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator(".subjap-popover__defs")).toHaveText("to do");
   });
 
-  test("réagit à l’effacement, aux options live et au remplacement SPA", async ({
-    page,
-  }) => {
+  test("réagit à l’effacement, aux options live et au remplacement SPA", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     await expect(page.locator("#subjap-overlay-container")).toBeVisible();
 
@@ -843,15 +704,9 @@ test.describe("SubJap UX fixture", () => {
 
   test("navigue entre les sous-titres avec q, s et d", async ({ page }) => {
     await page.getByTestId("next-cue").click();
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-cue",
-      "日本語を勉強します。",
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-cue", "日本語を勉強します。");
     await page.getByTestId("grouped-cue").click();
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-cue",
-      "じゃなくって",
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-cue", "じゃなくって");
 
     const video = page.locator("#video");
     await video.evaluate((element) => {
@@ -908,10 +763,7 @@ test.describe("SubJap UX fixture", () => {
     const pageBody = page.locator("body");
 
     await page.getByTestId("next-cue").click();
-    await expect(page.getByTestId("status")).toHaveAttribute(
-      "data-cue",
-      "日本語を勉強します。",
-    );
+    await expect(page.getByTestId("status")).toHaveAttribute("data-cue", "日本語を勉強します。");
 
     await video.evaluate((element) => {
       (element as HTMLVideoElement).currentTime = 17;
@@ -940,21 +792,13 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 50);
   });
 
-  test("Q garde le vrai début d'une phrase réaffichée à la fin d'un seek", async ({
-    page,
-  }) => {
+  test("Q garde le vrai début d'une phrase réaffichée à la fin d'un seek", async ({ page }) => {
     const video = page.locator("#video");
     const status = page.getByTestId("status");
 
     await page.getByTestId("seek-overlap-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-scenario",
-      "seek-overlap-complete",
-    );
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "困るんですよ生徒に示しがつかないから",
-    );
+    await expect(status).toHaveAttribute("data-scenario", "seek-overlap-complete");
+    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
 
     await page.locator("body").press("q");
     await expect(video).toHaveJSProperty("currentTime", 105);
@@ -967,14 +811,8 @@ test.describe("SubJap UX fixture", () => {
     const status = page.getByTestId("status");
 
     await page.getByTestId("authoritative-timing-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-scenario",
-      "authoritative-timing-complete",
-    );
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "困るんですよ生徒に示しがつかないから",
-    );
+    await expect(status).toHaveAttribute("data-scenario", "authoritative-timing-complete");
+    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
 
     await page.locator("body").press("q");
     await expect(video).toHaveJSProperty("currentTime", 105);
@@ -987,74 +825,44 @@ test.describe("SubJap UX fixture", () => {
     const status = page.getByTestId("status");
 
     await page.getByTestId("official-history-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-scenario",
-      "official-history-complete",
-    );
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "困るんですよ生徒に示しがつかないから",
-    );
+    await expect(status).toHaveAttribute("data-scenario", "official-history-complete");
+    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
 
     await page.locator("body").press("q");
     await expect(video).toHaveJSProperty("currentTime", 105);
   });
 
-  test("Q ignore le doublon de la cue courante entre DOM et piste officielle", async ({
-    page,
-  }) => {
+  test("Q ignore le doublon de la cue courante entre DOM et piste officielle", async ({ page }) => {
     const video = page.locator("#video");
     const status = page.getByTestId("status");
 
     await page.getByTestId("stale-dom-track-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-scenario",
-      "stale-dom-track-complete",
-    );
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "困るんですよ生徒に示しがつかないから",
-    );
+    await expect(status).toHaveAttribute("data-scenario", "stale-dom-track-complete");
+    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
 
     await page.locator("body").press("q");
     await expect(video).toHaveJSProperty("currentTime", 105);
   });
 
-  test("S reprend la cue courante avec le timestamp officiel", async ({
-    page,
-  }) => {
+  test("S reprend la cue courante avec le timestamp officiel", async ({ page }) => {
     const video = page.locator("#video");
     const status = page.getByTestId("status");
 
     await page.getByTestId("stale-dom-track-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-scenario",
-      "stale-dom-track-complete",
-    );
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "困るんですよ生徒に示しがつかないから",
-    );
+    await expect(status).toHaveAttribute("data-scenario", "stale-dom-track-complete");
+    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
 
     await page.locator("body").press("s");
     await expect(video).toHaveJSProperty("currentTime", 110.778);
   });
 
-  test("conserve les cibles de Q et S quand ils sont pressés au même instant", async ({
-    page,
-  }) => {
+  test("conserve les cibles de Q et S quand ils sont pressés au même instant", async ({ page }) => {
     const video = page.locator("#video");
     const status = page.getByTestId("status");
 
     await page.getByTestId("official-history-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-scenario",
-      "official-history-complete",
-    );
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "困るんですよ生徒に示しがつかないから",
-    );
+    await expect(status).toHaveAttribute("data-scenario", "official-history-complete");
+    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
 
     // Dispatch both keys before the first queued seek can update the media
     // clock. Each action must retain the timestamp that existed at keydown.
@@ -1066,9 +874,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 110.778);
   });
 
-  test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({
-    page,
-  }) => {
+  test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({ page }) => {
     const video = page.locator("#video");
     const status = page.getByTestId("status");
     const pageBody = page.locator("body");
@@ -1112,9 +918,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 19.85);
   });
 
-  test("garde navigation et mining alignés sur la phrase réellement rendue", async ({
-    page,
-  }) => {
+  test("garde navigation et mining alignés sur la phrase réellement rendue", async ({ page }) => {
     const status = page.getByTestId("status");
     const video = page.locator("#video");
     const pageBody = page.locator("body");
@@ -1141,10 +945,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 20);
 
     await page.getByTestId("multiline-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "日本語を\n勉強します。",
-    );
+    await expect(status).toHaveAttribute("data-cue", "日本語を\n勉強します。");
     await page.getByTestId("mine-cue").click();
     await expect(page.locator("#subjap-mining-modal .subjap-sentence")).toContainText(
       "日本語を勉強します。",
@@ -1182,9 +983,7 @@ test.describe("SubJap UX fixture", () => {
       .toBe("日本語");
   });
 
-  test("garde toute une phrase quand Netflix fait défiler ses deux lignes", async ({
-    page,
-  }) => {
+  test("garde toute une phrase quand Netflix fait défiler ses deux lignes", async ({ page }) => {
     const status = page.getByTestId("status");
 
     await expect(status).toHaveAttribute("data-cue", "待ってください。");
