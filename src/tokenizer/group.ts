@@ -46,9 +46,11 @@ const INFLECTIONAL_AUXILIARY_TYPES = new Set([
   "助動詞-マス",
   "助動詞-デス",
   "助動詞-ヌ",
+  "助動詞-レル",
 ]);
 
 const INFLECTIONAL_INVARIABLE_AUXILIARIES = new Set(["ん", "う"]);
+const INFLECTIONAL_AUXILIARY_LEMMAS = new Set(["れる", "られる", "せる", "させる"]);
 
 /**
  * Verbs that commonly act as auxiliaries after the conjunctive て/で form.
@@ -121,6 +123,7 @@ function isInflectionalAuxiliary(token: Token): boolean {
   return (
     isAuxiliary(token) &&
     (INFLECTIONAL_AUXILIARY_TYPES.has(token.conjugationType ?? "") ||
+      INFLECTIONAL_AUXILIARY_LEMMAS.has(tokenDictionaryForm(token)) ||
       INFLECTIONAL_INVARIABLE_AUXILIARIES.has(tokenDictionaryForm(token)))
   );
 }
