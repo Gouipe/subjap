@@ -15,7 +15,7 @@
       .page { max-width: 1180px; margin: 0 auto; padding: 24px; }
       h1 { margin: 0 0 6px; font-size: 24px; }
       .hint { margin: 0 0 20px; color: #94a3b8; }
-      .layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+      .layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; }
       .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
       .stage { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; background: linear-gradient(135deg, #312e81, #111827 55%, #7f1d1d); }
       .stage video { display: block; width: 100%; height: 100%; opacity: 0; }
@@ -66,6 +66,7 @@
           <button id="whitespace-candidate" data-testid="whitespace-candidate-cue">Tester vert avec espace invisible</button>
           <button id="parenthetical" data-testid="parenthetical-cue">Afficher une phrase avec parenthèses</button>
           <button id="bilingual" data-testid="bilingual-cue">Afficher japonais + français Netflix</button>
+          <button id="encoded-translation" data-testid="encoded-translation-cue">Tester les quotes HTML dans la traduction</button>
           <button id="untimed" data-testid="untimed-cue">Afficher une phrase Netflix sans timestamps</button>
           <button id="multiline" data-testid="multiline-cue">Afficher une phrase Netflix sur deux lignes</button>
           <button id="rolling" data-testid="rolling-cue">Faire défiler une longue phrase Netflix</button>
@@ -87,11 +88,9 @@
           <button id="toggle-native" data-testid="toggle-native">Afficher les natifs</button>
           <label class="check"><input id="furigana" type="checkbox" checked /> Afficher le furigana</label>
           <button id="authoritative-timing" data-testid="authoritative-timing-cue">Corriger une cue DOM avec la piste Netflix</button>
-          <label class="check"><input id="hide-secondary-when-known" type="checkbox" /> Masquer FR/EN si la phrase est connue</label>
           <button id="official-history" data-testid="official-history-cue">Naviguer dans l’historique officiel Netflix</button>
           <button id="stale-dom-track" data-testid="stale-dom-track-cue">Corriger une cue DOM restée visible</button>
           <p class="hint" style="font-size:12px; margin:8px 0 0">Survolez un token 350 ms ou cliquez dessus pour tester la popover. Appuyez sur <code>C</code> pour copier la phrase japonaise.</p>
-          <button id="bilingual-known" data-testid="bilingual-known-cue">Afficher bilingue avec phrase connue</button>
         </aside>
       </div>
     </main>

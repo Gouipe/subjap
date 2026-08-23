@@ -19,8 +19,6 @@ Les tests Vitest couvrent notamment :
 - le téléchargement des pistes officielles Netflix par le service worker ;
 - le montage de l’overlay sur `document.body` ;
 - le rendu des tokens, du furigana et des mots connus ;
-- le masquage optionnel de la traduction quand tous les mots affichés sont
-  connus ou ignorés ;
 - les couleurs de fréquence : inconnus pertinents en vert, tranche suivante de
   300 rangs en bleu, mots connus et mots éloignés en blanc ;
 - le positionnement au-dessus de la vidéo et de sa barre de contrôle.

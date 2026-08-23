@@ -311,6 +311,4 @@ export interface OverlayOptions {
   knownColor: string;
   /** Hide the platform's native subtitle tracks (the overlay replaces them). */
   hideNativeSubtitles: boolean;
-  /** Hide the rendered FR/EN subtitle when every lexical word is known/ignored. */
-  hideSecondarySubtitlesWhenAllKnown: boolean;
 }

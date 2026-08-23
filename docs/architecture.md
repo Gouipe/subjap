@@ -267,13 +267,11 @@ la carte demeure valide.
 - **Onboarding** : page Options ouverte au premier install ; trois étapes pour
   installer le dictionnaire, configurer ou ignorer AnkiConnect, puis enregistrer
   les réglages d’affichage.
-- **Popup** : statut du dictionnaire, statistiques locales, statut Anki,
-  rappel de l’onboarding et réglage rapide du masquage des traductions FR/EN
-  quand la phrase est entièrement connue.
+- **Popup** : statut du dictionnaire, statistiques locales, statut Anki et
+  rappel de l’onboarding.
 - **Options** : installation ou réinstallation du pack JMdict, configuration
   du deck Anki, taille/police/furigana/couleur de l’overlay, masquage des
-  sous-titres natifs, masquage conditionnel des traductions FR/EN, remise à
-  zéro des données et relance de l’onboarding.
+  sous-titres natifs, remise à zéro des données et relance de l’onboarding.
 
 Les pages React ne contiennent pas la logique de lecture : elles utilisent le
 bus de messages et les modules partagés pour lire ou modifier l’état.

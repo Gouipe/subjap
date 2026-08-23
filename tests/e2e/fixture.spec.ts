@@ -108,32 +108,6 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
-  test("masque la traduction quand toutes les lignes sont connues", async ({
-    page,
-  }) => {
-    await page.getByLabel("Masquer FR/EN si la phrase est connue").check();
-    await page.getByTestId("bilingual-known-cue").click();
-
-    await expect(page.locator(".subjap-cue-line")).toBeVisible();
-    await expect(page.locator(".subjap-translation-line")).toHaveCount(0);
-
-    await page.getByLabel("Masquer FR/EN si la phrase est connue").uncheck();
-    await expect(page.locator(".subjap-translation-line")).toHaveText(
-      "J’étudie le japonais.",
-    );
-  });
-
-  test("conserve la traduction dès qu’un mot reste inconnu", async ({
-    page,
-  }) => {
-    await page.getByLabel("Masquer FR/EN si la phrase est connue").check();
-    await page.getByTestId("bilingual-cue").click();
-
-    await expect(page.locator(".subjap-translation-line")).toHaveText(
-      "J’étudie le japonais.",
-    );
-  });
-
   test("ignore le furigana ruby natif sans dupliquer le mot", async ({ page }) => {
     await page.goto("/tests/fixture/index.html?scenario=ruby-native-annotation");
 
@@ -226,6 +200,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(translation).toHaveAttribute("data-language", "fr");
     await expect(overlay.locator(".subjap-token")).toHaveCount(6);
     await expect(page.getByTestId("native-subtitles")).toBeHidden();
+  });
+
+  test("décode les quotes HTML dans la traduction française", async ({ page }) => {
+    await page.getByTestId("encoded-translation-cue").click();
+
+    await expect(page.locator(".subjap-translation-line")).toHaveText(
+      '"Good luck," or something like that.',
+    );
   });
 
   test("distingue connu, carte Anki, apprentissage et les couleurs de fréquence", async ({
@@ -684,9 +666,6 @@ test.describe("SubJap UX fixture", () => {
   test("rend les unités plurielles et leurs annotations avec UniDic réel", async ({
     page,
   }) => {
-    await page.getByTestId("video-stage").evaluate((stage) => {
-      stage.scrollIntoView({ block: "start" });
-    });
     await page.getByTestId("unidic-cue").click();
     await expect(page.getByTestId("status")).toHaveAttribute(
       "data-scenario",

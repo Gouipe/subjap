@@ -11,7 +11,7 @@ import { MiningModal } from "../../src/mining/modal";
 import { groupTokens } from "../../src/tokenizer/group";
 import { createTokenizer } from "../../src/tokenizer";
 import { mergeFrequencyRanks } from "../../src/dictionary/frequency";
-import { markParentheticalTokens } from "../../src/subtitles";
+import { markParentheticalTokens, normalizeCueText } from "../../src/subtitles";
 import { tokenCanonicalKey, tokenLookupTerms } from "../../src/core/types";
 import type {
   DictionaryEntry,
@@ -27,9 +27,6 @@ const stage = document.querySelector<HTMLDivElement>("#stage")!;
 const nativeSubtitles = document.querySelector<HTMLDivElement>("#timedtext")!;
 const status = document.querySelector<HTMLDivElement>("#status")!;
 const furiganaToggle = document.querySelector<HTMLInputElement>("#furigana")!;
-const hideSecondaryWhenKnownToggle = document.querySelector<HTMLInputElement>(
-  "#hide-secondary-when-known",
-)!;
 
 const fixtureSeekTransport = {
   seek: async (timeSeconds: number, resume: boolean): Promise<boolean> => {
@@ -397,7 +394,6 @@ function ensureOverlay(): OverlayRenderer | null {
     overlay = new OverlayRenderer(video, {
       showFurigana: furiganaToggle.checked,
       highlightKnown: true,
-      hideSecondarySubtitlesWhenAllKnown: hideSecondaryWhenKnownToggle.checked,
     });
     currentVideo = video;
   }
@@ -427,7 +423,11 @@ function render(cues: SubtitleCue[]): void {
   }
   renderer.setKnownWordCount(knownLemmas.size);
   renderer.updateCues(japaneseCues.map(renderedCue));
-  renderer.updateTranslation(currentTranslation);
+  renderer.updateTranslation(
+    currentTranslation
+      ? { ...currentTranslation, text: normalizeCueText(currentTranslation.text) }
+      : null,
+  );
   renderer.show();
   cueNavigator.observe(japaneseCues);
   setStatus(`Cues reçus : ${japaneseCues.length} — overlay visible`);
@@ -572,6 +572,15 @@ document.querySelector<HTMLButtonElement>("#bilingual")!.addEventListener("click
   nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。", "12", "16"));
 });
 
+document.querySelector<HTMLButtonElement>("#encoded-translation")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  currentTranslation = {
+    language: "fr",
+    text: "&quot;Good luck,&quot; or something like that.",
+  };
+  nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。", "12", "16"));
+});
+
 document.querySelector<HTMLButtonElement>("#untimed")!.addEventListener("click", () => {
   activeTokens = tokens;
   nativeSubtitles.replaceChildren(
@@ -585,17 +594,6 @@ document.querySelector<HTMLButtonElement>("#multiline")!.addEventListener("click
     nativeLine("日本語を", "20", "24"),
     nativeLine("勉強します。", "20", "24"),
   );
-document.querySelector<HTMLButtonElement>("#bilingual-known")!.addEventListener("click", () => {
-  knownLemmas = new Set(["日本語", "勉強", "する", "ます"]);
-  ignoredLemmas = new Set(["を"]);
-  unknownLemmas = new Set();
-  activeTokens = parentheticalTokens;
-  currentTranslation = { language: "fr", text: "J’étudie le japonais." };
-  nativeSubtitles.replaceChildren(
-    nativeLine("-（田中）日本語を勉強します。", "12", "16"),
-  );
-});
-
 });
 
 document.querySelector<HTMLButtonElement>("#rolling")!.addEventListener("click", () => {
@@ -948,12 +946,6 @@ installSimulatedMediaClock(document.querySelector<HTMLVideoElement>("#video")!);
 adapter.subscribeCues((cues) => {
   const delay = cues.length > 0 ? nextRenderDelayMs : 0;
   nextRenderDelayMs = 0;
-hideSecondaryWhenKnownToggle.addEventListener("change", () => {
-  overlay?.setOptions({
-    hideSecondarySubtitlesWhenAllKnown: hideSecondaryWhenKnownToggle.checked,
-  });
-});
-
   if (delay > 0) {
     setTimeout(() => render(cues), delay);
     return;

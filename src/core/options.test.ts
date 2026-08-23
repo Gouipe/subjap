@@ -61,16 +61,6 @@ describe("sanitizeOptions", () => {
     expect(DEFAULT_OPTIONS.hideNativeSubtitles).toBe(true);
   });
 
-  it("defaults secondary subtitle hiding to off", () => {
-    expect(DEFAULT_OPTIONS.hideSecondarySubtitlesWhenAllKnown).toBe(false);
-  });
-
-  it("keeps the secondary subtitle toggle when valid", () => {
-    expect(
-      sanitizeOptions({ hideSecondarySubtitlesWhenAllKnown: true }),
-    ).toEqual({ hideSecondarySubtitlesWhenAllKnown: true });
-  });
-
   it("clamps fontSize to the [12, 64] range", () => {
     expect(sanitizeOptions({ fontSize: 200 }).fontSize).toBe(64);
     expect(sanitizeOptions({ fontSize: 2 }).fontSize).toBe(12);
