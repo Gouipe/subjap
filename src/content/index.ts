@@ -19,7 +19,9 @@ import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookup } from "@/dictionary";
 import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
+import { isAllKnownOrIgnored, isNonLexicalToken } from "@/core/frequency";
 import { MiningModal, VideoAudioCapture } from "@/mining";
+import { ListeningMode } from "./listening-mode";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
 import {
   markParentheticalTokens,
@@ -76,6 +78,10 @@ let tokenizer: Tokenizer | null = null;
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
+let listeningMode: ListeningMode | null = null;
+const listeningExerciseKeys = new Set<string>();
+let listeningExerciseCount = 0;
+const MAX_LISTENING_EXERCISES_PER_VIDEO = 5;
 let nativeSubtitlesHidden = false;
 
 // The action popup prepares tab capture after the user invokes the extension.
@@ -285,8 +291,12 @@ function ensureOverlay(): OverlayRenderer | null {
   // The video element can be swapped on SPA navigation (e.g. Netflix): tear
   // down the overlay mounted in the old player's parent and rebuild.
   if (overlay && currentVideo !== video) {
+    listeningMode?.destroy();
+    listeningMode = null;
     overlay.destroy();
     overlay = null;
+    listeningExerciseKeys.clear();
+    listeningExerciseCount = 0;
     audioCapture?.destroy();
     audioCapture = null;
     currentVideo = null;
@@ -299,6 +309,7 @@ function ensureOverlay(): OverlayRenderer | null {
 
   if (!overlay) {
     overlay = new OverlayRenderer(video, overlayOptions);
+    listeningMode = new ListeningMode(video, adapter, overlay);
     audioCapture = new VideoAudioCapture(video, (timeSeconds, resume) =>
       adapter.seekTo(timeSeconds, resume),
     );
@@ -477,6 +488,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   );
   overlayInstance.show();
   cueNavigator.observe(japaneseCues);
+  maybeTriggerListeningMode(rendered);
   console.log(`[SubJap] render: shown ${rendered.length} cue(s)`);
 }
 
@@ -490,6 +502,86 @@ function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {
     cues.find((cue) => /^en(?:[-_]|$)/i.test(cue.language ?? "")) ??
     null
   );
+}
+
+function hasPos(token: Token, ...parts: string[]): boolean {
+  return parts.some(
+    (part) =>
+      token.partOfSpeech.includes(part) ||
+      token.partOfSpeechDetails?.includes(part) === true,
+  );
+}
+
+function isRepeatedSyllableText(text: string): boolean {
+  const units = Array.from(text.trim());
+  if (units.length < 4 || units.length % 2 !== 0) return false;
+  const middle = units.length / 2;
+  return units.slice(0, middle).join("") === units.slice(middle).join("");
+}
+
+/** Conservative structural exclusions for the audio-first exercise. */
+function isInterestingListeningCue(rendered: RenderedCue): boolean {
+  const lexical = rendered.spans.filter(
+    (span) => !span.isParenthetical && !isNonLexicalToken(span.token),
+  );
+  if (lexical.length < 2) return false;
+
+  // Skip isolated interjections/adverbs such as えっ, ああ or もう一度.
+  if (
+    lexical.every(
+      (span) => hasPos(span.token, "感動詞") || hasPos(span.token, "副詞"),
+    )
+  ) {
+    return false;
+  }
+
+  // Repeated kana/katakana forms are a useful but noisy first approximation
+  // for sound effects and onomatopoeia. Keep this deliberately conservative.
+  if (
+    lexical.length <= 2 &&
+    lexical.some((span) => isRepeatedSyllableText(span.token.surface)) &&
+    lexical.every(
+      (span) => !hasPos(span.token, "動詞", "形容詞", "助詞", "助動詞"),
+    )
+  ) {
+    return false;
+  }
+
+  // A block made only of proper names is usually a character/location label,
+  // not useful listening practice.
+  if (
+    lexical.every(
+      (span) =>
+        hasPos(span.token, "固有名詞") ||
+        span.token.partOfSpeechDetails?.some((detail) => detail.includes("固有名詞")) ===
+          true,
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
+  if (!overlayOptions.activeListeningMode) return;
+  if (!listeningMode || listeningMode.isActive) return;
+  if (listeningExerciseCount >= MAX_LISTENING_EXERCISES_PER_VIDEO) return;
+  if (adapter.isPaused()) return;
+
+  // A multi-line active block is deliberately left alone for now: it is not
+  // possible to identify one clean exercise phrase without a larger cue model.
+  if (rendered.length !== 1) return;
+  const candidate = rendered[0];
+  if (!candidate || candidate.cue.endConfirmed === false) return;
+  if (!isAllKnownOrIgnored(candidate.spans)) return;
+  if (!isInterestingListeningCue(candidate)) return;
+
+  const key = `${candidate.cue.id}\u0000${candidate.cue.start}\u0000${candidate.cue.end}`;
+  if (listeningExerciseKeys.has(key)) return;
+  listeningExerciseKeys.add(key);
+  listeningExerciseCount += 1;
+  listeningMode.open(candidate);
 }
 
 // ---------------------------------------------------------------------------

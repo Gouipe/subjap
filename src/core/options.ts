@@ -20,6 +20,7 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   knownColor: "#22c55e",
   hideNativeSubtitles: true,
   hideSecondarySubtitlesWhenAllKnown: false,
+  activeListeningMode: false,
 };
 
 /**
@@ -70,6 +71,9 @@ export function sanitizeOptions(
   if (typeof raw.hideSecondarySubtitlesWhenAllKnown === "boolean") {
     out.hideSecondarySubtitlesWhenAllKnown =
       raw.hideSecondarySubtitlesWhenAllKnown;
+  }
+  if (typeof raw.activeListeningMode === "boolean") {
+    out.activeListeningMode = raw.activeListeningMode;
   }
 
   return out;

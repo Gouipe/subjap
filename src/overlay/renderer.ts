@@ -14,6 +14,8 @@ import { DEFAULT_OPTIONS } from "@/core/options";
 import { containsKanjiOrKatakana, toHiragana } from "@/core/kana";
 import {
   getFrequencyHighlight,
+  isJapaneseOnlyEligible,
+  isNonLexicalToken,
   isSingleMiningCandidate,
   type FrequencyHighlight,
 } from "@/core/frequency";
@@ -101,6 +103,14 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-translation-line--hidden:hover {
       opacity: 1;
+    }
+    #${CONTAINER_ID} .subjap-translation-line--exercise-hidden,
+    #${CONTAINER_ID} .subjap-translation-line--exercise-hidden:hover {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #${CONTAINER_ID} .subjap-subtitles--hidden {
+      visibility: hidden;
     }
     #${CONTAINER_ID} .subjap-token {
       display: inline-flex;
@@ -198,6 +208,8 @@ export class OverlayRenderer {
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
   private visible = false;
+  private japaneseSubtitlesVisible = true;
+  private translationVisible = true;
 
   constructor(video: HTMLVideoElement, options?: Partial<OverlayOptions>) {
     this.video = video;
@@ -257,6 +269,13 @@ export class OverlayRenderer {
     this.render();
   }
 
+  /** Temporarily hide/reveal the two subtitle layers without changing options. */
+  setSubtitleVisibility(japanese: boolean, translation: boolean): void {
+    this.japaneseSubtitlesVisible = japanese;
+    this.translationVisible = translation;
+    this.render();
+  }
+
   /**
    * Update styling options and re-render.
    */
@@ -289,12 +308,17 @@ export class OverlayRenderer {
 
     for (const rc of this.cues) {
       const line = this.buildCueLine(rc);
+      if (!this.japaneseSubtitlesVisible) {
+        line.classList.add("subjap-subtitles--hidden");
+      }
       this.container.appendChild(line);
     }
     if (this.translation) {
       const line = document.createElement("div");
       line.className = "subjap-translation-line";
-      if (!this.shouldShowTranslation()) {
+      if (!this.translationVisible) {
+        line.classList.add("subjap-translation-line--exercise-hidden");
+      } else if (!this.shouldShowTranslation()) {
         line.classList.add("subjap-translation-line--hidden");
       }
       line.lang = this.translation.language;
@@ -416,11 +440,7 @@ export class OverlayRenderer {
   }
 
   private isNonWord(st: SpanToken): boolean {
-    return (
-      st.token.surface.trim().length === 0 ||
-      st.token.partOfSpeech.includes("記号") ||
-      /^[、。！？!?.,，．：；「」『』（）()…]+$/.test(st.token.surface)
-    );
+    return isNonLexicalToken(st.token);
   }
 
   /**
@@ -431,18 +451,9 @@ export class OverlayRenderer {
    */
   private shouldShowTranslation(): boolean {
     if (!this.options.hideSecondarySubtitlesWhenAllKnown) return true;
-
-    const lexicalSpans = this.cues.flatMap((cue) =>
-      cue.spans.filter(
-        (span) => !span.isParenthetical && !this.isNonWord(span),
-      ),
-    );
-
-    if (lexicalSpans.length === 0) return true;
-    return lexicalSpans.some(
-      (span) =>
-        span.wordState?.status !== "known" &&
-        span.wordState?.status !== "ignored",
+    return !isJapaneseOnlyEligible(
+      this.cues.flatMap((cue) => cue.spans),
+      this.knownWordCount,
     );
   }
 

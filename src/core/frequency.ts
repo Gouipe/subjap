@@ -1,4 +1,4 @@
-import type { WordState } from "./types";
+import type { SpanToken, Token, WordState } from "./types";
 
 export const NEAR_FREQUENCY_WINDOW = 300;
 
@@ -9,6 +9,70 @@ export type FrequencyHighlight =
   | "relevant"
   | "near"
   | "unknown";
+
+/** Punctuation and whitespace do not count as words for subtitle modes. */
+export function isNonLexicalToken(
+  token: Pick<Token, "surface" | "partOfSpeech">,
+): boolean {
+  return (
+    token.surface.trim().length === 0 ||
+    token.partOfSpeech.includes("記号") ||
+    /^[、。！？!?.,，．：；「」『』（）()…]+$/u.test(token.surface)
+  );
+}
+
+/**
+ * Whether a rendered subtitle block contains zero or one relevant learning
+ * target, with every other lexical word explicitly known/ignored. The
+ * relevant/near colours reuse the existing frequency bands; this function
+ * introduces no additional frequency threshold.
+ */
+export function isJapaneseOnlyEligible(
+  spans: readonly SpanToken[],
+  knownWordCount: number,
+): boolean {
+  const lexicalSpans = spans.filter(
+    (span) => !span.isParenthetical && !isNonLexicalToken(span.token),
+  );
+  if (lexicalSpans.length === 0) return false;
+
+  let targetCount = 0;
+  for (const span of lexicalSpans) {
+    if (
+      span.wordState?.status === "known" ||
+      span.wordState?.status === "ignored"
+    ) {
+      continue;
+    }
+
+    const highlight = getFrequencyHighlight(
+      span.wordState,
+      span.frequencyRank,
+      knownWordCount,
+      span.ankiNoteCount,
+    );
+    if (highlight !== "relevant" && highlight !== "near") return false;
+    targetCount += 1;
+    if (targetCount > 1) return false;
+  }
+
+  return true;
+}
+
+/** Return true when every lexical word is explicitly known or ignored. */
+export function isAllKnownOrIgnored(spans: readonly SpanToken[]): boolean {
+  const lexicalSpans = spans.filter(
+    (span) => !span.isParenthetical && !isNonLexicalToken(span.token),
+  );
+  return (
+    lexicalSpans.length > 0 &&
+    lexicalSpans.every(
+      (span) =>
+        span.wordState?.status === "known" ||
+        span.wordState?.status === "ignored",
+    )
+  );
+}
 
 /**
  * A sentence is a good mining candidate when it has one useful frequency

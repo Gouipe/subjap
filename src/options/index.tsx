@@ -502,6 +502,20 @@ function OnboardingWizard(props: {
               />
             </div>
           </div>
+          <div style={s.row}>
+            <div style={s.rowLabel}>
+              <span>Mode d'écoute active</span>
+              <span style={s.rowHint}>
+                pause jusqu'à 5 phrases connues par vidéo pour les écouter sans texte
+              </span>
+            </div>
+            <div style={s.rowControl}>
+              <Toggle
+                checked={options.activeListeningMode}
+                onChange={(v) => setOptions({ ...options, activeListeningMode: v })}
+              />
+            </div>
+          </div>
           <div style={s.btnRow}>
             <Btn onClick={() => void finish()}>Terminer ✓</Btn>
           </div>
@@ -812,14 +826,23 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
               />
             </Row>
             <Row
-              label="Masquer les sous-titres FR/EN connus"
-              hint="masque la traduction quand tous les mots japonais affichés sont connus ou ignorés"
+              label="Masquer les sous-titres FR/EN"
+              hint="masque la traduction quand tous les mots sont connus/ignorés, ou avec un seul mot bleu/vert"
             >
               <Toggle
                 checked={options.hideSecondarySubtitlesWhenAllKnown}
                 onChange={(v) =>
                   void updateOptions({ hideSecondarySubtitlesWhenAllKnown: v })
                 }
+              />
+            </Row>
+            <Row
+              label="Mode d'écoute active"
+              hint="pause jusqu'à 5 phrases intéressantes par vidéo ; audio seul puis révélations manuelles"
+            >
+              <Toggle
+                checked={options.activeListeningMode}
+                onChange={(v) => void updateOptions({ activeListeningMode: v })}
               />
             </Row>
           </>

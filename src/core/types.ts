@@ -315,4 +315,6 @@ export interface OverlayOptions {
   hideNativeSubtitles: boolean;
   /** Hide the rendered FR/EN subtitle when every lexical word is known/ignored. */
   hideSecondarySubtitlesWhenAllKnown: boolean;
+  /** Offer an audio-first exercise for structurally interesting all-known phrases. */
+  activeListeningMode: boolean;
 }
