@@ -31,6 +31,7 @@ import { LRUCache } from "@/tokenizer/lru-cache";
 import { groupTokens } from "@/tokenizer/group";
 import {
   CueNavigator,
+  installPausePlayShortcut,
   installPlaybackShortcuts,
   installSubtitleCopyShortcut,
   subtitleTextForClipboard,
@@ -790,6 +791,7 @@ getPopover({
 });
 
 const removePlaybackShortcuts = installPlaybackShortcuts(document, adapter, cueNavigator);
+const removePausePlayShortcut = installPausePlayShortcut(document, adapter);
 const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
   getText: () =>
     subtitleTextForClipboard(lastRenderedCues.map((rendered) => rendered.cue)),
@@ -798,6 +800,7 @@ window.addEventListener(
   "pagehide",
   () => {
     removePlaybackShortcuts();
+    removePausePlayShortcut();
     removeSubtitleCopyShortcut();
     document.removeEventListener("pointerdown", resumeTabAudio, true);
     document.removeEventListener("keydown", resumeTabAudio, true);

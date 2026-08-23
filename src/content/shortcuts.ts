@@ -246,6 +246,11 @@ function isBlockedTarget(target: EventTarget | null): boolean {
   );
 }
 
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return target.closest("input, textarea, select, [contenteditable]") !== null;
+}
+
 /** Build the single-line Japanese text copied by the C shortcut. */
 export function subtitleTextForClipboard(
   cues: Array<Pick<SubtitleCue, "text">>,
@@ -398,6 +403,51 @@ export function installPlaybackShortcuts(
       }
     };
     seekQueue = seekQueue.then(runSeek, runSeek);
+  };
+
+  doc.addEventListener("keydown", onKeydown, true);
+  return () => {
+    removed = true;
+    doc.removeEventListener("keydown", onKeydown, true);
+  };
+}
+
+/** Install the global-in-the-page Space pause/play shortcut. */
+export function installPausePlayShortcut(
+  doc: Document,
+  adapter: Pick<PlatformAdapter, "getVideoElement">,
+): () => void {
+  let removed = false;
+
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (
+      event.code !== "Space" ||
+      event.repeat ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      isTextEntryTarget(event.target)
+    ) {
+      return;
+    }
+
+    const video = adapter.getVideoElement();
+    if (!video) return;
+
+    // Stop Netflix's native Space shortcut and the default button/page scroll
+    // action. Calling pause/play on the media element remains valid for the
+    // DRM-backed Netflix player; unlike currentTime, it does not desynchronise
+    // Netflix's internal playback state.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (video.paused) {
+      void video.play().catch((err: unknown) => {
+        if (!removed) console.warn("[SubJap] Playback resume failed:", err);
+      });
+    } else {
+      video.pause();
+    }
   };
 
   doc.addEventListener("keydown", onKeydown, true);
