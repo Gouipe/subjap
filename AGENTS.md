@@ -15,10 +15,12 @@ les commandes de vérification et la gestion des régressions ; ne pas recopier
 ces procédures ici. Si l’utilisateur demande explicitement le harnais complet,
 le suivre directement.
 
-Utiliser git worktree quand tu ajoutes/modifies une fonctionnalité afin de ne pas être en conflit avec un autre agent
-travaillant potentiellement en parallèle sur une autre feature.
-Une fois l’implémentation terminée et vérifiée dans le worktree, merger son commit
-dans `master` avant de rendre la main.
+Utiliser git worktree pour les fonctionnalités longues, risquées ou susceptibles
+d’être travaillées en parallèle. Pour une modification courte et isolée,
+travailler directement dans le worktree courant est acceptable. Si une seconde
+tâche parallèle apparaît ensuite, créer à ce moment-là un worktree dédié.
+Lorsqu’un worktree est utilisé, une fois l’implémentation terminée et vérifiée,
+merger son commit dans `master` avant de rendre la main.
 
 Références du projet :
 
