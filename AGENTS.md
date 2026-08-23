@@ -15,6 +15,9 @@ les commandes de vérification et la gestion des régressions ; ne pas recopier
 ces procédures ici. Si l’utilisateur demande explicitement le harnais complet,
 le suivre directement.
 
+Utiliser git worktree quand tu ajoutes/modifies une fonctionnalité afin de ne pas être en conflit avec un autre agent
+travaillant potentiellement en parallèle sur une autre feature.
+
 Références du projet :
 
 - [`docs/architecture.md`](docs/architecture.md) — architecture actuelle ;
