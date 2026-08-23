@@ -151,11 +151,11 @@ export class WordPopover {
         <div class="subjap-popover__reading"></div>
         <div class="subjap-popover__pos"></div>
         <div class="subjap-popover__grammar"></div>
+        <div class="subjap-popover__freq"></div>
       </div>
       <div class="subjap-popover__content">
         <div class="subjap-popover__defs"></div>
         <div class="subjap-popover__anki"></div>
-        <div class="subjap-popover__freq"></div>
         <div class="subjap-popover__pitch"></div>
       </div>
       <div class="subjap-popover__actions">
