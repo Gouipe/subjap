@@ -194,8 +194,10 @@ export class MiningModal {
       .subjap-modal-body { margin-bottom: 16px; line-height: 1.6; font-size: 15px; }
       .subjap-modal-body .subjap-sentence {
         font-size: 24px; margin-bottom: 12px; padding: 10px; background: #2a2a3c; border-radius: 8px;
+        user-select: text; cursor: text;
       }
       .subjap-modal-body .subjap-sentence .subjap-target { color: #facc15; font-weight: 700; }
+      .subjap-modal-body .subjap-target-word { user-select: text; cursor: text; }
       .subjap-modal-body .subjap-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
       .subjap-modal-body .subjap-reading { color: #a78bfa; margin-bottom: 8px; }
       .subjap-modal-body .subjap-definitions {
@@ -286,7 +288,7 @@ export class MiningModal {
     body.innerHTML = `
       <div class="subjap-label">Sentence — ${escapeHtml(this.state.episodeContext.title)}</div>
       <div class="subjap-sentence">${sentenceHtml}</div>
-      <div class="subjap-label">Target Word — ${escapeHtml(tokenDictionaryForm(targetToken.token))}</div>
+      <div class="subjap-label">Target Word — <span class="subjap-target-word" data-testid="mining-target-word">${escapeHtml(tokenDictionaryForm(targetToken.token))}</span></div>
       ${readingHtml}
       ${defListHtml}
       ${audioInfo}

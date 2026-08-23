@@ -1091,6 +1091,37 @@ test.describe("SubJap UX fixture", () => {
     );
   });
 
+  test("permet de sélectionner la phrase et le target word dans la modale de mining", async ({
+    page,
+  }) => {
+    // Some host pages disable text selection globally. The modal must keep
+    // these learner-facing values copyable when it is mounted in that context.
+    await page.locator("body").evaluate((body) => {
+      body.style.userSelect = "none";
+    });
+    await page.getByTestId("next-cue").click();
+    await page.getByTestId("mine-cue").click();
+
+    const modal = page.locator("#subjap-mining-modal");
+    const sentence = modal.locator(".subjap-sentence");
+    const targetWord = page.getByTestId("mining-target-word");
+
+    await expect(modal).toBeVisible();
+    await expect(sentence).toHaveCSS("user-select", "text");
+    await expect(targetWord).toHaveCSS("user-select", "text");
+    await expect(sentence.locator(".subjap-target")).toHaveText("日本語");
+
+    await sentence.selectText();
+    await expect
+      .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
+      .toContain("日本語を勉強します。");
+
+    await targetWord.selectText();
+    await expect
+      .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
+      .toBe("日本語");
+  });
+
   test("garde toute une phrase quand Netflix fait défiler ses deux lignes", async ({
     page,
   }) => {
