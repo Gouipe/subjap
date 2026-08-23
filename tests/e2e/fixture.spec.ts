@@ -496,11 +496,15 @@ test.describe("SubJap UX fixture", () => {
 
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
     const definitions = page.getByTestId("mining-definitions");
-    await expect(definitions).toHaveCSS("min-height", "280px");
-    await expect(definitions).toHaveValue("fixture definition");
-    await definitions.fill("classroom\nmy personal note");
-    await expect(definitions).toHaveValue("classroom\nmy personal note");
-    await definitions.press("Enter");
+    await expect(definitions).toHaveCSS("height", "81.25px");
+    await expect(definitions).toHaveText("fixture definition");
+    await expect(definitions).toHaveJSProperty("tagName", "DIV");
+    const notes = page.getByTestId("mining-notes");
+    await expect(notes).toHaveCSS("min-height", "200px");
+    await expect(notes).toHaveValue("");
+    await notes.fill("classroom\nmy personal note");
+    await expect(notes).toHaveValue("classroom\nmy personal note");
+    await notes.press("Enter");
     await page.keyboard.press("Escape");
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
     await page.locator(".subjap-modal-backdrop").dispatchEvent("click");
@@ -547,6 +551,7 @@ test.describe("SubJap UX fixture", () => {
       "J’étudie le japonais.",
     );
     await page.getByTestId("mine-cue").click();
+    await page.getByTestId("mining-notes").fill("context from my study session");
     await page.locator(".subjap-modal-btn-send").click();
     await expect(page.locator("#subjap-mining-modal")).toBeHidden();
 
@@ -557,10 +562,14 @@ test.describe("SubJap UX fixture", () => {
             __subjapFixtureMessages?: Array<Record<string, unknown>>;
           }).__subjapFixtureMessages;
           const ankiMessage = messages?.find((message) => message.type === "anki:addNote");
-          return (ankiMessage?.fields as Record<string, unknown> | undefined)?.Traduction;
+          const fields = ankiMessage?.fields as Record<string, unknown> | undefined;
+          return { translation: fields?.Traduction, notes: fields?.Notes };
         }),
       )
-      .toBe("J’étudie le japonais.");
+      .toEqual({
+        translation: "J’étudie le japonais.",
+        notes: "context from my study session",
+      });
   });
 
   test("met à jour la couleur quand un mot inconnu devient connu", async ({

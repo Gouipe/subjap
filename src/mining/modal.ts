@@ -4,8 +4,8 @@
 //
 // Opened from the content script when the user mines a word from the popover.
 // Shows the sentence with the target highlighted, the reading and editable
-// definitions; a video-frame screenshot is captured automatically (and can be
-// retaken), then the card is pushed to the local IndexedDB store and
+// definitions, and editable Anki notes; a video-frame screenshot is captured
+// automatically (and can be retaken), then the card is pushed to the local IndexedDB store and
 // (best-effort) to Anki.
 
 import {
@@ -31,6 +31,7 @@ interface MiningState {
   episodeContext: EpisodeContext;
   definitions: string[];
   definitionText: string;
+  notesText: string;
   wordAudioDataUrl: string | null;
   phraseAudioDataUrl: string | null;
   phraseAudioAttempted: boolean;
@@ -104,6 +105,7 @@ export class MiningModal {
       episodeContext: state.episodeContext,
       definitions: state.definitions,
       definitionText: state.definitions.join("\n"),
+      notesText: "",
       wordAudioDataUrl: null,
       phraseAudioDataUrl: null,
       phraseAudioAttempted: false,
@@ -197,12 +199,19 @@ export class MiningModal {
       .subjap-modal-body .subjap-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
       .subjap-modal-body .subjap-reading { color: #a78bfa; margin-bottom: 8px; }
       .subjap-modal-body .subjap-definitions {
-        display: block; box-sizing: border-box; width: 100%; min-height: 280px;
+        display: block; box-sizing: border-box; width: 100%; height: calc(3 * 1.45em + 16px);
+        margin: 4px 0 12px; padding: 8px 10px; overflow-y: auto;
+        white-space: pre-line; overflow-wrap: anywhere;
+        background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
+        border-radius: 6px; font: inherit; line-height: 1.45;
+      }
+      .subjap-modal-body .subjap-notes {
+        display: block; box-sizing: border-box; width: 100%; min-height: 200px;
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
         background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
         border-radius: 6px; font: inherit; line-height: 1.45;
       }
-      .subjap-modal-body .subjap-definitions:focus {
+      .subjap-modal-body .subjap-notes:focus {
         outline: 2px solid #8b5cf6; outline-offset: 1px;
       }
       .subjap-modal-body .subjap-audio-info, .subjap-modal-body .subjap-screenshot-info {
@@ -247,7 +256,9 @@ export class MiningModal {
       .join("");
 
     const defListHtml = `<div class="subjap-label">Definitions</div>
-      <textarea class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</textarea>`;
+      <div class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</div>
+      <div class="subjap-label">Notes</div>
+      <textarea class="subjap-notes" data-testid="mining-notes" aria-label="Notes" placeholder="Add a personal note for Anki…">${escapeHtml(this.state.notesText)}</textarea>`;
 
     const readingHtml = this.state.lemmaReading
       ? `<div class="subjap-label">Reading</div>
@@ -283,11 +294,9 @@ export class MiningModal {
       ${ankiError}
     `;
 
-    const definitionsInput = body.querySelector<HTMLTextAreaElement>(
-      ".subjap-definitions",
-    );
-    definitionsInput?.addEventListener("input", () => {
-      if (this.state) this.state.definitionText = definitionsInput.value;
+    const notesInput = body.querySelector<HTMLTextAreaElement>(".subjap-notes");
+    notesInput?.addEventListener("input", () => {
+      if (this.state) this.state.notesText = notesInput.value;
     });
   }
 
@@ -462,7 +471,7 @@ export class MiningModal {
             Phrase: formatMigakuSentence(cue, targetToken),
             Traduction: state.translation,
             Définitions: formatMigakuDefinitions(editedDefinitions),
-            Notes: "",
+            Notes: state.notesText,
             Image: "",
             AudioMot: "",
             AudioPhrase: "",

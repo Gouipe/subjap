@@ -87,7 +87,7 @@ describe("MiningModal", () => {
     });
   });
 
-  it("sends edited freeform definition lines to the local card and Anki", async () => {
+  it("sends notes to Anki while keeping definitions read-only", async () => {
     sendMessageMock.mockImplementation((type: string) => {
       if (type === "tts:generate") {
         return Promise.resolve({ dataUrl: "data:audio/wav;base64:word" });
@@ -126,13 +126,13 @@ describe("MiningModal", () => {
       expect(document.querySelector(".subjap-screenshot-info")).not.toBeNull();
     });
 
-    const definitions = document.querySelector<HTMLTextAreaElement>(
-      ".subjap-definitions",
-    );
-    expect(definitions?.value).toBe("promise\na commitment");
-    if (!definitions) throw new Error("Definitions textarea was not rendered");
-    definitions.value = "to promise\npersonal note\n";
-    definitions.dispatchEvent(new Event("input", { bubbles: true }));
+    const definitions = document.querySelector<HTMLElement>(".subjap-definitions");
+    expect(definitions?.textContent).toBe("promise\na commitment");
+    expect(definitions?.tagName).toBe("DIV");
+    const notes = document.querySelector<HTMLTextAreaElement>(".subjap-notes");
+    if (!notes) throw new Error("Notes textarea was not rendered");
+    notes.value = "to promise\npersonal note\n";
+    notes.dispatchEvent(new Event("input", { bubbles: true }));
 
     (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
     await vi.waitFor(() => {
@@ -143,14 +143,15 @@ describe("MiningModal", () => {
 
     expect(sendMessageMock).toHaveBeenCalledWith(
       "mine:create",
-      expect.objectContaining({ definitions: ["to promise", "personal note"] }),
+      expect.objectContaining({ definitions: ["promise", "a commitment"] }),
     );
     const ankiAddNoteCall = (sendMessageMock.mock.calls as unknown[][]).find(
       ([type]) => type === "anki:addNote",
     );
     expect(ankiAddNoteCall?.[1]).toMatchObject({
       fields: {
-        Définitions: "to promise<br>personal note",
+        Définitions: "promise<br>a commitment",
+        Notes: "to promise\npersonal note\n",
         Traduction: "I made a promise.",
       },
     });
@@ -329,6 +330,10 @@ describe("MiningModal", () => {
     await vi.waitFor(() => {
       expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe("flex");
     });
+    const notes = document.querySelector<HTMLTextAreaElement>(".subjap-notes");
+    if (!notes) throw new Error("Notes textarea was not rendered");
+    notes.value = "keep this note for retry";
+    notes.dispatchEvent(new Event("input", { bubbles: true }));
     (document.querySelector(".subjap-modal-btn-send") as HTMLButtonElement).click();
     await vi.waitFor(() => {
       expect(document.querySelector(".subjap-local-info")?.textContent).toContain("localement");
@@ -341,9 +346,12 @@ describe("MiningModal", () => {
       expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe("none");
     });
     expect(sendMessageMock.mock.calls.filter(([type]) => type === "mine:create")).toHaveLength(1);
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      "anki:addNote",
-      expect.objectContaining({ deckName: "SubJap" }),
+    const retryAnkiAddNoteCall = (sendMessageMock.mock.calls as unknown[][]).find(
+      ([type]) => type === "anki:addNote",
     );
+    expect(retryAnkiAddNoteCall?.[1]).toMatchObject({
+      deckName: "SubJap",
+      fields: { Notes: "keep this note for retry" },
+    });
   });
 });
