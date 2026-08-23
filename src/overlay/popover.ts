@@ -15,6 +15,8 @@ import { toHiragana } from "@/core/kana";
 // ── Constants ─────────────────────────────────────────────────────────────
 
 const POPOVER_ID = "subjap-popover";
+const POPOVER_WIDTH = 306;
+const POPOVER_HEIGHT = 422;
 const VIEWPORT_MARGIN = 8;
 const SUBTITLE_GAP = 12;
 const SUBTITLE_SELECTOR = ":scope > .subjap-cue-line, :scope > .subjap-translation-line";
@@ -192,8 +194,8 @@ export class WordPopover {
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        min-width: min(248px, calc(100vw - 16px));
-        max-width: min(370px, calc(100vw - 16px));
+        width: min(${POPOVER_WIDTH}px, calc(100vw - 16px));
+        height: ${POPOVER_HEIGHT}px;
         max-height: calc(100vh - 16px);
         max-height: calc(100dvh - 16px);
         overflow: hidden;
@@ -225,6 +227,7 @@ export class WordPopover {
         flex: none;
       }
       .subjap-popover__content {
+        flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
         overscroll-behavior: contain;
@@ -427,13 +430,8 @@ export class WordPopover {
     const anchorRect = anchor.getBoundingClientRect();
     const subtitleTop = this.getSubtitleBlockTop(anchor);
 
-    // Reset the limit from a previous word before measuring this popover.
-    // When subtitles are available, reserve the whole area below their top.
+    // Keep the fixed card height when the same popover is reused for another word.
     this.el.style.removeProperty("max-height");
-    if (subtitleTop !== null) {
-      const availableHeight = Math.max(0, Math.floor(subtitleTop - SUBTITLE_GAP - VIEWPORT_MARGIN));
-      this.el.style.maxHeight = `${availableHeight}px`;
-    }
 
     const popoverHeight = this.el.offsetHeight || 180;
     const popoverWidth = this.el.offsetWidth || 260;

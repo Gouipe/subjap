@@ -280,7 +280,7 @@ test.describe("SubJap UX fixture", () => {
       .toContain("to carry out");
   });
 
-  test("garde une longue définition défilable au-dessus des sous-titres", async ({ page }) => {
+  test("garde une longue définition défilable dans une taille fixe", async ({ page }) => {
     await page.setViewportSize({ width: 960, height: 800 });
     await page.getByTestId("long-definition-cue").click();
     await page.getByTestId("video-stage").scrollIntoViewIfNeeded();
@@ -295,6 +295,8 @@ test.describe("SubJap UX fixture", () => {
     await expect(popover).toBeVisible();
     await expect(header).toContainText("する");
     await expect(actions).toBeVisible();
+    await expect(popover).toHaveCSS("width", "306px");
+    await expect(popover).toHaveCSS("height", "422px");
 
     const layout = await popover.evaluate((element) => {
       const popoverRect = element.getBoundingClientRect();
@@ -327,7 +329,6 @@ test.describe("SubJap UX fixture", () => {
 
     expect(layout.popoverTop).toBeGreaterThanOrEqual(7);
     expect(layout.popoverBottom).toBeLessThanOrEqual(layout.viewportHeight - 7);
-    expect(layout.popoverBottom).toBeLessThanOrEqual(layout.subtitleTop - 11);
     expect(layout.headerTop).toBeGreaterThanOrEqual(layout.popoverTop);
     expect(layout.actionsBottom).toBeLessThanOrEqual(layout.popoverBottom);
     expect(layout.contentScrollHeight).toBeGreaterThan(layout.contentClientHeight);
