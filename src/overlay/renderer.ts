@@ -75,7 +75,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-translation-line {
       margin-top: 5px;
       padding: 0.08em 0.3em 0.12em;
-      pointer-events: none;
+      pointer-events: auto;
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
       font-family: ${opts.fontFamily};
       color: #e2e8f0;
@@ -85,6 +85,14 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
         0 2px 4px rgba(0, 0, 0, 0.95),
         0 0 1px #000,
         0 0 8px rgba(0, 0, 0, 0.55);
+    }
+    #${CONTAINER_ID} .subjap-translation-line--hidden {
+      opacity: 0;
+      cursor: default;
+      transition: opacity 0.12s ease;
+    }
+    #${CONTAINER_ID} .subjap-translation-line--hidden:hover {
+      opacity: 1;
     }
     #${CONTAINER_ID} .subjap-token {
       display: inline-flex;
@@ -275,9 +283,12 @@ export class OverlayRenderer {
       const line = this.buildCueLine(rc);
       this.container.appendChild(line);
     }
-    if (this.translation && this.shouldShowTranslation()) {
+    if (this.translation) {
       const line = document.createElement("div");
       line.className = "subjap-translation-line";
+      if (!this.shouldShowTranslation()) {
+        line.classList.add("subjap-translation-line--hidden");
+      }
       line.lang = this.translation.language;
       line.dataset.language = this.translation.language;
       line.textContent = this.translation.text;
