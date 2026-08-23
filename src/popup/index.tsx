@@ -30,6 +30,7 @@ const Popup: React.FC = () => {
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [hideSecondarySubtitlesWhenAllKnown, setHideSecondarySubtitlesWhenAllKnown] =
     useState(false);
+  const [activeListeningMode, setActiveListeningMode] = useState(false);
   const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -45,6 +46,7 @@ const Popup: React.FC = () => {
     setHideSecondarySubtitlesWhenAllKnown(
       optionsResult.hideSecondarySubtitlesWhenAllKnown,
     );
+    setActiveListeningMode(optionsResult.activeListeningMode);
     setConnected(true);
     setError(null);
   }, []);
@@ -72,6 +74,24 @@ const Popup: React.FC = () => {
       }
     },
     [hideSecondarySubtitlesWhenAllKnown],
+  );
+
+  const toggleActiveListeningMode = useCallback(
+    async (enabled: boolean) => {
+      const previous = activeListeningMode;
+      setActiveListeningMode(enabled);
+      setSavingSubtitlePreference(true);
+      setError(null);
+      try {
+        await saveOptions({ activeListeningMode: enabled });
+      } catch (err: unknown) {
+        setActiveListeningMode(previous);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSavingSubtitlePreference(false);
+      }
+    },
+    [activeListeningMode],
   );
 
   const activateCapture = useCallback(async () => {
@@ -172,10 +192,24 @@ const Popup: React.FC = () => {
               void toggleSecondarySubtitles(event.target.checked)
             }
           />
-          <span>Masquer FR/EN si tout est connu</span>
+          <span>Masquer FR/EN si tout est connu ou ciblé</span>
         </label>
         <p style={styles.subtitleHint}>
-          La traduction réapparaît dès qu’un mot est à apprendre.
+          Aussi actif avec un seul mot bleu ou vert à apprendre.
+        </p>
+        <label style={{ ...styles.checkLabel, marginTop: 10 }}>
+          <input
+            type="checkbox"
+            checked={activeListeningMode}
+            disabled={savingSubtitlePreference}
+            onChange={(event) =>
+              void toggleActiveListeningMode(event.target.checked)
+            }
+          />
+          <span>Activer l’écoute active</span>
+        </label>
+        <p style={styles.subtitleHint}>
+          Pause automatiquement les phrases éligibles, sans texte au départ.
         </p>
       </div>
 

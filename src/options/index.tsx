@@ -506,7 +506,7 @@ function OnboardingWizard(props: {
             <div style={s.rowLabel}>
               <span>Mode d'écoute active</span>
               <span style={s.rowHint}>
-                pause jusqu'à 5 phrases connues par vidéo pour les écouter sans texte
+                pause les phrases éligibles pour les écouter sans texte
               </span>
             </div>
             <div style={s.rowControl}>
@@ -838,7 +838,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </Row>
             <Row
               label="Mode d'écoute active"
-              hint="pause jusqu'à 5 phrases intéressantes par vidéo ; audio seul puis révélations manuelles"
+              hint="pause les phrases éligibles ; audio seul puis révélations manuelles"
             >
               <Toggle
                 checked={options.activeListeningMode}

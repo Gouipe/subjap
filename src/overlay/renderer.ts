@@ -208,8 +208,11 @@ export class OverlayRenderer {
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
   private visible = false;
-  private japaneseSubtitlesVisible = true;
-  private translationVisible = true;
+  private subtitleVisibilityOverride: {
+    japanese: boolean;
+    /** null keeps the normal translation mode (including hover-to-reveal). */
+    translation: boolean | null;
+  } | null = null;
 
   constructor(video: HTMLVideoElement, options?: Partial<OverlayOptions>) {
     this.video = video;
@@ -270,9 +273,14 @@ export class OverlayRenderer {
   }
 
   /** Temporarily hide/reveal the two subtitle layers without changing options. */
-  setSubtitleVisibility(japanese: boolean, translation: boolean): void {
-    this.japaneseSubtitlesVisible = japanese;
-    this.translationVisible = translation;
+  setSubtitleVisibility(japanese: boolean, translation: boolean | null): void {
+    this.subtitleVisibilityOverride = { japanese, translation };
+    this.render();
+  }
+
+  /** Restore the normal visibility rules after an exercise ends. */
+  clearSubtitleVisibilityOverride(): void {
+    this.subtitleVisibilityOverride = null;
     this.render();
   }
 
@@ -308,7 +316,7 @@ export class OverlayRenderer {
 
     for (const rc of this.cues) {
       const line = this.buildCueLine(rc);
-      if (!this.japaneseSubtitlesVisible) {
+      if (this.subtitleVisibilityOverride?.japanese === false) {
         line.classList.add("subjap-subtitles--hidden");
       }
       this.container.appendChild(line);
@@ -316,9 +324,12 @@ export class OverlayRenderer {
     if (this.translation) {
       const line = document.createElement("div");
       line.className = "subjap-translation-line";
-      if (!this.translationVisible) {
+      if (this.subtitleVisibilityOverride?.translation === false) {
         line.classList.add("subjap-translation-line--exercise-hidden");
-      } else if (!this.shouldShowTranslation()) {
+      } else if (
+        this.subtitleVisibilityOverride?.translation !== true &&
+        !this.shouldShowTranslation()
+      ) {
         line.classList.add("subjap-translation-line--hidden");
       }
       line.lang = this.translation.language;

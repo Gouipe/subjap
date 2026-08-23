@@ -80,8 +80,6 @@ let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
 let listeningMode: ListeningMode | null = null;
 const listeningExerciseKeys = new Set<string>();
-let listeningExerciseCount = 0;
-const MAX_LISTENING_EXERCISES_PER_VIDEO = 5;
 let nativeSubtitlesHidden = false;
 
 // The action popup prepares tab capture after the user invokes the extension.
@@ -296,7 +294,6 @@ function ensureOverlay(): OverlayRenderer | null {
     overlay.destroy();
     overlay = null;
     listeningExerciseKeys.clear();
-    listeningExerciseCount = 0;
     audioCapture?.destroy();
     audioCapture = null;
     currentVideo = null;
@@ -356,6 +353,11 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
         `${cue.language ?? ""}\u0000${cue.id}\u0000${cue.start}\u0000${cue.end}\u0000${cue.endConfirmed ?? ""}\u0000${cue.text}`,
     )
     .join("\u0001");
+
+  // Seeking back to the beginning of an exercise can make Netflix emit a
+  // transient empty/incomplete cue set. Keep the frozen exercise sentence
+  // and its translation while the listening panel owns playback.
+  if (listeningMode?.isActive) return;
   if (signature === lastSignature) return;
   lastCues = cues;
 
@@ -524,7 +526,7 @@ function isInterestingListeningCue(rendered: RenderedCue): boolean {
   const lexical = rendered.spans.filter(
     (span) => !span.isParenthetical && !isNonLexicalToken(span.token),
   );
-  if (lexical.length < 2) return false;
+  if (lexical.length < 3) return false;
 
   // Skip isolated interjections/adverbs such as えっ, ああ or もう一度.
   if (
@@ -566,7 +568,6 @@ function isInterestingListeningCue(rendered: RenderedCue): boolean {
 function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
   if (!overlayOptions.activeListeningMode) return;
   if (!listeningMode || listeningMode.isActive) return;
-  if (listeningExerciseCount >= MAX_LISTENING_EXERCISES_PER_VIDEO) return;
   if (adapter.isPaused()) return;
 
   // A multi-line active block is deliberately left alone for now: it is not
@@ -580,7 +581,6 @@ function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
   const key = `${candidate.cue.id}\u0000${candidate.cue.start}\u0000${candidate.cue.end}`;
   if (listeningExerciseKeys.has(key)) return;
   listeningExerciseKeys.add(key);
-  listeningExerciseCount += 1;
   listeningMode.open(candidate);
 }
 

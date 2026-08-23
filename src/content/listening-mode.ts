@@ -18,7 +18,6 @@ export class ListeningMode {
   private activeCue: RenderedCue | null = null;
   private phase: Phase = "ready";
   private japaneseRevealed = false;
-  private translationRevealed = false;
   private endTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionId = 0;
 
@@ -32,6 +31,7 @@ export class ListeningMode {
     this.overlay = overlay;
     this.container = this.buildContainer();
     this.injectStyles();
+    document.addEventListener("keydown", this.handleKeydown, true);
     this.container.addEventListener("click", (event) => {
       const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>(
         "button[data-action]",
@@ -44,11 +44,8 @@ export class ListeningMode {
         case "replay":
           void this.replay();
           break;
-        case "reveal-japanese":
-          this.revealJapanese();
-          break;
-        case "reveal-translation":
-          this.revealTranslation();
+        case "reveal-subtitles":
+          this.revealNextSubtitles();
           break;
         case "continue":
           void this.continuePlayback();
@@ -69,20 +66,62 @@ export class ListeningMode {
     this.stopTimer();
     this.sessionId += 1;
     this.activeCue = cue;
-    this.phase = "ready";
+    this.phase = "playing";
     this.japaneseRevealed = false;
-    this.translationRevealed = false;
-    this.video.pause();
     this.overlay.setSubtitleVisibility(false, false);
     this.render();
     if (!this.container.isConnected) document.body.appendChild(this.container);
-    void this.adapter.seekTo(cue.cue.start, false);
+
+    // Let the first occurrence play naturally. The exercise takes control only
+    // when the cue reaches its end, where the learner can replay or reveal it.
+    const sessionId = this.sessionId;
+    if (this.video.currentTime >= cue.cue.end - 0.05) {
+      this.finishPlayback(sessionId);
+      return;
+    }
+    this.startPlaybackMonitoring(sessionId);
   }
 
   destroy(): void {
     this.close(false);
+    document.removeEventListener("keydown", this.handleKeydown, true);
     this.container.remove();
   }
+
+  private handleKeydown = (event: KeyboardEvent): void => {
+    if (!this.activeCue || event.repeat) return;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.tagName === "INPUT" ||
+      target?.tagName === "TEXTAREA" ||
+      target?.isContentEditable
+    ) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+    if (key === "a" && this.phase === "ready") {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.listen();
+    } else if (key === "a" && this.phase === "review") {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.replay();
+    } else if (key === "z" && this.phase === "review") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.revealNextSubtitles();
+    } else if (key === "e" && this.phase === "review") {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.continuePlayback();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.skip();
+    }
+  };
 
   private async listen(): Promise<void> {
     if (!this.activeCue || this.phase !== "ready") return;
@@ -102,6 +141,20 @@ export class ListeningMode {
     const durationMs = Math.max(
       500,
       ((cue.end - cue.start) / Math.max(0.25, this.adapter.getPlaybackRate())) * 1000 + 750,
+    );
+    this.endTimer = setTimeout(() => this.finishPlayback(sessionId), durationMs);
+    this.video.addEventListener("timeupdate", this.handleTimeUpdate);
+  }
+
+  private startPlaybackMonitoring(sessionId: number): void {
+    if (!this.activeCue || sessionId !== this.sessionId) return;
+    const remainingSeconds = Math.max(
+      0.1,
+      this.activeCue.cue.end - this.video.currentTime,
+    );
+    const durationMs = Math.max(
+      500,
+      (remainingSeconds / Math.max(0.25, this.adapter.getPlaybackRate())) * 1000 + 750,
     );
     this.endTimer = setTimeout(() => this.finishPlayback(sessionId), durationMs);
     this.video.addEventListener("timeupdate", this.handleTimeUpdate);
@@ -143,17 +196,12 @@ export class ListeningMode {
     this.render();
   }
 
-  private revealJapanese(): void {
+  private revealNextSubtitles(): void {
     if (this.phase !== "review") return;
     this.japaneseRevealed = true;
-    this.overlay.setSubtitleVisibility(true, this.translationRevealed);
-    this.render();
-  }
-
-  private revealTranslation(): void {
-    if (this.phase !== "review") return;
-    this.translationRevealed = true;
-    this.overlay.setSubtitleVisibility(this.japaneseRevealed, true);
+    // Reveal Japanese only. The French layer remains governed by the normal
+    // secondary-subtitle rule, including hover-to-reveal when enabled.
+    this.overlay.setSubtitleVisibility(true, null);
     this.render();
   }
 
@@ -177,7 +225,7 @@ export class ListeningMode {
     this.stopTimer();
     this.activeCue = null;
     this.container.remove();
-    this.overlay.setSubtitleVisibility(true, true);
+    this.overlay.clearSubtitleVisibilityOverride();
     if (restorePlayback && cue) void this.adapter.seekTo(cue.cue.end, true);
   }
 
@@ -196,12 +244,11 @@ export class ListeningMode {
       <div class="subjap-listening-title">Écoute seule</div>
       <div class="subjap-listening-hint"></div>
       <div class="subjap-listening-actions">
-        <button data-action="listen">▶ Écouter</button>
-        <button data-action="replay" hidden>↻ Réécouter</button>
-        <button data-action="reveal-japanese" hidden>Afficher les sous-titres</button>
-        <button data-action="reveal-translation" hidden>Afficher la traduction</button>
-        <button data-action="continue" hidden>Continuer</button>
-        <button data-action="skip" class="subjap-listening-secondary">Passer</button>
+        <button data-action="listen">A · ▶ Écouter</button>
+        <button data-action="replay" hidden>A · ↻ Réessayer</button>
+        <button data-action="reveal-subtitles" hidden>Z · Afficher les sous-titres</button>
+        <button data-action="continue" hidden>E · Continuer</button>
+        <button data-action="skip" class="subjap-listening-secondary">Échap · Passer</button>
       </div>`;
     return container;
   }
@@ -209,15 +256,16 @@ export class ListeningMode {
   private render(): void {
     const listen = this.button("listen");
     const replay = this.button("replay");
-    const japanese = this.button("reveal-japanese");
-    const translation = this.button("reveal-translation");
+    const subtitles = this.button("reveal-subtitles");
     const continueButton = this.button("continue");
     const hint = this.container.querySelector<HTMLDivElement>(".subjap-listening-hint");
 
     listen.hidden = this.phase !== "ready";
     replay.hidden = this.phase !== "review";
-    japanese.hidden = this.phase !== "review" || this.japaneseRevealed;
-    translation.hidden = this.phase !== "review" || this.translationRevealed;
+    subtitles.hidden = this.phase !== "review";
+    subtitles.textContent = this.japaneseRevealed
+      ? "Z · Sous-titres affichés"
+      : "Z · Afficher les sous-titres";
     continueButton.hidden = this.phase !== "review";
     if (hint) {
       hint.textContent =
@@ -245,7 +293,7 @@ export class ListeningMode {
       #${PANEL_ID} {
         position: fixed;
         left: 50%;
-        bottom: 12%;
+        top: 8%;
         z-index: 2147483647;
         transform: translateX(-50%);
         width: min(680px, calc(100vw - 32px));
