@@ -6,6 +6,8 @@ Aborde une question à la fois. Sinon c'est trop compliqué pour moi. Donne une 
 
 Tu as accès à Chrome via l'extension. Tu as aussi les droits de lancer des commandes. Quand tu peux sois autonome, ne me demande vraiment que ce tu ne peux pas savoir/faire par toi-même ou que c'est des questions fonctionnelles qui dépendent de la préférence de l'utilisateur de l'extension.
 
+Ne pas utiliser les skills `$subjap-light-dev` ou `$subjap-ux-harness` pour les changements de ce projet.
+
 Utiliser git worktree pour les fonctionnalités longues, risquées ou susceptibles
 d’être travaillées en parallèle. Pour une modification courte et isolée,
 travailler directement dans le worktree courant est acceptable. Si une seconde
