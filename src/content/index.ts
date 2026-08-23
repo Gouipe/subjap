@@ -134,6 +134,7 @@ let lastRenderedCues: RenderedCue[] = [];
 
 /** Mining modal singleton (created on demand, destroyed on video swap). */
 let miningModal: MiningModal | null = null;
+let miningCaptureActivation: Promise<void> | null = null;
 let pendingCues: SubtitleCue[] | null = null;
 let cueProcessing = false;
 
@@ -607,11 +608,22 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
   });
 }
 
+async function activateMiningCapture(): Promise<void> {
+  if (!miningCaptureActivation) {
+    miningCaptureActivation = sendMessage("tabCapture:activate", {})
+      .then(() => undefined)
+      .finally(() => {
+        miningCaptureActivation = null;
+      });
+  }
+  await miningCaptureActivation;
+}
+
 /**
  * Open the mining modal for a token: shows the sentence, reading, definitions,
  * and lets the user generate audio/screenshot before pushing the card.
  */
-function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
+async function openMiningModal(token: Token, entry: DictionaryEntry | null): Promise<void> {
   const video = adapter.getVideoElement();
   if (!video) return;
 
@@ -619,6 +631,17 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   const rendered = lastRenderedCues.find((rc) => rc.spans.some((st) => st.token === token));
   const targetSpan = rendered?.spans.find((st) => st.token === token);
   if (!rendered || !targetSpan) return;
+
+  // Activate tab capture from the mining click when the user has not enabled
+  // it from the popup yet. Waiting here ensures the offscreen recorder is
+  // ready before the modal starts replaying the phrase.
+  try {
+    await activateMiningCapture();
+  } catch (err) {
+    // The modal still has direct media-element and rolling-buffer fallbacks;
+    // a denied tab-capture permission must not make mining unusable.
+    console.warn("[SubJap] Tab capture activation unavailable:", err);
+  }
 
   // Opening the mining flow is a user gesture. Start capture only when it is
   // actually needed, then use the gesture to unlock the audio context.
@@ -735,7 +758,7 @@ getPopover({
   onToggleKnown,
   onToggleIgnored,
   onMine: (token, entry) => {
-    openMiningModal(token, entry);
+    void openMiningModal(token, entry);
   },
 });
 

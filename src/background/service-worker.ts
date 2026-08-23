@@ -362,10 +362,15 @@ onMessage("screenshot:capture", async (_payload, sender) => {
   };
 });
 
-async function getTabCaptureStreamId(tabId: number): Promise<string> {
+async function getTabCaptureStreamId(
+  tabId: number,
+  consumerTabId?: number,
+): Promise<string> {
   const streamId = await new Promise<string>((resolve, reject) => {
+    const options: chrome.tabCapture.GetMediaStreamOptions = { targetTabId: tabId };
+    if (consumerTabId != null) options.consumerTabId = consumerTabId;
     chrome.tabCapture.getMediaStreamId(
-      { targetTabId: tabId, consumerTabId: tabId },
+      options,
       (id) => {
         const runtimeError = chrome.runtime.lastError;
         if (runtimeError) {
@@ -382,14 +387,14 @@ async function getTabCaptureStreamId(tabId: number): Promise<string> {
 onMessage("tabCapture:streamId", async (_payload, sender) => {
   const tabId = sender.tab?.id;
   if (tabId == null) throw new Error("No tab available for tab capture");
-  return { streamId: await getTabCaptureStreamId(tabId) };
+  return { streamId: await getTabCaptureStreamId(tabId, tabId) };
 });
 
 // Kept as a typed fallback for extension pages that cannot call tabCapture
 // directly. The popup activation normally calls the API in its foreground
 // context so Chrome associates it with the explicit activation click.
 onMessage("tabCapture:prepare", async ({ tabId }) => {
-  const streamId = await getTabCaptureStreamId(tabId);
+  const streamId = await getTabCaptureStreamId(tabId, tabId);
   await chrome.tabs.sendMessage(tabId, { type: "tabCapture:stream", streamId });
   return { ready: true };
 });
@@ -405,6 +410,21 @@ async function ensureAudioOffscreen(): Promise<void> {
 }
 
 onMessage("tabCapture:offscreen", async ({ streamId }) => {
+  await ensureAudioOffscreen();
+  await chrome.runtime.sendMessage({ type: "tabCapture:offscreenStream", streamId });
+  return { ready: true };
+});
+
+// Allow a mining click in the content script to activate the same capture
+// flow as the popup button. The request is made for the tab that initiated the
+// message, so the browser can associate it with the user's current tab.
+onMessage("tabCapture:activate", async (_payload, sender) => {
+  const tabId = sender.tab?.id;
+  if (tabId == null) throw new Error("No tab available for tab capture");
+
+  // No consumerTabId: the offscreen document, rather than the content
+  // script, consumes this stream.
+  const streamId = await getTabCaptureStreamId(tabId);
   await ensureAudioOffscreen();
   await chrome.runtime.sendMessage({ type: "tabCapture:offscreenStream", streamId });
   return { ready: true };
