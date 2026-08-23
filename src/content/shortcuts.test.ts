@@ -312,6 +312,37 @@ describe("CueNavigator", () => {
     expect(seekTo).toHaveBeenLastCalledWith(5, true);
     removeShortcuts();
   });
+
+  it("keeps q and s targets from the timestamp at each key press", async () => {
+    const navigator = new CueNavigator();
+    navigator.observe([cue("one", 5, 8)]);
+    navigator.observe([cue("two", 10, 13)]);
+    navigator.observe([cue("three", 15, 18)]);
+
+    let currentTime = 16;
+    const seekTo = vi.fn().mockImplementation(async (time: number) => {
+      currentTime = time;
+      return true;
+    });
+    const removeShortcuts = installPlaybackShortcuts(
+      document,
+      {
+        getCurrentTime: () => currentTime,
+        isPaused: () => true,
+        seekTo,
+      },
+      navigator,
+    );
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "q" }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
+
+    await vi.waitFor(() => expect(seekTo).toHaveBeenCalledTimes(2));
+
+    expect(seekTo.mock.calls[0]).toEqual([10, false]);
+    expect(seekTo.mock.calls[1]).toEqual([15, false]);
+    removeShortcuts();
+  });
 });
 
 describe("subtitle copy shortcut", () => {

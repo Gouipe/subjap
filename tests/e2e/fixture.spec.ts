@@ -913,6 +913,32 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 105);
   });
 
+  test("conserve les cibles de Q et S quand ils sont pressés au même instant", async ({
+    page,
+  }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+
+    await page.getByTestId("official-history-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-scenario",
+      "official-history-complete",
+    );
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "困るんですよ生徒に示しがつかないから",
+    );
+
+    // Dispatch both keys before the first queued seek can update the media
+    // clock. Each action must retain the timestamp that existed at keydown.
+    await page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "q" }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
+    });
+
+    await expect(video).toHaveJSProperty("currentTime", 110.778);
+  });
+
   test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({
     page,
   }) => {

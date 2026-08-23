@@ -5,6 +5,7 @@ export type CueShortcutAction = "previous" | "current" | "next";
 
 const NEXT_CUE_OFFSET_SECONDS = 0.05;
 const REEMITTED_CUE_TOLERANCE_SECONDS = 1;
+const SEEK_ANCHOR_TIME_TOLERANCE_SECONDS = 0.5;
 const COPY_FEEDBACK_DURATION_MS = 1_000;
 const COPY_FEEDBACK_ID = "subjap-copy-feedback";
 
@@ -17,6 +18,8 @@ export class CueNavigator {
   private observedCues = new Map<string, SubtitleCue>();
   /** Logical destination retained while Netflix rebuilds timed text after seek. */
   private seekAnchor: SubtitleCue | null = null;
+  /** Action that created the logical destination. */
+  private seekAnchorAction: CueShortcutAction | null = null;
 
   observe(cues: SubtitleCue[]): void {
     const meaningfulCues = cues.filter((cue) => normalizeCueText(cue.text).length > 0);
@@ -39,10 +42,15 @@ export class CueNavigator {
     this.currentCues = [];
     this.observedCues.clear();
     this.seekAnchor = null;
+    this.seekAnchorAction = null;
   }
 
   getSeekTime(action: CueShortcutAction, currentTime: number): number | null {
-    const current = this.seekAnchor ?? this.findCurrentCue(currentTime);
+    const anchor = this.seekAnchor;
+    const canReuseAnchor =
+      anchor !== null &&
+      (this.seekAnchorAction === action || this.isNearCue(anchor, currentTime));
+    const current = canReuseAnchor ? anchor : this.findCurrentCue(currentTime);
     if (!current) {
       if (action !== "previous") return null;
 
@@ -52,11 +60,13 @@ export class CueNavigator {
         .filter((cue) => cue.start <= currentTime)
         .sort((a, b) => b.start - a.start)[0] ?? null;
       this.seekAnchor = previous;
+      this.seekAnchorAction = previous ? action : null;
       return previous?.start ?? null;
     }
 
     if (action === "current") {
       this.seekAnchor = current;
+      this.seekAnchorAction = action;
       return current.start;
     }
 
@@ -65,21 +75,25 @@ export class CueNavigator {
     if (action === "previous") {
       const previous = [...ordered].reverse().find((cue) => cue.start < current.start);
       this.seekAnchor = previous ?? null;
+      this.seekAnchorAction = previous ? action : null;
       return previous?.start ?? null;
     }
 
     const next = ordered.find((cue) => cue.start > current.start);
     if (next) {
       this.seekAnchor = next;
+      this.seekAnchorAction = action;
       return next.start;
     }
 
     this.seekAnchor = current;
+    this.seekAnchorAction = action;
     return Math.max(current.end, currentTime) + NEXT_CUE_OFFSET_SECONDS;
   }
 
   cancelPendingSeek(): void {
     this.seekAnchor = null;
+    this.seekAnchorAction = null;
   }
 
   private findCurrentCue(currentTime: number): SubtitleCue | null {
@@ -92,6 +106,15 @@ export class CueNavigator {
       (cue) => currentTime >= cue.start && currentTime < cue.end,
     );
     return observedActive ?? this.currentCues[0] ?? null;
+  }
+
+  private isNearCue(cue: SubtitleCue, currentTime: number): boolean {
+    if (!Number.isFinite(currentTime)) return false;
+    const end = Math.max(cue.start, cue.end);
+    return (
+      (currentTime >= cue.start && currentTime < end) ||
+      Math.abs(currentTime - cue.start) <= SEEK_ANCHOR_TIME_TOLERANCE_SECONDS
+    );
   }
 
   private keyFor(cue: SubtitleCue): string {
@@ -111,7 +134,10 @@ export class CueNavigator {
       return anchor;
     });
 
-    if (!matched) this.seekAnchor = null;
+    if (!matched) {
+      this.seekAnchor = null;
+      this.seekAnchorAction = null;
+    }
     return stabilized;
   }
 
@@ -300,9 +326,10 @@ export function installPlaybackShortcuts(
 
     event.preventDefault();
     const resume = !adapter.isPaused();
+    const pressedAt = adapter.getCurrentTime();
     const runSeek = async (): Promise<void> => {
       if (removed) return;
-      const seekTime = navigator.getSeekTime(action, adapter.getCurrentTime());
+      const seekTime = navigator.getSeekTime(action, pressedAt);
       if (seekTime === null) return;
 
       try {
