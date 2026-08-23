@@ -218,8 +218,8 @@ export interface MessageMap {
   "tabCapture:streamResult": Record<string, never>;
   "tabCapture:offscreen": { streamId: string };
   "tabCapture:offscreenResult": { ready: boolean };
-  "tabCapture:activate": Record<string, never>;
-  "tabCapture:activateResult": { ready: boolean };
+  "tabCapture:status": Record<string, never>;
+  "tabCapture:statusResult": { active: boolean };
   "tabCapture:offscreenStream": { streamId: string };
   "tabCapture:offscreenStreamResult": Record<string, never>;
   "tabCapture:phraseStart": Record<string, never>;

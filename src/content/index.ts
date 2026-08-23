@@ -134,7 +134,7 @@ let lastRenderedCues: RenderedCue[] = [];
 
 /** Mining modal singleton (created on demand, destroyed on video swap). */
 let miningModal: MiningModal | null = null;
-let miningCaptureActivation: Promise<void> | null = null;
+let miningCaptureWait: Promise<boolean> | null = null;
 let pendingCues: SubtitleCue[] | null = null;
 let cueProcessing = false;
 
@@ -608,15 +608,85 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
   });
 }
 
-async function activateMiningCapture(): Promise<void> {
-  if (!miningCaptureActivation) {
-    miningCaptureActivation = sendMessage("tabCapture:activate", {})
-      .then(() => undefined)
-      .finally(() => {
-        miningCaptureActivation = null;
-      });
+async function isMiningCaptureActive(): Promise<boolean> {
+  try {
+    return (await sendMessage("tabCapture:status", {})).active;
+  } catch {
+    return false;
   }
-  await miningCaptureActivation;
+}
+
+function showMiningCapturePrompt(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const prompt = document.createElement("div");
+    prompt.id = "subjap-mining-capture-prompt";
+    prompt.style.cssText = [
+      "position:fixed",
+      "inset:0",
+      "z-index:2147483647",
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      "padding:16px",
+      "box-sizing:border-box",
+      "background:rgba(15,23,42,.72)",
+      "font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif",
+    ].join(";");
+    prompt.innerHTML = `
+      <div style="max-width:420px;padding:24px;border:1px solid #475569;border-radius:14px;background:#1e293b;color:#f8fafc;box-shadow:0 20px 60px rgba(0,0,0,.45)">
+        <div style="font-size:18px;font-weight:700;margin-bottom:12px">Minage en pause</div>
+        <div style="line-height:1.5;color:#cbd5e1">
+          L’enregistrement audio doit être autorisé avant de continuer.
+          Clique sur l’icône SubJap dans la barre Chrome, puis sur
+          « Activer l’audio Netflix ». Cette fenêtre reprendra automatiquement
+          le minage dès que l’audio sera actif.
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+          <button data-action="cancel" style="padding:9px 14px;border:1px solid #64748b;border-radius:8px;background:transparent;color:#e2e8f0;cursor:pointer">Annuler</button>
+          <button data-action="check" style="padding:9px 14px;border:0;border-radius:8px;background:#22c55e;color:#052e16;font-weight:700;cursor:pointer">Vérifier maintenant</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(prompt);
+
+    let settled = false;
+    const intervalId = window.setInterval(() => {
+      void checkStatus();
+    }, 500);
+
+    const finish = (active: boolean): void => {
+      if (settled) return;
+      settled = true;
+      window.clearInterval(intervalId);
+      prompt.remove();
+      resolve(active);
+    };
+
+    const checkStatus = async (): Promise<void> => {
+      if (settled) return;
+      if (await isMiningCaptureActive()) finish(true);
+    };
+
+    prompt.querySelector<HTMLButtonElement>('[data-action="check"]')?.addEventListener(
+      "click",
+      () => void checkStatus(),
+    );
+    prompt.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener(
+      "click",
+      () => finish(false),
+    );
+    void checkStatus();
+  });
+}
+
+async function waitForMiningCapture(): Promise<boolean> {
+  if (await isMiningCaptureActive()) return true;
+  if (!miningCaptureWait) {
+    miningCaptureWait = showMiningCapturePrompt().finally(() => {
+      miningCaptureWait = null;
+    });
+  }
+  return miningCaptureWait;
 }
 
 /**
@@ -632,16 +702,9 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
   const targetSpan = rendered?.spans.find((st) => st.token === token);
   if (!rendered || !targetSpan) return;
 
-  // Activate tab capture from the mining click when the user has not enabled
-  // it from the popup yet. Waiting here ensures the offscreen recorder is
-  // ready before the modal starts replaying the phrase.
-  try {
-    await activateMiningCapture();
-  } catch (err) {
-    // The modal still has direct media-element and rolling-buffer fallbacks;
-    // a denied tab-capture permission must not make mining unusable.
-    console.warn("[SubJap] Tab capture activation unavailable:", err);
-  }
+  // Pause mining until the user enables tab capture from the popup. The
+  // prompt polls the browser capture state and resumes automatically.
+  if (!(await waitForMiningCapture())) return;
 
   // Opening the mining flow is a user gesture. Start capture only when it is
   // actually needed, then use the gesture to unlock the audio context.

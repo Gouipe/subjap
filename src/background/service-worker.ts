@@ -415,19 +415,18 @@ onMessage("tabCapture:offscreen", async ({ streamId }) => {
   return { ready: true };
 });
 
-// Allow a mining click in the content script to activate the same capture
-// flow as the popup button. The request is made for the tab that initiated the
-// message, so the browser can associate it with the user's current tab.
-onMessage("tabCapture:activate", async (_payload, sender) => {
+onMessage("tabCapture:status", async (_payload, sender) => {
   const tabId = sender.tab?.id;
   if (tabId == null) throw new Error("No tab available for tab capture");
 
-  // No consumerTabId: the offscreen document, rather than the content
-  // script, consumes this stream.
-  const streamId = await getTabCaptureStreamId(tabId);
-  await ensureAudioOffscreen();
-  await chrome.runtime.sendMessage({ type: "tabCapture:offscreenStream", streamId });
-  return { ready: true };
+  const capturedTabs = await new Promise<chrome.tabCapture.CaptureInfo[]>((resolve) => {
+    chrome.tabCapture.getCapturedTabs(resolve);
+  });
+  return {
+    active: capturedTabs.some(
+      (capture) => capture.tabId === tabId && capture.status === "active",
+    ),
+  };
 });
 
 onMessage("tabCapture:phraseStart", async () => {
