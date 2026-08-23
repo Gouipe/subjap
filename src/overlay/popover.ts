@@ -161,8 +161,8 @@ export class WordPopover {
       </div>
       <div class="subjap-popover__content">
         <div class="subjap-popover__defs"></div>
-        <div class="subjap-popover__freq"></div>
         <div class="subjap-popover__anki"></div>
+        <div class="subjap-popover__freq"></div>
         <div class="subjap-popover__pitch"></div>
       </div>
       <div class="subjap-popover__actions">
@@ -240,9 +240,11 @@ export class WordPopover {
         scrollbar-gutter: stable;
       }
       .subjap-popover__reading {
-        font-size: 14px;
-        color: #94a3b8;
-        margin-top: 2px;
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #cbd5e1;
+        margin-top: 3px;
       }
       .subjap-popover__pos {
         font-size: 11px;
@@ -268,8 +270,9 @@ export class WordPopover {
         margin-top: 2px;
       }
       .subjap-popover__freq {
-        font-size: 11px;
-        color: #64748b;
+        font-size: 13px;
+        font-weight: 500;
+        color: #94a3b8;
         margin-top: 6px;
       }
       .subjap-popover__anki {

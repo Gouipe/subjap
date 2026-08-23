@@ -484,6 +484,22 @@ test.describe("SubJap UX fixture", () => {
     await tokens.nth(0).hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(frequency).toHaveText("Frequency rank: #1");
+    const infoOrder = await page.locator(".subjap-popover__anki").evaluate((anki) => {
+      const frequencyElement = anki.parentElement?.querySelector(
+        ".subjap-popover__freq",
+      );
+      return Boolean(
+        frequencyElement &&
+          (anki.compareDocumentPosition(frequencyElement) &
+            Node.DOCUMENT_POSITION_FOLLOWING),
+      );
+    });
+    expect(infoOrder).toBe(true);
+    await expect(page.locator(".subjap-popover__reading")).toHaveCSS(
+      "font-size",
+      "17px",
+    );
+    await expect(frequency).toHaveCSS("font-size", "13px");
 
     await tokens.nth(2).hover();
     await expect(frequency).toHaveText("Frequency rank: #1");
