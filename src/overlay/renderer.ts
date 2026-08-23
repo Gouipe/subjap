@@ -86,7 +86,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: #e2e8f0;
       line-height: 1.3;
       text-align: center;
-      white-space: pre-wrap;
+      white-space: normal;
       overflow-wrap: break-word;
       text-shadow:
         0 2px 4px rgba(0, 0, 0, 0.95),
@@ -299,7 +299,10 @@ export class OverlayRenderer {
       }
       line.lang = this.translation.language;
       line.dataset.language = this.translation.language;
-      line.textContent = this.translation.text;
+      // A timed-text track may split one translated sentence over several
+      // source lines. Keep the sentence on one visual line whenever it fits,
+      // while still allowing the browser to wrap it on narrow players.
+      line.textContent = this.translation.text.replace(/\s+/gu, " ").trim();
       this.container.appendChild(line);
     }
 
