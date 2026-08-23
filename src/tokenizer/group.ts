@@ -50,6 +50,49 @@ const INFLECTIONAL_AUXILIARY_TYPES = new Set([
 
 const INFLECTIONAL_INVARIABLE_AUXILIARIES = new Set(["ん", "う"]);
 
+/**
+ * Verbs that commonly act as auxiliaries after the conjunctive て/で form.
+ * UniDic marks them as 非自立可能 in that use, so their lexical identity is
+ * used only as a second safety check against unrelated verb sequences.
+ */
+const TE_AUXILIARY_LEXEMES = new Set([
+  "いる",
+  "居る",
+  "ある",
+  "有る",
+  "おく",
+  "置く",
+  "しまう",
+  "仕舞う",
+  "いく",
+  "行く",
+  "くる",
+  "来る",
+  "みる",
+  "見る",
+  "みせる",
+  "見せる",
+  "あげる",
+  "上げる",
+  "やる",
+  "遣る",
+  "くれる",
+  "呉れる",
+  "もらう",
+  "貰う",
+  "くださる",
+  "下さる",
+  "いただく",
+  "頂く",
+  // UniDic analyses common contractions as auxiliary tokens.
+  "てる",
+  "とく",
+  "ちゃう",
+  "じゃう",
+  "ちまう",
+  "じまう",
+]);
+
 function hasPosDetail(token: Token, detail: string): boolean {
   return (
     token.partOfSpeechDetails?.includes(detail) === true ||
@@ -82,12 +125,34 @@ function isInflectionalAuxiliary(token: Token): boolean {
   );
 }
 
-function inflectedVerbLength(tokens: Token[], start: number): number {
-  const head = tokens[start];
-  if (!head || !isIndependentVerb(head)) return 0;
+function isTeConjunctiveParticle(token: Token): boolean {
+  return (
+    (token.surface === "て" || token.surface === "で") &&
+    token.partOfSpeech.includes("助詞") &&
+    hasPosDetail(token, "接続助詞")
+  );
+}
 
-  let end = start + 1;
+function hasTeAuxiliaryLexeme(token: Token): boolean {
+  return tokenLookupTerms(token).some((term) => TE_AUXILIARY_LEXEMES.has(term));
+}
+
+function isNonIndependentTeAuxiliary(token: Token): boolean {
+  return (
+    token.partOfSpeech.includes("動詞") &&
+    (hasPosDetail(token, "非自立") || hasPosDetail(token, "非自立可能")) &&
+    hasTeAuxiliaryLexeme(token)
+  );
+}
+
+function isContractedTeAuxiliary(token: Token): boolean {
+  return isAuxiliary(token) && hasTeAuxiliaryLexeme(token);
+}
+
+function consumeInflectionalTail(tokens: Token[], start: number): number {
+  let end = start;
   let candidate = tokens[end];
+
   while (candidate && isInflectionalSuffixVerb(candidate)) {
     end += 1;
     candidate = tokens[end];
@@ -96,6 +161,47 @@ function inflectedVerbLength(tokens: Token[], start: number): number {
     end += 1;
     candidate = tokens[end];
   }
+
+  return end;
+}
+
+/** Consume a て-form auxiliary chain, including nested conjugations. */
+function consumeTeAuxiliaryChain(tokens: Token[], start: number): number {
+  let end = start;
+  let consumed = false;
+  let continueChain = true;
+
+  while (continueChain) {
+    continueChain = false;
+    const candidate = tokens[end];
+    if (!candidate) continue;
+
+    if (isTeConjunctiveParticle(candidate)) {
+      const auxiliary = tokens[end + 1];
+      if (auxiliary && isNonIndependentTeAuxiliary(auxiliary)) {
+        end += 2;
+        consumed = true;
+        continueChain = true;
+      }
+    } else if (isContractedTeAuxiliary(candidate)) {
+      end += 1;
+      consumed = true;
+      continueChain = true;
+    }
+
+    if (continueChain) end = consumeInflectionalTail(tokens, end);
+  }
+
+  return consumed ? end : start;
+}
+
+function inflectedVerbLength(tokens: Token[], start: number): number {
+  const head = tokens[start];
+  if (!head || !isIndependentVerb(head)) return 0;
+
+  let end = consumeInflectionalTail(tokens, start + 1);
+  const teChainEnd = consumeTeAuxiliaryChain(tokens, end);
+  if (teChainEnd > end) end = teChainEnd;
 
   return end - start > 1 ? end - start : 0;
 }
