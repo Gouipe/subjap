@@ -73,14 +73,21 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       margin-top: 4px;
     }
     #${CONTAINER_ID} .subjap-translation-line {
-      margin-top: 5px;
+      /* Keep the secondary language attached to the Japanese subtitle block
+         instead of letting a long translation feel detached from it. */
+      align-self: center;
+      width: fit-content;
+      max-width: 95%;
+      margin-top: 0.16em;
       padding: 0.08em 0.3em 0.12em;
       pointer-events: none;
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
       font-family: ${opts.fontFamily};
       color: #e2e8f0;
-      line-height: 1.35;
+      line-height: 1.3;
+      text-align: center;
       white-space: pre-wrap;
+      overflow-wrap: break-word;
       text-shadow:
         0 2px 4px rgba(0, 0, 0, 0.95),
         0 0 1px #000,
