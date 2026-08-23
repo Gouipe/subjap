@@ -26,9 +26,8 @@ Références du projet :
 - [`docs/testing.md`](docs/testing.md) — fixture et scénarios de test ;
 - `tests/fixture/` et `tests/e2e/` — harnais exécutable.
 
-Lorsqu’un test manuel révèle un comportement absent du harnais, faire évoluer
-la fixture et le scénario E2E correspondant selon le skill, puis conserver la
-régression dans le dépôt.
+Ne pas créer de régression dans la fixture ou les scénarios E2E, même lorsqu’un
+comportement absent du harnais est découvert.
 
 Les commandes Node s’exécutent avec `npm.cmd` / `npx.cmd` sous Windows.
 
@@ -36,20 +35,11 @@ Quand je mets un imprim ecran dans la conversation, c'est de l'existant, souvent
 
 ## Stratégie de vérification
 
-Pour accélérer l’implémentation, ne pas lancer toute la suite E2E après chaque
-petite modification. Pendant le développement, privilégier les tests unitaires
-et E2E ciblés par la fonctionnalité modifiée, ainsi que TypeScript lorsque le
-code concerné est typé.
-
-La suite E2E complète n’est pas obligatoire pour chaque demande. La lancer une
-fois avant la remise finale lorsque la modification touche un adaptateur, le
-content script, le pipeline de rendu, le bridge ou un autre module partagé,
-ainsi que pour les lots de changements transversaux. Pour une modification
-isolée et à faible risque, les tests ciblés suffisent.
-
-Les tests ciblés doivent tout de même être passés avant de rendre la main dès
-qu’ils existent pour le comportement modifié. Toute régression découverte doit
-être conservée dans le harnais conformément aux instructions du skill.
+Par défaut, oublier la création et le lancement de tests : ne créer ni test
+unitaire, ni scénario E2E, ni fixture de régression, et ne lancer aucune suite
+de tests. Cette règle s’applique aussi aux tests ciblés et aux vérifications
+automatisées de type navigateur, sauf demande explicite contraire de
+l’utilisateur.
 
 Quand une implémentation est terminée et vérifiée, créer un commit avec les
 changements concernés avant de rendre la main. Si l’utilisateur demande ensuite
