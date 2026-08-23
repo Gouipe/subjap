@@ -16,6 +16,8 @@ const COPY_FEEDBACK_ID = "subjap-copy-feedback";
 export class CueNavigator {
   private currentCues: SubtitleCue[] = [];
   private observedCues = new Map<string, SubtitleCue>();
+  private observedKeysByComparison = new Map<string, Set<string>>();
+  private lastRememberedCues: SubtitleCue[] | null = null;
   /** Logical destination retained while Netflix rebuilds timed text after seek. */
   private seekAnchor: SubtitleCue | null = null;
   /** Action that created the logical destination. */
@@ -26,26 +28,32 @@ export class CueNavigator {
     const observed = this.canonicalizeCues(this.applySeekAnchor(meaningfulCues));
     this.currentCues = observed;
     for (const cue of observed) {
-      this.observedCues.set(this.keyFor(cue), cue);
+      this.storeObservedCue(cue);
     }
   }
 
   /** Add authoritative track cues to navigation without rendering them. */
   remember(cues: SubtitleCue[]): void {
+    // Netflix emits the current cue on every media timeupdate. The official
+    // track keeps the same array instance until a new track is loaded.
+    if (this.lastRememberedCues === cues) return;
+    this.lastRememberedCues = cues;
+
     for (const cue of cues) {
       if (normalizeCueText(cue.text).length === 0) continue;
-      const equivalentEntries = [...this.observedCues.entries()].filter(([, observed]) =>
-        this.isEquivalentCue(observed, cue),
-      );
+      const comparisonKey = this.comparisonKey(cue);
+      const candidateKeys = this.observedKeysByComparison.get(comparisonKey) ?? [];
+      const equivalentKeys = [...candidateKeys].filter((key) => {
+        const observed = this.observedCues.get(key);
+        return observed ? this.isEquivalentCue(observed, cue) : false;
+      });
 
       // The DOM cue can be provisional (for example, start = observationTime
       // minus the 150 ms Netflix preroll) while the official track carries the
       // exact timing for the same occurrence. Replace every provisional alias
       // with the authoritative cue instead of leaving two timeline entries.
-      for (const [key] of equivalentEntries) {
-        this.observedCues.delete(key);
-      }
-      this.observedCues.set(this.keyFor(cue), cue);
+      for (const key of equivalentKeys) this.removeObservedCue(key);
+      this.storeObservedCue(cue);
 
       this.currentCues = this.currentCues.map((current) =>
         this.isEquivalentCue(current, cue) ? cue : current,
@@ -59,6 +67,8 @@ export class CueNavigator {
   reset(): void {
     this.currentCues = [];
     this.observedCues.clear();
+    this.observedKeysByComparison.clear();
+    this.lastRememberedCues = null;
     this.seekAnchor = null;
     this.seekAnchorAction = null;
   }
@@ -160,13 +170,40 @@ export class CueNavigator {
   }
 
   private canonicalizeCues(cues: SubtitleCue[]): SubtitleCue[] {
-    const observed = [...this.observedCues.values()];
     return cues.map((cue) => {
-      const equivalent = observed.find((candidate) =>
-        this.isEquivalentCue(candidate, cue),
-      );
+      const candidateKeys = this.observedKeysByComparison.get(this.comparisonKey(cue)) ?? [];
+      const equivalent = [...candidateKeys]
+        .map((key) => this.observedCues.get(key))
+        .find((candidate): candidate is SubtitleCue =>
+          candidate !== undefined && this.isEquivalentCue(candidate, cue),
+        );
       return equivalent ?? cue;
     });
+  }
+
+  private storeObservedCue(cue: SubtitleCue): void {
+    const key = this.keyFor(cue);
+    if (this.observedCues.get(key) === cue) return;
+    this.removeObservedCue(key);
+    this.observedCues.set(key, cue);
+    const comparisonKey = this.comparisonKey(cue);
+    const keys = this.observedKeysByComparison.get(comparisonKey) ?? new Set<string>();
+    keys.add(key);
+    this.observedKeysByComparison.set(comparisonKey, keys);
+  }
+
+  private removeObservedCue(key: string): void {
+    const cue = this.observedCues.get(key);
+    if (!cue) return;
+    this.observedCues.delete(key);
+    const comparisonKey = this.comparisonKey(cue);
+    const keys = this.observedKeysByComparison.get(comparisonKey);
+    keys?.delete(key);
+    if (keys?.size === 0) this.observedKeysByComparison.delete(comparisonKey);
+  }
+
+  private comparisonKey(cue: SubtitleCue): string {
+    return (cue.language ?? "") + "\u0000" + this.comparisonText(cue.text);
   }
 
   private isEquivalentCue(a: SubtitleCue, b: SubtitleCue): boolean {

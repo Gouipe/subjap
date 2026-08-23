@@ -194,8 +194,6 @@ export class OverlayRenderer {
     // Mount inside the video's parent so it scrolls/resizes with the layout
     this.mountContainer();
 
-    // Start the reposition loop
-    this.startRepositionLoop();
   }
 
   // ── Public API ────────────────────────────────────────────────────────
@@ -205,12 +203,26 @@ export class OverlayRenderer {
     this.visible = true;
     this.container.style.display = "";
     this.syncPosition();
+    this.startRepositionLoop();
   }
 
   /** Hide the overlay. */
   hide(): void {
     this.visible = false;
     this.container.style.display = "none";
+    this.stopRepositionLoop();
+  }
+
+  /** Update all render inputs in one DOM pass. */
+  updateContent(
+    cues: RenderedCue[],
+    translation: SubtitleTranslation | null,
+    knownWordCount: number,
+  ): void {
+    this.cues = cues;
+    this.translation = translation;
+    this.knownWordCount = Math.max(0, Math.floor(knownWordCount));
+    this.render();
   }
 
   /**
@@ -419,6 +431,7 @@ export class OverlayRenderer {
   }
 
   private startRepositionLoop(): void {
+    if (this.rafId !== null) return;
     let lastCheck = 0;
     const loop = (_timestamp: number) => {
       if (_timestamp - lastCheck > 200) {

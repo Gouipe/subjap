@@ -53,4 +53,22 @@ describe("WordStateCache", () => {
     });
     expect(load).toHaveBeenCalledWith("色んな", ["色んな", "いろんな"]);
   });
+
+  it("bounds the number of cached promise entries", async () => {
+    const load = vi.fn((lemma: string) =>
+      Promise.resolve<WordState>({
+        key: lemma,
+        status: "known",
+        source: "import",
+      }),
+    );
+    const cache = new WordStateCache(load, 2);
+
+    await cache.get("一");
+    await cache.get("二");
+    await cache.get("三");
+    await cache.get("一");
+
+    expect(load).toHaveBeenCalledTimes(4);
+  });
 });

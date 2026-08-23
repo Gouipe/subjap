@@ -8,6 +8,7 @@ export class WordStateCache {
 
   constructor(
     private readonly load: (lemma: string, aliases?: string[]) => Promise<WordState | null>,
+    private readonly maxEntries = 1_000,
   ) {}
 
   get(lemma: string, aliases?: string[]): Promise<WordState | null> {
@@ -16,6 +17,10 @@ export class WordStateCache {
     if (cached) return cached.promise;
 
     const promise = this.load(lemma, aliases);
+    if (this.promises.size >= this.maxEntries) {
+      const oldestKey = this.promises.keys().next().value;
+      if (oldestKey !== undefined) this.promises.delete(oldestKey);
+    }
     this.promises.set(cacheKey, { lemma, promise });
     return promise;
   }

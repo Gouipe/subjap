@@ -135,6 +135,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private trackUnsubscriber: (() => void) | null = null;
   private videoHuntTimer: ReturnType<typeof setInterval> | null = null;
   private readonly timedTextTracks = new Map<string, SubtitleCue[]>();
+  private readonly japaneseCuesByText = new Map<string, SubtitleCue[]>();
   private readonly requestedTimedTextUrls = new Set<string>();
   private messageListener: ((event: MessageEvent) => void) | null = null;
   private timeupdateVideo: HTMLVideoElement | null = null;
@@ -543,9 +544,8 @@ export class NetflixAdapter implements PlatformAdapter {
     time: number,
     referenceStart: number | null = null,
   ): SubtitleCue | null {
-    const cues = this.timedTextTracks.get("ja") ?? [];
     const compactText = compactCueText(text);
-    const matching = cues.filter((cue) => compactCueText(cue.text) === compactText);
+    const matching = this.japaneseCuesByText.get(compactText) ?? [];
     const active = matching.find(
       (cue) => cue.start <= time && time < cue.end,
     );
@@ -592,6 +592,15 @@ export class NetflixAdapter implements PlatformAdapter {
     const byKey = new Map(previous.map((cue) => [`${cue.start}:${cue.end}:${cue.text}`, cue]));
     for (const cue of cues) byKey.set(`${cue.start}:${cue.end}:${cue.text}`, cue);
     this.timedTextTracks.set(language, [...byKey.values()].sort((a, b) => a.start - b.start));
+    if (language === "ja") {
+      this.japaneseCuesByText.clear();
+      for (const cue of this.timedTextTracks.get("ja") ?? []) {
+        const key = compactCueText(cue.text);
+        const matches = this.japaneseCuesByText.get(key) ?? [];
+        matches.push(cue);
+        this.japaneseCuesByText.set(key, matches);
+      }
+    }
     this.emitCues();
   }
 
@@ -689,7 +698,9 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   getNavigationCues(): SubtitleCue[] {
-    return [...(this.timedTextTracks.get("ja") ?? [])];
+    // The track array is replaced when timed text is stored. Returning the
+    // stable instance lets CueNavigator skip identical timeupdate snapshots.
+    return this.timedTextTracks.get("ja") ?? [];
   }
 
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean> {
@@ -779,6 +790,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.videoObserver = null;
     this.video = null;
     this.timedTextTracks.clear();
+    this.japaneseCuesByText.clear();
     this.requestedTimedTextUrls.clear();
     if (this.timeupdateVideo) {
       this.timeupdateVideo.removeEventListener("timeupdate", this.onTimeUpdate);

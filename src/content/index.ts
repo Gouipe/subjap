@@ -27,6 +27,7 @@ import {
   splitIntoSentences,
 } from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
+import { LRUCache } from "@/tokenizer/lru-cache";
 import { groupTokens } from "@/tokenizer/group";
 import {
   CueNavigator,
@@ -77,8 +78,8 @@ let audioCapture: VideoAudioCapture | null = null;
 let nativeSubtitlesHidden = false;
 
 // The action popup prepares tab capture after the user invokes the extension.
-// Keeping the listener in the content script lets the rolling audio buffer
-// begin before the user chooses a word to mine.
+// Keeping the listener in the content script lets tab capture start from the
+// extension action without requiring the mining modal to be open first.
 onMessage("tabCapture:stream", async ({ streamId }) => {
   ensureOverlay();
   await audioCapture?.startTabCapture(streamId);
@@ -133,15 +134,17 @@ let lastRenderedCues: RenderedCue[] = [];
 
 /** Mining modal singleton (created on demand, destroyed on video swap). */
 let miningModal: MiningModal | null = null;
+let pendingCues: SubtitleCue[] | null = null;
+let cueProcessing = false;
 
 /** Global token index → { cue, token } for the currently rendered cues. */
 const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
 
 /** lemma → last resolved status (synchronous reads for the popover). */
-const wordStatusByLemma = new Map<string, WordStatus | null>();
+const wordStatusByLemma = new LRUCache<string, WordStatus | null>(1_000);
 
 /** lemma → number of matching notes from the latest successful Anki sync. */
-const ankiNoteCountByLemma = new Map<string, number>();
+const ankiNoteCountByLemma = new LRUCache<string, number>(1_000);
 
 /** Cached learner vocabulary size used by the frequency colour bands. */
 let knownWordCount = 0;
@@ -246,7 +249,7 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
       ankiNoteCountByLemma.clear();
       knownWordCountPromise = null;
       lastSignature = "";
-      if (lastCues.length > 0) void handleCues(lastCues);
+      if (lastCues.length > 0) enqueueCues(lastCues);
     } catch (err: unknown) {
       // Anki is optional; a missing AnkiConnect must not affect subtitle use.
       console.info("[SubJap] Anki known-word sync unavailable:", err);
@@ -298,11 +301,31 @@ function ensureOverlay(): OverlayRenderer | null {
     audioCapture = new VideoAudioCapture(video, (timeSeconds, resume) =>
       adapter.seekTo(timeSeconds, resume),
     );
-    audioCapture.start();
     currentVideo = video;
   }
 
   return overlay;
+}
+
+/** Keep only the newest cue snapshot while an async render is in flight. */
+function enqueueCues(cues: SubtitleCue[]): void {
+  pendingCues = cues;
+  if (cueProcessing) return;
+  cueProcessing = true;
+  void (async () => {
+    try {
+      while (pendingCues !== null) {
+        const nextCues = pendingCues;
+        pendingCues = null;
+        await handleCues(nextCues);
+      }
+    } catch (err: unknown) {
+      console.error("[SubJap] Cue processing failed:", err);
+    } finally {
+      cueProcessing = false;
+      if (pendingCues !== null) enqueueCues(pendingCues);
+    }
+  })();
 }
 
 // ---------------------------------------------------------------------------
@@ -441,12 +464,12 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     spanRegistry.set(index, entry);
   }
   lastRenderedCues = rendered;
-  overlayInstance.setKnownWordCount(resolvedKnownWordCount);
-  overlayInstance.updateCues(rendered);
-  overlayInstance.updateTranslation(
+  overlayInstance.updateContent(
+    rendered,
     translationCue
       ? { text: translationCue.text, language: translationCue.language ?? "" }
       : null,
+    resolvedKnownWordCount,
   );
   overlayInstance.show();
   cueNavigator.observe(japaneseCues);
@@ -589,14 +612,15 @@ function openMiningModal(token: Token, entry: DictionaryEntry | null): void {
   const video = adapter.getVideoElement();
   if (!video) return;
 
-  // Opening the mining flow is a user gesture. Use it to unlock an audio
-  // context that may have been suspended when the page first loaded.
-  audioCapture?.resume();
-
   // Locate the rendered cue that introduced this token (last match wins).
   const rendered = lastRenderedCues.find((rc) => rc.spans.some((st) => st.token === token));
   const targetSpan = rendered?.spans.find((st) => st.token === token);
   if (!rendered || !targetSpan) return;
+
+  // Opening the mining flow is a user gesture. Start capture only when it is
+  // actually needed, then use the gesture to unlock the audio context.
+  audioCapture?.start();
+  audioCapture?.resume();
 
   const source: EpisodeContext = adapter.getEpisodeContext() ?? {
     platform: adapter.id,
@@ -632,7 +656,7 @@ function onToggleKnown(lemma: string, currentStatus: WordStatus | null): void {
     .finally(() => {
       knownWordCountPromise = null;
       lastSignature = "";
-      void handleCues(lastCues);
+      enqueueCues(lastCues);
     });
 
   wordStatusByLemma.set(lemma, next.status);
@@ -659,7 +683,7 @@ function onToggleIgnored(
     .finally(() => {
       knownWordCountPromise = null;
       lastSignature = "";
-      void handleCues(lastCues);
+      enqueueCues(lastCues);
     });
 
   wordStatusByLemma.set(lemma, next.status);
@@ -700,7 +724,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 // Subscribe to subtitle cues from the active adapter.
 adapter.subscribeCues((cues) => {
-  void handleCues(cues);
+  enqueueCues(cues);
 });
 
 // Create the popover singleton (mounted on document.body).
