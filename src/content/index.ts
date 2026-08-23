@@ -467,7 +467,10 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   overlayInstance.updateContent(
     rendered,
     translationCue
-      ? { text: translationCue.text, language: translationCue.language ?? "" }
+      ? {
+          text: normalizeCueText(translationCue.text),
+          language: translationCue.language ?? "",
+        }
       : null,
     resolvedKnownWordCount,
   );
