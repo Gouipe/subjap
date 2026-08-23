@@ -165,7 +165,7 @@ function consumeInflectionalTail(tokens: Token[], start: number): number {
   return end;
 }
 
-/** Consume a て-form auxiliary chain, including nested conjugations. */
+/** Consume a て/で form and any auxiliary chain attached to it. */
 function consumeTeAuxiliaryChain(tokens: Token[], start: number): number {
   let end = start;
   let consumed = false;
@@ -178,9 +178,10 @@ function consumeTeAuxiliaryChain(tokens: Token[], start: number): number {
 
     if (isTeConjunctiveParticle(candidate)) {
       const auxiliary = tokens[end + 1];
+      end += 1;
+      consumed = true;
       if (auxiliary && isNonIndependentTeAuxiliary(auxiliary)) {
-        end += 2;
-        consumed = true;
+        end += 1;
         continueChain = true;
       }
     } else if (isContractedTeAuxiliary(candidate)) {
