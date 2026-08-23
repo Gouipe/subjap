@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { sendMessage } from "@/core/messaging";
+import { getOptions, saveOptions } from "@/core/options";
 import { isOnboardingComplete } from "@/onboarding";
 
 interface Stats {
@@ -27,16 +28,23 @@ const Popup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [captureStatus, setCaptureStatus] = useState<"idle" | "activating" | "active">("idle");
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [hideSecondarySubtitlesWhenAllKnown, setHideSecondarySubtitlesWhenAllKnown] =
+    useState(false);
+  const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [statsResult, dictResult, onboardedResult] = await Promise.all([
+    const [statsResult, dictResult, onboardedResult, optionsResult] = await Promise.all([
       sendMessage("stats:get", {}),
       sendMessage("dict:status", {}),
       isOnboardingComplete(),
+      getOptions(),
     ]);
     setStats(statsResult);
     setDict(dictResult);
     setOnboarded(onboardedResult);
+    setHideSecondarySubtitlesWhenAllKnown(
+      optionsResult.hideSecondarySubtitlesWhenAllKnown,
+    );
     setConnected(true);
     setError(null);
   }, []);
@@ -47,6 +55,24 @@ const Popup: React.FC = () => {
       setError(err instanceof Error ? err.message : String(err));
     });
   }, [refresh]);
+
+  const toggleSecondarySubtitles = useCallback(
+    async (enabled: boolean) => {
+      const previous = hideSecondarySubtitlesWhenAllKnown;
+      setHideSecondarySubtitlesWhenAllKnown(enabled);
+      setSavingSubtitlePreference(true);
+      setError(null);
+      try {
+        await saveOptions({ hideSecondarySubtitlesWhenAllKnown: enabled });
+      } catch (err: unknown) {
+        setHideSecondarySubtitlesWhenAllKnown(previous);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSavingSubtitlePreference(false);
+      }
+    },
+    [hideSecondarySubtitlesWhenAllKnown],
+  );
 
   const activateCapture = useCallback(async () => {
     setCaptureStatus("activating");
@@ -134,6 +160,23 @@ const Popup: React.FC = () => {
         </button>
         {captureError && <p style={styles.captureError}>{captureError}</p>}
         <p style={styles.captureHint}>À faire une seule fois par onglet Netflix.</p>
+      </div>
+
+      <div style={styles.subtitleBox}>
+        <label style={styles.checkLabel}>
+          <input
+            type="checkbox"
+            checked={hideSecondarySubtitlesWhenAllKnown}
+            disabled={savingSubtitlePreference}
+            onChange={(event) =>
+              void toggleSecondarySubtitles(event.target.checked)
+            }
+          />
+          <span>Masquer FR/EN si tout est connu</span>
+        </label>
+        <p style={styles.subtitleHint}>
+          La traduction réapparaît dès qu’un mot est à apprendre.
+        </p>
       </div>
 
       {!onboarded && (
@@ -265,6 +308,25 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 10,
     color: "#f38ba8",
     wordBreak: "break-word",
+  },
+  subtitleBox: {
+    marginTop: 10,
+    padding: "10px 0",
+    borderBottom: "1px solid #334155",
+  },
+  checkLabel: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    fontSize: 12,
+    lineHeight: 1.35,
+    cursor: "pointer",
+  },
+  subtitleHint: {
+    margin: "6px 0 0 24px",
+    fontSize: 10,
+    lineHeight: 1.35,
+    color: "#94a3b8",
   },
   dictStatus: {
     fontSize: 12,
