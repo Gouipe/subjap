@@ -10,6 +10,7 @@ import {
   type Token,
   type WordStatus,
 } from "@/core/types";
+import { toHiragana } from "@/core/kana";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -45,7 +46,6 @@ export interface PopoverCallbacks {
   /** Called when the user clicks "Mine this" */
   onMine: (token: Token, entry: DictionaryEntry | null) => void;
 }
-
 // ── Class ─────────────────────────────────────────────────────────────────
 
 export class WordPopover {
@@ -155,7 +155,6 @@ export class WordPopover {
     el.innerHTML = `
       <div class="subjap-popover__header">
         <div class="subjap-popover__surface"></div>
-        <div class="subjap-popover__dictionary"></div>
         <div class="subjap-popover__reading"></div>
         <div class="subjap-popover__pos"></div>
         <div class="subjap-popover__grammar"></div>
@@ -229,11 +228,6 @@ export class WordPopover {
         font-size: 22px;
         font-weight: 700;
         color: #fff;
-      }
-      .subjap-popover__dictionary {
-        font-size: 13px;
-        color: #cbd5e1;
-        margin-top: 1px;
       }
       .subjap-popover__header,
       .subjap-popover__actions {
@@ -346,18 +340,14 @@ export class WordPopover {
     frequencyRank: number | undefined,
     ankiNoteCount: number,
   ): void {
-    // Surface
+    // Base form and reading
     const surfaceEl = this.el.querySelector(".subjap-popover__surface")!;
-    surfaceEl.textContent = token.surface;
-
-    const dictionaryEl = this.el.querySelector(".subjap-popover__dictionary")!;
     const dictionaryForm = tokenDictionaryForm(token);
-    dictionaryEl.textContent =
-      dictionaryForm !== token.surface ? `Base: ${dictionaryForm}` : "";
+    surfaceEl.textContent = dictionaryForm;
 
-    // Reading
     const readingEl = this.el.querySelector(".subjap-popover__reading")!;
-    readingEl.textContent = token.reading ? `読み: ${token.reading}` : "";
+    const baseReading = entry?.reading || token.reading;
+    readingEl.textContent = baseReading ? toHiragana(baseReading) : "";
 
     // Part of speech
     const posEl = this.el.querySelector(".subjap-popover__pos")!;

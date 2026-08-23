@@ -310,7 +310,7 @@ test.describe("SubJap UX fixture", () => {
     await header.selectText();
     await expect
       .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
-      .toContain("Base: 為る");
+      .toContain("為る");
 
     await definitions.selectText();
     await expect
@@ -421,10 +421,9 @@ test.describe("SubJap UX fixture", () => {
     });
     await tokens.first().hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(page.locator(".subjap-popover__surface")).toHaveText("ヤバくない");
-    await expect(page.locator(".subjap-popover__reading")).toHaveText(
-      "読み: やばくない",
-    );
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("やばい");
+    await expect(page.locator(".subjap-popover__reading")).toHaveText("やばい");
+    await expect(page.locator(".subjap-popover__dictionary")).toHaveCount(0);
     await expect(page.locator(".subjap-popover__pos")).toContainText("Adj (i)");
     await expect(page.locator(".subjap-popover__defs")).toHaveText(
       "dangerous; risky; awful; amazing",
@@ -677,8 +676,9 @@ test.describe("SubJap UX fixture", () => {
     });
     await tokens.first().hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(page.locator(".subjap-popover__surface")).toHaveText("こいつら");
-    await expect(page.locator(".subjap-popover__dictionary")).toHaveText("Base: こいつ");
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("こいつ");
+    await expect(page.locator(".subjap-popover__reading")).toHaveText("こいつら");
+    await expect(page.locator(".subjap-popover__dictionary")).toHaveCount(0);
     await expect(page.locator(".subjap-popover__grammar")).toHaveText(
       "ら — suffixe pluriel",
     );
@@ -738,7 +738,7 @@ test.describe("SubJap UX fixture", () => {
     });
     await tokens.nth(1).click();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(page.locator(".subjap-popover__surface")).toHaveText("しました");
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("する");
     await expect(page.locator(".subjap-popover__defs")).toHaveText("to do");
   });
 
@@ -757,7 +757,7 @@ test.describe("SubJap UX fixture", () => {
     });
     await tokens.nth(1).click();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(page.locator(".subjap-popover__surface")).toHaveText("された");
+    await expect(page.locator(".subjap-popover__surface")).toHaveText("する");
     await expect(page.locator(".subjap-popover__defs")).toHaveText("to do");
   });
 
