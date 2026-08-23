@@ -456,6 +456,7 @@ export class NetflixAdapter implements PlatformAdapter {
       const trackCue = this.getMatchingTrackCue(
         this.activeDomCue.text,
         observationTime,
+        this.activeDomCue.start,
       );
       if (trackCue) {
         this.activeDomCue.start = trackCue.start;
@@ -537,10 +538,29 @@ export class NetflixAdapter implements PlatformAdapter {
     );
   }
 
-  private getMatchingTrackCue(text: string, time: number): SubtitleCue | null {
-    const cue = this.getTrackCueAt("ja", time);
-    if (!cue) return null;
-    return compactCueText(cue.text) === compactCueText(text) ? cue : null;
+  private getMatchingTrackCue(
+    text: string,
+    time: number,
+    referenceStart: number | null = null,
+  ): SubtitleCue | null {
+    const cues = this.timedTextTracks.get("ja") ?? [];
+    const compactText = compactCueText(text);
+    const matching = cues.filter((cue) => compactCueText(cue.text) === compactText);
+    const active = matching.find(
+      (cue) => cue.start <= time && time < cue.end,
+    );
+    if (active) return active;
+    if (referenceStart === null || matching.length === 0) return null;
+
+    // Netflix can keep a stale DOM cue visible just after the official cue's
+    // end. When the text is the same, the nearest official start identifies
+    // the same occurrence more reliably than the current media clock.
+    return matching.reduce((nearest, cue) =>
+      Math.abs(cue.start - referenceStart) <
+      Math.abs(nearest.start - referenceStart)
+        ? cue
+        : nearest,
+    );
   }
 
   private getActiveTranslationCue(): SubtitleCue | null {

@@ -316,7 +316,10 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   cueNavigator.remember(adapter.getNavigationCues?.() ?? []);
 
   const signature = cues
-    .map((cue) => `${cue.language ?? ""}\u0000${cue.id}\u0000${cue.text}`)
+    .map(
+      (cue) =>
+        `${cue.language ?? ""}\u0000${cue.id}\u0000${cue.start}\u0000${cue.end}\u0000${cue.endConfirmed ?? ""}\u0000${cue.text}`,
+    )
     .join("\u0001");
   if (signature === lastSignature) return;
   lastCues = cues;

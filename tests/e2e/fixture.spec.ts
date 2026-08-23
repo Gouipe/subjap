@@ -922,6 +922,46 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 105);
   });
 
+  test("Q ignore le doublon de la cue courante entre DOM et piste officielle", async ({
+    page,
+  }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+
+    await page.getByTestId("stale-dom-track-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-scenario",
+      "stale-dom-track-complete",
+    );
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "困るんですよ生徒に示しがつかないから",
+    );
+
+    await page.locator("body").press("q");
+    await expect(video).toHaveJSProperty("currentTime", 105);
+  });
+
+  test("S reprend la cue courante avec le timestamp officiel", async ({
+    page,
+  }) => {
+    const video = page.locator("#video");
+    const status = page.getByTestId("status");
+
+    await page.getByTestId("stale-dom-track-cue").click();
+    await expect(status).toHaveAttribute(
+      "data-scenario",
+      "stale-dom-track-complete",
+    );
+    await expect(status).toHaveAttribute(
+      "data-cue",
+      "困るんですよ生徒に示しがつかないから",
+    );
+
+    await page.locator("body").press("s");
+    await expect(video).toHaveJSProperty("currentTime", 110.778);
+  });
+
   test("conserve les cibles de Q et S quand ils sont pressés au même instant", async ({
     page,
   }) => {

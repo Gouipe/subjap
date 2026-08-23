@@ -244,6 +244,48 @@ describe("NetflixAdapter", () => {
     adapter.destroy();
   });
 
+  it("corrige une cue DOM encore visible après la fin officielle", async () => {
+    const { video, timedtext } = installNetflixPlayer();
+    video.currentTime = 111.064;
+    addLine(timedtext, "困るんですよ生徒に示しがつかないから", null, null);
+    const adapter = new NetflixAdapter();
+    const received: SubtitleCue[][] = [];
+    const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
+
+    await flushCueDebounce();
+    const domCue = received.at(-1)?.[0];
+    expect(domCue?.start).toBeCloseTo(110.914, 5);
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window,
+        data: {
+          source: "subjap",
+          type: "subjap:netflix-timed-text",
+          payload: {
+            url: "https://cdn.example/timedtext/stale-dom.vtt",
+            language: "ja",
+            body:
+              "WEBVTT\n\n00:01:45.000 --> 00:01:50.778\n" +
+              "廊下を走らないって言ってるでしょう\n\n" +
+              "00:01:50.778 --> 00:01:51.000\n" +
+              "困るんですよ生徒に示しがつかないから",
+          },
+        },
+      }),
+    );
+
+    expect(domCue).toMatchObject({
+      start: 110.778,
+      end: 111,
+      endConfirmed: true,
+    });
+    expect(received.at(-1)?.[0]).toBe(domCue);
+
+    unsubscribe();
+    adapter.destroy();
+  });
+
   it("regroupe les lignes simultanées en un seul cue", async () => {
     const { timedtext } = installNetflixPlayer();
     addLine(timedtext, "Première ligne", "4", "7");

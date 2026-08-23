@@ -745,6 +745,42 @@ document.querySelector<HTMLButtonElement>("#official-history")!.addEventListener
   }, 200);
 });
 
+document.querySelector<HTMLButtonElement>("#stale-dom-track")!.addEventListener("click", () => {
+  activeTokens = tokens;
+  const video = document.querySelector<HTMLVideoElement>("#video")!;
+
+  // Netflix may keep the current DOM cue visible just after the authoritative
+  // track says that occurrence has ended. The DOM cue has only a fallback
+  // start, slightly later than the official start.
+  video.currentTime = 111.064;
+  nativeSubtitles.replaceChildren(
+    nativeLine("困るんですよ生徒に示しがつかないから", null, null),
+  );
+  setTimeout(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: window,
+        data: {
+          source: "subjap",
+          type: "subjap:netflix-timed-text",
+          payload: {
+            url: "https://cdn.example/timedtext/stale-dom.vtt",
+            language: "ja",
+            body:
+              "WEBVTT\n\n00:01:45.000 --> 00:01:50.778\n" +
+              "廊下を走らないって言ってるでしょう\n\n" +
+              "00:01:50.778 --> 00:01:51.000\n" +
+              "困るんですよ生徒に示しがつかないから",
+          },
+        },
+      }),
+    );
+  }, 100);
+  setTimeout(() => {
+    status.dataset.scenario = "stale-dom-track-complete";
+  }, 200);
+});
+
 document.querySelector<HTMLButtonElement>("#delayed")!.addEventListener("click", () => {
   activeTokens = tokens;
   nextRenderDelayMs = 400;

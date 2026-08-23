@@ -34,7 +34,25 @@ export class CueNavigator {
   remember(cues: SubtitleCue[]): void {
     for (const cue of cues) {
       if (normalizeCueText(cue.text).length === 0) continue;
+      const equivalentEntries = [...this.observedCues.entries()].filter(([, observed]) =>
+        this.isEquivalentCue(observed, cue),
+      );
+
+      // The DOM cue can be provisional (for example, start = observationTime
+      // minus the 150 ms Netflix preroll) while the official track carries the
+      // exact timing for the same occurrence. Replace every provisional alias
+      // with the authoritative cue instead of leaving two timeline entries.
+      for (const [key] of equivalentEntries) {
+        this.observedCues.delete(key);
+      }
       this.observedCues.set(this.keyFor(cue), cue);
+
+      this.currentCues = this.currentCues.map((current) =>
+        this.isEquivalentCue(current, cue) ? cue : current,
+      );
+      if (this.seekAnchor && this.isEquivalentCue(this.seekAnchor, cue)) {
+        this.seekAnchor = cue;
+      }
     }
   }
 

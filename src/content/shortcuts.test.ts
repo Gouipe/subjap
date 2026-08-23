@@ -31,6 +31,34 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("previous", 111.2)).toBe(105);
   });
 
+  it("merges authoritative timing into a provisional DOM occurrence", () => {
+    const navigator = new CueNavigator();
+    const previous = cue("previous", 105, 110.778);
+    const provisional = {
+      id: "dom-current",
+      start: 110.914,
+      end: 110.914,
+      endConfirmed: false,
+      text: "current",
+      language: "ja",
+    } satisfies SubtitleCue;
+    const authoritative = {
+      id: "track-current",
+      start: 110.778,
+      end: 111,
+      text: "current",
+      language: "ja",
+    } satisfies SubtitleCue;
+
+    navigator.remember([previous]);
+    navigator.observe([provisional]);
+    navigator.remember([authoritative]);
+
+    expect(navigator.getSeekTime("previous", 111.064)).toBe(105);
+    navigator.cancelPendingSeek();
+    expect(navigator.getSeekTime("current", 111.064)).toBe(110.778);
+  });
+
   it("ignores whitespace-only cues in navigation history", () => {
     const navigator = new CueNavigator();
     const previous = cue("previous", 10, 12);
@@ -320,7 +348,7 @@ describe("CueNavigator", () => {
     navigator.observe([cue("three", 15, 18)]);
 
     let currentTime = 16;
-    const seekTo = vi.fn().mockImplementation(async (time: number) => {
+    const seekTo = vi.fn().mockImplementation((time: number) => {
       currentTime = time;
       return true;
     });
