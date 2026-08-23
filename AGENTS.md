@@ -47,3 +47,10 @@ changements concernés avant de rendre la main. Si l’utilisateur demande ensui
 des retours sur cette même implémentation, modifier le commit existant avec
 `git commit --amend --no-edit` plutôt que créer un nouveau commit, sauf demande
 explicite contraire.
+
+## Correction de bugs
+
+Quand je te demande de corriger un bug, ne cherche pas toujours simplement à corriger
+le cas unique remonté.
+Essaye de comprendre la vraie source du problème, et cherche une solution qui soit pérenne. 
+Si possible cherche des solutions qui vont corriger tous les cas similaires. 
