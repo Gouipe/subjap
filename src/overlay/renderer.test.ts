@@ -219,6 +219,107 @@ describe("OverlayRenderer", () => {
     overlay.destroy();
   });
 
+  it("masque la traduction quand tous les mots lexicaux sont connus", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    const cue = renderedCue();
+    cue.spans[1]!.wordState = {
+      key: "を",
+      status: "ignored",
+      source: "manual",
+    };
+    cue.spans.push({
+      index: 2,
+      token: {
+        surface: "。",
+        lemma: "。",
+        reading: "。",
+        partOfSpeech: ["記号"],
+      },
+      wordState: null,
+    });
+    const parentheticalCue: RenderedCue = {
+      cue: {
+        id: "fixture-2",
+        start: 3,
+        end: 5,
+        text: "（注釈）",
+      },
+      spans: [
+        {
+          index: 3,
+          token: {
+            surface: "注釈",
+            lemma: "注釈",
+            reading: "ちゅうしゃく",
+            partOfSpeech: ["名詞"],
+          },
+          wordState: null,
+          isParenthetical: true,
+        },
+      ],
+    };
+    const overlay = new OverlayRenderer(video, {
+      hideSecondarySubtitlesWhenAllKnown: true,
+    });
+    overlay.updateContent(
+      [cue, parentheticalCue],
+      { text: "Known sentence", language: "en" },
+      0,
+    );
+
+    expect(document.querySelector(".subjap-translation-line")).toBeNull();
+    overlay.destroy();
+  });
+
+  it("conserve la traduction si un mot lexical reste à apprendre", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    const overlay = new OverlayRenderer(video, {
+      hideSecondarySubtitlesWhenAllKnown: true,
+    });
+    overlay.updateContent(
+      [renderedCue()],
+      { text: "Sentence to keep", language: "fr" },
+      0,
+    );
+
+    expect(document.querySelector(".subjap-translation-line")?.textContent).toBe(
+      "Sentence to keep",
+    );
+    overlay.destroy();
+  });
+
+  it("réaffiche immédiatement la traduction quand le réglage est désactivé", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+    const cue = renderedCue();
+    cue.spans[1]!.wordState = {
+      key: "を",
+      status: "ignored",
+      source: "manual",
+    };
+    const overlay = new OverlayRenderer(video, {
+      hideSecondarySubtitlesWhenAllKnown: true,
+    });
+    overlay.updateContent([cue], { text: "Sentence", language: "fr" }, 0);
+    overlay.setOptions({ hideSecondarySubtitlesWhenAllKnown: false });
+
+    expect(document.querySelector(".subjap-translation-line")?.textContent).toBe(
+      "Sentence",
+    );
+    overlay.destroy();
+  });
+
   it("affiche les lectures UniDic en hiragana", () => {
     vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});

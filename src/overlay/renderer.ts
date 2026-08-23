@@ -273,7 +273,7 @@ export class OverlayRenderer {
       const line = this.buildCueLine(rc);
       this.container.appendChild(line);
     }
-    if (this.translation) {
+    if (this.translation && this.shouldShowTranslation()) {
       const line = document.createElement("div");
       line.className = "subjap-translation-line";
       line.lang = this.translation.language;
@@ -396,6 +396,29 @@ export class OverlayRenderer {
       st.token.surface.trim().length === 0 ||
       st.token.partOfSpeech.includes("記号") ||
       /^[、。！？!?.,，．：；「」『』（）()…]+$/.test(st.token.surface)
+    );
+  }
+
+  /**
+   * When enabled, keep the secondary translation visible until every lexical
+   * word in all currently displayed Japanese cues is explicitly known or
+   * ignored. Punctuation, whitespace and parenthetical annotations do not
+   * participate in the decision.
+   */
+  private shouldShowTranslation(): boolean {
+    if (!this.options.hideSecondarySubtitlesWhenAllKnown) return true;
+
+    const lexicalSpans = this.cues.flatMap((cue) =>
+      cue.spans.filter(
+        (span) => !span.isParenthetical && !this.isNonWord(span),
+      ),
+    );
+
+    if (lexicalSpans.length === 0) return true;
+    return lexicalSpans.some(
+      (span) =>
+        span.wordState?.status !== "known" &&
+        span.wordState?.status !== "ignored",
     );
   }
 

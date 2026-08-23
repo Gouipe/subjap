@@ -27,6 +27,9 @@ const stage = document.querySelector<HTMLDivElement>("#stage")!;
 const nativeSubtitles = document.querySelector<HTMLDivElement>("#timedtext")!;
 const status = document.querySelector<HTMLDivElement>("#status")!;
 const furiganaToggle = document.querySelector<HTMLInputElement>("#furigana")!;
+const hideSecondaryWhenKnownToggle = document.querySelector<HTMLInputElement>(
+  "#hide-secondary-when-known",
+)!;
 
 const fixtureSeekTransport = {
   seek: async (timeSeconds: number, resume: boolean): Promise<boolean> => {
@@ -394,6 +397,7 @@ function ensureOverlay(): OverlayRenderer | null {
     overlay = new OverlayRenderer(video, {
       showFurigana: furiganaToggle.checked,
       highlightKnown: true,
+      hideSecondarySubtitlesWhenAllKnown: hideSecondaryWhenKnownToggle.checked,
     });
     currentVideo = video;
   }
@@ -579,6 +583,17 @@ document.querySelector<HTMLButtonElement>("#encoded-translation")!.addEventListe
     text: "&quot;Good luck,&quot; or something like that.",
   };
   nativeSubtitles.replaceChildren(nativeLine("日本語を勉強します。", "12", "16"));
+});
+
+document.querySelector<HTMLButtonElement>("#bilingual-known")!.addEventListener("click", () => {
+  knownLemmas = new Set(["日本語", "勉強", "する", "ます"]);
+  ignoredLemmas = new Set(["を"]);
+  unknownLemmas = new Set();
+  activeTokens = parentheticalTokens;
+  currentTranslation = { language: "fr", text: "J’étudie le japonais." };
+  nativeSubtitles.replaceChildren(
+    nativeLine("-（田中）日本語を勉強します。", "12", "16"),
+  );
 });
 
 document.querySelector<HTMLButtonElement>("#untimed")!.addEventListener("click", () => {
@@ -931,6 +946,12 @@ document.querySelector<HTMLButtonElement>("#swap")!.addEventListener("click", ()
 
 furiganaToggle.addEventListener("change", () => {
   overlay?.setOptions({ showFurigana: furiganaToggle.checked });
+});
+
+hideSecondaryWhenKnownToggle.addEventListener("change", () => {
+  overlay?.setOptions({
+    hideSecondarySubtitlesWhenAllKnown: hideSecondaryWhenKnownToggle.checked,
+  });
 });
 
 getPopover(popoverCallbacks);

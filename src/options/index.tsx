@@ -811,6 +811,17 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 onChange={(v) => void updateOptions({ hideNativeSubtitles: v })}
               />
             </Row>
+            <Row
+              label="Masquer les sous-titres FR/EN connus"
+              hint="masque la traduction quand tous les mots japonais affichés sont connus ou ignorés"
+            >
+              <Toggle
+                checked={options.hideSecondarySubtitlesWhenAllKnown}
+                onChange={(v) =>
+                  void updateOptions({ hideSecondarySubtitlesWhenAllKnown: v })
+                }
+              />
+            </Row>
           </>
         )}
       </Section>
