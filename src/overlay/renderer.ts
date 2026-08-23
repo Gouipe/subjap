@@ -60,6 +60,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       font-size: ${opts.fontSize}px;
       font-family: ${opts.fontFamily};
       color: #ffffff;
+      background-color: rgba(0, 0, 0, 0.62);
+      border-radius: 0.18em;
       white-space: normal;
       overflow-wrap: break-word;
       text-shadow:

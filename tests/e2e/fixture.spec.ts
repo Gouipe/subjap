@@ -87,6 +87,10 @@ test.describe("SubJap UX fixture", () => {
 
     const cueLine = overlay.locator(".subjap-cue-line");
     await expect(cueLine).toHaveCSS("align-items", "flex-end");
+    await expect(cueLine).toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0.62)",
+    );
     const gapRatio = await cueLine.evaluate((element) => {
       const style = getComputedStyle(element);
       return (
