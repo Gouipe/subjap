@@ -21,6 +21,12 @@ import {
   planImportedStateReconciliation,
   WORD_STATUS_PRIORITY,
 } from "./anki-known";
+import {
+  MIGAKU_BACK_TEMPLATE,
+  MIGAKU_CSS,
+  MIGAKU_FIELDS,
+  MIGAKU_FRONT_TEMPLATE,
+} from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
 // ---------------------------------------------------------------------------
@@ -501,28 +507,73 @@ onMessage("anki:syncKnown", async () => {
 // ── anki:addNote ──────────────────────────────────────────────────────────
 
 const MIGAKU_MODEL_NAME = "Migaku Memory";
-const MIGAKU_FIELDS = [
-  "Mot",
-  "Lecture",
-  "Phrase",
-  "Traduction",
-  "Définitions",
-  "Notes",
-  "Image",
-  "AudioMot",
-  "AudioPhrase",
-] as const;
+const MIGAKU_IMPORT_MODEL_NAME = "Migaku Memory Import";
+const styledMigakuModels = new Set<string>();
 
-const MIGAKU_CSS =
-  '.card { font-family: "Hiragino Kaku Gothic ProN", "Meiryo", Arial, sans-serif; text-align: center; font-size: 20px; }\n' +
-  ".word { font-size: 40px; font-weight: bold; }\n" +
-  ".reading { color: #666; font-size: 20px; margin-bottom: 8px; }\n" +
-  ".sentence { font-size: 22px; line-height: 1.8; margin: 12px 0; }\n" +
-  ".translation { margin-top: 12px; color: #333; }\n" +
-  ".definitions { text-align: left; margin: 12px auto; max-width: 600px; }\n" +
-  ".notes { text-align: left; margin: 12px auto; max-width: 600px; color: #555; font-size: 14px; }\n" +
-  ".target { font-weight: bold; }\n" +
-  "ruby rt { font-size: 0.5em; color: #888; }";
+interface AnkiModelTemplate {
+  Front: string;
+  Back: string;
+}
+
+interface AnkiModelStyling {
+  css: string;
+}
+
+function hasMigakuFields(fields: string[]): boolean {
+  return (
+    fields.length === MIGAKU_FIELDS.length &&
+    MIGAKU_FIELDS.every((field) => fields.includes(field))
+  );
+}
+
+/** Apply the shared presentation without changing notes or their fields. */
+async function updateMigakuModelPresentation(modelName: string): Promise<void> {
+  if (styledMigakuModels.has(modelName)) return;
+
+  const fields = await ankiInvoke<string[]>("modelFieldNames", { modelName });
+  if (!hasMigakuFields(fields)) {
+    console.info(`[SubJap] Skipping incompatible Anki model styling: ${modelName}`);
+    return;
+  }
+
+  const templates = await ankiInvoke<Record<string, AnkiModelTemplate>>("modelTemplates", {
+    modelName,
+  });
+  const templateName = Object.keys(templates)[0];
+  if (!templateName) {
+    console.warn(`[SubJap] Anki model has no card template: ${modelName}`);
+    return;
+  }
+
+  const currentStyling = await ankiInvoke<AnkiModelStyling>("modelStyling", { modelName });
+  const currentTemplate = templates[templateName];
+  if (
+    currentStyling.css === MIGAKU_CSS &&
+    currentTemplate.Front === MIGAKU_FRONT_TEMPLATE &&
+    currentTemplate.Back === MIGAKU_BACK_TEMPLATE
+  ) {
+    styledMigakuModels.add(modelName);
+    console.log(`[SubJap] Anki model presentation already current: ${modelName}`);
+    return;
+  }
+
+  await ankiInvoke("updateModelStyling", {
+    model: { name: modelName, css: MIGAKU_CSS },
+  });
+  await ankiInvoke("updateModelTemplates", {
+    model: {
+      name: modelName,
+      templates: {
+        [templateName]: {
+          Front: MIGAKU_FRONT_TEMPLATE,
+          Back: MIGAKU_BACK_TEMPLATE,
+        },
+      },
+    },
+  });
+  styledMigakuModels.add(modelName);
+  console.log(`[SubJap] Anki model presentation updated: ${modelName}`);
+}
 
 /** Ensure SubJap's mining note type implements the shared Migaku field contract. */
 async function ensureMigakuModel(): Promise<void> {
@@ -539,6 +590,11 @@ async function ensureMigakuModel(): Promise<void> {
         `Anki model "${MIGAKU_MODEL_NAME}" has incompatible fields; expected ${MIGAKU_FIELDS.join(", ")}`,
       );
     }
+    try {
+      await updateMigakuModelPresentation(MIGAKU_MODEL_NAME);
+    } catch (err) {
+      console.warn("[SubJap] Could not update Migaku model presentation; continuing:", err);
+    }
     return;
   }
 
@@ -550,25 +606,32 @@ async function ensureMigakuModel(): Promise<void> {
       cardTemplates: [
         {
           Name: MIGAKU_MODEL_NAME,
-          Front:
-            '<div class="word">{{Mot}}</div>\n' +
-            '<div class="reading">{{Lecture}}</div>\n' +
-            '<div class="audio">{{AudioMot}}</div>',
-          Back:
-            '{{FrontSide}}\n\n<hr id="answer">\n\n' +
-            '<div class="sentence">{{Phrase}}</div>\n' +
-            '<div class="audio">{{AudioPhrase}}</div>\n' +
-            "{{Image}}\n" +
-            '<div class="translation">{{Traduction}}</div>\n' +
-            '<div class="definitions">{{Définitions}}</div>\n' +
-            '<div class="notes">{{Notes}}</div>',
+          Front: MIGAKU_FRONT_TEMPLATE,
+          Back: MIGAKU_BACK_TEMPLATE,
         },
       ],
     });
+    styledMigakuModels.add(MIGAKU_MODEL_NAME);
   } catch (err) {
     // Already exists (e.g. from a previous attempt)? Use it; otherwise report.
     const after = await ankiInvoke<string[]>("modelNames");
     if (!after.includes(MIGAKU_MODEL_NAME)) throw err;
+    try {
+      await updateMigakuModelPresentation(MIGAKU_MODEL_NAME);
+    } catch (err) {
+      console.warn("[SubJap] Could not update Migaku model presentation; continuing:", err);
+    }
+  }
+}
+
+/** Style the model generated by the separate Migaku export when it is present. */
+async function updateMigakuImportModelIfPresent(): Promise<void> {
+  const names = await ankiInvoke<string[]>("modelNames");
+  if (!names.includes(MIGAKU_IMPORT_MODEL_NAME)) return;
+  try {
+    await updateMigakuModelPresentation(MIGAKU_IMPORT_MODEL_NAME);
+  } catch (err) {
+    console.warn("[SubJap] Could not update Migaku import presentation; continuing:", err);
   }
 }
 
@@ -646,6 +709,7 @@ onMessage("anki:setup", async () => {
 
   await ensureAnkiDeck(deckName);
   await ensureMigakuModel();
+  await updateMigakuImportModelIfPresent();
 
   console.log("[SubJap] Anki setup ensured:", { deckName, modelName });
   return { deckName, modelName };

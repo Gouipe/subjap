@@ -13,6 +13,12 @@
 SubJap crée automatiquement le deck `SubJap` et son type de note
 `Migaku Memory`. Il ne faut pas les préparer manuellement.
 
+Le premier passage par SubJap applique aussi le thème desktop sombre aux modèles
+`Migaku Memory` et `Migaku Memory Import` lorsqu’ils existent. Cette mise à jour
+ne modifie pas le contenu des notes ; elle remplace seulement les templates et
+le CSS d’affichage. Le modèle `Migaku Memory Import` est celui utilisé par le
+deck `Migaku Memory::New` produit par `migaku-export`.
+
 ## Usage quotidien de SubJap
 
 1. Ouvrir Anki, puis la vidéo dans Chrome.
