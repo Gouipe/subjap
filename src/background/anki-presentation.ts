@@ -14,6 +14,8 @@ export const MIGAKU_FIELDS = [
   "AudioPhrase",
 ] as const;
 
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="2"';
+
 export const MIGAKU_CSS = `
 .card {
   --bg: #0e1016;
@@ -380,6 +382,105 @@ ruby rt {
   font-weight: 750;
 }
 
+/* Compact desktop review: keep the familiar vertical stack inside the study window. */
+@media (min-width: 901px) {
+  .back-card {
+    margin-top: -16px;
+    margin-bottom: -18px;
+  }
+
+  .back-word {
+    margin-bottom: 2px;
+    font-size: 32px;
+    line-height: 1.15;
+  }
+
+  .back-sentence {
+    padding: 4px 10px 0;
+    font-size: 22px;
+    line-height: 1.35;
+  }
+
+  .back-audio-row {
+    gap: 8px;
+    min-height: 34px;
+    margin: 4px 0 10px;
+  }
+
+  .back-audio-row .audio-word,
+  .back-audio-row .audio-phrase {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+
+  .back-audio-row .audio-word img.replay-button,
+  .back-audio-row .audio-phrase img.replay-button {
+    width: 22px;
+    height: 22px;
+    padding: 3px;
+  }
+
+  .translation-reveal {
+    margin: 0 0 10px;
+  }
+
+  .translation-reveal > summary {
+    min-width: 0;
+    padding: 7px 16px;
+    font-size: 10px;
+  }
+
+  .translation-content {
+    margin-top: 8px;
+    padding: 0 6px;
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  .back-divider {
+    margin-bottom: 10px;
+  }
+
+  .definition-panel {
+    margin-bottom: 12px;
+    padding: 10px 14px 12px;
+    border-radius: 12px;
+  }
+
+  .definition-panel .definitions {
+    font-size: 20px;
+    line-height: 1.35;
+  }
+
+  .definition-panel .section-label,
+  .back-notes .section-label {
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+
+  .back-image {
+    margin-bottom: 12px;
+  }
+
+  .back-image img {
+    height: min(300px, 30vh);
+    max-height: min(300px, 30vh);
+    border-radius: 12px;
+  }
+
+  .back-notes {
+    margin-bottom: 6px;
+    padding: 10px 14px;
+    border-radius: 12px;
+  }
+
+  .notes {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+}
+
 @media (max-width: 900px) {
   .card {
     min-width: 0;
@@ -397,23 +498,21 @@ ruby rt {
 `;
 
 export const MIGAKU_FRONT_TEMPLATE = `
-<div class="card-shell front-card">
+<div class="card-shell front-card" ${MIGAKU_TEMPLATE_MARKER}>
   <div class="focus">
     <div class="word">{{Mot}}</div>
     {{#Lecture}}<div class="reading">{{Lecture}}</div>{{/Lecture}}
     {{#AudioMot}}<div class="audio audio-word">{{AudioMot}}</div>{{/AudioMot}}
-    {{#Lecture}}{{tts ja_JP hypertts_preset=Front_realtime_0 voices=HyperTTS:Lecture}}{{/Lecture}}
   </div>
 </div>
 `;
 
 export const MIGAKU_BACK_TEMPLATE = `
-<div class="card-shell back-card">
+<div class="card-shell back-card" ${MIGAKU_TEMPLATE_MARKER}>
   <div class="back-word">{{Mot}}</div>
   {{#Phrase}}<div class="back-sentence">{{Phrase}}</div>{{/Phrase}}
   <div class="back-audio-row">
     {{#AudioMot}}<div class="audio audio-word">{{AudioMot}}</div>{{/AudioMot}}
-    {{^AudioMot}}{{#Lecture}}<div class="audio audio-word">{{tts ja_JP hypertts_preset=Front_realtime_0 voices=HyperTTS:Lecture}}</div>{{/Lecture}}{{/AudioMot}}
     {{#AudioPhrase}}<div class="audio audio-phrase">{{AudioPhrase}}</div>{{/AudioPhrase}}
   </div>
 

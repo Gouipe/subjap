@@ -26,6 +26,7 @@ import {
   MIGAKU_CSS,
   MIGAKU_FIELDS,
   MIGAKU_FRONT_TEMPLATE,
+  MIGAKU_TEMPLATE_MARKER,
 } from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -547,30 +548,34 @@ async function updateMigakuModelPresentation(modelName: string): Promise<void> {
 
   const currentStyling = await ankiInvoke<AnkiModelStyling>("modelStyling", { modelName });
   const currentTemplate = templates[templateName];
-  if (
-    currentStyling.css === MIGAKU_CSS &&
-    currentTemplate.Front === MIGAKU_FRONT_TEMPLATE &&
-    currentTemplate.Back === MIGAKU_BACK_TEMPLATE
-  ) {
+  const hasCurrentTemplate =
+    currentTemplate.Front.includes(MIGAKU_TEMPLATE_MARKER) &&
+    currentTemplate.Back.includes(MIGAKU_TEMPLATE_MARKER);
+  const hasCurrentStyling = currentStyling.css === MIGAKU_CSS;
+  if (hasCurrentStyling && hasCurrentTemplate) {
     styledMigakuModels.add(modelName);
     console.log(`[SubJap] Anki model presentation already current: ${modelName}`);
     return;
   }
 
-  await ankiInvoke("updateModelStyling", {
-    model: { name: modelName, css: MIGAKU_CSS },
-  });
-  await ankiInvoke("updateModelTemplates", {
-    model: {
-      name: modelName,
-      templates: {
-        [templateName]: {
-          Front: MIGAKU_FRONT_TEMPLATE,
-          Back: MIGAKU_BACK_TEMPLATE,
+  if (!hasCurrentStyling) {
+    await ankiInvoke("updateModelStyling", {
+      model: { name: modelName, css: MIGAKU_CSS },
+    });
+  }
+  if (!hasCurrentTemplate) {
+    await ankiInvoke("updateModelTemplates", {
+      model: {
+        name: modelName,
+        templates: {
+          [templateName]: {
+            Front: MIGAKU_FRONT_TEMPLATE,
+            Back: MIGAKU_BACK_TEMPLATE,
+          },
         },
       },
-    },
-  });
+    });
+  }
   styledMigakuModels.add(modelName);
   console.log(`[SubJap] Anki model presentation updated: ${modelName}`);
 }

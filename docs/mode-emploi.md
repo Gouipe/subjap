@@ -15,9 +15,11 @@ SubJap crée automatiquement le deck `SubJap` et son type de note
 
 Le premier passage par SubJap applique aussi le thème desktop sombre aux modèles
 `Migaku Memory` et `Migaku Memory Import` lorsqu’ils existent. Cette mise à jour
-ne modifie pas le contenu des notes ; elle remplace seulement les templates et
-le CSS d’affichage. Le modèle `Migaku Memory Import` est celui utilisé par le
-deck `Migaku Memory::New` produit par `migaku-export`.
+ne modifie pas le contenu des notes. Après l’installation du template versionné,
+SubJap préserve les ajouts effectués par d’autres extensions dans celui-ci,
+notamment les balises realtime créées par HyperTTS. Le modèle
+`Migaku Memory Import` est celui utilisé par le deck `Migaku Memory::New`
+produit par `migaku-export`.
 
 ## Usage quotidien de SubJap
 
