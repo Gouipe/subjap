@@ -41,3 +41,8 @@ export function formatMigakuSentence(cue: RenderedCue, targetToken: SpanToken): 
 export function formatMigakuDefinitions(definitions: string[]): string {
   return definitions.map(escapeAnkiHtml).join("<br>");
 }
+
+/** Convert multiline user text to safe HTML while preserving line breaks. */
+export function formatMigakuNotes(text: string): string {
+  return escapeAnkiHtml(text).replace(/\r?\n/gu, "<br>");
+}

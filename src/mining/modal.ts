@@ -9,7 +9,6 @@
 // (best-effort) to Anki.
 
 import {
-  tokenCanonicalKey,
   tokenDictionaryForm,
   type RenderedCue,
   type SpanToken,
@@ -18,7 +17,12 @@ import {
 import { sendMessage } from "@/core/messaging";
 import { normalizeCueText } from "@/subtitles";
 import { captureFrame } from "./capture";
-import { formatMigakuDefinitions, formatMigakuSentence, formatMigakuWord } from "./migaku";
+import {
+  formatMigakuDefinitions,
+  formatMigakuNotes,
+  formatMigakuSentence,
+  formatMigakuWord,
+} from "./migaku";
 import type { VideoAudioCapture } from "./audio-capture";
 
 const MODAL_ID = "subjap-mining-modal";
@@ -26,8 +30,10 @@ const MODAL_ID = "subjap-mining-modal";
 interface MiningState {
   cue: RenderedCue;
   targetToken: SpanToken;
-  lemmaReading: string;
-  translation: string;
+  sentenceText: string;
+  targetWordText: string;
+  readingText: string;
+  translationText: string;
   episodeContext: EpisodeContext;
   definitions: string[];
   definitionText: string;
@@ -58,6 +64,17 @@ function definitionLines(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** Render an edited sentence safely while keeping the target word highlighted. */
+function formatEditableSentence(sentence: string, targetWord: string): string {
+  const target = targetWord.trim();
+  if (!target) return escapeHtml(sentence);
+  const targetIndex = sentence.indexOf(target);
+  if (targetIndex < 0) return escapeHtml(sentence);
+  return `${escapeHtml(sentence.slice(0, targetIndex))}<span class="target">${escapeHtml(
+    target,
+  )}</span>${escapeHtml(sentence.slice(targetIndex + target.length))}`;
+}
+
 export class MiningModal {
   private container: HTMLDivElement;
   private video: HTMLVideoElement;
@@ -78,6 +95,8 @@ export class MiningModal {
       const target = e.target as HTMLElement;
       if (target.classList.contains("subjap-modal-btn-audio")) {
         void this.generateAudio(true);
+      } else if (target.classList.contains("subjap-modal-btn-phrase-audio")) {
+        this.playPhraseAudio();
       } else if (target.classList.contains("subjap-modal-btn-screenshot")) {
         void this.captureScreenshot();
       } else if (target.classList.contains("subjap-modal-btn-send")) {
@@ -100,8 +119,10 @@ export class MiningModal {
     this.state = {
       cue: state.cue,
       targetToken: state.targetToken,
-      lemmaReading: state.lemmaReading,
-      translation: state.translation ?? "",
+      sentenceText: normalizeCueText(state.cue.cue.text) || state.targetToken.token.surface,
+      targetWordText: tokenDictionaryForm(state.targetToken.token),
+      readingText: state.lemmaReading,
+      translationText: state.translation ?? "",
       episodeContext: state.episodeContext,
       definitions: state.definitions,
       definitionText: state.definitions.join("\n"),
@@ -157,6 +178,7 @@ export class MiningModal {
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
           <button class="subjap-modal-btn subjap-modal-btn-audio">🔊 Word audio</button>
+          <button class="subjap-modal-btn subjap-modal-btn-phrase-audio" disabled>🔊 Phrase audio</button>
           <button class="subjap-modal-btn subjap-modal-btn-screenshot">📷 Screenshot</button>
           <button class="subjap-modal-btn subjap-modal-btn-send">📤 Send to Anki</button>
         </div>
@@ -178,11 +200,12 @@ export class MiningModal {
       }
       .subjap-modal-panel {
         position: relative; background: #1e1e2e; color: #e0e0e0;
-        border-radius: 12px; padding: 20px 24px; max-width: 520px; width: 90%;
-        max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+        border-radius: 12px; padding: 20px 24px; max-width: 720px; width: 94%;
+        box-sizing: border-box; height: 80vh; max-height: 80vh; overflow: hidden;
+        display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
       }
       .subjap-modal-header {
-        display: flex; justify-content: space-between; align-items: center;
+        display: flex; flex-shrink: 0; justify-content: space-between; align-items: center;
         margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 8px;
       }
       .subjap-modal-title { font-size: 18px; font-weight: 700; }
@@ -191,7 +214,10 @@ export class MiningModal {
         cursor: pointer; padding: 4px 8px; border-radius: 4px;
       }
       .subjap-modal-close:hover { background: #333; color: #fff; }
-      .subjap-modal-body { margin-bottom: 16px; line-height: 1.6; font-size: 15px; }
+      .subjap-modal-body {
+        flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 16px;
+        line-height: 1.6; font-size: 15px;
+      }
       .subjap-modal-body .subjap-sentence {
         font-size: 24px; margin-bottom: 12px; padding: 10px; background: #2a2a3c; border-radius: 8px;
         user-select: text; cursor: text;
@@ -199,7 +225,16 @@ export class MiningModal {
       .subjap-modal-body .subjap-sentence .subjap-target { color: #facc15; font-weight: 700; }
       .subjap-modal-body .subjap-target-word { user-select: text; cursor: text; }
       .subjap-modal-body .subjap-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-      .subjap-modal-body .subjap-reading { color: #a78bfa; margin-bottom: 8px; }
+      .subjap-modal-body .subjap-input, .subjap-modal-body .subjap-textarea {
+        display: block; box-sizing: border-box; width: 100%; margin: 4px 0 12px; padding: 8px 10px;
+        background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
+        border-radius: 6px; font: inherit; line-height: 1.45;
+      }
+      .subjap-modal-body .subjap-input:focus, .subjap-modal-body .subjap-textarea:focus {
+        outline: 2px solid #8b5cf6; outline-offset: 1px;
+      }
+      .subjap-modal-body .subjap-sentence-input { min-height: 78px; resize: vertical; font-size: 22px; }
+      .subjap-modal-body .subjap-translation { min-height: 58px; resize: vertical; }
       .subjap-modal-body .subjap-definitions {
         display: block; box-sizing: border-box; width: 100%; height: calc(5 * 1.45em + 16px);
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
@@ -224,7 +259,7 @@ export class MiningModal {
       .subjap-modal-body .subjap-error { font-size: 13px; color: #f38ba8; margin-top: 6px; }
       .subjap-modal-body .subjap-local-info { font-size: 13px; color: #facc15; margin-top: 8px; }
       .subjap-modal-footer {
-        display: flex; gap: 8px; flex-wrap: wrap;
+        display: flex; flex-shrink: 0; gap: 8px; flex-wrap: wrap;
         border-top: 1px solid #333; padding-top: 12px;
       }
       .subjap-modal-btn {
@@ -235,6 +270,8 @@ export class MiningModal {
       .subjap-modal-btn:disabled { opacity: 0.6; cursor: default; }
       .subjap-modal-btn-audio { background: #3b82f6; color: #fff; }
       .subjap-modal-btn-audio:hover:not(:disabled) { background: #2563eb; }
+      .subjap-modal-btn-phrase-audio { background: #0f766e; color: #fff; }
+      .subjap-modal-btn-phrase-audio:hover:not(:disabled) { background: #0d9488; }
       .subjap-modal-btn-screenshot { background: #8b5cf6; color: #fff; }
       .subjap-modal-btn-screenshot:hover:not(:disabled) { background: #7c3aed; }
       .subjap-modal-btn-send { background: #22c55e; color: #fff; }
@@ -251,23 +288,10 @@ export class MiningModal {
     const body = this.container.querySelector(".subjap-modal-body");
     if (!body) return;
 
-    const sentenceHtml = cue.spans
-      .map((st) => {
-        const isTarget = tokenCanonicalKey(st.token) === tokenCanonicalKey(targetToken.token);
-        const cls = isTarget ? "subjap-target" : "";
-        return `<span class="${cls}">${escapeHtml(st.token.surface)}</span>`;
-      })
-      .join("");
-
     const defListHtml = `<div class="subjap-label">Definitions</div>
       <textarea class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</textarea>
       <div class="subjap-label">Notes</div>
       <textarea class="subjap-notes" data-testid="mining-notes" aria-label="Notes" placeholder="Add a personal note for Anki…">${escapeHtml(this.state.notesText)}</textarea>`;
-
-    const readingHtml = this.state.lemmaReading
-      ? `<div class="subjap-label">Reading</div>
-         <div class="subjap-reading">${escapeHtml(this.state.lemmaReading)}</div>`
-      : "";
 
     const audioInfo = this.state.wordAudioDataUrl
       ? '<div class="subjap-audio-info">✓ Word audio ready</div>'
@@ -287,9 +311,13 @@ export class MiningModal {
 
     body.innerHTML = `
       <div class="subjap-label">Sentence — ${escapeHtml(this.state.episodeContext.title)}</div>
-      <div class="subjap-sentence">${sentenceHtml}</div>
-      <div class="subjap-label">Target Word — <span class="subjap-target-word" data-testid="mining-target-word">${escapeHtml(tokenDictionaryForm(targetToken.token))}</span></div>
-      ${readingHtml}
+      <textarea class="subjap-textarea subjap-sentence-input" data-testid="mining-sentence" aria-label="Sentence">${escapeHtml(this.state.sentenceText)}</textarea>
+      <div class="subjap-label">Target Word</div>
+      <input class="subjap-input" data-testid="mining-target-word" aria-label="Target Word" value="${escapeHtml(this.state.targetWordText)}" />
+      <div class="subjap-label">Reading</div>
+      <input class="subjap-input" data-testid="mining-reading" aria-label="Reading" value="${escapeHtml(this.state.readingText)}" />
+      <div class="subjap-label">Translation</div>
+      <textarea class="subjap-textarea subjap-translation" data-testid="mining-translation" aria-label="Translation">${escapeHtml(this.state.translationText)}</textarea>
       ${defListHtml}
       ${audioInfo}
       ${phraseAudioInfo}
@@ -297,6 +325,37 @@ export class MiningModal {
       ${localInfo}
       ${ankiError}
     `;
+
+    const phraseAudioButton = this.container.querySelector<HTMLButtonElement>(
+      ".subjap-modal-btn-phrase-audio",
+    );
+    if (phraseAudioButton) {
+      phraseAudioButton.disabled = !this.state.phraseAudioDataUrl;
+    }
+
+    const sentenceInput = body.querySelector<HTMLTextAreaElement>(".subjap-sentence-input");
+    sentenceInput?.addEventListener("input", () => {
+      if (this.state) this.state.sentenceText = sentenceInput.value;
+    });
+
+    const targetWordInput = body.querySelector<HTMLInputElement>("[data-testid=\"mining-target-word\"]");
+    targetWordInput?.addEventListener("input", () => {
+      if (this.state) this.state.targetWordText = targetWordInput.value;
+    });
+
+    const readingInput = body.querySelector<HTMLInputElement>("[data-testid=\"mining-reading\"]");
+    readingInput?.addEventListener("input", () => {
+      if (this.state) {
+        this.state.readingText = readingInput.value;
+        // A changed reading must not keep the audio generated for the old one.
+        this.state.wordAudioDataUrl = null;
+      }
+    });
+
+    const translationInput = body.querySelector<HTMLTextAreaElement>(".subjap-translation");
+    translationInput?.addEventListener("input", () => {
+      if (this.state) this.state.translationText = translationInput.value;
+    });
 
     const definitionsInput = body.querySelector<HTMLTextAreaElement>(".subjap-definitions");
     definitionsInput?.addEventListener("input", () => {
@@ -316,7 +375,7 @@ export class MiningModal {
     if (!state) return;
     try {
       const result = await sendMessage("tts:generate", {
-        text: state.lemmaReading || tokenDictionaryForm(state.targetToken.token),
+        text: state.readingText || state.targetWordText,
       });
       // Ignore a late response if the modal was closed and reopened for a
       // different card while VOICEVOX was synthesizing.
@@ -334,6 +393,18 @@ export class MiningModal {
       this.render();
     } catch (err) {
       console.error("[SubJap] VOICEVOX word audio failed:", err);
+    }
+  }
+
+  /** Replay the captured Netflix phrase audio without recapturing it. */
+  private playPhraseAudio(): void {
+    const dataUrl = this.state?.phraseAudioDataUrl;
+    if (!dataUrl) return;
+    const preview = new Audio(dataUrl);
+    try {
+      void Promise.resolve(preview.play()).catch(() => undefined);
+    } catch {
+      // Preview playback can be blocked by autoplay policy.
     }
   }
 
@@ -400,7 +471,15 @@ export class MiningModal {
     const state = this.state;
     const { cue, targetToken, episodeContext } = state;
 
-    const sentence = normalizeCueText(cue.cue.text) || targetToken.token.surface;
+    const sentence = state.sentenceText.trim() || state.targetWordText.trim() || targetToken.token.surface;
+    const targetWord = state.targetWordText.trim() || tokenDictionaryForm(targetToken.token);
+    const targetReading = state.readingText.trim();
+    const defaultSentence = normalizeCueText(cue.cue.text) || targetToken.token.surface;
+    const defaultTargetWord = tokenDictionaryForm(targetToken.token);
+    const phrase =
+      state.sentenceText === defaultSentence && state.targetWordText === defaultTargetWord
+        ? formatMigakuSentence(cue, targetToken)
+        : formatEditableSentence(sentence, targetWord);
     const editedDefinitions = definitionLines(state.definitionText);
     let phraseAudioDataUrl: string | undefined = this.state.phraseAudioDataUrl ?? undefined;
     if (!phraseAudioDataUrl && this.phraseAudioPromise) {
@@ -434,9 +513,9 @@ export class MiningModal {
         const { id } = await sendMessage("mine:create", {
           sentence,
           sentenceReading: "",
-          targetWord: tokenDictionaryForm(targetToken.token),
-          targetSurface: targetToken.token.surface,
-          targetReading: state.lemmaReading,
+          targetWord,
+          targetSurface: targetWord,
+          targetReading,
           definitions: editedDefinitions,
           audioDataUrl: phraseAudioDataUrl,
           screenshotDataUrl: state.screenshotDataUrl ?? undefined,
@@ -463,7 +542,7 @@ export class MiningModal {
           try {
             wordAudioDataUrl = (
               await sendMessage("tts:generate", {
-                text: state.lemmaReading || tokenDictionaryForm(targetToken.token),
+                text: targetReading || targetWord,
               })
             ).dataUrl;
           } catch (err) {
@@ -475,12 +554,12 @@ export class MiningModal {
         await sendMessage("anki:addNote", {
           deckName,
           fields: {
-            Mot: formatMigakuWord(tokenDictionaryForm(targetToken.token), state.lemmaReading),
-            Lecture: state.lemmaReading,
-            Phrase: formatMigakuSentence(cue, targetToken),
-            Traduction: state.translation,
+            Mot: formatMigakuWord(targetWord, targetReading),
+            Lecture: targetReading,
+            Phrase: phrase,
+            Traduction: state.translationText,
             Définitions: formatMigakuDefinitions(editedDefinitions),
-            Notes: state.notesText,
+            Notes: formatMigakuNotes(state.notesText),
             Image: "",
             AudioMot: "",
             AudioPhrase: "",
