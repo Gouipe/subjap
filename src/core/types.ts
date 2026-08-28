@@ -90,6 +90,11 @@ export function tokenLookupTerms(token: Token): string[] {
   return token.lookupTerms ?? [tokenDictionaryForm(token), token.surface, token.reading];
 }
 
+/** Lexical identities allowed to share a persisted known/unknown state. */
+export function tokenStateLookupTerms(token: Token): string[] {
+  return [...new Set([tokenCanonicalKey(token), tokenDictionaryForm(token)].filter(Boolean))];
+}
+
 export interface Tokenizer {
   tokenize(sentence: string): Token[];
 }

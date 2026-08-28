@@ -42,7 +42,7 @@ import { WordStateCache } from "./word-state-cache";
 import {
   tokenCanonicalKey,
   tokenDictionaryForm,
-  tokenLookupTerms,
+  tokenStateLookupTerms,
 } from "@/core/types";
 import type {
   DictionaryEntry,
@@ -458,7 +458,9 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
         const index = globalIndex++;
         nextSpanRegistry.set(index, { cue, token });
         const lexicalKey = tokenCanonicalKey(token);
-        const stateLookupKeys = [lexicalKey, ...tokenLookupTerms(token)];
+        // Known/unknown state follows UniDic's lexical identity and natural
+        // orthography, never a phonetic reading shared by an unrelated word.
+        const stateLookupKeys = tokenStateLookupTerms(token);
         const state = await getWordState(lexicalKey, stateLookupKeys);
         const frequencyRank =
           frequencyRanks[lexicalKey] ??

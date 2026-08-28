@@ -116,9 +116,11 @@ Le chemin principal est le suivant :
    POS, conjugaison et composants. Les offsets UTF-8 de Lindera sont vérifiés
    afin que la concaténation des surfaces reproduise exactement la phrase.
 6. Les états de mots (`known`, `unknown`, `learning` ou `ignored`) sont
-   demandés au service worker, avec déduplication des requêtes en vol. Un mot
-   ignoré est rendu blanc comme un mot connu, mais reste exclu du compteur de
-   vocabulaire connu.
+   demandés au service worker, avec déduplication des requêtes en vol. Ils sont
+   partagés entre les écritures d'une même identité lexicale reconnue par
+   UniDic, mais jamais entre deux mots uniquement parce qu'ils ont la même
+   lecture en hiragana. Un mot ignoré est rendu blanc comme un mot connu, mais
+   reste exclu du compteur de vocabulaire connu.
 7. Le content script récupère le nombre de mots connus et un rang pratique par
    lemme. Ce rang vient d’une liste de fréquence issue de sous-titres
    OpenSubtitles (films, séries et anime), préalablement recroisée avec le
