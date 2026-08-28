@@ -4,7 +4,7 @@ Quand je te demande de modifier/ajouter une fonctionnalité, brainstormons ensem
 
 Aborde une question à la fois. Sinon c'est trop compliqué pour moi. Donne une recommandation pour me faciliter la tâche.
 
-Tu as accès à Chrome via l'extension. Tu as aussi les droits de lancer des commandes. Quand tu peux sois autonome, ne me demande vraiment que ce tu ne peux pas savoir/faire par toi-même ou que c'est des questions fonctionnelles qui dépendent de la préférence de l'utilisateur de l'extension.
+Tu as accès à Chrome via l'extension. Tu as aussi les droits de lancer des commandes. Ne me demande vraiment que ce tu ne peux pas savoir dans le code ou des questions fonctionnelles qui dépendent de la préférence de l'utilisateur de l'extension.
 
 Ne pas utiliser de workflow ou de skill spécialisé imposé par le projet pour
 les changements de ce projet.
