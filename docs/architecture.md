@@ -238,14 +238,22 @@ la lecture et les glosses sélectionnables. Le modal peut :
 La carte locale reste la source de vérité : une indisponibilité d’Anki ne fait
 pas perdre le mining. Le modal conserve alors la carte locale, affiche l’erreur
 et permet de réessayer sans créer de doublon local. Le service worker communique
-avec AnkiConnect sur `127.0.0.1:8765`, crée automatiquement le deck `SubJap` et
+avec AnkiConnect sur `127.0.0.1:8765`, crée automatiquement les sous-decks de
+vocabulaire et
 garantit le type de note exact
 `Migaku Memory` avec les champs `Mot`, `Lecture`, `Phrase`, `Traduction`,
-`Définitions`, `Notes`, `Image`, `AudioMot` et `AudioPhrase`. Les médias sont
+`Définitions`, `Notes`, `Image`, `AudioMot`, `AudioPhrase` et `Production`. Les médias sont
 stockés par `storeMediaFile`, puis référencés dans les champs Migaku.
 Le paquet externe utilise un type distinct, `Migaku Memory Import`, avec ce
 même contrat de champs : cela évite le renommage automatique `Migaku Memory+`
 par Anki tout en permettant la synchronisation globale des statuts.
+
+Les deux modèles actifs génèrent une carte `Compréhension` et, lorsque le champ
+`Production` est renseigné, une carte sœur `Production`. SubJap range ces cartes
+dans `日本語::Vocabulaire::Compréhension` et
+`日本語::Vocabulaire::Production`. Une activation depuis le verso crée la sœur
+en état suspendu ; le service worker la libère comme nouvelle carte après deux
+jours, sans modifier la planification de la compréhension.
 
 Toutes les notes Anki dont le champ `Mot` est renseigné sont recherchées dans
 tous les decks au démarrage, au retour sur l’onglet et périodiquement. Le champ
