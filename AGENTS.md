@@ -18,9 +18,37 @@ merger son commit dans `master` et  lancer un npm run build avant de rendre la m
 
 Références du projet :
 
+- [`docs/`](docs/) — documentation du projet ; commencer par parcourir ce dossier
+  avant toute modification et consulter les documents dont le nom correspond au
+  sujet traité ;
+- [`docs/anki-card-formatting.md`](docs/anki-card-formatting.md) — contrat,
+  architecture et procédure pour la mise en forme des cartes Anki ;
 - [`docs/architecture.md`](docs/architecture.md) — architecture actuelle ;
 - [`docs/testing.md`](docs/testing.md) — fixture et scénarios de test ;
 - `tests/fixture/` et `tests/e2e/` — harnais exécutable.
+
+## Consultation générale de `docs/`
+
+Avant de coder, exécuter `rg --files docs` et ouvrir les documents pertinents
+en fonction de leur nom. Les noms donnent une première indication de la
+documentation à consulter :
+
+- `anki*`, `card*`, `template*`, `format*`, `style*` : cartes Anki et rendu ;
+- `architecture*` : frontières entre modules et flux de données ;
+- `testing*`, `fixture*`, `e2e*` : stratégie de vérification et harnais ;
+- `mode-emploi*`, `guide*`, `instructions*` : procédure d’utilisation ou de
+  développement ;
+- `voicevox*`, `audio*`, `tts*` : synthèse, capture et fichiers audio ;
+- `benchmark*`, `performance*`, `perf*` : mesures et contraintes de
+  performance ;
+- `TODO*`, `plan*`, `spec*`, `historique*`, `handoff*` : backlog, décisions ou
+  historique, à consulter lorsque le sujet correspond mais à ne pas considérer
+  automatiquement comme l’état courant.
+
+Si aucun nom ne correspond exactement, consulter `architecture.md`, puis la
+documentation la plus proche par domaine. Les documents de `docs/` sont des
+références de contexte ; les instructions normatives de ce fichier et les
+besoins explicites de l’utilisateur restent prioritaires.
 
 Ne pas créer de régression dans la fixture ou les scénarios E2E, même lorsqu’un
 comportement absent du harnais est découvert.
