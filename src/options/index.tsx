@@ -608,7 +608,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
     setSettingUpAnki(true);
     setError(null);
     try {
-      // Creates the dedicated "SubJap" deck + note model in Anki (idempotent).
+      // Creates the vocabulary subdecks, presets and two-card model (idempotent).
       const result = await sendMessage("anki:setup", {});
       const status = await sendMessage("anki:status", {});
       setAnki(status);
@@ -721,12 +721,12 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
           </Btn>
         </Row>
         <Row
-          label="Deck dédié"
-          hint="crée le deck « SubJap » + le modèle compatible « Migaku Memory » dans Anki (sans effet si déjà présents)"
+          label="Decks de vocabulaire"
+          hint="crée Compréhension et Production sous 日本語::Vocabulaire, puis met à jour le modèle Migaku Memory"
         >
           <div style={s.btnRow}>
             <Btn onClick={() => void setupAnki()} disabled={settingUpAnki || !anki?.connected}>
-              {settingUpAnki ? "Création…" : "Créer le deck « SubJap »"}
+              {settingUpAnki ? "Configuration…" : "Configurer les decks Anki"}
             </Btn>
           </div>
         </Row>

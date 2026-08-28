@@ -27,13 +27,17 @@ générées.
 
 | Type de note | Deck habituel | Origine | Présentation partagée |
 | --- | --- | --- | --- |
-| `Migaku Memory` | `SubJap` | cartes minées depuis SubJap | oui |
-| `Migaku Memory Import` | `Migaku Memory::New` | paquet produit par `migaku-export` | oui |
+| `Migaku Memory` | `日本語::Vocabulaire::Compréhension` | cartes minées depuis SubJap | oui |
+| `Migaku Memory Import` | `日本語::Vocabulaire::Compréhension` | paquet produit par `migaku-export` | oui |
 | `Migaku Vocabulary Status` | `Migaku Memory::Status` | états de vocabulaire importés | non, modèle technique suspendu |
 
 Le modèle `Migaku Memory Import` a volontairement un nom différent de
 `Migaku Memory` afin qu’Anki ne le renomme pas automatiquement en
 `Migaku Memory+` lors d’un import.
+
+Chaque modèle actif possède deux types de carte, `Compréhension` et
+`Production`. Leur comportement pédagogique et leur organisation en sous-decks
+sont définis dans [`anki-production.md`](anki-production.md).
 
 ## Contrat des champs
 
@@ -51,6 +55,7 @@ champs :
 | `Image` | capture ou image contextuelle | généralement un `<div><img ...></div>` |
 | `AudioMot` | audio du mot facultatif | balise Anki `[sound:...]` ou HTML audio fourni par HyperTTS |
 | `AudioPhrase` | audio de la phrase facultatif | balise Anki `[sound:...]` |
+| `Production` | état technique de la carte sœur | vide avant activation, timestamp pendant le délai de deux jours, puis `active` |
 
 Ne pas renommer `Définitions` en `Definition`, ni `Lecture` en `Reading`, sans
 mettre à jour simultanément le contrat dans le code SubJap et dans l’export.
@@ -59,11 +64,16 @@ correspondantes sont protégées par les conditions de template Anki.
 
 ## Ordre et contenu actuels
 
-Le recto reste volontairement simple :
+Le recto de compréhension reste volontairement simple :
 
 1. `Mot` ;
 2. `Lecture`, si elle existe ;
 3. `AudioMot`, si elle existe.
+
+Son verso conserve le bouton d’activation de la production. Le recto de
+production masque le span `.target` de `Phrase` par un blanc fixe et garde la
+traduction repliée. Son verso remet la phrase complète et ordonne `AudioMot`
+avant `AudioPhrase`.
 
 Le verso conserve cette structure verticale :
 
@@ -139,7 +149,7 @@ Pour appliquer une nouvelle présentation aux modèles déjà présents :
 
 1. laisser Anki ouvert avec AnkiConnect sur `127.0.0.1:8765` ;
 2. recompiler l’extension ;
-3. ouvrir les options SubJap et cliquer sur **Créer le deck « SubJap »** (l’action
+3. ouvrir les options SubJap et cliquer sur **Configurer les decks Anki** (l’action
    est idempotente et sert aussi à remettre à jour la présentation existante) ;
 4. rouvrir l’aperçu Anki si une carte déjà affichée conserve l’ancien rendu.
 

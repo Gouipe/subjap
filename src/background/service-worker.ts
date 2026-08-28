@@ -22,11 +22,20 @@ import {
   WORD_STATUS_PRIORITY,
 } from "./anki-known";
 import {
+  ANKI_COMPREHENSION_DECK,
+  ANKI_PRODUCTION_DECK,
+  ANKI_VOCABULARY_PARENT_DECK,
   MIGAKU_BACK_TEMPLATE,
+  MIGAKU_COMPREHENSION_TEMPLATE_NAME,
   MIGAKU_CSS,
   MIGAKU_FIELDS,
   MIGAKU_FRONT_TEMPLATE,
+  MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT,
+  MIGAKU_PRODUCTION_BACK_TEMPLATE,
+  MIGAKU_PRODUCTION_FRONT_TEMPLATE,
+  MIGAKU_PRODUCTION_TEMPLATE_NAME,
   MIGAKU_TEMPLATE_MARKER,
+  MIGAKU_TEMPLATE_MARKER_V2,
 } from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -39,10 +48,15 @@ chrome.runtime.onInstalled.addListener((details) => {
     void chrome.runtime.openOptionsPage();
   }
   void ensureFrequencyRanks();
+  void scheduleProductionReleaseAlarm();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void ensureFrequencyRanks();
+  void scheduleProductionReleaseAlarm();
+  void releaseDueProductionCards().catch((err) => {
+    console.info("[SubJap] Pending production release unavailable:", err);
+  });
   void warmupVoicevox().catch((err) => {
     console.info("[SubJap] VOICEVOX warm-up unavailable:", err);
   });
@@ -467,6 +481,7 @@ interface AnkiNoteInfo {
 
 /** Reconcile vocabulary presence and status tags across every Anki deck. */
 onMessage("anki:syncKnown", async () => {
+  await releaseDueProductionCards();
   const noteIds = await ankiInvoke<number[]>("findNotes", { query: "Mot:*" });
   const notes: AnkiNoteInfo[] = [];
   for (let offset = 0; offset < noteIds.length; offset += 500) {
@@ -510,6 +525,9 @@ onMessage("anki:syncKnown", async () => {
 const MIGAKU_MODEL_NAME = "Migaku Memory";
 const MIGAKU_IMPORT_MODEL_NAME = "Migaku Memory Import";
 const styledMigakuModels = new Set<string>();
+const PRODUCTION_FIELD = "Production";
+const COMPREHENSION_PRESET_NAME = "SubJap Compréhension";
+const PRODUCTION_PRESET_NAME = "SubJap Production";
 
 interface AnkiModelTemplate {
   Front: string;
@@ -520,58 +538,116 @@ interface AnkiModelStyling {
   css: string;
 }
 
-function hasMigakuFields(fields: string[]): boolean {
-  return (
-    fields.length === MIGAKU_FIELDS.length &&
-    MIGAKU_FIELDS.every((field) => fields.includes(field))
-  );
+interface AnkiDeckConfig {
+  id: number;
+  name: string;
+  autoplay?: boolean;
+  waitForAudio?: boolean;
+  new?: { bury?: boolean; perDay?: number; [key: string]: unknown };
+  rev?: { bury?: boolean; [key: string]: unknown };
+  lapse?: { leechAction?: number; leechFails?: number; [key: string]: unknown };
+  buryInterdayLearning?: boolean;
+  [key: string]: unknown;
 }
 
-/** Apply the shared presentation without changing notes or their fields. */
+async function ensureMigakuFields(modelName: string): Promise<void> {
+  const fields = await ankiInvoke<string[]>("modelFieldNames", { modelName });
+  const contentFields = MIGAKU_FIELDS.filter((field) => field !== PRODUCTION_FIELD);
+  const missingContent = contentFields.filter((field) => !fields.includes(field));
+  if (missingContent.length > 0) {
+    throw new Error(
+      `Anki model "${modelName}" is missing required fields: ${missingContent.join(", ")}`,
+    );
+  }
+  if (!fields.includes(PRODUCTION_FIELD)) {
+    await ankiInvoke("modelFieldAdd", {
+      modelName,
+      fieldName: PRODUCTION_FIELD,
+      index: fields.length,
+    });
+  }
+}
+
+function migrateManagedTemplatePart(
+  current: string,
+  replacement: string,
+  appendActivation = false,
+): string {
+  if (current.includes(MIGAKU_TEMPLATE_MARKER)) return current;
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V2)) {
+    let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V2, MIGAKU_TEMPLATE_MARKER);
+    if (appendActivation && !migrated.includes("subjap-activate-production")) {
+      migrated += MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT;
+    }
+    return migrated;
+  }
+  return replacement;
+}
+
+/** Apply the shared presentation while preserving additions around managed v2 templates. */
 async function updateMigakuModelPresentation(modelName: string): Promise<void> {
   if (styledMigakuModels.has(modelName)) return;
 
-  const fields = await ankiInvoke<string[]>("modelFieldNames", { modelName });
-  if (!hasMigakuFields(fields)) {
-    console.info(`[SubJap] Skipping incompatible Anki model styling: ${modelName}`);
-    return;
-  }
-
-  const templates = await ankiInvoke<Record<string, AnkiModelTemplate>>("modelTemplates", {
+  await ensureMigakuFields(modelName);
+  let templates = await ankiInvoke<Record<string, AnkiModelTemplate>>("modelTemplates", {
     modelName,
   });
-  const templateName = Object.keys(templates)[0];
-  if (!templateName) {
+  const previousComprehensionName = Object.keys(templates).find(
+    (name) => name !== MIGAKU_PRODUCTION_TEMPLATE_NAME,
+  );
+  if (!previousComprehensionName) {
     console.warn(`[SubJap] Anki model has no card template: ${modelName}`);
     return;
   }
+  if (previousComprehensionName !== MIGAKU_COMPREHENSION_TEMPLATE_NAME) {
+    await ankiInvoke("modelTemplateRename", {
+      modelName,
+      oldTemplateName: previousComprehensionName,
+      newTemplateName: MIGAKU_COMPREHENSION_TEMPLATE_NAME,
+    });
+    templates = await ankiInvoke<Record<string, AnkiModelTemplate>>("modelTemplates", {
+      modelName,
+    });
+  }
+
+  const comprehension = templates[MIGAKU_COMPREHENSION_TEMPLATE_NAME];
+  if (!comprehension) {
+    throw new Error(`Anki model "${modelName}" has no comprehension template`);
+  }
+  const nextComprehension = {
+    Front: migrateManagedTemplatePart(comprehension.Front, MIGAKU_FRONT_TEMPLATE),
+    Back: migrateManagedTemplatePart(comprehension.Back, MIGAKU_BACK_TEMPLATE, true),
+  };
+
+  const production = templates[MIGAKU_PRODUCTION_TEMPLATE_NAME];
+  if (!production) {
+    await ankiInvoke("modelTemplateAdd", {
+      modelName,
+      template: {
+        Name: MIGAKU_PRODUCTION_TEMPLATE_NAME,
+        Front: MIGAKU_PRODUCTION_FRONT_TEMPLATE,
+        Back: MIGAKU_PRODUCTION_BACK_TEMPLATE,
+      },
+    });
+  }
 
   const currentStyling = await ankiInvoke<AnkiModelStyling>("modelStyling", { modelName });
-  const currentTemplate = templates[templateName];
-  const hasCurrentTemplate =
-    currentTemplate.Front.includes(MIGAKU_TEMPLATE_MARKER) &&
-    currentTemplate.Back.includes(MIGAKU_TEMPLATE_MARKER);
   const hasCurrentStyling = currentStyling.css === MIGAKU_CSS;
-  if (hasCurrentStyling && hasCurrentTemplate) {
-    styledMigakuModels.add(modelName);
-    console.log(`[SubJap] Anki model presentation already current: ${modelName}`);
-    return;
-  }
 
   if (!hasCurrentStyling) {
     await ankiInvoke("updateModelStyling", {
       model: { name: modelName, css: MIGAKU_CSS },
     });
   }
-  if (!hasCurrentTemplate) {
+  if (
+    nextComprehension.Front !== comprehension.Front ||
+    nextComprehension.Back !== comprehension.Back
+  ) {
     await ankiInvoke("updateModelTemplates", {
       model: {
         name: modelName,
         templates: {
-          [templateName]: {
-            Front: MIGAKU_FRONT_TEMPLATE,
-            Back: MIGAKU_BACK_TEMPLATE,
-          },
+          [MIGAKU_COMPREHENSION_TEMPLATE_NAME]: nextComprehension,
         },
       },
     });
@@ -584,17 +660,6 @@ async function updateMigakuModelPresentation(modelName: string): Promise<void> {
 async function ensureMigakuModel(): Promise<void> {
   const names = await ankiInvoke<string[]>("modelNames");
   if (names.includes(MIGAKU_MODEL_NAME)) {
-    const fields = await ankiInvoke<string[]>("modelFieldNames", {
-      modelName: MIGAKU_MODEL_NAME,
-    });
-    const exact =
-      fields.length === MIGAKU_FIELDS.length &&
-      MIGAKU_FIELDS.every((field, index) => fields[index] === field);
-    if (!exact) {
-      throw new Error(
-        `Anki model "${MIGAKU_MODEL_NAME}" has incompatible fields; expected ${MIGAKU_FIELDS.join(", ")}`,
-      );
-    }
     try {
       await updateMigakuModelPresentation(MIGAKU_MODEL_NAME);
     } catch (err) {
@@ -610,9 +675,14 @@ async function ensureMigakuModel(): Promise<void> {
       css: MIGAKU_CSS,
       cardTemplates: [
         {
-          Name: MIGAKU_MODEL_NAME,
+          Name: MIGAKU_COMPREHENSION_TEMPLATE_NAME,
           Front: MIGAKU_FRONT_TEMPLATE,
           Back: MIGAKU_BACK_TEMPLATE,
+        },
+        {
+          Name: MIGAKU_PRODUCTION_TEMPLATE_NAME,
+          Front: MIGAKU_PRODUCTION_FRONT_TEMPLATE,
+          Back: MIGAKU_PRODUCTION_BACK_TEMPLATE,
         },
       ],
     });
@@ -645,6 +715,159 @@ async function ensureAnkiDeck(deckName: string): Promise<void> {
   if (!names.includes(deckName)) await ankiInvoke("createDeck", { deck: deckName });
 }
 
+async function ensureDeckPreset(
+  deckName: string,
+  presetName: string,
+  configure: (config: AnkiDeckConfig) => void,
+): Promise<void> {
+  let config = await ankiInvoke<AnkiDeckConfig>("getDeckConfig", { deck: deckName });
+  if (config.name !== presetName) {
+    const configId = await ankiInvoke<number | false>("cloneDeckConfigId", {
+      name: presetName,
+      cloneFrom: String(config.id),
+    });
+    if (configId === false) throw new Error(`Could not create Anki preset "${presetName}"`);
+    await ankiInvoke("setDeckConfigId", { decks: [deckName], configId });
+    config = await ankiInvoke<AnkiDeckConfig>("getDeckConfig", { deck: deckName });
+  }
+  configure(config);
+  await ankiInvoke("saveDeckConfig", { config });
+}
+
+async function ensureStudyDecks(): Promise<void> {
+  await ensureAnkiDeck(ANKI_VOCABULARY_PARENT_DECK);
+  await ensureAnkiDeck(ANKI_COMPREHENSION_DECK);
+  await ensureAnkiDeck(ANKI_PRODUCTION_DECK);
+
+  await ensureDeckPreset(
+    ANKI_COMPREHENSION_DECK,
+    COMPREHENSION_PRESET_NAME,
+    (config) => {
+      config.new = { ...config.new, bury: true };
+      config.rev = { ...config.rev, bury: true };
+      config.buryInterdayLearning = true;
+      config.autoplay = true;
+      config.waitForAudio = true;
+    },
+  );
+  await ensureDeckPreset(ANKI_PRODUCTION_DECK, PRODUCTION_PRESET_NAME, (config) => {
+    config.new = { ...config.new, bury: true, perDay: 5 };
+    config.rev = { ...config.rev, bury: true };
+    config.lapse = {
+      ...config.lapse,
+      leechAction: 0,
+      leechFails: Math.max(12, config.lapse?.leechFails ?? 0),
+    };
+    config.buryInterdayLearning = true;
+    config.autoplay = true;
+    config.waitForAudio = true;
+  });
+}
+
+async function moveModelCardsIntoStudyDecks(modelName: string): Promise<void> {
+  const comprehensionCards = await ankiInvoke<number[]>("findCards", {
+    query: `note:"${modelName}" card:${MIGAKU_COMPREHENSION_TEMPLATE_NAME}`,
+  });
+  if (comprehensionCards.length > 0) {
+    await ankiInvoke("changeDeck", {
+      cards: comprehensionCards,
+      deck: ANKI_COMPREHENSION_DECK,
+    });
+  }
+  const productionCards = await ankiInvoke<number[]>("findCards", {
+    query: `note:"${modelName}" card:${MIGAKU_PRODUCTION_TEMPLATE_NAME}`,
+  });
+  if (productionCards.length > 0) {
+    await ankiInvoke("changeDeck", {
+      cards: productionCards,
+      deck: ANKI_PRODUCTION_DECK,
+    });
+  }
+}
+
+interface AnkiProductionCardInfo {
+  cardId: number;
+  note: number;
+  deckName: string;
+  queue: number;
+  fields: Record<string, { value: string }>;
+}
+
+const PRODUCTION_RELEASE_ALARM_NAME = "subjap-production-release";
+
+async function scheduleProductionReleaseAlarm(): Promise<void> {
+  await chrome.alarms.create(PRODUCTION_RELEASE_ALARM_NAME, {
+    delayInMinutes: 1,
+    periodInMinutes: 60,
+  });
+}
+
+async function findProductionCardInfos(): Promise<AnkiProductionCardInfo[]> {
+  const cardIds: number[] = [];
+  for (const modelName of [MIGAKU_MODEL_NAME, MIGAKU_IMPORT_MODEL_NAME]) {
+    cardIds.push(
+      ...(await ankiInvoke<number[]>("findCards", {
+        query: `note:"${modelName}" card:${MIGAKU_PRODUCTION_TEMPLATE_NAME}`,
+      })),
+    );
+  }
+  if (cardIds.length === 0) return [];
+  return ankiInvoke<AnkiProductionCardInfo[]>("cardsInfo", { cards: cardIds });
+}
+
+/** Release pending production cards as new cards after two full days. */
+async function releaseDueProductionCards(): Promise<number> {
+  const infos = await findProductionCardInfos();
+  const now = Date.now();
+  const due: AnkiProductionCardInfo[] = [];
+  const futureToSuspend: number[] = [];
+  const wrongDeck: number[] = [];
+
+  for (const info of infos) {
+    if (info.deckName !== ANKI_PRODUCTION_DECK) wrongDeck.push(info.cardId);
+    const raw = info.fields[PRODUCTION_FIELD]?.value.trim() ?? "";
+    const releaseAt = Number(raw);
+    if (!raw || raw === "active" || !Number.isFinite(releaseAt)) continue;
+    if (releaseAt <= now) {
+      due.push(info);
+    } else if (info.queue !== -1) {
+      futureToSuspend.push(info.cardId);
+    }
+  }
+
+  if (wrongDeck.length > 0) {
+    await ankiInvoke("changeDeck", { cards: wrongDeck, deck: ANKI_PRODUCTION_DECK });
+  }
+  if (futureToSuspend.length > 0) {
+    await ankiInvoke("suspend", { cards: futureToSuspend });
+  }
+  if (due.length > 0) {
+    const suspendedDue = due.filter((info) => info.queue === -1).map((info) => info.cardId);
+    if (suspendedDue.length > 0) {
+      await ankiInvoke("unsuspend", { cards: suspendedDue });
+    }
+    await ankiInvoke("multi", {
+      actions: due.map((info) => ({
+        action: "updateNoteFields",
+        version: 6,
+        params: {
+          note: { id: info.note, fields: { [PRODUCTION_FIELD]: "active" } },
+        },
+      })),
+    });
+  }
+  return due.length;
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== PRODUCTION_RELEASE_ALARM_NAME) return;
+  void releaseDueProductionCards().catch((err) => {
+    console.info("[SubJap] Pending production release unavailable:", err);
+  });
+});
+
+void scheduleProductionReleaseAlarm();
+
 function dataUrlToBase64(dataUrl: string): string {
   const comma = dataUrl.indexOf(",");
   if (comma === -1) throw new Error("Invalid media data URL");
@@ -662,10 +885,11 @@ async function storeAnkiMedia(dataUrl: string, prefix: string, extension: string
 
 onMessage(
   "anki:addNote",
-  async ({ deckName, fields, audioMotDataUrl, audioPhraseDataUrl, imageDataUrl, tags }) => {
+  async ({ fields, audioMotDataUrl, audioPhraseDataUrl, imageDataUrl, tags }) => {
+    const deckName = ANKI_COMPREHENSION_DECK;
     await ensureAnkiDeck(deckName);
     await ensureMigakuModel();
-    const noteFields = { ...fields };
+    const noteFields = { ...fields, [PRODUCTION_FIELD]: "" };
 
     if (audioMotDataUrl) {
       const filename = await storeAnkiMedia(audioMotDataUrl, "subjap_mot", "wav");
@@ -705,16 +929,23 @@ onMessage(
 // ── anki:setup ────────────────────────────────────────────────────────────
 
 /**
- * Ensure the dedicated "SubJap" deck and note model exist in Anki, so mined
- * cards land in a predictable place with a predictable note type. Idempotent.
+ * Ensure the vocabulary subdecks, presets and two-card note models exist.
+ * Existing comprehension cards are migrated without changing their schedule.
  */
 onMessage("anki:setup", async () => {
-  const deckName = "SubJap";
+  const deckName = ANKI_COMPREHENSION_DECK;
   const modelName = MIGAKU_MODEL_NAME;
 
-  await ensureAnkiDeck(deckName);
+  await ensureStudyDecks();
   await ensureMigakuModel();
   await updateMigakuImportModelIfPresent();
+  await moveModelCardsIntoStudyDecks(MIGAKU_MODEL_NAME);
+
+  const modelNames = await ankiInvoke<string[]>("modelNames");
+  if (modelNames.includes(MIGAKU_IMPORT_MODEL_NAME)) {
+    await moveModelCardsIntoStudyDecks(MIGAKU_IMPORT_MODEL_NAME);
+  }
+  await releaseDueProductionCards();
 
   console.log("[SubJap] Anki setup ensured:", { deckName, modelName });
   return { deckName, modelName };

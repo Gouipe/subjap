@@ -7,6 +7,7 @@ const manifest: ManifestV3Export = {
   description: "Apprendre le japonais en regardant des anime",
   permissions: [
     "storage",
+    "alarms",
     "scripting",
     "activeTab",
     "nativeMessaging",

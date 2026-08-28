@@ -10,16 +10,17 @@
    `C:\Users\piola\Projects\subjap\dist`. Après chaque nouvelle compilation,
    cliquer sur **Recharger**.
 
-SubJap crée automatiquement le deck `SubJap` et son type de note
-`Migaku Memory`. Il ne faut pas les préparer manuellement.
+SubJap crée automatiquement les sous-decks
+`日本語::Vocabulaire::Compréhension` et `日本語::Vocabulaire::Production`, ainsi
+que son type de note `Migaku Memory`. Il ne faut pas les préparer manuellement.
 
 Le premier passage par SubJap applique aussi le thème desktop sombre aux modèles
 `Migaku Memory` et `Migaku Memory Import` lorsqu’ils existent. Cette mise à jour
 ne modifie pas le contenu des notes. Après l’installation du template versionné,
 SubJap préserve les ajouts effectués par d’autres extensions dans celui-ci,
 notamment les balises realtime créées par HyperTTS. Le modèle
-`Migaku Memory Import` est celui utilisé par le deck `Migaku Memory::New`
-produit par `migaku-export`.
+`Migaku Memory Import` est celui utilisé par les cartes de compréhension
+produites par `migaku-export`.
 
 ## Usage quotidien de SubJap
 
@@ -27,7 +28,14 @@ produit par `migaku-export`.
 2. Survoler un mot du sous-titre et cliquer sur **Mine this**.
 3. Vérifier la définition, l’audio et l’image, puis envoyer la carte. En cas
    d’erreur Anki, utiliser **Réessayer Anki** : la carte locale n’est pas recréée.
-4. Réviser les nouvelles cartes dans le deck `SubJap` d’Anki.
+4. Réviser les nouvelles cartes dans le deck
+   `日本語::Vocabulaire::Compréhension` d’Anki.
+
+Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
+production orale** au verso. Sa carte sœur apparaît dans
+`日本語::Vocabulaire::Production` deux jours plus tard. Cliquer sur le parent
+`日本語::Vocabulaire` pour une session commune, ou sur `Production` seule
+lorsqu’il est possible de répondre à voix haute.
 
 Couleurs : vert = inconnu très pertinent, bleu = plutôt pertinent, orange =
 inconnu peu pertinent, violet = `LEARNING` ou déjà présent dans Anki, blanc =
@@ -49,7 +57,8 @@ node verify-export.js
 
 `fetch-media.js` nécessite la session Migaku locale dans `db/study`. Importer
 ensuite `Migaku_Memory.apkg` depuis **Fichier > Importer** dans Anki. Le paquet
-crée `Migaku Memory::New`, à réviser normalement, et
+crée `日本語::Vocabulaire::Compréhension`, à réviser normalement, ainsi que
+`日本語::Vocabulaire::Production`, initialement vide, et
 `Migaku Memory::Status`, qui doit rester entièrement suspendu : ce second deck
 sert uniquement à transmettre les couleurs à SubJap. Les cartes Migaku déjà
 étudiées et les cartes sans mot japonais cible ne sont pas ajoutées aux

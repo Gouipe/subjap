@@ -12,9 +12,17 @@ export const MIGAKU_FIELDS = [
   "Image",
   "AudioMot",
   "AudioPhrase",
+  "Production",
 ] as const;
 
-export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="2"';
+export const MIGAKU_TEMPLATE_MARKER_V2 = 'data-subjap-template-version="2"';
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="3"';
+export const MIGAKU_COMPREHENSION_TEMPLATE_NAME = "Compréhension";
+export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
+
+export const ANKI_VOCABULARY_PARENT_DECK = "日本語::Vocabulaire";
+export const ANKI_COMPREHENSION_DECK = `${ANKI_VOCABULARY_PARENT_DECK}::Compréhension`;
+export const ANKI_PRODUCTION_DECK = `${ANKI_VOCABULARY_PARENT_DECK}::Production`;
 
 export const MIGAKU_CSS = `
 .card {
@@ -382,6 +390,148 @@ ruby rt {
   font-weight: 750;
 }
 
+.production-activation {
+  max-width: 920px;
+  margin: 18px auto 0;
+  padding: 14px 18px;
+  border: 1px solid rgba(87, 211, 208, 0.32);
+  border-radius: 14px;
+  background: rgba(87, 211, 208, 0.08);
+  text-align: center;
+}
+
+.production-activation-button {
+  padding: 10px 18px;
+  border: 1px solid rgba(87, 211, 208, 0.55);
+  border-radius: 999px;
+  background: rgba(87, 211, 208, 0.15);
+  color: #baf5f2;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.production-activation-button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.production-activation-status {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.production-card {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.production-front {
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: linear-gradient(145deg, #171a23 0%, #0e1016 72%);
+  text-align: center;
+}
+
+.production-prompt {
+  color: var(--accent-strong);
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+}
+
+.production-sentence {
+  color: #ffffff;
+  font-size: 34px;
+  line-height: 1.75;
+}
+
+.production-sentence .target {
+  display: inline-flex;
+  width: 5rem;
+  overflow: hidden;
+  align-items: baseline;
+  justify-content: center;
+  color: transparent;
+  font-size: 0;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.production-sentence .target > * {
+  display: none;
+}
+
+.production-sentence .target::after {
+  content: "＿＿＿";
+  color: var(--accent-strong);
+  font-size: 34px;
+  letter-spacing: 0;
+}
+
+.production-hint {
+  margin: 0;
+}
+
+.production-hint > summary {
+  display: inline-flex;
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.production-hint > summary::-webkit-details-marker {
+  display: none;
+}
+
+.production-hint[open] > summary {
+  display: none;
+}
+
+.production-hint-content {
+  color: #e4e8f0;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.production-hint-warning,
+.production-repeat {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.production-repeat {
+  margin: 4px 0 16px;
+  color: #baf5f2;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.production-grading {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 /* Compact desktop review: keep the familiar vertical stack inside the study window. */
 @media (min-width: 901px) {
   .back-card {
@@ -494,7 +644,106 @@ ruby rt {
   .study-grid {
     grid-template-columns: 1fr;
   }
+
+  .production-front {
+    min-height: 440px;
+    padding: 22px;
+  }
+
+  .production-sentence,
+  .production-sentence .target::after {
+    font-size: 27px;
+  }
 }
+`;
+
+export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
+{{^Production}}
+<div class="production-activation">
+  <button class="production-activation-button" id="subjap-activate-production" type="button">
+    Activer la production orale
+  </button>
+  <div class="production-activation-status" id="subjap-production-status">
+    Première révision dans deux jours · à réserver aux mots utiles à l’oral
+  </div>
+</div>
+<script>
+(() => {
+  const button = document.getElementById("subjap-activate-production");
+  const status = document.getElementById("subjap-production-status");
+  if (!button || !status) return;
+
+  const target = document.querySelector(".back-sentence .target");
+  if (!target) {
+    button.disabled = true;
+    status.textContent = "Activation impossible : mot cible introuvable dans la phrase.";
+    return;
+  }
+
+  const invoke = async (action, params) => {
+    const response = await fetch("http://127.0.0.1:8765", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, version: 6, params: params || {} }),
+    });
+    if (!response.ok) throw new Error("AnkiConnect HTTP " + response.status);
+    const payload = await response.json();
+    if (payload.error) throw new Error(payload.error);
+    return payload.result;
+  };
+
+  const wait = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    status.textContent = "Activation en cours…";
+    try {
+      const permission = await invoke("requestPermission");
+      if (permission && permission.permission === "denied") {
+        throw new Error("autorisation AnkiConnect refusée");
+      }
+
+      const current = await invoke("guiCurrentCard");
+      if (!current || !current.cardId) throw new Error("carte courante introuvable");
+      const cards = await invoke("cardsInfo", { cards: [current.cardId] });
+      const currentInfo = cards && cards[0];
+      if (!currentInfo || !currentInfo.note) throw new Error("note courante introuvable");
+
+      const releaseAt = String(Date.now() + 2 * 24 * 60 * 60 * 1000);
+      await invoke("updateNoteFields", {
+        note: { id: currentInfo.note, fields: { Production: releaseAt } },
+      });
+
+      let productionCards = [];
+      for (let attempt = 0; attempt < 10 && productionCards.length === 0; attempt += 1) {
+        productionCards = await invoke("findCards", {
+          query: "nid:" + currentInfo.note + " card:Production",
+        });
+        if (productionCards.length === 0) await wait(100);
+      }
+      if (productionCards.length === 0) throw new Error("carte de production non générée");
+
+      await invoke("changeDeck", {
+        cards: productionCards,
+        deck: "${ANKI_PRODUCTION_DECK}",
+      });
+      await invoke("suspend", { cards: productionCards });
+
+      button.textContent = "Production activée";
+      status.textContent = "La première révision sera libérée dans deux jours.";
+    } catch (error) {
+      button.disabled = false;
+      status.textContent = "Échec : " + (error && error.message ? error.message : String(error));
+    }
+  });
+})();
+</script>
+{{/Production}}
+{{#Production}}
+<div class="production-activation">
+  <div class="production-activation-status">Production orale activée</div>
+</div>
+{{/Production}}
 `;
 
 export const MIGAKU_FRONT_TEMPLATE = `
@@ -543,5 +792,65 @@ export const MIGAKU_BACK_TEMPLATE = `
     <div class="notes">{{Notes}}</div>
   </div>
   {{/Notes}}
+</div>
+${MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT}
+`;
+
+export const MIGAKU_PRODUCTION_FRONT_TEMPLATE = `
+{{#Production}}
+<div class="production-card production-front" ${MIGAKU_TEMPLATE_MARKER}>
+  <div class="production-prompt">Prononce le mot manquant à voix haute</div>
+  {{#Phrase}}<div class="production-sentence">{{Phrase}}</div>{{/Phrase}}
+  {{#Traduction}}
+  <details class="production-hint">
+    <summary>Voir la traduction</summary>
+    <div class="production-hint-content">{{Traduction}}</div>
+    <div class="production-hint-warning">Traduction utilisée : Difficile au maximum</div>
+  </details>
+  {{/Traduction}}
+</div>
+{{/Production}}
+`;
+
+export const MIGAKU_PRODUCTION_BACK_TEMPLATE = `
+<div class="production-card back-card" ${MIGAKU_TEMPLATE_MARKER}>
+  <div class="back-word">{{Mot}}</div>
+  {{#Lecture}}<div class="reading" style="text-align:center">{{Lecture}}</div>{{/Lecture}}
+  {{#Phrase}}<div class="back-sentence">{{Phrase}}</div>{{/Phrase}}
+  <div class="back-audio-row">
+    {{#AudioMot}}<div class="audio audio-word">{{AudioMot}}</div>{{/AudioMot}}
+    {{#AudioPhrase}}<div class="audio audio-phrase">{{AudioPhrase}}</div>{{/AudioPhrase}}
+  </div>
+  <div class="production-repeat">Écoute, puis répète toute la phrase à voix haute.</div>
+
+  {{#Traduction}}
+  <div class="translation-content">
+    <div class="section-label">Traduction</div>
+    {{Traduction}}
+  </div>
+  {{/Traduction}}
+
+  <div class="back-divider"></div>
+
+  {{#Définitions}}
+  <div class="definition-panel">
+    <div class="section-label">Définition</div>
+    <div class="definitions">{{Définitions}}</div>
+  </div>
+  {{/Définitions}}
+
+  {{#Image}}<div class="back-image">{{Image}}</div>{{/Image}}
+
+  {{#Notes}}
+  <div class="back-notes">
+    <div class="section-label">Notes</div>
+    <div class="notes">{{Notes}}</div>
+  </div>
+  {{/Notes}}
+
+  <div class="production-grading">
+    À revoir : absent, faux ou mauvaise lecture · Difficile : flexion, hésitation ou traduction utilisée ·
+    Bon : forme exacte en quelques secondes · Facile : immédiat et phrase complète fluide
+  </div>
 </div>
 `;
