@@ -73,6 +73,12 @@ sous-titres natifs.
    navigation SPA ;
 5. une voie `textTracks` est conservée comme fallback.
 
+Les pistes officielles et l’historique de navigation sont isolés par identifiant
+Netflix `/watch/<id>`. Lors d’un changement d’épisode dans le même document,
+l’adaptateur vide les cues de l’ancienne lecture et invalide les téléchargements
+encore en vol. Une réponse tardive ne peut donc pas faire apparaître un
+sous-titre de l’épisode précédent pendant un silence.
+
 Pour le mode bilingue, le bridge Netflix est injecté dans le monde de la page
 à `document_start`. Il observe les métadonnées `timedtexttracks` et relaie
 uniquement les URLs officielles disponibles. L’adaptateur demande ensuite le

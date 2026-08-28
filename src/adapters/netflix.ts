@@ -137,6 +137,8 @@ export class NetflixAdapter implements PlatformAdapter {
   private readonly timedTextTracks = new Map<string, SubtitleCue[]>();
   private readonly japaneseCuesByText = new Map<string, SubtitleCue[]>();
   private readonly requestedTimedTextUrls = new Set<string>();
+  private playbackSessionId: string;
+  private playbackSessionGeneration = 0;
   private messageListener: ((event: MessageEvent) => void) | null = null;
   private timeupdateVideo: HTMLVideoElement | null = null;
   private readonly onTimeUpdate = () => this.emitCues();
@@ -154,6 +156,7 @@ export class NetflixAdapter implements PlatformAdapter {
 
   constructor(seekTransport: NetflixSeekTransport = new NetflixSeekBridge()) {
     this.seekTransport = seekTransport;
+    this.playbackSessionId = this.readPlaybackSessionId();
     if (seekTransport instanceof NetflixSeekBridge) void seekTransport.prepare();
   }
 
@@ -256,8 +259,10 @@ export class NetflixAdapter implements PlatformAdapter {
     if (!payload || typeof payload !== "object") return;
     const data = payload as Partial<NetflixTimedTextUrlPayload>;
     if (typeof data.url !== "string" || typeof data.language !== "string") return;
+    this.ensurePlaybackSession();
     if (this.requestedTimedTextUrls.has(data.url)) return;
     this.requestedTimedTextUrls.add(data.url);
+    const requestedGeneration = this.playbackSessionGeneration;
     const request: NetflixTimedTextUrlPayload = {
       url: data.url,
       language: data.language,
@@ -265,6 +270,8 @@ export class NetflixAdapter implements PlatformAdapter {
 
     void sendMessage("netflix:timedTextFetch", request)
       .then(({ body, language, url }) => {
+        this.ensurePlaybackSession();
+        if (requestedGeneration !== this.playbackSessionGeneration) return;
         if (body) this.storeTimedText({ url, language, body });
       })
       .catch((error: unknown) => {
@@ -388,6 +395,11 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private emitCues(capturedObservationTime: number | null = null): void {
+    if (this.ensurePlaybackSession()) {
+      // Do not attach a mutation timestamp captured for the previous title to
+      // the new episode. The next DOM/track emission will use its own clock.
+      capturedObservationTime = null;
+    }
     const cb = this.cueCallback;
     if (!cb) return;
 
@@ -580,6 +592,7 @@ export class NetflixAdapter implements PlatformAdapter {
     if (!payload || typeof payload !== "object") return;
     const data = payload as Partial<NetflixTimedTextPayload>;
     if (typeof data.body !== "string" || typeof data.url !== "string") return;
+    this.ensurePlaybackSession();
     const language = normalizeTrackLanguage(data.language ?? "");
     if (language !== "ja" && language !== "fr" && language !== "en") return;
     const cues = parseSubtitleFile(data.url, data.body).map((cue, index) => ({
@@ -698,12 +711,19 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   getNavigationCues(): SubtitleCue[] {
+    this.ensurePlaybackSession();
     // The track array is replaced when timed text is stored. Returning the
     // stable instance lets CueNavigator skip identical timeupdate snapshots.
     return this.timedTextTracks.get("ja") ?? [];
   }
 
+  getNavigationSessionId(): string {
+    this.ensurePlaybackSession();
+    return `${this.playbackSessionId}:${this.playbackSessionGeneration}`;
+  }
+
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean> {
+    this.ensurePlaybackSession();
     this.pendingSeekTarget = timeSeconds;
     this.pendingSeekKeepsActiveCue = Boolean(
       this.activeDomCue?.endConfirmed === false &&
@@ -796,6 +816,36 @@ export class NetflixAdapter implements PlatformAdapter {
       this.timeupdateVideo.removeEventListener("timeupdate", this.onTimeUpdate);
       this.timeupdateVideo = null;
     }
+  }
+
+  /**
+   * Scope official tracks and DOM navigation state to one Netflix playback.
+   * Netflix commonly keeps the same document and may even reuse the same
+   * <video> while moving from one /watch/<id> route to the next episode.
+   */
+  private ensurePlaybackSession(): boolean {
+    const sessionId = this.readPlaybackSessionId();
+    if (sessionId === this.playbackSessionId) return false;
+
+    this.playbackSessionId = sessionId;
+    this.playbackSessionGeneration += 1;
+    this.timedTextTracks.clear();
+    this.japaneseCuesByText.clear();
+    this.requestedTimedTextUrls.clear();
+    this.activeDomCue = null;
+    this.pendingSeekTarget = null;
+    this.pendingSeekKeepsActiveCue = false;
+    this.pendingObservationTime = null;
+    this.nextDomCueId = 0;
+    console.info(`[SubJap] Netflix playback session changed: ${sessionId}`);
+    return true;
+  }
+
+  private readPlaybackSessionId(): string {
+    const watchId = window.location.pathname.match(/\/watch\/([^/?#]+)/i)?.[1];
+    return watchId
+      ? `watch:${watchId}`
+      : `${window.location.origin}${window.location.pathname}`;
   }
 
   // -----------------------------------------------------------------------

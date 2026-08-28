@@ -67,6 +67,7 @@ adapterRegistry.register(new NetflixAdapter());
 const adapter: PlatformAdapter = adapterRegistry.findActive(document, window.location.href);
 
 const cueNavigator = new CueNavigator();
+let cueNavigationSessionId: string | null = null;
 
 console.log(`[SubJap] Platform: ${adapter.id}`);
 
@@ -352,7 +353,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   // Netflix can provide its complete official track even when this content
   // script was loaded in the middle of the current phrase. Seed navigation
   // before render deduplication so Q can still reach the unseen predecessor.
-  cueNavigator.remember(adapter.getNavigationCues?.() ?? []);
+  const navigationSessionChanged = rememberNavigationCues();
 
   const signature = cues
     .map(
@@ -368,7 +369,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     deferredCuesWhileListening = cues;
     return;
   }
-  if (signature === lastSignature) return;
+  if (!navigationSessionChanged && signature === lastSignature) return;
   lastCues = cues;
 
   const overlayInstance = ensureOverlay();
@@ -376,6 +377,11 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     console.log("[SubJap] render: skipped (no video yet)");
     return;
   }
+
+  // ensureOverlay() can reset navigation after Netflix replaces <video>.
+  // Re-seed the authoritative track immediately, including while paused when
+  // no subsequent timeupdate would otherwise repair Q's history.
+  rememberNavigationCues();
 
   // Commit the signature only once the overlay is available, so a cue set
   // that arrived before the <video> was discovered is not dropped forever
@@ -504,6 +510,18 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   cueNavigator.observe(japaneseCues);
   maybeTriggerListeningMode(rendered);
   console.log(`[SubJap] render: shown ${rendered.length} cue(s)`);
+}
+
+function rememberNavigationCues(): boolean {
+  const sessionId = adapter.getNavigationSessionId?.() ?? null;
+  const changed =
+    sessionId !== null &&
+    cueNavigationSessionId !== null &&
+    sessionId !== cueNavigationSessionId;
+  if (changed) cueNavigator.reset();
+  if (sessionId !== null) cueNavigationSessionId = sessionId;
+  cueNavigator.remember(adapter.getNavigationCues?.() ?? []);
+  return changed;
 }
 
 function isJapaneseTrack(language: string | undefined): boolean {
