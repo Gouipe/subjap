@@ -31,6 +31,16 @@ produites par `migaku-export`.
 4. Réviser les nouvelles cartes dans le deck
    `日本語::Vocabulaire::Compréhension` d’Anki.
 
+### Utiliser une traduction locale sur Netflix
+
+1. Ouvrir l’épisode Netflix concerné, puis la popup SubJap.
+2. Dans **Sous-titres locaux**, choisir un fichier SRT, VTT ou ASS.
+3. Si nécessaire, régler le décalage au centième de seconde. Une valeur
+   positive affiche la traduction plus tard ; les boutons ajustent de 0,1 s.
+
+Le fichier est mémorisé uniquement pour cet identifiant d’épisode et remplace
+la traduction FR/EN de Netflix tant qu’il n’est pas supprimé depuis la popup.
+
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
 production orale** au verso. Sa carte sœur apparaît dans
 `日本語::Vocabulaire::Production` deux jours plus tard. Cliquer sur le parent

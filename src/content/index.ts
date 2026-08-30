@@ -530,6 +530,7 @@ function isJapaneseTrack(language: string | undefined): boolean {
 
 function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {
   return (
+    cues.find((cue) => cue.language === "local") ??
     cues.find((cue) => /^fr(?:[-_]|$)/i.test(cue.language ?? "")) ??
     cues.find((cue) => /^en(?:[-_]|$)/i.test(cue.language ?? "")) ??
     null

@@ -1,7 +1,12 @@
 // Netflix L1 adapter – implements PlatformAdapter for the Netflix web player.
 import type { PlatformId, PlatformAdapter, SubtitleCue, EpisodeContext } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
-import { normalizeCueText, parseSubtitleFile } from "@/subtitles";
+import {
+  getLocalSubtitle,
+  localSubtitleStorageKey,
+  normalizeCueText,
+  parseSubtitleFile,
+} from "@/subtitles";
 import {
   NetflixSeekBridge,
   type NetflixSeekTransport,
@@ -135,6 +140,9 @@ export class NetflixAdapter implements PlatformAdapter {
   private trackUnsubscriber: (() => void) | null = null;
   private videoHuntTimer: ReturnType<typeof setInterval> | null = null;
   private readonly timedTextTracks = new Map<string, SubtitleCue[]>();
+  private localTranslationCues: SubtitleCue[] = [];
+  private localTranslationOffset = 0;
+  private localSubtitleLoadRevision = 0;
   private readonly japaneseCuesByText = new Map<string, SubtitleCue[]>();
   private readonly requestedTimedTextUrls = new Set<string>();
   private playbackSessionId: string;
@@ -142,6 +150,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private messageListener: ((event: MessageEvent) => void) | null = null;
   private timeupdateVideo: HTMLVideoElement | null = null;
   private readonly onTimeUpdate = () => this.emitCues();
+  private storageListener: Parameters<typeof chrome.storage.onChanged.addListener>[0] | null = null;
 
   /** Last native-subtitle visibility request (re-applied on container swap). */
   private nativeSubsHidden = false;
@@ -230,6 +239,14 @@ export class NetflixAdapter implements PlatformAdapter {
       this.storeTimedText(data.payload);
     };
     window.addEventListener("message", this.messageListener);
+    this.storageListener = (changes, areaName) => {
+      if (areaName !== "local") return;
+      const watchId = this.currentWatchId();
+      if (!watchId || !changes[localSubtitleStorageKey(watchId)]) return;
+      void this.loadLocalTranslation();
+    };
+    chrome.storage.onChanged.addListener(this.storageListener);
+    void this.loadLocalTranslation();
     window.postMessage(
       { source: "subjap", type: NETFLIX_TIMED_TEXT_REQUEST_EVENT },
       window.location.origin,
@@ -249,6 +266,8 @@ export class NetflixAdapter implements PlatformAdapter {
       this.cueCallback = null;
       if (this.messageListener) window.removeEventListener("message", this.messageListener);
       this.messageListener = null;
+      if (this.storageListener) chrome.storage.onChanged.removeListener(this.storageListener);
+      this.storageListener = null;
       this.requestedTimedTextUrls.clear();
     };
 
@@ -577,6 +596,13 @@ export class NetflixAdapter implements PlatformAdapter {
 
   private getActiveTranslationCue(): SubtitleCue | null {
     const currentTime = this.getCurrentTime();
+    if (this.localTranslationCues.length > 0) {
+      const localTime = currentTime - this.localTranslationOffset;
+      return (
+        this.localTranslationCues.find((cue) => cue.start <= localTime && localTime < cue.end) ??
+        null
+      );
+    }
     const languagePriority = ["fr", "en"];
     for (const language of languagePriority) {
       const cues = this.timedTextTracks.get(language) ?? [];
@@ -586,6 +612,36 @@ export class NetflixAdapter implements PlatformAdapter {
       if (active) return active;
     }
     return null;
+  }
+
+  private async loadLocalTranslation(): Promise<void> {
+    const watchId = this.currentWatchId();
+    const sessionId = this.playbackSessionId;
+    const revision = ++this.localSubtitleLoadRevision;
+    if (!watchId) {
+      this.localTranslationCues = [];
+      this.localTranslationOffset = 0;
+      this.emitCues();
+      return;
+    }
+
+    try {
+      const record = await getLocalSubtitle(watchId);
+      if (revision !== this.localSubtitleLoadRevision || sessionId !== this.playbackSessionId) {
+        return;
+      }
+      this.localTranslationCues = record
+        ? parseSubtitleFile(record.fileName, record.content).map((cue, index) => ({
+            ...cue,
+            id: `local-${index}-${cue.id}`,
+            language: "local",
+          }))
+        : [];
+      this.localTranslationOffset = record?.offsetSeconds ?? 0;
+      this.emitCues();
+    } catch (error: unknown) {
+      console.warn("[SubJap] Failed to load local subtitles:", error);
+    }
   }
 
   private storeTimedText(payload: unknown): void {
@@ -810,6 +866,8 @@ export class NetflixAdapter implements PlatformAdapter {
     this.videoObserver = null;
     this.video = null;
     this.timedTextTracks.clear();
+    this.localTranslationCues = [];
+    this.localTranslationOffset = 0;
     this.japaneseCuesByText.clear();
     this.requestedTimedTextUrls.clear();
     if (this.timeupdateVideo) {
@@ -837,6 +895,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.pendingSeekKeepsActiveCue = false;
     this.pendingObservationTime = null;
     this.nextDomCueId = 0;
+    void this.loadLocalTranslation();
     console.info(`[SubJap] Netflix playback session changed: ${sessionId}`);
     return true;
   }
@@ -846,6 +905,10 @@ export class NetflixAdapter implements PlatformAdapter {
     return watchId
       ? `watch:${watchId}`
       : `${window.location.origin}${window.location.pathname}`;
+  }
+
+  private currentWatchId(): string | null {
+    return window.location.pathname.match(/\/watch\/([^/?#]+)/i)?.[1] ?? null;
   }
 
   // -----------------------------------------------------------------------

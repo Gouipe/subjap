@@ -7,6 +7,14 @@ import { createRoot } from "react-dom/client";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, saveOptions } from "@/core/options";
 import { isOnboardingComplete } from "@/onboarding";
+import {
+  getLocalSubtitle,
+  netflixWatchId,
+  parseSubtitleFile,
+  removeLocalSubtitle,
+  saveLocalSubtitle,
+  type LocalSubtitleRecord,
+} from "@/subtitles";
 
 interface Stats {
   knownWords: number;
@@ -32,6 +40,11 @@ const Popup: React.FC = () => {
     useState(false);
   const [activeListeningMode, setActiveListeningMode] = useState(false);
   const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
+  const [watchId, setWatchId] = useState<string | null>(null);
+  const [localSubtitle, setLocalSubtitle] = useState<LocalSubtitleRecord | null>(null);
+  const [offsetInput, setOffsetInput] = useState("0.00");
+  const [localSubtitleBusy, setLocalSubtitleBusy] = useState(false);
+  const [localSubtitleError, setLocalSubtitleError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [statsResult, dictResult, onboardedResult, optionsResult] = await Promise.all([
@@ -57,6 +70,83 @@ const Popup: React.FC = () => {
       setError(err instanceof Error ? err.message : String(err));
     });
   }, [refresh]);
+
+  useEffect(() => {
+    void (async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const currentWatchId = netflixWatchId(tab?.url ?? "");
+      setWatchId(currentWatchId);
+      if (!currentWatchId) return;
+      const record = await getLocalSubtitle(currentWatchId);
+      setLocalSubtitle(record);
+      setOffsetInput((record?.offsetSeconds ?? 0).toFixed(2));
+    })().catch((err: unknown) => {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    });
+  }, []);
+
+  const importLocalSubtitle = useCallback(
+    async (file: File | undefined) => {
+      if (!file || !watchId) return;
+      setLocalSubtitleBusy(true);
+      setLocalSubtitleError(null);
+      try {
+        const content = await file.text();
+        if (parseSubtitleFile(file.name, content).length === 0) {
+          throw new Error("Fichier SRT, VTT ou ASS invalide ou vide.");
+        }
+        const record: LocalSubtitleRecord = {
+          fileName: file.name,
+          content,
+          offsetSeconds: 0,
+          updatedAt: Date.now(),
+        };
+        await saveLocalSubtitle(watchId, record);
+        setLocalSubtitle(record);
+        setOffsetInput("0.00");
+      } catch (err: unknown) {
+        setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLocalSubtitleBusy(false);
+      }
+    },
+    [watchId],
+  );
+
+  const persistOffset = useCallback(
+    async (value: number) => {
+      if (!watchId || !localSubtitle || !Number.isFinite(value)) return;
+      const rounded = Math.round(value * 100) / 100;
+      const next = { ...localSubtitle, offsetSeconds: rounded };
+      setLocalSubtitle(next);
+      setOffsetInput(rounded.toFixed(2));
+      setLocalSubtitleBusy(true);
+      setLocalSubtitleError(null);
+      try {
+        await saveLocalSubtitle(watchId, next);
+      } catch (err: unknown) {
+        setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLocalSubtitleBusy(false);
+      }
+    },
+    [localSubtitle, watchId],
+  );
+
+  const deleteLocalSubtitle = useCallback(async () => {
+    if (!watchId) return;
+    setLocalSubtitleBusy(true);
+    setLocalSubtitleError(null);
+    try {
+      await removeLocalSubtitle(watchId);
+      setLocalSubtitle(null);
+      setOffsetInput("0.00");
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLocalSubtitleBusy(false);
+    }
+  }, [watchId]);
 
   const toggleSecondarySubtitles = useCallback(
     async (enabled: boolean) => {
@@ -183,6 +273,88 @@ const Popup: React.FC = () => {
       </div>
 
       <div style={styles.subtitleBox}>
+        <div style={styles.localSubtitleSection}>
+          <span style={styles.sectionLabel}>Sous-titres locaux</span>
+          {watchId ? (
+            <>
+              <label style={styles.fileButton}>
+                {localSubtitleBusy
+                  ? "Chargement…"
+                  : localSubtitle
+                    ? "Remplacer le fichier"
+                    : "Choisir un fichier"}
+                <input
+                  type="file"
+                  accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                  hidden
+                  disabled={localSubtitleBusy}
+                  onChange={(event) => {
+                    void importLocalSubtitle(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+              {localSubtitle && (
+                <>
+                  <p style={styles.fileName}>{localSubtitle.fileName}</p>
+                  <label style={styles.offsetLabel}>
+                    <span>Décalage (s)</span>
+                    <input
+                      style={styles.offsetInput}
+                      type="number"
+                      step="0.01"
+                      value={offsetInput}
+                      disabled={localSubtitleBusy}
+                      onChange={(event) => setOffsetInput(event.target.value)}
+                      onBlur={() => void persistOffset(Number(offsetInput.replace(",", ".")))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.currentTarget.blur();
+                      }}
+                    />
+                  </label>
+                  <p style={styles.localSubtitleHint}>
+                    Une valeur positive affiche le texte plus tard.
+                  </p>
+                  <div style={styles.offsetActions}>
+                    <button
+                      style={styles.smallButton}
+                      disabled={localSubtitleBusy}
+                      onClick={() => void persistOffset(localSubtitle.offsetSeconds - 0.1)}
+                    >
+                      − 0,1 s
+                    </button>
+                    <button
+                      style={styles.smallButton}
+                      disabled={localSubtitleBusy}
+                      onClick={() => void persistOffset(localSubtitle.offsetSeconds + 0.1)}
+                    >
+                      + 0,1 s
+                    </button>
+                    <button
+                      style={styles.smallButton}
+                      disabled={localSubtitleBusy}
+                      onClick={() => void persistOffset(0)}
+                    >
+                      Réinitialiser
+                    </button>
+                  </div>
+                  <button
+                    style={styles.deleteButton}
+                    disabled={localSubtitleBusy}
+                    onClick={() => void deleteLocalSubtitle()}
+                  >
+                    Supprimer le fichier
+                  </button>
+                </>
+              )}
+            </>
+          ) : (
+            <p style={styles.localSubtitleHint}>
+              Ouvre un épisode Netflix pour importer un fichier.
+            </p>
+          )}
+          {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
+        </div>
         <label style={styles.checkLabel}>
           <input
             type="checkbox"
@@ -347,6 +519,81 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 10,
     padding: "10px 0",
     borderBottom: "1px solid #334155",
+  },
+  localSubtitleSection: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottom: "1px solid #334155",
+  },
+  sectionLabel: {
+    display: "block",
+    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  fileButton: {
+    display: "block",
+    padding: "7px 10px",
+    border: "1px solid #818cf8",
+    borderRadius: 6,
+    color: "#c7d2fe",
+    fontSize: 11,
+    textAlign: "center",
+    cursor: "pointer",
+  },
+  fileName: {
+    margin: "7px 0",
+    color: "#a6e3a1",
+    fontSize: 10,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  offsetLabel: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    fontSize: 11,
+  },
+  offsetInput: {
+    width: 78,
+    padding: "4px 6px",
+    border: "1px solid #475569",
+    borderRadius: 4,
+    background: "#111827",
+    color: "#fff",
+  },
+  localSubtitleHint: {
+    margin: "6px 0 0",
+    fontSize: 10,
+    lineHeight: 1.35,
+    color: "#94a3b8",
+  },
+  offsetActions: {
+    display: "flex",
+    gap: 4,
+    marginTop: 8,
+  },
+  smallButton: {
+    flex: 1,
+    padding: "5px 3px",
+    border: "1px solid #475569",
+    borderRadius: 4,
+    background: "#273449",
+    color: "#cdd6f4",
+    fontSize: 9,
+    cursor: "pointer",
+  },
+  deleteButton: {
+    width: "100%",
+    marginTop: 7,
+    padding: "5px 8px",
+    border: "none",
+    background: "transparent",
+    color: "#f38ba8",
+    fontSize: 10,
+    cursor: "pointer",
   },
   checkLabel: {
     display: "flex",

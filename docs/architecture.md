@@ -89,6 +89,12 @@ français avant anglais. Le japonais reste la piste d’apprentissage ; le DOM
 Netflix est préféré lorsqu’il est visible, avec la piste japonaise capturée
 comme repli.
 
+La popup permet aussi d’importer une traduction locale SRT, VTT ou ASS. Son
+contenu et son décalage temporel sont conservés dans `chrome.storage.local`,
+indexés par l’identifiant Netflix `/watch/<id>`. Cette piste locale est
+prioritaire sur les traductions officielles FR/EN et se recharge lors des
+changements d’épisode dans la navigation SPA.
+
 Le masquage des sous-titres natifs est piloté par une classe sur `<html>` et
 une règle CSS document-level. Cette approche résiste à la recréation du DOM
 Netflix et aux styles `visibility` inline de ses descendants. La préférence
@@ -322,7 +328,7 @@ Les évolutions naturelles sont :
 - compléter les statistiques et l’historique ;
 - ajouter un sélecteur de deck dans les Options ;
 - brancher YouTube, Crunchyroll et Prime ;
-- ajouter l’UI d’import SRT/ASS, l’export/import JSON et l’i18n FR/EN.
+- ajouter l’export/import JSON et l’i18n FR/EN.
 
-Les parseurs SRT/VTT/ASS sont déjà isolés dans `src/subtitles/`, mais leur
-interface d’import n’est pas encore branchée au content script.
+Les parseurs SRT/VTT/ASS sont isolés dans `src/subtitles/` et leur import comme
+traduction secondaire Netflix est disponible depuis la popup.
