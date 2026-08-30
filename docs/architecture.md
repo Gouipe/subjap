@@ -243,15 +243,36 @@ Le mining est déclenché depuis la popover et ouvre
 la lecture et les glosses sélectionnables. Le modal peut :
 
 - générer l’audio du mot avec VOICEVOX local à partir de sa lecture ;
+- enrichir manuellement `Notes` avec Gemini Nano via la Prompt API locale de
+  Chrome, sans clé ni appel à un service distant ;
 - découper l’audio réel du lecteur dans `AudioPhrase` quand le navigateur
   expose le flux audio ;
 - capturer une image de la vidéo lorsque le navigateur l’autorise ;
 - créer d’abord une carte locale dans IndexedDB ;
 - pousser ensuite une copie vers AnkiConnect, en best effort.
 
-La carte locale reste la source de vérité : une indisponibilité d’Anki ne fait
-pas perdre le mining. Le modal conserve alors la carte locale, affiche l’erreur
-et permet de réessayer sans créer de doublon local. Le service worker communique
+L’enrichissement IA est lancé uniquement par le bouton du modal. Le service
+worker construit d’abord, dans
+[`ai-enrichment.ts`](../src/background/ai-enrichment.ts), une liste d’au plus dix
+mots candidats par kanji. Il ne retient que le vocabulaire `known`, puis
+`learning`, puis simplement présent dans Anki, et joint les lectures et glosses
+JMdict. La liste complète du vocabulaire n’est jamais donnée au modèle.
+
+[`src/mining/ai-enrichment.ts`](../src/mining/ai-enrichment.ts) demande ensuite
+une réponse JSON contrainte à Gemini Nano : synonymes importants, définition en
+un mot de chaque kanji, au plus deux exemples familiers de même lecture et une
+phrase mnémotechnique d’association lorsque le mot possède plusieurs kanjis.
+Après génération, SubJap rejette les exemples absents de la liste locale et les
+synonymes absents des entrées JMdict courantes. La phrase d’association doit
+citer tous les kanjis du mot ; sinon, une seconde requête locale corrige
+uniquement cette phrase avant son affichage. Le texte validé reste modifiable
+dans un éditeur distinct et est concaténé aux Notes personnelles seulement lors
+de la sauvegarde. Une seconde génération remplace uniquement ce texte IA.
+
+La carte locale, y compris ses Notes combinées, reste la source de vérité : une
+indisponibilité d’Anki ne fait pas perdre le mining. Le modal conserve alors la
+carte locale, affiche l’erreur et permet de réessayer sans créer de doublon
+local. Le service worker communique
 avec AnkiConnect sur `127.0.0.1:8765`, crée automatiquement les sous-decks de
 vocabulaire et
 garantit le type de note exact

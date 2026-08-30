@@ -145,6 +145,8 @@ export interface MineCard {
   targetSurface?: string;
   targetReading?: string;
   definitions: string[];
+  /** Personal notes followed by the optional, editable local-AI enrichment. */
+  notes?: string;
   pitchAccent?: PitchAccent;
   audio?: Blob;
   screenshot?: Blob;
@@ -154,6 +156,21 @@ export interface MineCard {
   srs: SrsState;
   ankiNoteId?: number;
   tags: string[];
+}
+
+export type AiWordFamiliarity = "known" | "learning" | "anki";
+
+export interface AiWordCandidate {
+  word: string;
+  reading: string;
+  definitions: string[];
+  familiarity: AiWordFamiliarity;
+  frequencyRank?: number;
+}
+
+export interface AiKanjiCandidates {
+  character: string;
+  words: AiWordCandidate[];
 }
 
 export interface SrsState {
@@ -213,6 +230,10 @@ export interface MessageMap {
   // Mining
   "mine:create": CreateMineCardPayload;
   "mine:createResult": { id: string };
+  "mine:updateNotes": { id: string; notes: string };
+  "mine:updateNotesResult": void;
+  "ai:prepareEnrichment": { targetWord: string };
+  "ai:prepareEnrichmentResult": { kanji: AiKanjiCandidates[] };
   "screenshot:capture": Record<string, never>;
   "screenshot:captureResult": { dataUrl: string };
 

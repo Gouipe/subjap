@@ -21,6 +21,7 @@ import {
   planImportedStateReconciliation,
   WORD_STATUS_PRIORITY,
 } from "./anki-known";
+import { prepareAiEnrichmentCandidates } from "./ai-enrichment";
 import {
   ANKI_COMPREHENSION_DECK,
   ANKI_PRODUCTION_DECK,
@@ -328,6 +329,14 @@ onMessage("mine:create", async (payload) => {
 
   return { id };
 });
+
+onMessage("mine:updateNotes", async ({ id, notes }) => {
+  await db.mineCards.update(id, { notes });
+});
+
+onMessage("ai:prepareEnrichment", async ({ targetWord }) => ({
+  kanji: await prepareAiEnrichmentCandidates(targetWord),
+}));
 
 // ── stats:get ─────────────────────────────────────────────────────────────
 
@@ -923,7 +932,7 @@ onMessage(
     const deckName = ANKI_COMPREHENSION_DECK;
     await ensureAnkiDeck(deckName);
     await ensureMigakuModel();
-    const noteFields = { ...fields, [PRODUCTION_FIELD]: "" };
+    const noteFields: Record<string, string> = { ...fields, [PRODUCTION_FIELD]: "" };
 
     if (audioMotDataUrl) {
       const filename = await storeAnkiMedia(audioMotDataUrl, "subjap_mot", "wav");

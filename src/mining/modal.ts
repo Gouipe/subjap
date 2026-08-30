@@ -18,6 +18,13 @@ import { sendMessage } from "@/core/messaging";
 import { normalizeCueText } from "@/subtitles";
 import { captureFrame } from "./capture";
 import {
+  createLocalAiSession,
+  formatValidatedAiEnrichment,
+  LocalAiUnavailableError,
+  type AiEnrichmentInput,
+  type LocalAiSession,
+} from "./ai-enrichment";
+import {
   formatMigakuDefinitions,
   formatMigakuNotes,
   formatMigakuSentence,
@@ -38,6 +45,11 @@ interface MiningState {
   definitions: string[];
   definitionText: string;
   notesText: string;
+  aiNotesText: string;
+  aiGenerating: boolean;
+  aiGeneratedOnce: boolean;
+  aiStatus: string | null;
+  aiError: string | null;
   wordAudioDataUrl: string | null;
   phraseAudioDataUrl: string | null;
   phraseAudioAttempted: boolean;
@@ -62,6 +74,12 @@ function definitionLines(text: string): string[] {
     .split(/[\r\n,]+/u)
     .map((definition) => definition.trim())
     .filter((definition) => definition.length > 0);
+}
+
+function combinedNotes(state: MiningState): string {
+  return [state.notesText.trim(), state.aiNotesText.trim()]
+    .filter((section) => section.length > 0)
+    .join("\n\n");
 }
 
 /** Render an edited sentence safely while keeping the target word highlighted. */
@@ -99,6 +117,8 @@ export class MiningModal {
         this.playPhraseAudio();
       } else if (target.classList.contains("subjap-modal-btn-screenshot")) {
         void this.captureScreenshot();
+      } else if (target.classList.contains("subjap-modal-btn-ai")) {
+        void this.generateAiNotes();
       } else if (target.classList.contains("subjap-modal-btn-send")) {
         void this.sendToAnki();
       } else if (target.classList.contains("subjap-modal-close")) {
@@ -127,6 +147,11 @@ export class MiningModal {
       definitions: state.definitions,
       definitionText: state.definitions.join(", "),
       notesText: "",
+      aiNotesText: "",
+      aiGenerating: false,
+      aiGeneratedOnce: false,
+      aiStatus: null,
+      aiError: null,
       wordAudioDataUrl: null,
       phraseAudioDataUrl: null,
       phraseAudioAttempted: false,
@@ -245,13 +270,28 @@ export class MiningModal {
         outline: 2px solid #8b5cf6; outline-offset: 1px;
       }
       .subjap-modal-body .subjap-notes {
-        display: block; box-sizing: border-box; width: 100%; min-height: 260px;
+        display: block; box-sizing: border-box; width: 100%; min-height: 120px;
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
         background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
         border-radius: 6px; font: inherit; line-height: 1.45;
       }
-      .subjap-modal-body .subjap-notes:focus {
+      .subjap-modal-body .subjap-notes:focus, .subjap-modal-body .subjap-ai-notes:focus {
         outline: 2px solid #8b5cf6; outline-offset: 1px;
+      }
+      .subjap-modal-body .subjap-ai-controls {
+        display: flex; align-items: center; gap: 10px; margin: 0 0 10px;
+      }
+      .subjap-modal-body .subjap-modal-btn-ai {
+        flex: 0 0 auto; padding: 8px 12px; min-width: 170px;
+        background: #a855f7; color: #fff;
+      }
+      .subjap-modal-body .subjap-modal-btn-ai:hover:not(:disabled) { background: #9333ea; }
+      .subjap-modal-body .subjap-ai-status { font-size: 13px; color: #c4b5fd; }
+      .subjap-modal-body .subjap-ai-notes {
+        display: block; box-sizing: border-box; width: 100%; min-height: 190px;
+        margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
+        background: #241b35; color: #f3e8ff; border: 1px solid #7e22ce;
+        border-radius: 6px; font: inherit; line-height: 1.45;
       }
       .subjap-modal-body .subjap-audio-info, .subjap-modal-body .subjap-screenshot-info {
         font-size: 13px; color: #22c55e; margin-top: 6px;
@@ -284,14 +324,34 @@ export class MiningModal {
 
   private render(): void {
     if (!this.state) return;
-    const { cue, targetToken } = this.state;
     const body = this.container.querySelector(".subjap-modal-body");
     if (!body) return;
 
+    const aiButtonLabel = this.state.aiGenerating
+      ? "Analyse en cours…"
+      : this.state.aiGeneratedOnce
+        ? "↻ Régénérer avec l’IA"
+        : "✨ Enrichir avec l’IA";
+    const aiNotesHtml = this.state.aiNotesText
+      ? `<div class="subjap-label">Enrichissement IA — modifiable</div>
+        <textarea class="subjap-ai-notes" data-testid="mining-ai-notes" aria-label="Enrichissement IA">${escapeHtml(this.state.aiNotesText)}</textarea>`
+      : "";
+    const aiStatusHtml = this.state.aiStatus
+      ? `<span class="subjap-ai-status">${escapeHtml(this.state.aiStatus)}</span>`
+      : "";
+    const aiErrorHtml = this.state.aiError
+      ? `<div class="subjap-error">IA locale : ${escapeHtml(this.state.aiError)}</div>`
+      : "";
     const defListHtml = `<div class="subjap-label">Definitions</div>
       <textarea class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</textarea>
       <div class="subjap-label">Notes</div>
-      <textarea class="subjap-notes" data-testid="mining-notes" aria-label="Notes" placeholder="Add a personal note for Anki…">${escapeHtml(this.state.notesText)}</textarea>`;
+      <textarea class="subjap-notes" data-testid="mining-notes" aria-label="Notes" placeholder="Ajouter une note personnelle pour Anki…">${escapeHtml(this.state.notesText)}</textarea>
+      <div class="subjap-ai-controls">
+        <button class="subjap-modal-btn subjap-modal-btn-ai" data-testid="mining-ai-enrich" ${this.state.aiGenerating || this.state.sending ? "disabled" : ""}>${aiButtonLabel}</button>
+        ${aiStatusHtml}
+      </div>
+      ${aiErrorHtml}
+      ${aiNotesHtml}`;
 
     const audioInfo = this.state.wordAudioDataUrl
       ? '<div class="subjap-audio-info">✓ Word audio ready</div>'
@@ -366,9 +426,76 @@ export class MiningModal {
     notesInput?.addEventListener("input", () => {
       if (this.state) this.state.notesText = notesInput.value;
     });
+
+    const aiNotesInput = body.querySelector<HTMLTextAreaElement>(".subjap-ai-notes");
+    aiNotesInput?.addEventListener("input", () => {
+      if (this.state) this.state.aiNotesText = aiNotesInput.value;
+    });
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────
+
+  private async generateAiNotes(): Promise<void> {
+    const state = this.state;
+    if (!state || state.aiGenerating) return;
+
+    state.aiGenerating = true;
+    state.aiStatus = "Préparation de tes exemples familiers…";
+    state.aiError = null;
+    this.render();
+
+    const aiSessionRef: { current: LocalAiSession | null } = { current: null };
+    try {
+      // Start both operations from the explicit click. The model download can
+      // use the activation while IndexedDB builds the small candidate list.
+      const candidatesPromise = sendMessage("ai:prepareEnrichment", {
+        targetWord: state.targetWordText.trim(),
+      });
+      const sessionPromise = createLocalAiSession((message) => {
+        if (this.state !== state) return;
+        state.aiStatus = message;
+        this.render();
+      }).then((session) => {
+        aiSessionRef.current = session;
+        return session;
+      });
+      const [session, { kanji }] = await Promise.all([sessionPromise, candidatesPromise]);
+      if (this.state !== state) return;
+
+      const input: AiEnrichmentInput = {
+        targetWord: state.targetWordText.trim(),
+        targetReading: state.readingText.trim(),
+        sentence: state.sentenceText.trim(),
+        definitions: definitionLines(state.definitionText),
+        kanjiCandidates: kanji,
+      };
+      const raw = await session.generate(input, state.aiGeneratedOnce);
+      const formatted = await formatValidatedAiEnrichment(raw, input);
+      if (this.state !== state) return;
+
+      state.aiGeneratedOnce = true;
+      state.aiNotesText = formatted;
+      state.aiStatus = formatted
+        ? "Enrichissement ajouté aux Notes."
+        : "Aucun enrichissement suffisamment fiable trouvé.";
+    } catch (err) {
+      if (this.state !== state) return;
+      if (err instanceof LocalAiUnavailableError) {
+        state.aiError = err.message;
+      } else if (err instanceof DOMException && err.name === "AbortError") {
+        state.aiError = "La génération a dépassé 45 secondes. Tu peux réessayer.";
+      } else {
+        state.aiError = err instanceof Error ? err.message : String(err);
+      }
+      state.aiStatus = null;
+    } finally {
+      aiSessionRef.current?.destroy();
+      if (this.state === state) {
+        state.aiGenerating = false;
+        this.render();
+      }
+    }
+  }
 
   private async generateAudio(playPreview = false): Promise<void> {
     const state = this.state;
@@ -481,6 +608,7 @@ export class MiningModal {
         ? formatMigakuSentence(cue, targetToken)
         : formatEditableSentence(sentence, targetWord);
     const editedDefinitions = definitionLines(state.definitionText);
+    const notes = combinedNotes(state);
     let phraseAudioDataUrl: string | undefined = this.state.phraseAudioDataUrl ?? undefined;
     if (!phraseAudioDataUrl && this.phraseAudioPromise) {
       phraseAudioDataUrl = await this.phraseAudioPromise;
@@ -517,6 +645,7 @@ export class MiningModal {
           targetSurface: targetWord,
           targetReading,
           definitions: editedDefinitions,
+          notes,
           audioDataUrl: phraseAudioDataUrl,
           screenshotDataUrl: state.screenshotDataUrl ?? undefined,
           source: episodeContext,
@@ -534,6 +663,8 @@ export class MiningModal {
         });
         state.localCardId = id;
         console.log(`[SubJap] Card created: ${id}`);
+      } else {
+        await sendMessage("mine:updateNotes", { id: state.localCardId, notes });
       }
 
       try {
@@ -559,7 +690,7 @@ export class MiningModal {
             Phrase: phrase,
             Traduction: state.translationText,
             Définitions: formatMigakuDefinitions(editedDefinitions),
-            Notes: formatMigakuNotes(state.notesText),
+            Notes: formatMigakuNotes(notes),
             Image: "",
             AudioMot: "",
             AudioPhrase: "",
