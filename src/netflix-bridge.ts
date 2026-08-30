@@ -27,6 +27,8 @@ interface NetflixTimedTextTrackOption {
   language?: unknown;
   locale?: unknown;
   displayName?: unknown;
+  trackType?: unknown;
+  rawTrackType?: unknown;
   isNoneTrack?: unknown;
   id?: unknown;
   new_track_id?: unknown;
@@ -50,9 +52,14 @@ export function selectNetflixSecondaryTrack(
     current && !isNoneTimedTextTrack(current)
       ? current
       : tracks.find((track) => /^ja(?:-|_|$)/i.test(readTimedTextLanguage(track)));
+  const preferredTranslations = tracks.filter(isPreferredTranslationTrack);
+  const fallbackTranslations = tracks.filter((track) => !isPreferredTranslationTrack(track));
+  const findTranslation = (language: RegExp): NetflixTimedTextTrackOption | undefined =>
+    preferredTranslations.find((track) => language.test(readTimedTextLanguage(track))) ??
+    fallbackTranslations.find((track) => language.test(readTimedTextLanguage(track)));
   const secondary =
-    tracks.find((track) => /^fr(?:-|_|$)/i.test(readTimedTextLanguage(track))) ??
-    tracks.find((track) => /^en(?:-|_|$)/i.test(readTimedTextLanguage(track)));
+    findTranslation(/^fr(?:-|_|$)/i) ??
+    findTranslation(/^en(?:-|_|$)/i);
   return native && secondary ? { native, secondary } : null;
 }
 
@@ -353,8 +360,10 @@ function installTimedTextCapture(page: Window): void {
   let pendingSecondaryLanguage = "";
   let pendingNativeTrack: NetflixTimedTextTrackOption | null = null;
   let pendingSecondaryRestore: number | null = null;
-  let pendingTrackAssociation: NetflixTimedTextTrack | null = null;
-  let pendingTrackAssociationExpiry: number | null = null;
+  let pendingSecondaryAssociation: NetflixTimedTextTrack | null = null;
+  let pendingSecondaryAssociationExpiry: number | null = null;
+  let pendingNativeAssociation: NetflixTimedTextTrack | null = null;
+  let pendingNativeAssociationExpiry: number | null = null;
   let uiProbeAttempted = false;
   let uiProbeDiagnosticLogged = false;
   let uiNativeRestore: number | null = null;
@@ -364,30 +373,78 @@ function installTimedTextCapture(page: Window): void {
   const associateNextTrackRequest = (
     language: string,
     episodeId = readWatchEpisodeId(page),
+    kind: "secondary" | "native" = "secondary",
   ): void => {
     if (!episodeId || !language) return;
-    if (pendingTrackAssociationExpiry !== null) {
-      page.clearTimeout(pendingTrackAssociationExpiry);
+    const expiry = kind === "secondary"
+      ? pendingSecondaryAssociationExpiry
+      : pendingNativeAssociationExpiry;
+    if (expiry !== null) {
+      page.clearTimeout(expiry);
     }
-    pendingTrackAssociation = { episodeId, language, url: "" };
-    pendingTrackAssociationExpiry = page.setTimeout(() => {
-      pendingTrackAssociation = null;
-      pendingTrackAssociationExpiry = null;
+    const association = { episodeId, language, url: "" };
+    if (kind === "secondary") {
+      pendingSecondaryAssociation = association;
+    } else {
+      pendingNativeAssociation = association;
+    }
+    const timer = page.setTimeout(() => {
+      if (kind === "secondary") {
+        pendingSecondaryAssociation = null;
+        pendingSecondaryAssociationExpiry = null;
+      } else {
+        pendingNativeAssociation = null;
+        pendingNativeAssociationExpiry = null;
+      }
     }, 2500);
+    if (kind === "secondary") {
+      pendingSecondaryAssociationExpiry = timer;
+    } else {
+      pendingNativeAssociationExpiry = timer;
+    }
   };
 
-  const consumeTrackAssociation = (url: string): NetflixTimedTextTrack | null => {
-    const association = pendingTrackAssociation;
-    if (
-      !association ||
-      association.episodeId !== readWatchEpisodeId(page)
-    ) {
-      return null;
+  const clearPendingAssociations = (): void => {
+    if (pendingSecondaryAssociationExpiry !== null) {
+      page.clearTimeout(pendingSecondaryAssociationExpiry);
+      pendingSecondaryAssociationExpiry = null;
     }
-    pendingTrackAssociation = null;
-    if (pendingTrackAssociationExpiry !== null) {
-      page.clearTimeout(pendingTrackAssociationExpiry);
-      pendingTrackAssociationExpiry = null;
+    if (pendingNativeAssociationExpiry !== null) {
+      page.clearTimeout(pendingNativeAssociationExpiry);
+      pendingNativeAssociationExpiry = null;
+    }
+    pendingSecondaryAssociation = null;
+    pendingNativeAssociation = null;
+  };
+
+  const consumeTrackAssociation = (
+    url: string,
+    language = "",
+    secondaryOnly = false,
+  ): NetflixTimedTextTrack | null => {
+    const activeEpisodeId = readWatchEpisodeId(page);
+    const associations = secondaryOnly
+      ? [pendingSecondaryAssociation]
+      : [pendingSecondaryAssociation, pendingNativeAssociation];
+    const association = associations.find(
+      (candidate) =>
+        candidate &&
+        candidate.episodeId === activeEpisodeId &&
+        (!language || languagesMatch(candidate.language, language)),
+    );
+    if (!association) return null;
+    if (association === pendingSecondaryAssociation) {
+      pendingSecondaryAssociation = null;
+      if (pendingSecondaryAssociationExpiry !== null) {
+        page.clearTimeout(pendingSecondaryAssociationExpiry);
+        pendingSecondaryAssociationExpiry = null;
+      }
+    } else {
+      pendingNativeAssociation = null;
+      if (pendingNativeAssociationExpiry !== null) {
+        page.clearTimeout(pendingNativeAssociationExpiry);
+        pendingNativeAssociationExpiry = null;
+      }
     }
     return { ...association, url };
   };
@@ -403,7 +460,11 @@ function installTimedTextCapture(page: Window): void {
     pendingSecondaryLanguage = "";
     pendingNativeTrack = null;
     try {
-      associateNextTrackRequest(readTimedTextLanguage(nativeTrack));
+      associateNextTrackRequest(
+        readTimedTextLanguage(nativeTrack),
+        readWatchEpisodeId(page),
+        "native",
+      );
       session.setTimedTextTrack?.(nativeTrack);
     } catch {
       // Netflix can replace the session while a track request is in flight.
@@ -426,6 +487,7 @@ function installTimedTextCapture(page: Window): void {
     if (activeEpisodeId !== discoveredEpisodeId) {
       discoveredTracks.clear();
       subtitleTrackCandidates.clear();
+      clearPendingAssociations();
       discoveredEpisodeId = activeEpisodeId;
     }
     const previousCandidate = subtitleTrackCandidates.get(track.url);
@@ -486,11 +548,20 @@ function installTimedTextCapture(page: Window): void {
 
     return scoped;
   };
-  const emitTimedTextUrl = (url: string, language = ""): void => {
+  const emitTimedTextUrl = (
+    url: string,
+    language = "",
+    validatedSubtitleBody = false,
+  ): void => {
     const candidate = subtitleTrackCandidates.get(url);
-    const associated =
-      candidate || EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
-        ? consumeTrackAssociation(url)
+    if (candidate) {
+      fetchTrack({ ...candidate, language: candidate.language || language });
+      return;
+    }
+    const associated = validatedSubtitleBody
+      ? consumeTrackAssociation(url, language, true)
+      : EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
+        ? consumeTrackAssociation(url, language)
         : null;
     if (associated) {
       fetchTrack({
@@ -515,8 +586,15 @@ function installTimedTextCapture(page: Window): void {
     if (!looksLikeSubtitleBody(body)) return;
     emitTimedTextUrl(
       url,
-      inferLanguage(url) || inferSubtitleBodyLanguage(body) || pendingSecondaryLanguage,
+      inferLanguage(url) || pendingSecondaryLanguage,
+      true,
     );
+    if (pendingSecondaryLanguage) {
+      const session = resolveNetflixTimedTextSession(page);
+      if (session && pendingNativeTrack) {
+        scheduleNativeTrackRestore(session, pendingNativeTrack);
+      }
+    }
   };
   const inspectTimedTextValue = (value: unknown): void => {
     for (const track of collectNetflixTimedTextTracks(value)) fetchTrack(track);
@@ -709,7 +787,7 @@ function installTimedTextCapture(page: Window): void {
         console.log(`[SubJap] Netflix scoped secondary track: ${readTimedTextLanguage(secondaryTrack)}`);
         return;
       }
-      associateNextTrackRequest(pendingSecondaryLanguage, episodeId);
+      associateNextTrackRequest(pendingSecondaryLanguage, episodeId, "secondary");
       session.setTimedTextTrack(secondaryTrack);
       page.setTimeout(() => {
         try {
@@ -743,7 +821,7 @@ function installTimedTextCapture(page: Window): void {
       const nativeTrack =
         findNetflixUiElement(page, "Japanese (CC)") ??
         findNetflixUiElement(page, "Japanese");
-      associateNextTrackRequest("ja");
+      associateNextTrackRequest("ja", readWatchEpisodeId(page), "native");
       nativeTrack?.click();
       pendingSecondaryLanguage = "";
     }, 250);
@@ -777,7 +855,11 @@ function installTimedTextCapture(page: Window): void {
         pendingSecondaryLanguage = "";
         return;
       }
-      associateNextTrackRequest(pendingSecondaryLanguage);
+      associateNextTrackRequest(
+        pendingSecondaryLanguage,
+        readWatchEpisodeId(page),
+        "secondary",
+      );
       secondaryTrack.click();
       uiNativeRestore = page.setTimeout(restoreNativeTrackThroughUi, 1800);
       console.log(`[SubJap] Netflix probing secondary track through UI: ${pendingSecondaryLanguage}`);
@@ -835,6 +917,12 @@ function inferLanguage(url: string): string {
 
 function readTimedTextLanguage(track: NetflixTimedTextTrackOption): string {
   return String(track.bcp47 ?? track.language ?? track.locale ?? "").trim();
+}
+
+function isPreferredTranslationTrack(track: NetflixTimedTextTrackOption): boolean {
+  const trackType = String(track.trackType ?? "").trim().toUpperCase();
+  const rawTrackType = String(track.rawTrackType ?? "").trim().toUpperCase();
+  return trackType === "PRIMARY" || rawTrackType === "SUBTITLES";
 }
 
 function readTimedTextTrackId(track: NetflixTimedTextTrackOption): string {
