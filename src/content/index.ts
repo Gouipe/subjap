@@ -38,7 +38,6 @@ import {
   installSubtitleCopyShortcut,
   subtitleTextForClipboard,
 } from "./shortcuts";
-import { WordStateCache } from "./word-state-cache";
 import {
   tokenCanonicalKey,
   tokenDictionaryForm,
@@ -52,6 +51,7 @@ import type {
   RenderedCue,
   SpanToken,
   SubtitleCue,
+  SubtitleTranslation,
   Token,
   Tokenizer,
   WordState,
@@ -76,12 +76,14 @@ console.log(`[SubJap] Platform: ${adapter.id}`);
 // ---------------------------------------------------------------------------
 
 let tokenizer: Tokenizer | null = null;
+let tokenizerPromise: Promise<Tokenizer | null> | null = null;
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
 let listeningMode: ListeningMode | null = null;
 const listeningExerciseKeys = new Set<string>();
 let nativeSubtitlesHidden = false;
+let nativeSubtitleReplacementReady = false;
 
 // The action popup prepares tab capture after the user invokes the extension.
 // Keeping the listener in the content script lets tab capture start from the
@@ -111,7 +113,9 @@ let overlayOptions: OverlayOptions = DEFAULT_OPTIONS;
  * replaces them), restores them otherwise. Idempotent.
  */
 function applyNativeSubtitleVisibility(): void {
-  if (!overlayOptions.hideNativeSubtitles) {
+  const shouldHideNative =
+    overlayOptions.hideNativeSubtitles && nativeSubtitleReplacementReady;
+  if (!shouldHideNative) {
     if (nativeSubtitlesHidden) {
       try {
         adapter.setNativeSubtitlesVisible(true);
@@ -131,17 +135,17 @@ function applyNativeSubtitleVisibility(): void {
   nativeSubtitlesHidden = true;
 }
 
-/** Signature of the last rendered cue set — skips identical cuechange spam. */
+/** Signature of the latest accepted cue set — skips identical cuechange spam. */
 let lastSignature = "";
+/** Monotonic revision: only the newest cue pipeline may update the overlay. */
+let cueRevision = 0;
 let lastCues: SubtitleCue[] = [];
 
-/** Last fully rendered cues — used by the mining modal for its sentence view. */
+/** Last tokenized cues — used by interactions and the mining modal. */
 let lastRenderedCues: RenderedCue[] = [];
 
 /** Mining modal singleton (created on demand, destroyed on video swap). */
 let miningModal: MiningModal | null = null;
-let pendingCues: SubtitleCue[] | null = null;
-let cueProcessing = false;
 /** Latest cue snapshot observed while the listening panel owns playback. */
 let deferredCuesWhileListening: SubtitleCue[] | null = null;
 
@@ -151,28 +155,18 @@ const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
 /** lemma → last resolved status (synchronous reads for the popover). */
 const wordStatusByLemma = new LRUCache<string, WordStatus | null>(1_000);
 
+/** Full word state used by the fast synchronous subtitle render. */
+const wordStateByLemma = new LRUCache<string, WordState | null>(1_000);
+
 /** lemma → number of matching notes from the latest successful Anki sync. */
 const ankiNoteCountByLemma = new LRUCache<string, number>(1_000);
+
+/** Cached frequency ranks avoid repeating IndexedDB reads for recurring words. */
+const frequencyRankByTerm = new LRUCache<string, number | null>(2_000);
 
 /** Cached learner vocabulary size used by the frequency colour bands. */
 let knownWordCount = 0;
 let knownWordCountPromise: Promise<number> | null = null;
-
-/** Cached word-state reads, invalidated after a manual state change. */
-const wordStateCache = new WordStateCache((lemma, aliases) =>
-  sendMessage("word:get", { key: lemma, aliases })
-    .then((result) => {
-      wordStatusByLemma.set(lemma, result.state?.status ?? null);
-      ankiNoteCountByLemma.set(lemma, result.ankiNoteCount);
-      return result.state;
-    })
-    .catch((err: unknown) => {
-      console.warn(`[SubJap] word:get failed for "${lemma}":`, err);
-      wordStatusByLemma.set(lemma, null);
-      ankiNoteCountByLemma.set(lemma, 0);
-      return null;
-    }),
-);
 
 // ---------------------------------------------------------------------------
 // Hover interaction state (popover shown on hover, pinned on click)
@@ -213,11 +207,37 @@ function schedulePopoverHide(): void {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Word-state lookups (deduplicated, cached)
+// 3. Subtitle metadata lookups (batched and cached)
 // ---------------------------------------------------------------------------
 
-function getWordState(lemma: string, aliases?: string[]): Promise<WordState | null> {
-  return wordStateCache.get(lemma, aliases);
+async function getWordStates(
+  lookups: Array<{ key: string; aliases: string[] }>,
+  revision: number,
+): Promise<void> {
+  const uniqueLookups = new Map<string, { key: string; aliases: string[] }>();
+  for (const lookup of lookups) {
+    if (!wordStateByLemma.has(lookup.key)) uniqueLookups.set(lookup.key, lookup);
+  }
+  const missing = [...uniqueLookups.values()];
+  if (missing.length === 0) return;
+
+  try {
+    const result = await sendMessage("word:getBatch", { items: missing });
+    if (revision !== cueRevision) return;
+    for (const item of result.items) {
+      wordStateByLemma.set(item.key, item.state);
+      wordStatusByLemma.set(item.key, item.state?.status ?? null);
+      ankiNoteCountByLemma.set(item.key, item.ankiNoteCount);
+    }
+  } catch (err: unknown) {
+    console.warn("[SubJap] word:getBatch failed:", err);
+    if (revision !== cueRevision) return;
+    for (const { key } of missing) {
+      wordStateByLemma.set(key, null);
+      wordStatusByLemma.set(key, null);
+      ankiNoteCountByLemma.set(key, 0);
+    }
+  }
 }
 
 function getKnownWordCount(): Promise<number> {
@@ -252,7 +272,7 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
         result.presenceChanged === 0
       ) return;
 
-      wordStateCache.clear();
+      wordStateByLemma.clear();
       wordStatusByLemma.clear();
       ankiNoteCountByLemma.clear();
       knownWordCountPromise = null;
@@ -271,14 +291,26 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
 async function getFrequencyRanks(
   terms: string[],
 ): Promise<Record<string, number>> {
-  if (terms.length === 0) return {};
-  try {
-    const result = await sendMessage("frequency:batch", { terms });
-    return result.ranks;
-  } catch (err: unknown) {
-    console.warn("[SubJap] frequency:batch failed:", err);
-    return {};
+  const uniqueTerms = [...new Set(terms.filter(Boolean))];
+  const missing = uniqueTerms.filter((term) => !frequencyRankByTerm.has(term));
+  if (missing.length > 0) {
+    try {
+      const result = await sendMessage("frequency:batch", { terms: missing });
+      for (const term of missing) {
+        frequencyRankByTerm.set(term, result.ranks[term] ?? null);
+      }
+    } catch (err: unknown) {
+      console.warn("[SubJap] frequency:batch failed:", err);
+      for (const term of missing) frequencyRankByTerm.set(term, null);
+    }
   }
+
+  return Object.fromEntries(
+    uniqueTerms.flatMap((term) => {
+      const rank = frequencyRankByTerm.get(term);
+      return rank == null ? [] : [[term, rank]];
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +336,8 @@ function ensureOverlay(): OverlayRenderer | null {
     cueNavigator.reset();
     miningModal?.destroy();
     miningModal = null;
+    nativeSubtitleReplacementReady = false;
+    applyNativeSubtitleVisibility();
     // Force the next cue set through the pipeline after a player swap.
     lastSignature = "";
   }
@@ -324,44 +358,37 @@ function ensureOverlay(): OverlayRenderer | null {
   return overlay;
 }
 
-/** Keep only the newest cue snapshot while an async render is in flight. */
-function enqueueCues(cues: SubtitleCue[]): void {
-  pendingCues = cues;
-  if (cueProcessing) return;
-  cueProcessing = true;
-  void (async () => {
-    try {
-      while (pendingCues !== null) {
-        const nextCues = pendingCues;
-        pendingCues = null;
-        await handleCues(nextCues);
-      }
-    } catch (err: unknown) {
-      console.error("[SubJap] Cue processing failed:", err);
-    } finally {
-      cueProcessing = false;
-      if (pendingCues !== null) enqueueCues(pendingCues);
-    }
-  })();
+async function ensureTokenizerReady(): Promise<Tokenizer | null> {
+  if (tokenizer) return tokenizer;
+  if (!tokenizerPromise) {
+    tokenizerPromise = createTokenizer()
+      .then((readyTokenizer) => {
+        tokenizer = readyTokenizer;
+        return readyTokenizer;
+      })
+      .catch((err: unknown) => {
+        console.error("[SubJap] Tokenizer failed to initialise:", err);
+        return null;
+      })
+      .finally(() => {
+        tokenizerPromise = null;
+      });
+  }
+  return tokenizerPromise;
 }
 
-// ---------------------------------------------------------------------------
-// 5. Core pipeline: cues → rendered cues
-// ---------------------------------------------------------------------------
-
-async function handleCues(cues: SubtitleCue[]): Promise<void> {
-  // Netflix can provide its complete official track even when this content
-  // script was loaded in the middle of the current phrase. Seed navigation
-  // before render deduplication so Q can still reach the unseen predecessor.
-  const navigationSessionChanged = rememberNavigationCues();
-
-  const signature = cues
+function cueSignature(cues: SubtitleCue[]): string {
+  const sessionId = adapter.getNavigationSessionId?.() ?? "";
+  return `${sessionId}\u0002${cues
     .map(
       (cue) =>
         `${cue.language ?? ""}\u0000${cue.id}\u0000${cue.start}\u0000${cue.end}\u0000${cue.endConfirmed ?? ""}\u0000${cue.text}`,
     )
-    .join("\u0001");
+    .join("\u0001")}`;
+}
 
+/** Start the newest cue immediately; older async work may finish but cannot commit. */
+function enqueueCues(cues: SubtitleCue[]): void {
   // Seeking back to the beginning of an exercise can make Netflix emit a
   // transient empty/incomplete cue set. Keep the frozen exercise sentence
   // and its translation while the listening panel owns playback.
@@ -369,11 +396,32 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     deferredCuesWhileListening = cues;
     return;
   }
-  if (!navigationSessionChanged && signature === lastSignature) return;
+
+  const signature = cueSignature(cues);
+  if (signature === lastSignature) return;
+  lastSignature = signature;
+  const revision = ++cueRevision;
+  void handleCues(cues, revision).catch((err: unknown) => {
+    if (revision === cueRevision) {
+      console.error("[SubJap] Cue processing failed:", err);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 5. Core pipeline: cues → rendered cues
+// ---------------------------------------------------------------------------
+
+async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> {
+  // Netflix can provide its complete official track even when this content
+  // script was loaded in the middle of the current phrase. Seed navigation
+  // before render deduplication so Q can still reach the unseen predecessor.
+  rememberNavigationCues();
   lastCues = cues;
 
   const overlayInstance = ensureOverlay();
   if (!overlayInstance) {
+    if (revision === cueRevision) lastSignature = "";
     console.log("[SubJap] render: skipped (no video yet)");
     return;
   }
@@ -383,18 +431,14 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   // no subsequent timeupdate would otherwise repair Q's history.
   rememberNavigationCues();
 
-  // Commit the signature only once the overlay is available, so a cue set
-  // that arrived before the <video> was discovered is not dropped forever
-  // (the adapter re-emits when it finds the video).
-  lastSignature = signature;
-
   const japaneseCues = cues.filter((cue) => isJapaneseTrack(cue.language));
   const translationCue = selectTranslationCue(cues);
-
-  // The overlay replaces native subtitles (unless the user opted to keep them
-  // visible). The overlay stays on screen while paused — pausing is
-  // when the learner wants to read the sentence.
-  applyNativeSubtitleVisibility();
+  const translation: SubtitleTranslation | null = translationCue
+    ? {
+        text: normalizeCueText(translationCue.text),
+        language: translationCue.language ?? "",
+      }
+    : null;
 
   // A new cue set is being committed: the previous spans are replaced, so any
   // popover anchored to them is stale. Close it (hover mode) or unpin it.
@@ -404,7 +448,7 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
   hoveredToken = null;
 
   if (japaneseCues.length === 0) {
-    overlayInstance.updateTranslation(null);
+    overlayInstance.updateContent([], null, knownWordCount);
     overlayInstance.hide();
     spanRegistry.clear();
     lastRenderedCues = [];
@@ -412,16 +456,22 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     return;
   }
 
-  if (!tokenizer) {
-    try {
-      tokenizer = await createTokenizer();
-    } catch (err) {
-      console.error("[SubJap] Tokenizer failed to initialise:", err);
-      return;
-    }
-    // A newer emission may have superseded this one while we awaited.
-    if (signature !== lastSignature) return;
-  }
+  // First paint is independent of WASM and IndexedDB. This replaces the old
+  // subtitle immediately, then becomes interactive as soon as UniDic is ready.
+  spanRegistry.clear();
+  lastRenderedCues = [];
+  overlayInstance.updatePendingContent(
+    japaneseCues.map((cue) => normalizeCueText(cue.text)),
+    translation,
+    knownWordCount,
+  );
+  overlayInstance.show();
+  cueNavigator.observe(japaneseCues);
+  nativeSubtitleReplacementReady = true;
+  applyNativeSubtitleVisibility();
+
+  const readyTokenizer = await ensureTokenizerReady();
+  if (!readyTokenizer || revision !== cueRevision) return;
 
   const tokenizedCues: Array<{ cue: SubtitleCue; tokens: Token[] }> = [];
   const allTokens: Token[] = [];
@@ -432,12 +482,65 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
     const sentences = splitIntoSentences(normalizeCueText(cue.text));
     const cueTokens: Token[] = [];
     for (const sentence of sentences) {
-      const tokens = groupTokens(tokenizer.tokenize(sentence));
+      const tokens = groupTokens(readyTokenizer.tokenize(sentence));
       cueTokens.push(...tokens);
     }
     tokenizedCues.push({ cue, tokens: cueTokens });
     allTokens.push(...cueTokens);
   }
+
+  const buildRenderedCues = (
+    pending: boolean,
+    frequencyRanks: Record<string, number> = {},
+  ): {
+    rendered: RenderedCue[];
+    registry: Map<number, { cue: SubtitleCue; token: Token }>;
+  } => {
+    const registry = new Map<number, { cue: SubtitleCue; token: Token }>();
+    const rendered: RenderedCue[] = [];
+    let globalIndex = 0;
+
+    for (const { cue, tokens } of tokenizedCues) {
+      const parentheticalFlags = markParentheticalTokens(tokens);
+      const spans: SpanToken[] = tokens.map((token, tokenIndex) => {
+        const index = globalIndex++;
+        registry.set(index, { cue, token });
+        const lexicalKey = tokenCanonicalKey(token);
+        return {
+          index,
+          token,
+          wordState: wordStateByLemma.get(lexicalKey) ?? null,
+          isPending: pending,
+          isParenthetical: parentheticalFlags[tokenIndex],
+          ankiNoteCount: ankiNoteCountByLemma.get(lexicalKey) ?? 0,
+          frequencyRank:
+            frequencyRanks[lexicalKey] ??
+            frequencyRanks[tokenDictionaryForm(token)] ??
+            frequencyRanks[token.surface],
+        };
+      });
+      rendered.push({ cue, spans });
+    }
+
+    return { rendered, registry };
+  };
+
+  const commitRenderedCues = (
+    rendered: RenderedCue[],
+    registry: Map<number, { cue: SubtitleCue; token: Token }>,
+    resolvedKnownWordCount: number,
+  ): void => {
+    spanRegistry.clear();
+    for (const [index, entry] of registry) spanRegistry.set(index, entry);
+    lastRenderedCues = rendered;
+    overlayInstance.updateContent(rendered, translation, resolvedKnownWordCount);
+    overlayInstance.show();
+  };
+
+  // UniDic is synchronous once warm, so interactive white tokens replace the
+  // plain first paint without waiting for vocabulary metadata.
+  const provisional = buildRenderedCues(true);
+  commitRenderedCues(provisional.rendered, provisional.registry, knownWordCount);
 
   const frequencyTerms = [
     ...new Set(
@@ -448,68 +551,24 @@ async function handleCues(cues: SubtitleCue[]): Promise<void> {
       ]),
     ),
   ];
+  const wordLookups = allTokens.map((token) => ({
+    key: tokenCanonicalKey(token),
+    aliases: tokenStateLookupTerms(token),
+  }));
   const [frequencyRanks, resolvedKnownWordCount] = await Promise.all([
     getFrequencyRanks(frequencyTerms),
     getKnownWordCount(),
+    getWordStates(wordLookups, revision),
   ]);
 
-  const nextSpanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
-  const rendered: RenderedCue[] = [];
-  let globalIndex = 0;
-
-  for (const { cue, tokens } of tokenizedCues) {
-    const parentheticalFlags = markParentheticalTokens(tokens);
-    const spans: SpanToken[] = await Promise.all(
-      tokens.map(async (token, tokenIndex): Promise<SpanToken> => {
-        const index = globalIndex++;
-        nextSpanRegistry.set(index, { cue, token });
-        const lexicalKey = tokenCanonicalKey(token);
-        // Known/unknown state follows UniDic's lexical identity and natural
-        // orthography, never a phonetic reading shared by an unrelated word.
-        const stateLookupKeys = tokenStateLookupTerms(token);
-        const state = await getWordState(lexicalKey, stateLookupKeys);
-        const frequencyRank =
-          frequencyRanks[lexicalKey] ??
-          frequencyRanks[tokenDictionaryForm(token)] ??
-          frequencyRanks[token.surface];
-        return {
-          index,
-          token,
-          wordState: state,
-          isParenthetical: parentheticalFlags[tokenIndex],
-          ankiNoteCount: ankiNoteCountByLemma.get(lexicalKey) ?? 0,
-          frequencyRank,
-        };
-      }),
-    );
-
-    rendered.push({ cue, spans });
-  }
-
   // Skip stale renders: a newer emission (e.g. an empty cue set that hid the
-  // overlay) may have superseded this one while the async tokenizer/word-state
-  // work was in flight.
-  if (signature !== lastSignature) return;
+  // overlay) may have superseded this one while metadata was loading.
+  if (revision !== cueRevision) return;
 
-  spanRegistry.clear();
-  for (const [index, entry] of nextSpanRegistry) {
-    spanRegistry.set(index, entry);
-  }
-  lastRenderedCues = rendered;
-  overlayInstance.updateContent(
-    rendered,
-    translationCue
-      ? {
-          text: normalizeCueText(translationCue.text),
-          language: translationCue.language ?? "",
-        }
-      : null,
-    resolvedKnownWordCount,
-  );
-  overlayInstance.show();
-  cueNavigator.observe(japaneseCues);
-  maybeTriggerListeningMode(rendered);
-  console.log(`[SubJap] render: shown ${rendered.length} cue(s)`);
+  const enriched = buildRenderedCues(false, frequencyRanks);
+  commitRenderedCues(enriched.rendered, enriched.registry, resolvedKnownWordCount);
+  maybeTriggerListeningMode(enriched.rendered);
+  console.log(`[SubJap] render: shown ${enriched.rendered.length} cue(s)`);
 }
 
 function rememberNavigationCues(): boolean {
@@ -837,7 +896,9 @@ function onToggleKnown(lemma: string, currentStatus: WordStatus | null): void {
     });
 
   wordStatusByLemma.set(lemma, next.status);
-  wordStateCache.invalidate(lemma);
+  wordStateByLemma.set(lemma, next);
+  lastSignature = "";
+  enqueueCues(lastCues);
 
   // Re-render immediately so known/unknown/frequency colours update. The
   // persisted count is refreshed after the write completes.
@@ -864,7 +925,9 @@ function onToggleIgnored(
     });
 
   wordStatusByLemma.set(lemma, next.status);
-  wordStateCache.invalidate(lemma);
+  wordStateByLemma.set(lemma, next);
+  lastSignature = "";
+  enqueueCues(lastCues);
 }
 
 // ---------------------------------------------------------------------------
@@ -876,10 +939,13 @@ function onToggleIgnored(
 void getOptions().then((opts) => {
   overlayOptions = opts;
   console.log("[SubJap] options:", opts);
-  // Apply the native-subtitle preference immediately, even before the first
-  // cue arrives (the player may already be showing Japanese subtitles).
+  // Keep Netflix's subtitle visible until SubJap has painted its replacement.
   applyNativeSubtitleVisibility();
 });
+
+// Warm UniDic while Netflix is mounting so ordinary cues can become
+// interactive synchronously after their immediate plain-text first paint.
+void ensureTokenizerReady();
 
 void syncKnownWordsFromAnki(true);
 window.setInterval(() => void syncKnownWordsFromAnki(), 120_000);
@@ -916,8 +982,14 @@ getPopover({
 const removePlaybackShortcuts = installPlaybackShortcuts(document, adapter, cueNavigator);
 const removePausePlayShortcut = installPausePlayShortcut(document, adapter);
 const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
-  getText: () =>
-    subtitleTextForClipboard(lastRenderedCues.map((rendered) => rendered.cue)),
+  getText: () => {
+    const renderedCues = lastRenderedCues.map((rendered) => rendered.cue);
+    return subtitleTextForClipboard(
+      renderedCues.length > 0
+        ? renderedCues
+        : lastCues.filter((cue) => isJapaneseTrack(cue.language)),
+    );
+  },
 });
 window.addEventListener(
   "pagehide",

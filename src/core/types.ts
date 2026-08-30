@@ -220,6 +220,10 @@ export interface MessageMap {
   // Word state
   "word:get": { key: string; aliases?: string[] };
   "word:getResult": { state: WordState | null; ankiNoteCount: number };
+  "word:getBatch": { items: Array<{ key: string; aliases?: string[] }> };
+  "word:getBatchResult": {
+    items: Array<{ key: string; state: WordState | null; ankiNoteCount: number }>;
+  };
   "word:set": WordState;
   "word:batch": WordState[];
 
@@ -318,6 +322,8 @@ export interface SpanToken {
   index: number;
   token: Token;
   wordState: WordState | null;
+  /** True while frequency and vocabulary metadata are still loading. */
+  isPending?: boolean;
   /** True when the token belongs to a complete parenthetical expression. */
   isParenthetical?: boolean;
   /** Number of existing Anki notes whose normalized `Mot` matches the lemma. */

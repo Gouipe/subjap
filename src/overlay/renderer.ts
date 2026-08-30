@@ -74,6 +74,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-cue-line + .subjap-cue-line {
       margin-top: 4px;
     }
+    #${CONTAINER_ID} .subjap-cue-line--pending {
+      pointer-events: none;
+    }
     #${CONTAINER_ID} .subjap-translation-line {
       /* Keep the secondary language attached to the Japanese subtitle block
          instead of letting a long translation feel detached from it. */
@@ -204,6 +207,7 @@ export class OverlayRenderer {
   private options: OverlayOptions;
   private knownWordCount = 0;
   private cues: RenderedCue[] = [];
+  private pendingCueTexts: string[] | null = null;
   private translation: SubtitleTranslation | null = null;
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
@@ -253,6 +257,20 @@ export class OverlayRenderer {
     knownWordCount: number,
   ): void {
     this.cues = cues;
+    this.pendingCueTexts = null;
+    this.translation = translation;
+    this.knownWordCount = Math.max(0, Math.floor(knownWordCount));
+    this.render();
+  }
+
+  /** Show cue text immediately while tokenisation/enrichment catches up. */
+  updatePendingContent(
+    cueTexts: string[],
+    translation: SubtitleTranslation | null,
+    knownWordCount: number,
+  ): void {
+    this.cues = [];
+    this.pendingCueTexts = cueTexts;
     this.translation = translation;
     this.knownWordCount = Math.max(0, Math.floor(knownWordCount));
     this.render();
@@ -264,6 +282,7 @@ export class OverlayRenderer {
    */
   updateCues(cues: RenderedCue[]): void {
     this.cues = cues;
+    this.pendingCueTexts = null;
     this.render();
   }
 
@@ -312,14 +331,26 @@ export class OverlayRenderer {
     // Clear container
     this.container.replaceChildren();
 
-    if (this.cues.length === 0) return;
+    if (this.cues.length === 0 && !this.pendingCueTexts?.length) return;
 
-    for (const rc of this.cues) {
-      const line = this.buildCueLine(rc);
-      if (this.subtitleVisibilityOverride?.japanese === false) {
-        line.classList.add("subjap-subtitles--hidden");
+    if (this.pendingCueTexts?.length) {
+      for (const text of this.pendingCueTexts) {
+        const line = document.createElement("div");
+        line.className = "subjap-cue-line subjap-cue-line--pending";
+        line.textContent = text;
+        if (this.subtitleVisibilityOverride?.japanese === false) {
+          line.classList.add("subjap-subtitles--hidden");
+        }
+        this.container.appendChild(line);
       }
-      this.container.appendChild(line);
+    } else {
+      for (const rc of this.cues) {
+        const line = this.buildCueLine(rc);
+        if (this.subtitleVisibilityOverride?.japanese === false) {
+          line.classList.add("subjap-subtitles--hidden");
+        }
+        this.container.appendChild(line);
+      }
     }
     if (this.translation) {
       const line = document.createElement("div");
@@ -383,7 +414,7 @@ export class OverlayRenderer {
       span.classList.add(`subjap-token--mine-candidate--${candidateHighlight}`);
     }
 
-    if (isNonWord) {
+    if (isNonWord || st.isPending) {
       span.classList.add("subjap-neutral");
     } else {
       const highlight = getFrequencyHighlight(
@@ -428,6 +459,7 @@ export class OverlayRenderer {
   private getMiningCandidateHighlights(
     rc: RenderedCue,
   ): Map<number, MiningCandidateHighlight> {
+    if (rc.spans.some((span) => span.isPending)) return new Map();
     const highlights: Array<FrequencyHighlight | null> = rc.spans.map((st) => {
       if (st.isParenthetical || this.isNonWord(st)) return null;
       return getFrequencyHighlight(
@@ -462,6 +494,12 @@ export class OverlayRenderer {
    */
   private shouldShowTranslation(): boolean {
     if (!this.options.hideSecondarySubtitlesWhenAllKnown) return true;
+    if (
+      this.pendingCueTexts?.length ||
+      this.cues.some((cue) => cue.spans.some((span) => span.isPending))
+    ) {
+      return true;
+    }
     return !isJapaneseOnlyEligible(
       this.cues.flatMap((cue) => cue.spans),
       this.knownWordCount,

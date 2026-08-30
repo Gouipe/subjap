@@ -262,6 +262,34 @@ onMessage("word:get", async ({ key, aliases = [] }) => {
   return { state, ankiNoteCount };
 });
 
+// Resolve all words needed by one subtitle in a single MV3 round trip. The
+// individual lexical aliases are flattened into two IndexedDB bulk reads so a
+// new cue never waits on one extension message per token.
+onMessage("word:getBatch", async ({ items }) => {
+  const requests = items.map(({ key, aliases = [] }) => ({
+    key,
+    candidates: lexicalKeyCandidates(key, ...aliases),
+  }));
+  const candidates = [...new Set(requests.flatMap((request) => request.candidates))];
+  const [states, ankiWords] = await Promise.all([
+    db.wordStates.bulkGet(candidates),
+    db.ankiWords.bulkGet(candidates),
+  ]);
+  const stateByKey = new Map(candidates.map((candidate, index) => [candidate, states[index]]));
+  const ankiByKey = new Map(candidates.map((candidate, index) => [candidate, ankiWords[index]]));
+
+  return {
+    items: requests.map(({ key, candidates: requestCandidates }) => ({
+      key,
+      state: chooseWordState(requestCandidates.map((candidate) => stateByKey.get(candidate))),
+      ankiNoteCount: requestCandidates.reduce(
+        (total, candidate) => total + (ankiByKey.get(candidate)?.noteCount ?? 0),
+        0,
+      ),
+    })),
+  };
+});
+
 // ── word:set ──────────────────────────────────────────────────────────────
 
 onMessage("word:set", async (payload) => {

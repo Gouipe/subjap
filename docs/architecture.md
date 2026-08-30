@@ -150,6 +150,16 @@ Le chemin principal est le suivant :
    blancs, les inconnus jusqu’au rang connu sont verts et les 300 rangs suivants
    sont bleus.
 
+L’affichage suit un pipeline à deux temps avec priorité à la cue la plus
+récente. Le texte brut est peint immédiatement, puis UniDic le remplace par des
+tokens interactifs blancs. Les états de vocabulaire, la présence Anki et les
+rangs de fréquence sont chargés en une passe asynchrone et appliquent ensuite
+les couleurs. Chaque arrivée incrémente une révision : un traitement plus ancien
+peut terminer ses lectures, mais ne peut plus remplacer la phrase courante. Les
+lectures de mots d’une phrase sont groupées dans un seul message MV3 et les
+résultats récurrents restent en cache. Au premier chargement, le sous-titre natif
+reste visible jusqu’au premier rendu SubJap.
+
 Le tokenizer est un singleton par content script et possède un cache LRU de
 500 phrases. Les cues identiques sont ignorés grâce à une signature de texte.
 Les unités pédagogiques regroupent notamment les suffixes pluriels `ら`, `たち`,
@@ -253,7 +263,8 @@ la lecture et les glosses sélectionnables. Le modal peut :
 - enrichir manuellement `Notes` avec Gemini Nano via la Prompt API locale de
   Chrome, sans clé ni appel à un service distant ;
 - découper l’audio réel du lecteur dans `AudioPhrase` quand le navigateur
-  expose le flux audio ;
+  expose le flux audio ; la relecture couvre 300 ms avant le début de la cue et
+  300 ms après sa fin ;
 - capturer une image de la vidéo lorsque le navigateur l’autorise ;
 - créer d’abord une carte locale dans IndexedDB ;
 - pousser ensuite une copie vers AnkiConnect, en best effort.

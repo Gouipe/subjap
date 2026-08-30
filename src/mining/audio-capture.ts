@@ -277,17 +277,17 @@ export class VideoAudioCapture {
       let resolvedEnd = initialEnd;
       if (this.seekTo) {
         // Netflix's player transport can seek without replacing the DRM video
-        // element. Prepare the exact cue start while paused, then start the
+        // element. Prepare the leading margin while paused, then start the
         // recorder before asking the player to resume from that position.
         this.video.pause();
-        const seekOk = await this.seekTo(start, false);
+        const seekOk = await this.seekTo(from, false);
         if (!seekOk) throw new Error("Netflix seek bridge refused phrase start");
         // The page-world bridge acknowledges that it invoked Netflix's API;
         // the media element can still be several seconds ahead until the seek
         // actually lands. Recording before this point produced random halves.
-        await this.waitForSeekPosition(start);
+        await this.waitForSeekPosition(from);
         await startOffscreenRecording();
-        const playOk = await this.seekTo(start, true);
+        const playOk = await this.seekTo(from, true);
         if (!playOk) throw new Error("Netflix seek bridge refused phrase playback");
         if (resolveEnd) resolvedEnd = await resolveEnd();
       } else {
