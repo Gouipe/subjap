@@ -57,6 +57,7 @@ test("the page-world bridge forwards an official timed-text URL", async ({
     "utf8",
   );
   await page.goto("/tests/fixture/index.html");
+  await page.evaluate(() => history.replaceState(null, "", "/watch/123"));
   await page.addScriptTag({ content: bundle });
 
   const payload = await page.evaluate(async () => {
@@ -64,6 +65,7 @@ test("the page-world bridge forwards an official timed-text URL", async ({
     // script has finished subscribing to page messages.
     JSON.parse(
       JSON.stringify({
+        movieId: 123,
         timedtexttracks: [
           {
             bcp47: "fr-FR",
@@ -92,13 +94,18 @@ test("the page-world bridge forwards an official timed-text URL", async ({
     });
 
     window.postMessage(
-      { source: "subjap", type: "subjap:netflix-timed-text-request" },
+      {
+        source: "subjap",
+        type: "subjap:netflix-timed-text-request",
+        payload: { episodeId: "123" },
+      },
       window.location.origin,
     );
     return received;
   });
 
   expect(payload).toMatchObject({
+    episodeId: "123",
     language: "fr-FR",
     url: "https://cdn.example/timedtext/fr.vtt",
   });
@@ -112,10 +119,12 @@ test("the page-world bridge inspects JSON metadata returned by fetch", async ({
     "utf8",
   );
   await page.goto("/tests/fixture/index.html");
+  await page.evaluate(() => history.replaceState(null, "", "/watch/123"));
   await page.evaluate(() => {
     window.fetch = async () =>
       new Response(
         JSON.stringify({
+          playableId: "123",
           timedtexttracks: [
             {
               bcp47: "en",
@@ -151,6 +160,7 @@ test("the page-world bridge inspects JSON metadata returned by fetch", async ({
   });
 
   expect(payload).toEqual({
+    episodeId: "123",
     language: "en",
     url: "https://cdn.example/timedtext/en.vtt",
   });
@@ -164,6 +174,7 @@ test("the page-world bridge classifies a neutral timed-text URL from its body", 
     "utf8",
   );
   await page.goto("/tests/fixture/index.html");
+  await page.evaluate(() => history.replaceState(null, "", "/watch/123"));
   await page.evaluate(() => {
     window.fetch = async () =>
       new Response(
@@ -189,11 +200,24 @@ test("the page-world bridge classifies a neutral timed-text URL from its body", 
         { once: true },
       );
     });
+    JSON.parse(
+      JSON.stringify({
+        episodeId: "123",
+        timedtexttracks: [
+          {
+            ttDownloadables: {
+              webvtt: "https://cdn.example/timedtext/segment-1",
+            },
+          },
+        ],
+      }),
+    );
     await fetch("https://cdn.example/timedtext/segment-1");
     return received;
   });
 
   expect(payload).toEqual({
+    episodeId: "123",
     language: "fr",
     url: "https://cdn.example/timedtext/segment-1",
   });

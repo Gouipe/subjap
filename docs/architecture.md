@@ -74,10 +74,17 @@ sous-titres natifs.
 5. une voie `textTracks` est conservée comme fallback.
 
 Les pistes officielles et l’historique de navigation sont isolés par identifiant
-Netflix `/watch/<id>`. Lors d’un changement d’épisode dans le même document,
-l’adaptateur vide les cues de l’ancienne lecture et invalide les téléchargements
-encore en vol. Une réponse tardive ne peut donc pas faire apparaître un
-sous-titre de l’épisode précédent pendant un silence.
+Netflix `/watch/<id>`. Le bridge conserve l’identifiant de lecture trouvé sur
+le manifeste autour de chaque `timedtexttracks` et n’annonce que les pistes dont
+l’identifiant correspond exactement à la route active. Une piste découverte
+sans identité exploitable est ignorée, sauf lorsque son chargement est déclenché
+par le changement temporaire de piste sur la session de lecture active : le
+bridge exige alors que `getMovieId()` sur cette session corresponde au
+`/watch/<id>` courant, puis recoupe aussi l’identifiant interne de la piste avec
+celui du manifeste. Lors d’un changement d’épisode dans le même document, le
+bridge et l’adaptateur vident les pistes de l’ancienne lecture et invalident les
+téléchargements encore en vol. Une réponse tardive ou un manifeste préchargé
+pour un autre épisode ne peut donc pas apparaître pendant un silence.
 
 Pour le mode bilingue, le bridge Netflix est injecté dans le monde de la page
 à `document_start`. Il observe les métadonnées `timedtexttracks` et relaie

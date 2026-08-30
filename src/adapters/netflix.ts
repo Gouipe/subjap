@@ -20,11 +20,13 @@ interface NetflixTimedTextPayload {
   url: string;
   language: string;
   body: string;
+  episodeId?: string;
 }
 
 interface NetflixTimedTextUrlPayload {
   url: string;
   language: string;
+  episodeId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,10 +249,7 @@ export class NetflixAdapter implements PlatformAdapter {
     };
     chrome.storage.onChanged.addListener(this.storageListener);
     void this.loadLocalTranslation();
-    window.postMessage(
-      { source: "subjap", type: NETFLIX_TIMED_TEXT_REQUEST_EVENT },
-      window.location.origin,
-    );
+    this.requestCurrentEpisodeTimedText();
 
     // Primary path: observe Netflix's timed-text DOM container.
     this.attachTimedTextObserver();
@@ -279,19 +278,33 @@ export class NetflixAdapter implements PlatformAdapter {
     const data = payload as Partial<NetflixTimedTextUrlPayload>;
     if (typeof data.url !== "string" || typeof data.language !== "string") return;
     this.ensurePlaybackSession();
+    const watchId = this.currentWatchId();
+    if (watchId && data.episodeId !== watchId) return;
     if (this.requestedTimedTextUrls.has(data.url)) return;
     this.requestedTimedTextUrls.add(data.url);
     const requestedGeneration = this.playbackSessionGeneration;
+    const requestedEpisodeId = watchId ?? data.episodeId;
     const request: NetflixTimedTextUrlPayload = {
       url: data.url,
       language: data.language,
+      episodeId: requestedEpisodeId,
     };
 
-    void sendMessage("netflix:timedTextFetch", request)
+    void sendMessage("netflix:timedTextFetch", {
+      url: request.url,
+      language: request.language,
+    })
       .then(({ body, language, url }) => {
         this.ensurePlaybackSession();
         if (requestedGeneration !== this.playbackSessionGeneration) return;
-        if (body) this.storeTimedText({ url, language, body });
+        if (body) {
+          this.storeTimedText({
+            url,
+            language,
+            body,
+            episodeId: requestedEpisodeId,
+          });
+        }
       })
       .catch((error: unknown) => {
         console.warn("[SubJap] timed text fetch failed:", error);
@@ -649,6 +662,8 @@ export class NetflixAdapter implements PlatformAdapter {
     const data = payload as Partial<NetflixTimedTextPayload>;
     if (typeof data.body !== "string" || typeof data.url !== "string") return;
     this.ensurePlaybackSession();
+    const watchId = this.currentWatchId();
+    if (watchId && data.episodeId !== watchId) return;
     const language = normalizeTrackLanguage(data.language ?? "");
     if (language !== "ja" && language !== "fr" && language !== "en") return;
     const cues = parseSubtitleFile(data.url, data.body).map((cue, index) => ({
@@ -896,8 +911,22 @@ export class NetflixAdapter implements PlatformAdapter {
     this.pendingObservationTime = null;
     this.nextDomCueId = 0;
     void this.loadLocalTranslation();
+    this.requestCurrentEpisodeTimedText();
     console.info(`[SubJap] Netflix playback session changed: ${sessionId}`);
     return true;
+  }
+
+  private requestCurrentEpisodeTimedText(): void {
+    const episodeId = this.currentWatchId();
+    if (!episodeId) return;
+    window.postMessage(
+      {
+        source: "subjap",
+        type: NETFLIX_TIMED_TEXT_REQUEST_EVENT,
+        payload: { episodeId },
+      },
+      window.location.origin,
+    );
   }
 
   private readPlaybackSessionId(): string {

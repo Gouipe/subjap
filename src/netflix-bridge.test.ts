@@ -14,6 +14,7 @@ describe("Netflix page seek bridge", () => {
     expect(
       collectNetflixTimedTextTracks({
         result: {
+          movieId: 81664905,
           timedtexttracks: [
             { bcp47: "fr-FR", ttDownloadables: { webvtt: "https://cdn.example/timedtext/fr.vtt" } },
             { bcp47: "en", ttDownloadables: { webvtt: "https://cdn.example/timedtext/en.vtt" } },
@@ -21,8 +22,8 @@ describe("Netflix page seek bridge", () => {
         },
       }),
     ).toEqual([
-      { language: "fr-FR", url: "https://cdn.example/timedtext/fr.vtt" },
-      { language: "en", url: "https://cdn.example/timedtext/en.vtt" },
+      { episodeId: "81664905", language: "fr-FR", url: "https://cdn.example/timedtext/fr.vtt" },
+      { episodeId: "81664905", language: "en", url: "https://cdn.example/timedtext/en.vtt" },
     ]);
   });
   it("préfère le français et conserve la piste japonaise native", () => {

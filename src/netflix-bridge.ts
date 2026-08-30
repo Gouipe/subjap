@@ -4,7 +4,9 @@ export const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 export const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 
 export interface NetflixTimedTextTrack {
+  episodeId: string;
   language: string;
+  trackId?: string;
   url: string;
 }
 
@@ -26,9 +28,15 @@ interface NetflixTimedTextTrackOption {
   locale?: unknown;
   displayName?: unknown;
   isNoneTrack?: unknown;
+  id?: unknown;
+  new_track_id?: unknown;
+  newTrackId?: unknown;
+  track_id?: unknown;
+  trackId?: unknown;
 }
 
 interface NetflixTimedTextSession extends NetflixPlayer {
+  getMovieId?: () => unknown;
   getTimedTextTrackList?: () => NetflixTimedTextTrackOption[];
   getTimedTextTrack?: () => NetflixTimedTextTrackOption | null | undefined;
   setTimedTextTrack?: (track: NetflixTimedTextTrackOption) => unknown;
@@ -71,12 +79,54 @@ const installedDocuments = new WeakSet<Document>();
 
 const TIMED_TEXT_URL_PATTERN =
   /nflxvideo\.net|timedtext|subtitle|caption|dfxp|ttml|webvtt|vtt|imsc/i;
+const EXPLICIT_TIMED_TEXT_URL_PATTERN =
+  /timedtext|subtitle|caption|dfxp|ttml|webvtt|(?:^|[/.?&_-])vtt(?:[/.?&_-]|$)|imsc/i;
 const JSON_METADATA_PATTERN =
   /json|api|metadata|manifest|playback|session|shakti|pathevaluator/i;
 const SUBTITLE_CONTENT_TYPE_PATTERN = /ttml|vtt|dfxp|subtitle|caption|xml/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeNetflixEpisodeId(value: unknown): string {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+  const normalized = String(value).trim();
+  return /^\d+$/.test(normalized) ? normalized : "";
+}
+
+function normalizeNetflixTrackId(value: unknown): string {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+  return String(value).trim();
+}
+
+function readNetflixEpisodeId(
+  node: Record<string, unknown>,
+  inheritedEpisodeId: string,
+): string {
+  for (const key of ["playableId", "videoId", "episodeId", "movieId"] as const) {
+    const episodeId = normalizeNetflixEpisodeId(node[key]);
+    if (episodeId) return episodeId;
+  }
+
+  // Netflix manifest viewables commonly expose their playable identity as a
+  // plain `id`. Only accept it on a playback-shaped object so unrelated
+  // catalogue/request IDs cannot scope subtitle tracks accidentally.
+  const isPlaybackRecord =
+    "timedtexttracks" in node ||
+    "video_tracks" in node ||
+    "audio_tracks" in node ||
+    "playbackContextId" in node;
+  if (isPlaybackRecord) {
+    const episodeId = normalizeNetflixEpisodeId(node.id);
+    if (episodeId) return episodeId;
+  }
+
+  return inheritedEpisodeId;
+}
+
+function readWatchEpisodeId(page: Window): string {
+  return page.location.pathname.match(/\/watch\/([^/?#]+)/i)?.[1] ?? "";
 }
 
 /**
@@ -91,11 +141,21 @@ export function collectNetflixTimedTextTracks(value: unknown): NetflixTimedTextT
 
   const readLanguage = (track: Record<string, unknown>): string =>
     String(track.bcp47 ?? track.language ?? track.locale ?? track.languageTag ?? "").trim();
+  const readTrackId = (track: Record<string, unknown>): string =>
+    normalizeNetflixTrackId(
+      track.trackId ??
+        track.track_id ??
+        track.new_track_id ??
+        track.newTrackId ??
+        track.id,
+    );
 
   const walkTrackUrls = (
     node: unknown,
     path: string,
     language: string,
+    episodeId: string,
+    trackId: string,
     depth: number,
   ): void => {
     if (depth > 8 || node == null) return;
@@ -107,7 +167,7 @@ export function collectNetflixTimedTextTracks(value: unknown): NetflixTimedTextT
         !seenUrls.has(node)
       ) {
         seenUrls.add(node);
-        tracks.push({ language, url: node });
+        tracks.push({ episodeId, language, trackId: trackId || undefined, url: node });
       }
       return;
     }
@@ -117,22 +177,33 @@ export function collectNetflixTimedTextTracks(value: unknown): NetflixTimedTextT
       seenNodes.add(node);
     }
     if (Array.isArray(node)) {
-      node.forEach((child, index) => walkTrackUrls(child, `${path}[${index}]`, language, depth + 1));
+      node.forEach((child, index) =>
+        walkTrackUrls(child, `${path}[${index}]`, language, episodeId, trackId, depth + 1),
+      );
       return;
     }
     for (const [key, child] of Object.entries(node)) {
-      walkTrackUrls(child, `${path}.${key}`, language, depth + 1);
+      walkTrackUrls(child, `${path}.${key}`, language, episodeId, trackId, depth + 1);
     }
   };
 
-  const walk = (node: unknown, path: string, depth: number): void => {
+  const walk = (
+    node: unknown,
+    path: string,
+    depth: number,
+    inheritedEpisodeId: string,
+  ): void => {
     if (depth > 12 || node == null || typeof node !== "object") return;
     if (seenNodes.has(node)) return;
     seenNodes.add(node);
     if (Array.isArray(node)) {
-      node.forEach((child, index) => walk(child, `${path}[${index}]`, depth + 1));
+      node.forEach((child, index) =>
+        walk(child, `${path}[${index}]`, depth + 1, inheritedEpisodeId),
+      );
       return;
     }
+
+    const episodeId = readNetflixEpisodeId(node, inheritedEpisodeId);
 
     for (const [key, child] of Object.entries(node)) {
       const childPath = `${path}.${key}`;
@@ -140,15 +211,22 @@ export function collectNetflixTimedTextTracks(value: unknown): NetflixTimedTextT
         child.forEach((track, index) => {
           if (!isRecord(track)) return;
           const language = readLanguage(track);
-          if (!language) return;
-          walkTrackUrls(track.ttDownloadables ?? track.downloadables, `${childPath}[${index}]`, language, 0);
+          const trackId = readTrackId(track);
+          walkTrackUrls(
+            track.ttDownloadables ?? track.downloadables,
+            `${childPath}[${index}]`,
+            language,
+            episodeId,
+            trackId,
+            0,
+          );
         });
       }
-      walk(child, childPath, depth + 1);
+      walk(child, childPath, depth + 1, episodeId);
     }
   };
 
-  walk(value, "$", 0);
+  walk(value, "$", 0, "");
   return tracks;
 }
 
@@ -270,14 +348,49 @@ function installTimedTextCapture(page: Window): void {
   };
 
   const discoveredTracks = new Map<string, NetflixTimedTextTrack>();
+  const subtitleTrackCandidates = new Map<string, NetflixTimedTextTrack>();
+  let discoveredEpisodeId = readWatchEpisodeId(page);
   let pendingSecondaryLanguage = "";
   let pendingNativeTrack: NetflixTimedTextTrackOption | null = null;
   let pendingSecondaryRestore: number | null = null;
+  let pendingTrackAssociation: NetflixTimedTextTrack | null = null;
+  let pendingTrackAssociationExpiry: number | null = null;
   let uiProbeAttempted = false;
   let uiProbeDiagnosticLogged = false;
   let uiNativeRestore: number | null = null;
   const probedSessions = new WeakSet<object>();
   const loggedTrackLists = new WeakSet<object>();
+
+  const associateNextTrackRequest = (
+    language: string,
+    episodeId = readWatchEpisodeId(page),
+  ): void => {
+    if (!episodeId || !language) return;
+    if (pendingTrackAssociationExpiry !== null) {
+      page.clearTimeout(pendingTrackAssociationExpiry);
+    }
+    pendingTrackAssociation = { episodeId, language, url: "" };
+    pendingTrackAssociationExpiry = page.setTimeout(() => {
+      pendingTrackAssociation = null;
+      pendingTrackAssociationExpiry = null;
+    }, 2500);
+  };
+
+  const consumeTrackAssociation = (url: string): NetflixTimedTextTrack | null => {
+    const association = pendingTrackAssociation;
+    if (
+      !association ||
+      association.episodeId !== readWatchEpisodeId(page)
+    ) {
+      return null;
+    }
+    pendingTrackAssociation = null;
+    if (pendingTrackAssociationExpiry !== null) {
+      page.clearTimeout(pendingTrackAssociationExpiry);
+      pendingTrackAssociationExpiry = null;
+    }
+    return { ...association, url };
+  };
 
   const restoreNativeTrack = (
     session: NetflixTimedTextSession,
@@ -290,6 +403,7 @@ function installTimedTextCapture(page: Window): void {
     pendingSecondaryLanguage = "";
     pendingNativeTrack = null;
     try {
+      associateNextTrackRequest(readTimedTextLanguage(nativeTrack));
       session.setTimedTextTrack?.(nativeTrack);
     } catch {
       // Netflix can replace the session while a track request is in flight.
@@ -308,19 +422,88 @@ function installTimedTextCapture(page: Window): void {
   };
 
   const fetchTrack = (track: NetflixTimedTextTrack): void => {
+    const activeEpisodeId = readWatchEpisodeId(page);
+    if (activeEpisodeId !== discoveredEpisodeId) {
+      discoveredTracks.clear();
+      subtitleTrackCandidates.clear();
+      discoveredEpisodeId = activeEpisodeId;
+    }
+    const previousCandidate = subtitleTrackCandidates.get(track.url);
+    subtitleTrackCandidates.set(track.url, {
+      ...previousCandidate,
+      ...track,
+      episodeId: track.episodeId || previousCandidate?.episodeId || "",
+      language: track.language || previousCandidate?.language || "",
+      trackId: track.trackId || previousCandidate?.trackId,
+    });
+    if (!activeEpisodeId || track.episodeId !== activeEpisodeId) return;
+
     const previous = discoveredTracks.get(track.url);
-    if (previous?.language || !track.language) return;
-    discoveredTracks.set(track.url, track);
+    if (previous?.language || (!track.language && previous)) return;
+    const discovered = previous
+      ? { ...previous, language: track.language }
+      : track;
+    discoveredTracks.set(track.url, discovered);
+    if (!discovered.language) return;
     // Let the isolated content script perform the request. Some privacy
     // extensions block page-world fetches to Netflix's CDN, while an
     // extension content script can use the page session without that clash.
-    console.log(`[SubJap] Netflix timed-text track discovered: ${track.language}`);
-    emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
+    console.log(`[SubJap] Netflix timed-text track discovered: ${discovered.language}`);
+    emit(NETFLIX_TIMED_TEXT_URL_EVENT, discovered);
+  };
+
+  const scopeActiveSessionTrack = (
+    session: NetflixTimedTextSession,
+    track: NetflixTimedTextTrackOption,
+  ): number => {
+    const episodeId = readNetflixSessionEpisodeId(session, page);
+    const language = readTimedTextLanguage(track);
+    const trackId = readTimedTextTrackId(track);
+    if (!episodeId || !language) return 0;
+
+    let scoped = 0;
+    for (const directTrack of collectNetflixTimedTextTracks({
+      movieId: episodeId,
+      timedtexttracks: [track],
+    })) {
+      fetchTrack(directTrack);
+      scoped += 1;
+    }
+
+    if (trackId) {
+      for (const candidate of [...subtitleTrackCandidates.values()]) {
+        if (
+          candidate.trackId !== trackId ||
+          (candidate.language &&
+            !languagesMatch(candidate.language, language))
+        ) {
+          continue;
+        }
+        fetchTrack({ ...candidate, episodeId, language, trackId });
+        scoped += 1;
+      }
+    }
+
+    return scoped;
   };
   const emitTimedTextUrl = (url: string, language = ""): void => {
+    const candidate = subtitleTrackCandidates.get(url);
+    const associated =
+      candidate || EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
+        ? consumeTrackAssociation(url)
+        : null;
+    if (associated) {
+      fetchTrack({
+        ...associated,
+        language: language || associated.language || candidate?.language || "",
+      });
+      return;
+    }
+    const discovered = discoveredTracks.get(url);
+    if (!discovered) return;
     fetchTrack({
-      url,
-      language,
+      ...discovered,
+      language: discovered.language || language,
     });
   };
   const inspectSubtitleBody = (url: string, body: string, contentType: string): void => {
@@ -387,7 +570,10 @@ function installTimedTextCapture(page: Window): void {
     };
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      if (TIMED_TEXT_URL_PATTERN.test(url)) {
+      if (
+        subtitleTrackCandidates.has(url) ||
+        EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
+      ) {
         emitTimedTextUrl(url, inferLanguage(url));
         if (pendingSecondaryLanguage) {
           // The service worker has already received the URL message; restoring
@@ -428,7 +614,10 @@ function installTimedTextCapture(page: Window): void {
     ) {
       this.addEventListener("load", () => {
         const url = this.responseURL || xhrUrls.get(this) || "";
-        if (TIMED_TEXT_URL_PATTERN.test(url)) {
+        if (
+          subtitleTrackCandidates.has(url) ||
+          EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
+        ) {
           emitTimedTextUrl(url, inferLanguage(url));
           if (pendingSecondaryLanguage) {
             const session = resolveNetflixTimedTextSession(page);
@@ -505,7 +694,31 @@ function installTimedTextCapture(page: Window): void {
     try {
       pendingSecondaryLanguage = readTimedTextLanguage(secondaryTrack);
       pendingNativeTrack = nativeTrack;
+      const episodeId = readNetflixSessionEpisodeId(session, page);
+      if (!episodeId) {
+        console.log("[SubJap] Netflix secondary probe skipped: player episode mismatch");
+        probedSessions.add(session);
+        pendingSecondaryLanguage = "";
+        pendingNativeTrack = null;
+        return;
+      }
+      if (scopeActiveSessionTrack(session, secondaryTrack) > 0) {
+        probedSessions.add(session);
+        pendingSecondaryLanguage = "";
+        pendingNativeTrack = null;
+        console.log(`[SubJap] Netflix scoped secondary track: ${readTimedTextLanguage(secondaryTrack)}`);
+        return;
+      }
+      associateNextTrackRequest(pendingSecondaryLanguage, episodeId);
       session.setTimedTextTrack(secondaryTrack);
+      page.setTimeout(() => {
+        try {
+          const selectedTrack = session.getTimedTextTrack?.();
+          if (selectedTrack) scopeActiveSessionTrack(session, selectedTrack);
+        } catch {
+          // The session can be replaced while the probe is in flight.
+        }
+      }, 100);
       probedSessions.add(session);
       scheduleNativeTrackRestore(session, nativeTrack);
       console.log(`[SubJap] Netflix probing secondary track: ${pendingSecondaryLanguage}`);
@@ -530,6 +743,7 @@ function installTimedTextCapture(page: Window): void {
       const nativeTrack =
         findNetflixUiElement(page, "Japanese (CC)") ??
         findNetflixUiElement(page, "Japanese");
+      associateNextTrackRequest("ja");
       nativeTrack?.click();
       pendingSecondaryLanguage = "";
     }, 250);
@@ -563,6 +777,7 @@ function installTimedTextCapture(page: Window): void {
         pendingSecondaryLanguage = "";
         return;
       }
+      associateNextTrackRequest(pendingSecondaryLanguage);
       secondaryTrack.click();
       uiNativeRestore = page.setTimeout(restoreNativeTrackThroughUi, 1800);
       console.log(`[SubJap] Netflix probing secondary track through UI: ${pendingSecondaryLanguage}`);
@@ -581,15 +796,26 @@ function installTimedTextCapture(page: Window): void {
 
   page.addEventListener("message", (event) => {
     if (event.source !== page) return;
-    const data = event.data as { source?: unknown; type?: unknown };
+    const data = event.data as {
+      source?: unknown;
+      type?: unknown;
+      payload?: { episodeId?: unknown };
+    };
     if (
       data?.source !== "subjap" ||
       data.type !== NETFLIX_TIMED_TEXT_REQUEST_EVENT
     ) {
       return;
     }
+    const episodeId =
+      typeof data.payload?.episodeId === "string"
+        ? data.payload.episodeId
+        : "";
+    if (!episodeId || episodeId !== readWatchEpisodeId(page)) return;
     for (const track of discoveredTracks.values()) {
-      emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
+      if (track.episodeId === episodeId) {
+        emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
+      }
     }
   });
 }
@@ -609,6 +835,38 @@ function inferLanguage(url: string): string {
 
 function readTimedTextLanguage(track: NetflixTimedTextTrackOption): string {
   return String(track.bcp47 ?? track.language ?? track.locale ?? "").trim();
+}
+
+function readTimedTextTrackId(track: NetflixTimedTextTrackOption): string {
+  return normalizeNetflixTrackId(
+    track.trackId ??
+      track.track_id ??
+      track.new_track_id ??
+      track.newTrackId ??
+      track.id,
+  );
+}
+
+function languagesMatch(left: string, right: string): boolean {
+  const normalize = (language: string): string =>
+    language.trim().toLowerCase().replace(/_/g, "-").split("-")[0] ?? "";
+  return Boolean(normalize(left)) && normalize(left) === normalize(right);
+}
+
+function readNetflixSessionEpisodeId(
+  session: NetflixTimedTextSession,
+  page: Window,
+): string {
+  let sessionEpisodeId = "";
+  try {
+    sessionEpisodeId = normalizeNetflixEpisodeId(session.getMovieId?.());
+  } catch {
+    return "";
+  }
+  const watchEpisodeId = readWatchEpisodeId(page);
+  return sessionEpisodeId && sessionEpisodeId === watchEpisodeId
+    ? sessionEpisodeId
+    : "";
 }
 
 function isNoneTimedTextTrack(track: NetflixTimedTextTrackOption): boolean {
