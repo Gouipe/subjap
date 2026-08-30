@@ -37,9 +37,9 @@ export function formatMigakuSentence(cue: RenderedCue, targetToken: SpanToken): 
     .join("");
 }
 
-/** Convert selected dictionary glosses to the HTML expected by Migaku. */
+/** Convert selected dictionary glosses to the comma-separated Migaku field. */
 export function formatMigakuDefinitions(definitions: string[]): string {
-  return definitions.map(escapeAnkiHtml).join("<br>");
+  return definitions.map(escapeAnkiHtml).join(", ");
 }
 
 /** Convert multiline user text to safe HTML while preserving line breaks. */

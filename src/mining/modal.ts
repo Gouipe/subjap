@@ -59,9 +59,9 @@ function escapeHtml(text: string): string {
 
 function definitionLines(text: string): string[] {
   return text
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .split(/[\r\n,]+/u)
+    .map((definition) => definition.trim())
+    .filter((definition) => definition.length > 0);
 }
 
 /** Render an edited sentence safely while keeping the target word highlighted. */
@@ -125,7 +125,7 @@ export class MiningModal {
       translationText: state.translation ?? "",
       episodeContext: state.episodeContext,
       definitions: state.definitions,
-      definitionText: state.definitions.join("\n"),
+      definitionText: state.definitions.join(", "),
       notesText: "",
       wordAudioDataUrl: null,
       phraseAudioDataUrl: null,
@@ -236,7 +236,7 @@ export class MiningModal {
       .subjap-modal-body .subjap-sentence-input { min-height: 78px; resize: vertical; font-size: 22px; }
       .subjap-modal-body .subjap-translation { min-height: 58px; resize: vertical; }
       .subjap-modal-body .subjap-definitions {
-        display: block; box-sizing: border-box; width: 100%; height: calc(5 * 1.45em + 16px);
+        display: block; box-sizing: border-box; width: 100%; height: calc(2 * 1.45em + 16px);
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
         background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
         border-radius: 6px; font: inherit; line-height: 1.45;
@@ -245,7 +245,7 @@ export class MiningModal {
         outline: 2px solid #8b5cf6; outline-offset: 1px;
       }
       .subjap-modal-body .subjap-notes {
-        display: block; box-sizing: border-box; width: 100%; min-height: 200px;
+        display: block; box-sizing: border-box; width: 100%; min-height: 260px;
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
         background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
         border-radius: 6px; font: inherit; line-height: 1.45;

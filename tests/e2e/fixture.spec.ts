@@ -448,13 +448,13 @@ test.describe("SubJap UX fixture", () => {
 
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
     const definitions = page.getByTestId("mining-definitions");
-    await expect(definitions).toHaveCSS("height", "124.75px");
+    await expect(definitions).toHaveCSS("height", "59.5px");
     await expect(definitions).toHaveValue("fixture definition");
-    await definitions.fill("classroom\nmy personal definition");
-    await expect(definitions).toHaveValue("classroom\nmy personal definition");
+    await definitions.fill("classroom, my personal definition");
+    await expect(definitions).toHaveValue("classroom, my personal definition");
     await definitions.press("Enter");
     const notes = page.getByTestId("mining-notes");
-    await expect(notes).toHaveCSS("min-height", "200px");
+    await expect(notes).toHaveCSS("min-height", "260px");
     await expect(notes).toHaveValue("");
     await notes.fill("classroom\nmy personal note");
     await expect(notes).toHaveValue("classroom\nmy personal note");

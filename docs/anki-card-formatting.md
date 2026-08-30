@@ -50,7 +50,7 @@ champs :
 | `Lecture` | lecture en kana | champ texte séparé, utile comme source de prononciation HyperTTS |
 | `Phrase` | phrase japonaise | peut contenir des spans HTML, dont `.target` pour le mot cible |
 | `Traduction` | traduction de la phrase | affichée derrière le bouton « Voir la traduction » |
-| `Définitions` | définition(s) du mot | HTML autorisé, notamment `<br>` entre plusieurs sens |
+| `Définitions` | définition(s) du mot | définitions séparées par `, ` |
 | `Notes` | explication ou remarque facultative | doit rester visible sur le verso, dans un bloc compact |
 | `Image` | capture ou image contextuelle | généralement un `<div><img ...></div>` |
 | `AudioMot` | audio du mot facultatif | balise Anki `[sound:...]` ou HTML audio fourni par HyperTTS |
