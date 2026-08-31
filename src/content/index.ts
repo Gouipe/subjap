@@ -349,8 +349,12 @@ function ensureOverlay(): OverlayRenderer | null {
       deferredCuesWhileListening = null;
       if (deferred !== null) enqueueCues(deferred);
     });
-    audioCapture = new VideoAudioCapture(video, (timeSeconds, resume) =>
-      adapter.seekTo(timeSeconds, resume),
+    audioCapture = new VideoAudioCapture(
+      video,
+      (timeSeconds, resume) => adapter.seekTo(timeSeconds, resume),
+      adapter.beginCueReplay
+        ? (cue) => adapter.beginCueReplay?.(cue) ?? null
+        : null,
     );
     currentVideo = video;
   }

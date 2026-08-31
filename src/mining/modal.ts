@@ -580,7 +580,22 @@ export class MiningModal {
 
   private async capturePhraseAudio(state: MiningState): Promise<string | undefined> {
     state.phraseAudioAttempted = true;
-    const dataUrl = await this.audioCapture?.captureCue(state.cue.cue);
+    const dataUrl = await this.audioCapture?.captureCue(
+      state.cue.cue,
+      0.3,
+      (start, end) => {
+        if (this.state !== state) return;
+        state.cue = {
+          ...state.cue,
+          cue: {
+            ...state.cue.cue,
+            start,
+            end,
+            endConfirmed: true,
+          },
+        };
+      },
+    );
     if (this.state === state) {
       state.phraseAudioDataUrl = dataUrl ?? null;
       if (dataUrl) this.render();
@@ -616,14 +631,15 @@ export class MiningModal {
     if (!phraseAudioDataUrl && this.audioCapture && !state.phraseAudioAttempted) {
       phraseAudioDataUrl = await this.capturePhraseAudio(state);
     }
+    const resolvedCue = state.cue.cue;
     if (
       !phraseAudioDataUrl &&
-      cue.cue.endConfirmed !== false &&
-      cue.cue.end > cue.cue.start
+      resolvedCue.endConfirmed !== false &&
+      resolvedCue.end > resolvedCue.start
     ) {
       phraseAudioDataUrl = this.audioCapture?.captureSegment(
-        cue.cue.start,
-        cue.cue.end,
+        resolvedCue.start,
+        resolvedCue.end,
       );
     }
     state.phraseAudioDataUrl = phraseAudioDataUrl ?? null;
@@ -649,8 +665,8 @@ export class MiningModal {
           audioDataUrl: phraseAudioDataUrl,
           screenshotDataUrl: state.screenshotDataUrl ?? undefined,
           source: episodeContext,
-          cueStart: cue.cue.start,
-          cueEnd: cue.cue.end,
+          cueStart: resolvedCue.start,
+          cueEnd: resolvedCue.end,
           srs: {
             state: "new",
             intervalDays: 0,

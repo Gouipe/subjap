@@ -168,6 +168,15 @@ composants morphologiques restent disponibles pour la popover et le mining.
 Si Netflix remplace l’élément `<video>`, l’ancien overlay et le modal de mining
 sont détruits puis recréés pour le nouveau lecteur.
 
+Les cues publiées par l’adaptateur sont des instantanés : une correction de
+timing ou le déroulement `A → A+B → B` produit un nouvel instantané portant la
+même identité, sans modifier celui déjà utilisé par l’overlay ou le modal de
+mining. Les seeks applicatifs sont traités comme une transition et leurs états
+DOM intermédiaires ne deviennent pas des cues. La relecture destinée à
+`AudioPhrase` ouvre en plus une session privée : elle peut observer le DOM pour
+déterminer la fin d’une cue sans alimenter la timeline visible. La phrase et
+ses bornes sont donc figées pour toute la durée du minage.
+
 ## Overlay et interactions
 
 [`OverlayRenderer`](../src/overlay/renderer.ts) est implémenté en DOM vanilla
@@ -264,7 +273,8 @@ la lecture et les glosses sélectionnables. Le modal peut :
   Chrome, sans clé ni appel à un service distant ;
 - découper l’audio réel du lecteur dans `AudioPhrase` quand le navigateur
   expose le flux audio ; la relecture couvre 300 ms avant le début de la cue et
-  300 ms après sa fin ;
+  300 ms après sa fin, sans republier les transitions DOM provoquées par ses
+  seeks dans la timeline des sous-titres ;
 - capturer une image de la vidéo lorsque le navigateur l’autorise ;
 - créer d’abord une carte locale dans IndexedDB ;
 - pousser ensuite une copie vers AnkiConnect, en best effort.

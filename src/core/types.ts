@@ -31,6 +31,17 @@ export interface EpisodeContext {
   url: string;
 }
 
+/**
+ * Isolates a media replay from the live subtitle timeline. A replay session
+ * may observe Netflix's DOM to resolve a provisional end, but must never emit
+ * those seek-induced DOM states as new learner cues.
+ */
+export interface CueReplaySession {
+  startObserving(): void;
+  waitForEnd(): Promise<number>;
+  close(): void;
+}
+
 export interface PlatformAdapter {
   id: PlatformId;
   isActive(doc: Document, url: string): boolean;
@@ -43,6 +54,8 @@ export interface PlatformAdapter {
   getNavigationCues?(): SubtitleCue[];
   /** Stable identity of the playback whose navigation cues are being exposed. */
   getNavigationSessionId?(): string;
+  /** Freeze live cue publication while one cue is replayed for media capture. */
+  beginCueReplay?(cue: SubtitleCue): CueReplaySession | null;
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
   setNativeSubtitlesVisible(v: boolean): void;
   getEpisodeContext(): EpisodeContext | null;

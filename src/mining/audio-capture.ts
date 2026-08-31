@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { sendMessage } from "@/core/messaging";
-import type { SubtitleCue } from "@/core/types";
+import type { CueReplaySession, SubtitleCue } from "@/core/types";
 
 const BUFFER_SECONDS = 90;
 const PROCESSOR_BUFFER_SIZE = 4096;
@@ -72,6 +72,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 export class VideoAudioCapture {
   private readonly video: CaptureVideo;
   private readonly seekTo: ((timeSeconds: number, resume: boolean) => Promise<boolean>) | null;
+  private readonly beginCueReplay: ((cue: SubtitleCue) => CueReplaySession | null) | null;
   private context: AudioContext | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: AudioNode | null = null;
@@ -87,9 +88,11 @@ export class VideoAudioCapture {
   constructor(
     video: HTMLVideoElement,
     seekTo: ((timeSeconds: number, resume: boolean) => Promise<boolean>) | null = null,
+    beginCueReplay: ((cue: SubtitleCue) => CueReplaySession | null) | null = null,
   ) {
     this.video = video as CaptureVideo;
     this.seekTo = seekTo;
+    this.beginCueReplay = beginCueReplay;
   }
 
   start(): void {
@@ -213,29 +216,55 @@ export class VideoAudioCapture {
   }
 
   /** Capture a cue whose DOM-derived end may only become known during replay. */
-  async captureCue(cue: SubtitleCue, marginSeconds = 0.3): Promise<string | undefined> {
-    if (cue.endConfirmed !== false) {
-      return this.capturePhrase(cue.start, cue.end, marginSeconds);
-    }
-    if (!this.seekTo) return undefined;
+  async captureCue(
+    cue: SubtitleCue,
+    marginSeconds = 0.3,
+    onResolvedBounds?: (start: number, end: number) => void,
+  ): Promise<string | undefined> {
+    const snapshot = { ...cue };
+    return this.enqueuePhraseCapture(async () => {
+      const replaySession = this.beginCueReplay?.(snapshot) ?? null;
+      try {
+        if (snapshot.endConfirmed !== false) {
+          return await this.capturePhraseWithEnd(
+            snapshot.start,
+          snapshot.end,
+          marginSeconds,
+          undefined,
+          () => replaySession?.startObserving(),
+          (end) => onResolvedBounds?.(snapshot.start, end),
+        );
+        }
+        if (!this.seekTo || !replaySession) return undefined;
+        return await this.capturePhraseWithEnd(
+          snapshot.start,
+          snapshot.end,
+          marginSeconds,
+          () => this.waitForCueEnd(replaySession),
+          () => replaySession.startObserving(),
+          (end) => onResolvedBounds?.(snapshot.start, end),
+        );
+      } finally {
+        replaySession?.close();
+      }
+    });
+  }
 
-    return this.enqueuePhraseCapture(() =>
-      this.capturePhraseWithEnd(
-        cue.start,
-        cue.end,
-        marginSeconds,
-        async () => {
-          const deadline = performance.now() + PHRASE_CAPTURE_TIMEOUT_MS;
-          while (cue.endConfirmed === false) {
-            if (performance.now() >= deadline) {
-              throw new Error("Timed out waiting for the Netflix cue boundary");
-            }
-            await new Promise((resolve) => setTimeout(resolve, 50));
-          }
-          return cue.end;
-        },
-      ),
-    );
+  private async waitForCueEnd(session: CueReplaySession): Promise<number> {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    try {
+      return await Promise.race([
+        session.waitForEnd(),
+        new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error("Timed out waiting for the Netflix cue boundary")),
+            PHRASE_CAPTURE_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout !== null) clearTimeout(timeout);
+    }
   }
 
   private enqueuePhraseCapture(
@@ -254,6 +283,8 @@ export class VideoAudioCapture {
     initialEnd: number,
     marginSeconds: number,
     resolveEnd?: () => Promise<number>,
+    onPlaybackStart?: () => void,
+    onResolvedEnd?: (end: number) => void,
   ): Promise<string | undefined> {
     if (!resolveEnd && initialEnd <= start) return undefined;
 
@@ -287,6 +318,7 @@ export class VideoAudioCapture {
         // actually lands. Recording before this point produced random halves.
         await this.waitForSeekPosition(from);
         await startOffscreenRecording();
+        onPlaybackStart?.();
         const playOk = await this.seekTo(from, true);
         if (!playOk) throw new Error("Netflix seek bridge refused phrase playback");
         if (resolveEnd) resolvedEnd = await resolveEnd();
@@ -302,6 +334,7 @@ export class VideoAudioCapture {
         await offscreenStartPromise;
       }
       if (resolvedEnd <= start) throw new Error("Invalid phrase cue boundary");
+      onResolvedEnd?.(resolvedEnd);
       await this.waitForVideoTime(
         this.seekTo ? resolvedEnd + marginSeconds : to,
       );
@@ -322,7 +355,12 @@ export class VideoAudioCapture {
       }
       this.video.playbackRate = initialRate;
       if (this.seekTo) {
-        await this.seekTo(initialTime, !initialPaused);
+        try {
+          const restored = await this.seekTo(initialTime, !initialPaused);
+          if (restored) await this.waitForSeekPosition(initialTime);
+        } catch (err) {
+          console.warn("[SubJap] Failed to restore playback after phrase capture:", err);
+        }
       } else {
         this.video.currentTime = initialTime;
         if (initialPaused) {
