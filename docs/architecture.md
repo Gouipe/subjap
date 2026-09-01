@@ -91,10 +91,14 @@ Pour le mode bilingue, le bridge Netflix est injecté dans le monde de la page
 uniquement les URLs officielles disponibles. L’adaptateur demande ensuite le
 contenu au service worker via le bus MV3 ; le téléchargement ne passe donc pas
 par le `fetch` du contexte de la page, ce qui évite les bloqueurs qui modifient
-ce dernier. Les pistes TTML/DFXP/VTT sont ensuite choisies automatiquement,
-français avant anglais. Le japonais reste la piste d’apprentissage ; le DOM
-Netflix est préféré lorsqu’il est visible, avec la piste japonaise capturée
-comme repli.
+ce dernier. Les pistes TTML/DFXP/VTT sont ensuite choisies selon la préférence
+persistante de l’utilisateur (français ou anglais), avec l’autre langue en
+repli. Le japonais reste toujours la piste d’apprentissage et la piste
+restaurée après une sonde Netflix ; le DOM Netflix est préféré lorsqu’il est
+visible, avec la piste japonaise capturée comme repli. Avant d’associer une
+réponse à la piste secondaire, le bridge vérifie aussi la langue déclarée ou
+dominante de son contenu afin qu’un sous-titre japonais ne soit pas étiqueté
+FR/EN par erreur.
 
 La popup permet aussi d’importer une traduction locale SRT, VTT ou ASS. Son
 contenu et son décalage temporel sont conservés dans `chrome.storage.local`,

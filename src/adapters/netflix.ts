@@ -4,6 +4,7 @@ import type {
   EpisodeContext,
   PlatformAdapter,
   PlatformId,
+  SecondarySubtitleLanguage,
   SubtitleCue,
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
@@ -239,6 +240,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private localSubtitleLoadRevision = 0;
   private readonly japaneseCuesByText = new Map<string, SubtitleCue[]>();
   private readonly requestedTimedTextUrls = new Set<string>();
+  private preferredSecondaryLanguage: SecondarySubtitleLanguage = "fr";
   private playbackSessionId: string;
   private playbackSessionGeneration = 0;
   private messageListener: ((event: MessageEvent) => void) | null = null;
@@ -726,7 +728,8 @@ export class NetflixAdapter implements PlatformAdapter {
         null
       );
     }
-    const languagePriority = ["fr", "en"];
+    const languagePriority: SecondarySubtitleLanguage[] =
+      this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
     for (const language of languagePriority) {
       const cues = this.timedTextTracks.get(language) ?? [];
       const active = cues.find(
@@ -735,6 +738,13 @@ export class NetflixAdapter implements PlatformAdapter {
       if (active) return active;
     }
     return null;
+  }
+
+  setSecondarySubtitleLanguage(language: SecondarySubtitleLanguage): void {
+    if (this.preferredSecondaryLanguage === language) return;
+    this.preferredSecondaryLanguage = language;
+    this.requestCurrentEpisodeTimedText();
+    this.emitCues();
   }
 
   private async loadLocalTranslation(): Promise<void> {
@@ -774,14 +784,28 @@ export class NetflixAdapter implements PlatformAdapter {
     this.ensurePlaybackSession();
     const watchId = this.currentWatchId();
     if (watchId && data.episodeId !== watchId) return;
-    const language = normalizeTrackLanguage(data.language ?? "");
-    if (language !== "ja" && language !== "fr" && language !== "en") return;
-    const cues = parseSubtitleFile(data.url, data.body).map((cue, index) => ({
+    const requestedLanguage = normalizeTrackLanguage(data.language ?? "");
+    if (
+      requestedLanguage !== "ja" &&
+      requestedLanguage !== "fr" &&
+      requestedLanguage !== "en"
+    ) return;
+    const parsedCues = parseSubtitleFile(data.url, data.body);
+    if (parsedCues.length === 0) return;
+    const language =
+      requestedLanguage !== "ja" && isPredominantlyJapaneseSubtitle(parsedCues)
+        ? "ja"
+        : requestedLanguage;
+    if (language !== requestedLanguage) {
+      console.warn(
+        `[SubJap] Netflix rejected ${requestedLanguage} label for Japanese timed text`,
+      );
+    }
+    const cues = parsedCues.map((cue, index) => ({
       ...cue,
       id: `netflix-${language}-${index}-${cue.id}`,
       language,
     }));
-    if (cues.length === 0) return;
     const previous = this.timedTextTracks.get(language) ?? [];
     const byKey = new Map(previous.map((cue) => [`${cue.start}:${cue.end}:${cue.text}`, cue]));
     for (const cue of cues) byKey.set(`${cue.start}:${cue.end}:${cue.text}`, cue);
@@ -1036,7 +1060,10 @@ export class NetflixAdapter implements PlatformAdapter {
       {
         source: "subjap",
         type: NETFLIX_TIMED_TEXT_REQUEST_EVENT,
-        payload: { episodeId },
+        payload: {
+          episodeId,
+          preferredSecondaryLanguage: this.preferredSecondaryLanguage,
+        },
       },
       window.location.origin,
     );
@@ -1093,4 +1120,11 @@ export class NetflixAdapter implements PlatformAdapter {
 
 function normalizeTrackLanguage(language: string): string {
   return language.trim().toLowerCase().split(/[-_]/)[0] ?? "";
+}
+
+function isPredominantlyJapaneseSubtitle(cues: SubtitleCue[]): boolean {
+  const text = cues.map((cue) => cue.text).join(" ");
+  const japaneseCharacters = text.match(/[\u3040-\u30ff\u3400-\u9fff]/gu)?.length ?? 0;
+  const latinCharacters = text.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/gu)?.length ?? 0;
+  return japaneseCharacters >= 12 && japaneseCharacters >= latinCharacters;
 }

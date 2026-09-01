@@ -19,6 +19,7 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   highlightKnown: true,
   knownColor: "#22c55e",
   hideNativeSubtitles: true,
+  secondarySubtitleLanguage: "fr",
   hideSecondarySubtitlesWhenAllKnown: false,
   activeListeningMode: false,
 };
@@ -67,6 +68,12 @@ export function sanitizeOptions(
   }
   if (typeof raw.hideNativeSubtitles === "boolean") {
     out.hideNativeSubtitles = raw.hideNativeSubtitles;
+  }
+  if (
+    raw.secondarySubtitleLanguage === "fr" ||
+    raw.secondarySubtitleLanguage === "en"
+  ) {
+    out.secondarySubtitleLanguage = raw.secondarySubtitleLanguage;
   }
   if (typeof raw.hideSecondarySubtitlesWhenAllKnown === "boolean") {
     out.hideSecondarySubtitlesWhenAllKnown =

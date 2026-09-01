@@ -25,14 +25,17 @@ produites par `migaku-export`.
 ## Usage quotidien de SubJap
 
 1. Ouvrir Anki, puis la vidéo dans Chrome.
-2. Survoler un mot du sous-titre et cliquer sur **Mine this**.
-3. Facultatif : cliquer sur **Enrichir avec l’IA** pour ajouter aux Notes une
+2. Dans la popup SubJap, choisir la langue secondaire : **Français** ou
+   **Anglais**. Le japonais reste toujours principal ; si la traduction choisie
+   n’existe pas pour l’épisode, SubJap utilise automatiquement l’autre.
+3. Survoler un mot du sous-titre et cliquer sur **Mine this**.
+4. Facultatif : cliquer sur **Enrichir avec l’IA** pour ajouter aux Notes une
    explication concise et modifiable. SubJap privilégie les exemples contenant
    des mots déjà connus, puis en apprentissage, puis présents dans Anki.
-4. Vérifier la définition, l’audio, l’image et les Notes, puis envoyer la carte.
+5. Vérifier la définition, l’audio, l’image et les Notes, puis envoyer la carte.
    En cas d’erreur Anki, utiliser **Réessayer Anki** : la carte locale n’est pas
    recréée.
-5. Réviser les nouvelles cartes dans le deck
+6. Réviser les nouvelles cartes dans le deck
    `日本語::Vocabulaire::Compréhension` d’Anki.
 
 L’enrichissement utilise Gemini Nano directement dans Chrome : aucun texte ni

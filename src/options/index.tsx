@@ -826,6 +826,23 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
               />
             </Row>
             <Row
+              label="Langues des sous-titres"
+              hint="principal : japonais · l'autre traduction sert de repli"
+            >
+              <select
+                value={options.secondarySubtitleLanguage}
+                style={s.select}
+                onChange={(e) =>
+                  void updateOptions({
+                    secondarySubtitleLanguage: e.target.value === "en" ? "en" : "fr",
+                  })
+                }
+              >
+                <option value="fr">Secondaire : français</option>
+                <option value="en">Secondaire : anglais</option>
+              </select>
+            </Row>
+            <Row
               label="Masquer les sous-titres FR/EN"
               hint="masque la traduction quand tous les mots sont connus/ignorés, ou avec un seul mot bleu/vert"
             >

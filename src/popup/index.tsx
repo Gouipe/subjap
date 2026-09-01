@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, saveOptions } from "@/core/options";
+import type { SecondarySubtitleLanguage } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
 import {
   getLocalSubtitle,
@@ -36,6 +37,8 @@ const Popup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [captureStatus, setCaptureStatus] = useState<"idle" | "activating" | "active">("idle");
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [secondarySubtitleLanguage, setSecondarySubtitleLanguage] =
+    useState<SecondarySubtitleLanguage>("fr");
   const [hideSecondarySubtitlesWhenAllKnown, setHideSecondarySubtitlesWhenAllKnown] =
     useState(false);
   const [activeListeningMode, setActiveListeningMode] = useState(false);
@@ -59,6 +62,7 @@ const Popup: React.FC = () => {
     setHideSecondarySubtitlesWhenAllKnown(
       optionsResult.hideSecondarySubtitlesWhenAllKnown,
     );
+    setSecondarySubtitleLanguage(optionsResult.secondarySubtitleLanguage);
     setActiveListeningMode(optionsResult.activeListeningMode);
     setConnected(true);
     setError(null);
@@ -182,6 +186,24 @@ const Popup: React.FC = () => {
       }
     },
     [activeListeningMode],
+  );
+
+  const chooseSecondarySubtitleLanguage = useCallback(
+    async (language: SecondarySubtitleLanguage) => {
+      const previous = secondarySubtitleLanguage;
+      setSecondarySubtitleLanguage(language);
+      setSavingSubtitlePreference(true);
+      setError(null);
+      try {
+        await saveOptions({ secondarySubtitleLanguage: language });
+      } catch (err: unknown) {
+        setSecondarySubtitleLanguage(previous);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSavingSubtitlePreference(false);
+      }
+    },
+    [secondarySubtitleLanguage],
   );
 
   const activateCapture = useCallback(async () => {
@@ -355,6 +377,31 @@ const Popup: React.FC = () => {
           )}
           {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
         </div>
+        <div style={styles.languageSection}>
+          <div style={styles.languageRow}>
+            <span>Principal</span>
+            <strong>Japonais</strong>
+          </div>
+          <label style={styles.languageRow}>
+            <span>Secondaire</span>
+            <select
+              style={styles.languageSelect}
+              value={secondarySubtitleLanguage}
+              disabled={savingSubtitlePreference}
+              onChange={(event) =>
+                void chooseSecondarySubtitleLanguage(
+                  event.target.value as SecondarySubtitleLanguage,
+                )
+              }
+            >
+              <option value="fr">Français</option>
+              <option value="en">Anglais</option>
+            </select>
+          </label>
+          <p style={styles.languageHint}>
+            L’autre langue est utilisée automatiquement si nécessaire.
+          </p>
+        </div>
         <label style={styles.checkLabel}>
           <input
             type="checkbox"
@@ -524,6 +571,34 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 12,
     paddingBottom: 12,
     borderBottom: "1px solid #334155",
+  },
+  languageSection: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottom: "1px solid #334155",
+  },
+  languageRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 7,
+    fontSize: 11,
+  },
+  languageSelect: {
+    minWidth: 96,
+    padding: "4px 6px",
+    border: "1px solid #475569",
+    borderRadius: 4,
+    background: "#111827",
+    color: "#fff",
+    fontSize: 11,
+  },
+  languageHint: {
+    margin: 0,
+    color: "#94a3b8",
+    fontSize: 10,
+    lineHeight: 1.35,
   },
   sectionLabel: {
     display: "block",

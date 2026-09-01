@@ -592,10 +592,16 @@ function isJapaneseTrack(language: string | undefined): boolean {
 }
 
 function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {
+  const preferredLanguage = overlayOptions.secondarySubtitleLanguage;
+  const fallbackLanguage = preferredLanguage === "fr" ? "en" : "fr";
   return (
     cues.find((cue) => cue.language === "local") ??
-    cues.find((cue) => /^fr(?:[-_]|$)/i.test(cue.language ?? "")) ??
-    cues.find((cue) => /^en(?:[-_]|$)/i.test(cue.language ?? "")) ??
+    cues.find((cue) =>
+      new RegExp(`^${preferredLanguage}(?:[-_]|$)`, "i").test(cue.language ?? ""),
+    ) ??
+    cues.find((cue) =>
+      new RegExp(`^${fallbackLanguage}(?:[-_]|$)`, "i").test(cue.language ?? ""),
+    ) ??
     null
   );
 }
@@ -942,6 +948,7 @@ function onToggleIgnored(
 // changes settings from the options page.
 void getOptions().then((opts) => {
   overlayOptions = opts;
+  adapter.setSecondarySubtitleLanguage?.(opts.secondarySubtitleLanguage);
   console.log("[SubJap] options:", opts);
   // Keep Netflix's subtitle visible until SubJap has painted its replacement.
   applyNativeSubtitleVisibility();
@@ -964,8 +971,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   void getOptions().then((opts) => {
     overlayOptions = opts;
+    adapter.setSecondarySubtitleLanguage?.(opts.secondarySubtitleLanguage);
     overlay?.setOptions(opts);
     applyNativeSubtitleVisibility();
+    lastSignature = "";
+    enqueueCues(lastCues);
   });
 });
 

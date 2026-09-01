@@ -3,6 +3,8 @@ export const NETFLIX_SEEK_RESULT_EVENT = "subjap:netflix-seek-result";
 export const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 export const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 
+type SecondarySubtitleLanguage = "fr" | "en";
+
 export interface NetflixTimedTextTrack {
   episodeId: string;
   language: string;
@@ -47,9 +49,10 @@ interface NetflixTimedTextSession extends NetflixPlayer {
 export function selectNetflixSecondaryTrack(
   tracks: NetflixTimedTextTrackOption[],
   current?: NetflixTimedTextTrackOption | null,
+  preferredLanguage: SecondarySubtitleLanguage = "fr",
 ): { native: NetflixTimedTextTrackOption; secondary: NetflixTimedTextTrackOption } | null {
   const native =
-    current && !isNoneTimedTextTrack(current)
+    current && /^ja(?:-|_|$)/i.test(readTimedTextLanguage(current))
       ? current
       : tracks.find((track) => /^ja(?:-|_|$)/i.test(readTimedTextLanguage(track)));
   const preferredTranslations = tracks.filter(isPreferredTranslationTrack);
@@ -57,9 +60,9 @@ export function selectNetflixSecondaryTrack(
   const findTranslation = (language: RegExp): NetflixTimedTextTrackOption | undefined =>
     preferredTranslations.find((track) => language.test(readTimedTextLanguage(track))) ??
     fallbackTranslations.find((track) => language.test(readTimedTextLanguage(track)));
-  const secondary =
-    findTranslation(/^fr(?:-|_|$)/i) ??
-    findTranslation(/^en(?:-|_|$)/i);
+  const fallbackLanguage = preferredLanguage === "fr" ? "en" : "fr";
+  const secondary = findTranslation(new RegExp(`^${preferredLanguage}(?:-|_|$)`, "i")) ??
+    findTranslation(new RegExp(`^${fallbackLanguage}(?:-|_|$)`, "i"));
   return native && secondary ? { native, secondary } : null;
 }
 
@@ -209,6 +212,7 @@ export function collectNetflixTimedTextTracks(value: unknown): NetflixTimedTextT
       );
       return;
     }
+    if (!isRecord(node)) return;
 
     const episodeId = readNetflixEpisodeId(node, inheritedEpisodeId);
 
@@ -357,6 +361,7 @@ function installTimedTextCapture(page: Window): void {
   const discoveredTracks = new Map<string, NetflixTimedTextTrack>();
   const subtitleTrackCandidates = new Map<string, NetflixTimedTextTrack>();
   let discoveredEpisodeId = readWatchEpisodeId(page);
+  let preferredSecondaryLanguage: SecondarySubtitleLanguage = "fr";
   let pendingSecondaryLanguage = "";
   let pendingNativeTrack: NetflixTimedTextTrackOption | null = null;
   let pendingSecondaryRestore: number | null = null;
@@ -367,7 +372,7 @@ function installTimedTextCapture(page: Window): void {
   let uiProbeAttempted = false;
   let uiProbeDiagnosticLogged = false;
   let uiNativeRestore: number | null = null;
-  const probedSessions = new WeakSet<object>();
+  const probedSessions = new WeakMap<object, SecondarySubtitleLanguage>();
   const loggedTrackLists = new WeakSet<object>();
 
   const associateNextTrackRequest = (
@@ -555,7 +560,12 @@ function installTimedTextCapture(page: Window): void {
   ): void => {
     const candidate = subtitleTrackCandidates.get(url);
     if (candidate) {
-      fetchTrack({ ...candidate, language: candidate.language || language });
+      const authoritativeJapaneseLanguage =
+        validatedSubtitleBody && languagesMatch(language, "ja") ? language : "";
+      fetchTrack({
+        ...candidate,
+        language: authoritativeJapaneseLanguage || candidate.language || language,
+      });
       return;
     }
     const associated = validatedSubtitleBody
@@ -566,7 +576,7 @@ function installTimedTextCapture(page: Window): void {
     if (associated) {
       fetchTrack({
         ...associated,
-        language: language || associated.language || candidate?.language || "",
+        language: language || associated.language,
       });
       return;
     }
@@ -584,9 +594,13 @@ function installTimedTextCapture(page: Window): void {
       !pendingSecondaryLanguage
     ) return;
     if (!looksLikeSubtitleBody(body)) return;
+    const bodyLanguage = inferSubtitleBodyLanguage(body);
+    const requestedLanguage = inferLanguage(url) || pendingSecondaryLanguage;
     emitTimedTextUrl(
       url,
-      inferLanguage(url) || pendingSecondaryLanguage,
+      languagesMatch(bodyLanguage, "ja")
+        ? "ja"
+        : requestedLanguage || bodyLanguage,
       true,
     );
     if (pendingSecondaryLanguage) {
@@ -737,7 +751,7 @@ function installTimedTextCapture(page: Window): void {
       probeSecondaryTrackThroughUi();
       return;
     }
-    if (probedSessions.has(session)) return;
+    if (probedSessions.get(session) === preferredSecondaryLanguage) return;
     let tracks: NetflixTimedTextTrackOption[] = [];
     try {
       tracks = session.getTimedTextTrackList?.() ?? [];
@@ -762,9 +776,13 @@ function installTimedTextCapture(page: Window): void {
     } catch {
       currentTrack = null;
     }
-    const selectedTracks = selectNetflixSecondaryTrack(tracks, currentTrack);
+    const selectedTracks = selectNetflixSecondaryTrack(
+      tracks,
+      currentTrack,
+      preferredSecondaryLanguage,
+    );
     if (!selectedTracks || typeof session.setTimedTextTrack !== "function") {
-      probedSessions.add(session);
+      probedSessions.set(session, preferredSecondaryLanguage);
       return;
     }
     const nativeTrack = selectedTracks.native;
@@ -775,13 +793,13 @@ function installTimedTextCapture(page: Window): void {
       const episodeId = readNetflixSessionEpisodeId(session, page);
       if (!episodeId) {
         console.log("[SubJap] Netflix secondary probe skipped: player episode mismatch");
-        probedSessions.add(session);
+        probedSessions.set(session, preferredSecondaryLanguage);
         pendingSecondaryLanguage = "";
         pendingNativeTrack = null;
         return;
       }
       if (scopeActiveSessionTrack(session, secondaryTrack) > 0) {
-        probedSessions.add(session);
+        probedSessions.set(session, preferredSecondaryLanguage);
         pendingSecondaryLanguage = "";
         pendingNativeTrack = null;
         console.log(`[SubJap] Netflix scoped secondary track: ${readTimedTextLanguage(secondaryTrack)}`);
@@ -797,7 +815,7 @@ function installTimedTextCapture(page: Window): void {
           // The session can be replaced while the probe is in flight.
         }
       }, 100);
-      probedSessions.add(session);
+      probedSessions.set(session, preferredSecondaryLanguage);
       scheduleNativeTrackRestore(session, nativeTrack);
       console.log(`[SubJap] Netflix probing secondary track: ${pendingSecondaryLanguage}`);
     } catch {
@@ -841,15 +859,17 @@ function installTimedTextCapture(page: Window): void {
       return;
     }
     uiProbeAttempted = true;
-    pendingSecondaryLanguage = "fr";
+    pendingSecondaryLanguage = preferredSecondaryLanguage;
     audioButton.click();
     page.setTimeout(() => {
-      const secondaryTrack =
-        findNetflixUiElement(page, "French") ??
-        (() => {
-          pendingSecondaryLanguage = "en";
-          return findNetflixUiElement(page, "English");
-        })();
+      const preferredLabel = preferredSecondaryLanguage === "fr" ? "French" : "English";
+      const fallbackLanguage: SecondarySubtitleLanguage =
+        preferredSecondaryLanguage === "fr" ? "en" : "fr";
+      const fallbackLabel = fallbackLanguage === "fr" ? "French" : "English";
+      const secondaryTrack = findNetflixUiElement(page, preferredLabel) ?? (() => {
+        pendingSecondaryLanguage = fallbackLanguage;
+        return findNetflixUiElement(page, fallbackLabel);
+      })();
       if (!secondaryTrack) {
         console.log("[SubJap] Netflix secondary probe: French/English option not found");
         pendingSecondaryLanguage = "";
@@ -881,7 +901,10 @@ function installTimedTextCapture(page: Window): void {
     const data = event.data as {
       source?: unknown;
       type?: unknown;
-      payload?: { episodeId?: unknown };
+      payload?: {
+        episodeId?: unknown;
+        preferredSecondaryLanguage?: unknown;
+      };
     };
     if (
       data?.source !== "subjap" ||
@@ -894,11 +917,19 @@ function installTimedTextCapture(page: Window): void {
         ? data.payload.episodeId
         : "";
     if (!episodeId || episodeId !== readWatchEpisodeId(page)) return;
+    const requestedLanguage = data.payload?.preferredSecondaryLanguage;
+    if (requestedLanguage === "fr" || requestedLanguage === "en") {
+      if (preferredSecondaryLanguage !== requestedLanguage) {
+        preferredSecondaryLanguage = requestedLanguage;
+        uiProbeAttempted = false;
+      }
+    }
     for (const track of discoveredTracks.values()) {
       if (track.episodeId === episodeId) {
         emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
       }
     }
+    probeSecondaryTimedTextTrack();
   });
 }
 
@@ -957,10 +988,6 @@ function readNetflixSessionEpisodeId(
     : "";
 }
 
-function isNoneTimedTextTrack(track: NetflixTimedTextTrackOption): boolean {
-  return track.isNoneTrack === true || /^none|off$/i.test(readTimedTextLanguage(track));
-}
-
 function resolveNetflixTimedTextSession(page: Window): NetflixTimedTextSession | null {
   const netflixPage = page as NetflixPageWindow;
   let videoPlayer: NetflixVideoPlayerApi | undefined;
@@ -1014,11 +1041,14 @@ function looksLikeSubtitleBody(body: string): boolean {
 export function inferSubtitleBodyLanguage(body: string): string {
   const declared = body.match(/(?:xml:lang|\blang|\blanguage)\s*=\s*["']([^"']+)["']/i)?.[1];
   if (declared) return declared;
-  if (/[\u3040-\u30ff\u3400-\u9fff]/u.test(body)) return "ja";
+  const visibleText = body.replace(/<[^>]*>/g, " ");
+  const japaneseCharacters = visibleText.match(/[\u3040-\u30ff\u3400-\u9fff]/gu)?.length ?? 0;
+  const latinCharacters = visibleText.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/gu)?.length ?? 0;
+  if (japaneseCharacters >= 4 && japaneseCharacters >= latinCharacters) return "ja";
   // Netflix's CDN URLs often omit the language. In that case a subtitle body
   // without Japanese characters is the translation candidate. The selected
   // French track is preferred, while English remains a valid fallback.
-  if (/[A-Za-zÀ-ÿ]/u.test(body)) return "fr";
+  if (latinCharacters > 0) return "fr";
   return "";
 }
 
