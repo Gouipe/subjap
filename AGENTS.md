@@ -50,6 +50,13 @@ documentation la plus proche par domaine. Les documents de `docs/` sont des
 références de contexte ; les instructions normatives de ce fichier et les
 besoins explicites de l’utilisateur restent prioritaires.
 
+À la fin d’un développement, mettre à jour la documentation pertinente
+seulement si le changement apporte ou modifie une information significative et
+durable : comportement utilisateur, architecture, contrat, procédure,
+configuration ou limitation connue. Si aucune information de cette nature n’a
+changé, ne modifier aucun document ; éviter les mises à jour purement
+mécaniques, évidentes, internes ou temporaires.
+
 Ne pas créer de régression dans la fixture ou les scénarios E2E, même lorsqu’un
 comportement absent du harnais est découvert.
 
