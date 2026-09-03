@@ -10,6 +10,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, saveOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { JMDICT_PACKS } from "@/dictionary/jmdict";
@@ -41,16 +42,17 @@ interface AnkiStatus {
 // ---------------------------------------------------------------------------
 
 const C = {
-  bg: "#1e1e2e",
-  panel: "#181825",
-  panelBorder: "#313244",
-  text: "#cdd6f4",
-  muted: "#94a3b8",
-  accent: "#cba6f7",
-  blue: "#3b82f6",
-  green: "#5cb85c",
-  red: "#d9534f",
-  amber: "#f0ad4e",
+  bg: "#0c0d10",
+  panel: "#14161b",
+  panelRaised: "#1b1e24",
+  panelBorder: "#343842",
+  text: "#f4f1ea",
+  muted: "#b2b6bf",
+  accent: "#ff624d",
+  blue: "#ff624d",
+  green: "#78d6a3",
+  red: "#ff8490",
+  amber: "#f1b46d",
 };
 
 function Section(props: { title: string; children: React.ReactNode }): JSX.Element {
@@ -86,7 +88,7 @@ function Toggle(props: { checked: boolean; onChange: (v: boolean) => void }): JS
       <span
         style={{
           ...s.toggleTrack,
-          backgroundColor: props.checked ? C.blue : "#45475a",
+          backgroundColor: props.checked ? C.accent : C.panelBorder,
         }}
       >
         <span
@@ -192,9 +194,12 @@ function Page(props: { children: React.ReactNode; maxWidth?: number }): JSX.Elem
 function Header(props: { children?: React.ReactNode }): JSX.Element {
   return (
     <header style={s.header}>
-      <div>
-        <h1 style={s.logo}>SubJap</h1>
-        <p style={s.tagline}>Apprendre le japonais en regardant des anime</p>
+      <div style={s.brandLockup}>
+        <span style={s.brandMark} aria-hidden="true">字</span>
+        <div>
+          <h1 style={s.logo}>SubJap</h1>
+          <p style={s.tagline}>Du japonais vécu à l’écran au japonais retenu.</p>
+        </div>
       </div>
       {props.children}
     </header>
@@ -330,7 +335,7 @@ function OnboardingWizard(props: {
             <div
               style={{
                 ...s.stepDot,
-                backgroundColor: step >= n ? C.blue : "#45475a",
+                backgroundColor: step >= n ? C.accent : C.panelBorder,
               }}
             >
               {n}
@@ -784,6 +789,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 }}
               />
               <datalist id="subjap-fonts">
+                <option value="'IBM Plex Sans JP', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif" />
                 <option value="'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif" />
                 <option value="'Noto Sans JP', sans-serif" />
                 <option value="'Yu Gothic', sans-serif" />
@@ -812,7 +818,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </Row>
             <Row
               label="Légende"
-              hint="vert : très pertinent · bleu : pertinent · orange : inconnu peu prioritaire · violet : dans Anki ou en apprentissage · blanc : connu ou ignoré"
+              hint="vert plein : très pertinent · bleu tireté : pertinent · ambre pointillé : moins prioritaire · indigo double : dans Anki ou en apprentissage · blanc : connu ou ignoré"
             >
               <span style={s.muted}>Couleurs combinées avec les statuts Anki</span>
             </Row>
@@ -889,24 +895,43 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
 const s: Record<string, React.CSSProperties> = {
   page: {
     margin: "0 auto",
-    padding: "32px 24px 64px",
+    padding: "40px 24px 64px",
     maxWidth: 720,
+    color: C.text,
+    fontFamily: "var(--sj-font)",
   },
   header: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 24,
+    marginBottom: 28,
+  },
+  brandLockup: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  brandMark: {
+    display: "grid",
+    placeItems: "center",
+    width: 44,
+    height: 36,
+    borderRadius: 6,
+    background: C.accent,
+    color: C.bg,
+    fontSize: 21,
+    fontWeight: 700,
   },
   logo: {
     margin: 0,
-    fontSize: 28,
-    fontWeight: 700,
-    color: C.accent,
+    fontSize: 24,
+    lineHeight: 1.1,
+    fontWeight: 600,
+    color: C.text,
   },
   tagline: {
     margin: "4px 0 0",
-    fontSize: 13,
+    fontSize: 12,
     color: C.muted,
   },
   card: {
@@ -931,7 +956,7 @@ const s: Record<string, React.CSSProperties> = {
     margin: "0 0 12px",
     fontSize: 15,
     fontWeight: 600,
-    color: C.accent,
+    color: C.text,
   },
   row: {
     display: "flex",
@@ -939,7 +964,7 @@ const s: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     gap: 16,
     padding: "10px 0",
-    borderBottom: "1px solid #23232f",
+    borderBottom: `1px solid ${C.panelBorder}`,
   },
   rowLabel: {
     display: "flex",
@@ -965,21 +990,21 @@ const s: Record<string, React.CSSProperties> = {
   },
   btn: {
     padding: "8px 14px",
-    borderRadius: 8,
+    borderRadius: 6,
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
     border: "1px solid transparent",
   },
   btnPrimary: {
-    backgroundColor: C.blue,
-    color: "#fff",
-    borderColor: C.blue,
+    backgroundColor: C.accent,
+    color: C.bg,
+    borderColor: C.accent,
   },
   btnGhost: {
     backgroundColor: "transparent",
-    color: "#a5b4fc",
-    borderColor: "#475569",
+    color: C.text,
+    borderColor: C.panelBorder,
   },
   btnDanger: {
     backgroundColor: "transparent",
@@ -987,18 +1012,18 @@ const s: Record<string, React.CSSProperties> = {
     borderColor: C.red,
   },
   input: {
-    backgroundColor: "#11111b",
+    backgroundColor: "#101216",
     color: C.text,
-    border: "1px solid #45475a",
+    border: `1px solid ${C.panelBorder}`,
     borderRadius: 6,
     padding: "6px 8px",
     fontSize: 13,
     minWidth: 200,
   },
   select: {
-    backgroundColor: "#11111b",
+    backgroundColor: "#101216",
     color: C.text,
-    border: "1px solid #45475a",
+    border: `1px solid ${C.panelBorder}`,
     borderRadius: 6,
     padding: "6px 8px",
     fontSize: 13,
@@ -1016,15 +1041,15 @@ const s: Record<string, React.CSSProperties> = {
   },
   range: {
     width: 180,
-    accentColor: C.blue,
+    accentColor: C.accent,
   },
   colorInput: {
     width: 40,
     height: 28,
     padding: 0,
-    border: "1px solid #45475a",
+    border: `1px solid ${C.panelBorder}`,
     borderRadius: 6,
-    backgroundColor: "#11111b",
+    backgroundColor: "#101216",
   },
   toggleWrap: {
     display: "inline-flex",
@@ -1047,7 +1072,7 @@ const s: Record<string, React.CSSProperties> = {
     width: 18,
     height: 18,
     borderRadius: "50%",
-    backgroundColor: "#fff",
+    backgroundColor: C.text,
     transition: "transform 0.15s",
   },
   stepper: {
@@ -1064,13 +1089,13 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     fontSize: 13,
-    fontWeight: 700,
-    color: "#fff",
+    fontWeight: 600,
+    color: C.bg,
   },
   stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: "#45475a",
+    backgroundColor: C.panelBorder,
   },
   muted: {
     color: C.muted,
@@ -1084,8 +1109,8 @@ const s: Record<string, React.CSSProperties> = {
     marginTop: 8,
   },
   errorBox: {
-    backgroundColor: "rgba(217,83,79,0.12)",
-    border: "1px solid #d9534f",
+    backgroundColor: "rgba(255,132,144,0.10)",
+    border: `1px solid ${C.red}`,
     color: C.red,
     borderRadius: 8,
     padding: "10px 12px",
@@ -1093,8 +1118,8 @@ const s: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   noticeBox: {
-    backgroundColor: "rgba(92,184,92,0.12)",
-    border: "1px solid #5cb85c",
+    backgroundColor: "rgba(120,214,163,0.10)",
+    border: `1px solid ${C.green}`,
     color: C.green,
     borderRadius: 8,
     padding: "10px 12px",

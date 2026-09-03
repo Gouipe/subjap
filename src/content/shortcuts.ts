@@ -292,10 +292,10 @@ export function installSubtitleCopyShortcut(
     zIndex: "2147483647",
     padding: "8px 14px",
     borderRadius: "999px",
-    background: "rgba(15, 23, 42, 0.92)",
-    color: "#f8fafc",
-    font: "600 14px/1.2 system-ui, sans-serif",
-    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.35)",
+    background: "rgba(27, 30, 36, 0.96)",
+    color: "#f4f1ea",
+    font: "600 14px/1.2 'IBM Plex Sans JP', 'Yu Gothic UI', Meiryo, sans-serif",
+    boxShadow: "0 6px 8px rgba(0, 0, 0, 0.35)",
     pointerEvents: "none",
   });
 
@@ -305,8 +305,8 @@ export function installSubtitleCopyShortcut(
     if (feedbackTimer !== null) clearTimeout(feedbackTimer);
     feedback.textContent = message;
     feedback.style.background = failed
-      ? "rgba(127, 29, 29, 0.94)"
-      : "rgba(15, 23, 42, 0.92)";
+      ? "rgba(92, 35, 42, 0.96)"
+      : "rgba(27, 30, 36, 0.96)";
     feedback.hidden = false;
     feedbackTimer = setTimeout(() => {
       feedback.hidden = true;

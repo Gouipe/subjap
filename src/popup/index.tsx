@@ -4,6 +4,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, saveOptions } from "@/core/options";
 import type { SecondarySubtitleLanguage } from "@/core/types";
@@ -232,7 +233,7 @@ const Popup: React.FC = () => {
       const offscreenStreamId = await getStreamId();
       await sendMessage("tabCapture:offscreen", { streamId: offscreenStreamId });
       await chrome.action.setBadgeText({ tabId: tab.id, text: "ON" });
-      await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: "#22c55e" });
+      await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: "#78d6a3" });
       setCaptureStatus("active");
     } catch (err: unknown) {
       setCaptureStatus("idle");
@@ -262,18 +263,27 @@ const Popup: React.FC = () => {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>SubJap</h1>
-        <span
-          style={{
-            ...styles.dot,
-            backgroundColor:
-              connected === null
-                ? "#f0ad4e" // loading
-                : connected
-                  ? "#5cb85c" // connected
-                  : "#d9534f", // disconnected
-          }}
-        />
+        <div style={styles.brandLockup}>
+          <span style={styles.brandMark} aria-hidden="true">字</span>
+          <div>
+            <h1 style={styles.title}>SubJap</h1>
+            <p style={styles.brandLine}>L’Après-séance</p>
+          </div>
+        </div>
+        <span style={styles.connectionStatus}>
+          <span
+            style={{
+              ...styles.dot,
+              backgroundColor:
+                connected === null
+                  ? "#f1b46d"
+                  : connected
+                    ? "#78d6a3"
+                    : "#ff8490",
+            }}
+          />
+          {connected === null ? "Connexion" : connected ? "Prêt" : "Hors ligne"}
+        </span>
       </div>
 
       {error && <p style={styles.error}>{error}</p>}
@@ -489,27 +499,62 @@ const Popup: React.FC = () => {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    width: 240,
-    padding: 16,
-    fontFamily: "system-ui, -apple-system, sans-serif",
-    backgroundColor: "#1e1e2e",
-    color: "#cdd6f4",
+    width: 312,
+    padding: 18,
+    fontFamily: "var(--sj-font)",
+    backgroundColor: "#0c0d10",
+    color: "#f4f1ea",
   },
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    gap: 16,
+    marginBottom: 14,
+  },
+  brandLockup: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+  brandMark: {
+    display: "grid",
+    placeItems: "center",
+    width: 34,
+    height: 28,
+    borderRadius: 6,
+    background: "#ff624d",
+    color: "#0c0d10",
+    fontSize: 17,
+    fontWeight: 700,
   },
   title: {
     margin: 0,
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#cba6f7",
+    fontSize: 18,
+    lineHeight: 1.1,
+    fontWeight: 600,
+    color: "#f4f1ea",
+  },
+  brandLine: {
+    margin: "3px 0 0",
+    color: "#b2b6bf",
+    fontSize: 10,
+    lineHeight: 1.2,
+  },
+  connectionStatus: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 8px",
+    borderRadius: 999,
+    background: "#1b1e24",
+    color: "#b2b6bf",
+    fontSize: 10,
+    whiteSpace: "nowrap",
   },
   dot: {
-    width: 10,
-    height: 10,
+    width: 7,
+    height: 7,
     borderRadius: "50%",
     display: "inline-block",
     flexShrink: 0,
@@ -524,7 +569,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
   },
   statLabel: {
-    color: "#94a3b8",
+    color: "#b2b6bf",
   },
   statValue: {
     fontWeight: 600,
@@ -532,21 +577,21 @@ const styles: Record<string, React.CSSProperties> = {
   dictBox: {
     marginTop: 10,
     paddingTop: 10,
-    borderTop: "1px solid #334155",
+    borderTop: "1px solid #343842",
   },
   captureBox: {
     marginTop: 10,
     padding: "10px 0",
-    borderTop: "1px solid #334155",
-    borderBottom: "1px solid #334155",
+    borderTop: "1px solid #343842",
+    borderBottom: "1px solid #343842",
   },
   captureButton: {
     width: "100%",
     padding: "8px 12px",
-    border: "1px solid #22c55e",
+    border: "none",
     borderRadius: 6,
-    background: "#166534",
-    color: "#fff",
+    background: "#ff624d",
+    color: "#0c0d10",
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",
@@ -554,28 +599,28 @@ const styles: Record<string, React.CSSProperties> = {
   captureHint: {
     margin: "6px 0 0",
     fontSize: 10,
-    color: "#94a3b8",
+    color: "#b2b6bf",
   },
   captureError: {
     margin: "6px 0 0",
     fontSize: 10,
-    color: "#f38ba8",
+    color: "#ff8490",
     wordBreak: "break-word",
   },
   subtitleBox: {
     marginTop: 10,
     padding: "10px 0",
-    borderBottom: "1px solid #334155",
+    borderBottom: "1px solid #343842",
   },
   localSubtitleSection: {
     marginBottom: 12,
     paddingBottom: 12,
-    borderBottom: "1px solid #334155",
+    borderBottom: "1px solid #343842",
   },
   languageSection: {
     marginBottom: 12,
     paddingBottom: 12,
-    borderBottom: "1px solid #334155",
+    borderBottom: "1px solid #343842",
   },
   languageRow: {
     display: "flex",
@@ -588,15 +633,15 @@ const styles: Record<string, React.CSSProperties> = {
   languageSelect: {
     minWidth: 96,
     padding: "4px 6px",
-    border: "1px solid #475569",
-    borderRadius: 4,
-    background: "#111827",
-    color: "#fff",
+    border: "1px solid #343842",
+    borderRadius: 6,
+    background: "#101216",
+    color: "#f4f1ea",
     fontSize: 11,
   },
   languageHint: {
     margin: 0,
-    color: "#94a3b8",
+    color: "#b2b6bf",
     fontSize: 10,
     lineHeight: 1.35,
   },
@@ -609,16 +654,17 @@ const styles: Record<string, React.CSSProperties> = {
   fileButton: {
     display: "block",
     padding: "7px 10px",
-    border: "1px solid #818cf8",
+    border: "1px solid #343842",
     borderRadius: 6,
-    color: "#c7d2fe",
+    background: "#1b1e24",
+    color: "#f4f1ea",
     fontSize: 11,
     textAlign: "center",
     cursor: "pointer",
   },
   fileName: {
     margin: "7px 0",
-    color: "#a6e3a1",
+    color: "#78d6a3",
     fontSize: 10,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -634,16 +680,16 @@ const styles: Record<string, React.CSSProperties> = {
   offsetInput: {
     width: 78,
     padding: "4px 6px",
-    border: "1px solid #475569",
-    borderRadius: 4,
-    background: "#111827",
-    color: "#fff",
+    border: "1px solid #343842",
+    borderRadius: 6,
+    background: "#101216",
+    color: "#f4f1ea",
   },
   localSubtitleHint: {
     margin: "6px 0 0",
     fontSize: 10,
     lineHeight: 1.35,
-    color: "#94a3b8",
+    color: "#b2b6bf",
   },
   offsetActions: {
     display: "flex",
@@ -653,10 +699,10 @@ const styles: Record<string, React.CSSProperties> = {
   smallButton: {
     flex: 1,
     padding: "5px 3px",
-    border: "1px solid #475569",
-    borderRadius: 4,
-    background: "#273449",
-    color: "#cdd6f4",
+    border: "1px solid #343842",
+    borderRadius: 6,
+    background: "#1b1e24",
+    color: "#f4f1ea",
     fontSize: 9,
     cursor: "pointer",
   },
@@ -666,7 +712,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "5px 8px",
     border: "none",
     background: "transparent",
-    color: "#f38ba8",
+    color: "#ff8490",
     fontSize: 10,
     cursor: "pointer",
   },
@@ -682,19 +728,19 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "6px 0 0 24px",
     fontSize: 10,
     lineHeight: 1.35,
-    color: "#94a3b8",
+    color: "#b2b6bf",
   },
   dictStatus: {
     fontSize: 12,
-    color: "#94a3b8",
+    color: "#b2b6bf",
   },
   button: {
     width: "100%",
     padding: "8px 12px",
-    border: "1px solid #3b82f6",
+    border: "none",
     borderRadius: 6,
-    background: "#3b82f6",
-    color: "#fff",
+    background: "#ff624d",
+    color: "#0c0d10",
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",
@@ -703,31 +749,31 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 12,
     width: "100%",
     padding: "6px 12px",
-    border: "1px solid #475569",
+    border: "1px solid #343842",
     borderRadius: 6,
     background: "transparent",
-    color: "#a5b4fc",
+    color: "#f4f1ea",
     fontSize: 12,
     cursor: "pointer",
   },
   error: {
     marginTop: 8,
     fontSize: 11,
-    color: "#f38ba8",
+    color: "#ff8490",
     wordBreak: "break-all",
   },
   onboardingBox: {
     marginTop: 10,
     padding: "10px 12px",
     borderRadius: 8,
-    backgroundColor: "rgba(203,166,247,0.12)",
-    border: "1px solid #cba6f7",
+    backgroundColor: "#14161b",
+    border: "1px solid #343842",
   },
   onboardingText: {
     margin: "0 0 8px",
     fontSize: 11,
     lineHeight: 1.4,
-    color: "#cdd6f4",
+    color: "#f4f1ea",
   },
 };
 

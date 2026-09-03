@@ -14,10 +14,10 @@ export const OPTIONS_STORAGE_KEY = "subjap_options";
 export const DEFAULT_OPTIONS: OverlayOptions = {
   fontSize: 28,
   fontFamily:
-    "'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif",
+    "'IBM Plex Sans JP', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
   showFurigana: true,
   highlightKnown: true,
-  knownColor: "#22c55e",
+  knownColor: "#78d6a3",
   hideNativeSubtitles: true,
   secondarySubtitleLanguage: "fr",
   hideSecondarySubtitlesWhenAllKnown: false,

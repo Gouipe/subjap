@@ -688,7 +688,7 @@ function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
 // 6. Interactions: popover (click), mining, known/unknown toggling
 // ---------------------------------------------------------------------------
 
-function onOverlayClick(event: MouseEvent): void {
+function onOverlayClick(event: Event): void {
   const target = event.target as HTMLElement | null;
   const span = target?.closest(".subjap-token") as HTMLElement | null;
   if (!span) return;
@@ -703,6 +703,14 @@ function onOverlayClick(event: MouseEvent): void {
   // A click pins the popover open (hover hides it automatically otherwise).
   popoverPinned = true;
   void showPopoverForToken(span, entry.token);
+}
+
+function onOverlayKeyDown(event: KeyboardEvent): void {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const target = event.target as HTMLElement | null;
+  if (!target?.closest(".subjap-token")) return;
+  event.preventDefault();
+  onOverlayClick(event);
 }
 
 /**
@@ -820,17 +828,17 @@ function showMiningCaptureWarning(): void {
     "justify-content:center",
     "padding:16px",
     "box-sizing:border-box",
-    "background:rgba(15,23,42,.72)",
-    "font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif",
+    "background:rgba(12,13,16,.78)",
+    "font-family:IBM Plex Sans JP,Yu Gothic UI,Hiragino Kaku Gothic ProN,Meiryo,sans-serif",
   ].join(";");
   warning.innerHTML = `
-    <div style="max-width:420px;padding:24px;border:1px solid #475569;border-radius:14px;background:#1e293b;color:#f8fafc;box-shadow:0 20px 60px rgba(0,0,0,.45)">
-      <div style="font-size:18px;font-weight:700;margin-bottom:12px">Enregistrement audio désactivé</div>
-      <div style="line-height:1.5;color:#cbd5e1">
+    <div style="max-width:420px;padding:24px;border-radius:12px;background:#14161b;color:#f4f1ea;box-shadow:0 8px 8px rgba(0,0,0,.42)">
+      <div style="font-size:17px;font-weight:600;margin-bottom:12px">Enregistrement audio désactivé</div>
+      <div style="line-height:1.5;color:#b2b6bf">
         Active d’abord « Audio Netflix » depuis le popup SubJap pour pouvoir miner une phrase avec son audio.
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:20px">
-        <button data-action="close" style="padding:9px 14px;border:0;border-radius:8px;background:#64748b;color:#f8fafc;font-weight:700;cursor:pointer">Fermer</button>
+        <button data-action="close" style="padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer">Fermer</button>
       </div>
     </div>
   `;
@@ -1021,6 +1029,7 @@ window.addEventListener(
 
 // Click delegation (capture phase — the overlay container may be rebuilt).
 document.addEventListener("click", onOverlayClick, true);
+document.addEventListener("keydown", onOverlayKeyDown, true);
 
 // Hover delegation: show the popover while the pointer rests on a token.
 document.addEventListener("mouseover", onOverlayMouseOver, true);

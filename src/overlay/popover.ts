@@ -144,7 +144,8 @@ export class WordPopover {
     const el = document.createElement("div");
     el.id = POPOVER_ID;
     el.className = "subjap-popover";
-    el.setAttribute("role", "tooltip");
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-label", "Détails du mot japonais");
     el.innerHTML = `
       <div class="subjap-popover__header">
         <div class="subjap-popover__surface"></div>
@@ -199,18 +200,18 @@ export class WordPopover {
         max-height: calc(100vh - 16px);
         max-height: calc(100dvh - 16px);
         overflow: hidden;
-        background: #1e1e2e;
-        color: #e2e8f0;
-        border: 1px solid #334155;
+        background: #14161b;
+        color: #f4f1ea;
+        border: 1px solid #343842;
         border-radius: 10px;
         padding: 12px 14px;
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: "IBM Plex Sans JP", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
         font-size: 13px;
         line-height: 1.5;
         user-select: text;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+        box-shadow: 0 6px 8px rgba(0,0,0,0.38);
         opacity: 0;
-        transition: opacity 0.18s;
+        transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
         pointer-events: none;
       }
       .subjap-popover--visible {
@@ -218,9 +219,9 @@ export class WordPopover {
         pointer-events: auto;
       }
       .subjap-popover__surface {
-        font-size: 22px;
-        font-weight: 700;
-        color: #fff;
+        font-size: 24px;
+        font-weight: 600;
+        color: #f4f1ea;
       }
       .subjap-popover__header,
       .subjap-popover__actions {
@@ -237,28 +238,27 @@ export class WordPopover {
         font-size: 17px;
         font-weight: 600;
         letter-spacing: 0.02em;
-        color: #cbd5e1;
+        color: #b2b6bf;
         margin-top: 3px;
       }
       .subjap-popover__pos {
-        font-size: 11px;
-        text-transform: uppercase;
-        color: #64748b;
+        font-size: 10px;
+        color: #b2b6bf;
         margin-top: 4px;
       }
       .subjap-popover__grammar {
         font-size: 12px;
-        color: #facc15;
+        color: #f1b46d;
         margin-top: 4px;
       }
       .subjap-popover__defs {
         margin-top: 8px;
         padding-top: 8px;
-        border-top: 1px solid #334155;
+        border-top: 1px solid #343842;
       }
       .subjap-popover__def {
         font-size: 13px;
-        color: #cbd5e1;
+        color: #f4f1ea;
       }
       .subjap-popover__def + .subjap-popover__def {
         margin-top: 2px;
@@ -266,18 +266,18 @@ export class WordPopover {
       .subjap-popover__freq {
         font-size: 13px;
         font-weight: 500;
-        color: #94a3b8;
+        color: #b2b6bf;
         margin-top: 6px;
       }
       .subjap-popover__anki {
         font-size: 12px;
         font-weight: 600;
-        color: #c084fc;
+        color: #aab3ff;
         margin-top: 6px;
       }
       .subjap-popover__pitch {
         font-size: 12px;
-        color: #facc15;
+        color: #f1b46d;
         margin-top: 4px;
         font-family: monospace;
       }
@@ -286,22 +286,29 @@ export class WordPopover {
         gap: 8px;
         margin-top: 10px;
         padding-top: 8px;
-        border-top: 1px solid #334155;
+        border-top: 1px solid #343842;
       }
       .subjap-btn {
         padding: 5px 12px;
-        border: 1px solid #475569;
+        border: 1px solid #343842;
         border-radius: 6px;
-        background: #334155;
-        color: #e2e8f0;
+        background: #1b1e24;
+        color: #f4f1ea;
         font-size: 12px;
         cursor: pointer;
         user-select: none;
-        transition: background 0.15s;
+        transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
         white-space: nowrap;
       }
       .subjap-btn:hover {
-        background: #475569;
+        background: #252932;
+      }
+      .subjap-btn:focus-visible {
+        outline: 2px solid #ff624d;
+        outline-offset: 2px;
+      }
+      .subjap-btn:active {
+        transform: translateY(1px);
       }
       .subjap-btn--toggle-known {
         flex: 1;
@@ -311,12 +318,12 @@ export class WordPopover {
       }
       .subjap-btn--mine {
         flex: 1;
-        background: #3b82f6;
-        border-color: #3b82f6;
-        color: #fff;
+        background: #ff624d;
+        border-color: #ff624d;
+        color: #0c0d10;
       }
       .subjap-btn--mine:hover {
-        background: #2563eb;
+        background: #ff7966;
       }
       @media (prefers-reduced-motion: reduce) {
         .subjap-popover {
@@ -404,23 +411,23 @@ export class WordPopover {
     const toggleBtn = this.el.querySelector(".subjap-btn--toggle-known") as HTMLButtonElement;
     if (wordStatus === "known") {
       toggleBtn.textContent = "✓ Known";
-      toggleBtn.style.background = "#166534";
-      toggleBtn.style.borderColor = "#166534";
+      toggleBtn.style.background = "#2b3a33";
+      toggleBtn.style.borderColor = "#78d6a3";
     } else {
       toggleBtn.textContent = "Mark Known";
-      toggleBtn.style.background = "#334155";
-      toggleBtn.style.borderColor = "#475569";
+      toggleBtn.style.background = "#1b1e24";
+      toggleBtn.style.borderColor = "#343842";
     }
 
     const ignoreBtn = this.el.querySelector(".subjap-btn--toggle-ignored") as HTMLButtonElement;
     if (wordStatus === "ignored") {
       ignoreBtn.textContent = "Unignore";
-      ignoreBtn.style.background = "#166534";
-      ignoreBtn.style.borderColor = "#166534";
+      ignoreBtn.style.background = "#2b3a33";
+      ignoreBtn.style.borderColor = "#78d6a3";
     } else {
       ignoreBtn.textContent = "Ignore";
-      ignoreBtn.style.background = "#334155";
-      ignoreBtn.style.borderColor = "#475569";
+      ignoreBtn.style.background = "#1b1e24";
+      ignoreBtn.style.borderColor = "#343842";
     }
   }
 

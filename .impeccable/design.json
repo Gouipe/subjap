@@ -54,6 +54,18 @@
       }
     },
     "typographyMeta": {
+      "caption": {
+        "displayName": "Micro-repère",
+        "purpose": "États et aides dans les surfaces les plus contraintes."
+      },
+      "small-label": {
+        "displayName": "Repère secondaire",
+        "purpose": "Libellés compacts des cartes Anki."
+      },
+      "compact": {
+        "displayName": "Voix compacte",
+        "purpose": "Popover et contrôles superposés à la vidéo."
+      },
       "display": {
         "displayName": "Mot à retenir",
         "purpose": "Mot japonais principal sur le recto Anki."
@@ -65,6 +77,14 @@
       "body": {
         "displayName": "Voix de régie",
         "purpose": "Contenu courant et explications."
+      },
+      "subheading": {
+        "displayName": "Intertitre de révision",
+        "purpose": "Accent intermédiaire dans une carte Anki."
+      },
+      "word": {
+        "displayName": "Mot de rappel",
+        "purpose": "Mot cible sur les versos et exercices de production."
       },
       "label": {
         "displayName": "Repère de montage",

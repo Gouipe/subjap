@@ -17,6 +17,21 @@ colors:
   priority-amber: "#F1B46D"
   danger: "#FF8490"
 typography:
+  caption:
+    fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
+    fontSize: "10px"
+    fontWeight: 500
+    lineHeight: 1.35
+  small-label:
+    fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
+    fontSize: "11px"
+    fontWeight: 500
+    lineHeight: 1.35
+  compact:
+    fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.5
   display:
     fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
     fontSize: "64px"
@@ -34,6 +49,16 @@ typography:
     fontSize: "17px"
     fontWeight: 600
     lineHeight: 1.4
+  subheading:
+    fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
+    fontSize: "20px"
+    fontWeight: 600
+    lineHeight: 1.4
+  word:
+    fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
+    fontSize: "32px"
+    fontWeight: 600
+    lineHeight: 1.35
   body:
     fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
     fontSize: "14px"
@@ -47,6 +72,9 @@ typography:
     letterSpacing: "0.01em"
 rounded:
   control: "6px"
+  dense: "8px"
+  token: "0.16em"
+  subtitle-line: "0.18em"
   panel: "10px"
   prominent: "12px"
   pill: "999px"
@@ -179,8 +207,13 @@ textes français et japonais humains et lisibles.
 
 ### Hierarchy
 
+- **Caption** (500, `10px`, `1.35`) : micro-états et aide compacte uniquement lorsqu'un libellé plus grand ne tient pas.
+- **Small label** (500, `11px`, `1.35`) : repères compacts des cartes Anki.
+- **Compact** (400, `13px`, `1.5`) : popover et contrôles très denses superposés à la vidéo.
 - **Display** (600, `64px`, `1.25`) : mot japonais principal sur le recto Anki ; la taille descend lorsque la longueur l'exige.
+- **Word** (600, `32px`, `1.35`) : mot cible sur les versos Anki et exercices de production.
 - **Headline** (600, `24px`, `1.35`) : phrase ou titre principal d'une surface concentrée.
+- **Subheading** (600, `20px`, `1.4`) : accent intermédiaire dans les contenus de révision.
 - **Title** (600, `17px`, `1.4`) : titres de panneaux, de sections et de modales.
 - **Body** (400, `14px`, `1.55`) : explications et contenu courant, limité à environ 70 caractères par ligne hors données compactes.
 - **Label** (500, `12px`, `0.01em`) : commandes, métadonnées et états ; casse naturelle par défaut.

@@ -300,25 +300,30 @@ export class ListeningMode {
         width: min(680px, calc(100vw - 32px));
         box-sizing: border-box;
         padding: 14px 16px;
-        border: 1px solid rgba(203,166,247,.55);
         border-radius: 12px;
-        background: rgba(24,24,37,.96);
-        color: #cdd6f4;
-        box-shadow: 0 12px 40px rgba(0,0,0,.45);
-        font: 14px/1.4 system-ui, -apple-system, sans-serif;
+        background: rgba(20,22,27,.97);
+        color: #f4f1ea;
+        box-shadow: 0 8px 8px rgba(0,0,0,.42);
+        font: 14px/1.45 "IBM Plex Sans JP", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
       }
-      #${PANEL_ID} .subjap-listening-title { font-weight: 700; color: #cba6f7; }
-      #${PANEL_ID} .subjap-listening-hint { margin-top: 3px; color: #a6adc8; }
+      #${PANEL_ID} .subjap-listening-title { font-weight: 600; color: #f4f1ea; }
+      #${PANEL_ID} .subjap-listening-hint { margin-top: 3px; color: #b2b6bf; }
       #${PANEL_ID} .subjap-listening-actions {
         display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
       }
       #${PANEL_ID} button {
-        padding: 8px 11px; border: 0; border-radius: 7px; cursor: pointer;
-        background: #7c3aed; color: #fff; font: inherit; font-weight: 600;
+        padding: 8px 11px; border: 0; border-radius: 6px; cursor: pointer;
+        background: #ff624d; color: #0c0d10; font: inherit; font-weight: 600;
+        transition: background 160ms cubic-bezier(0.22,1,0.36,1), transform 160ms cubic-bezier(0.22,1,0.36,1);
       }
-      #${PANEL_ID} button:hover { background: #8b5cf6; }
-      #${PANEL_ID} .subjap-listening-secondary { background: #475569; }
-      #${PANEL_ID} .subjap-listening-secondary:hover { background: #64748b; }
+      #${PANEL_ID} button:hover { background: #ff7966; }
+      #${PANEL_ID} button:focus-visible { outline: 2px solid #ff7966; outline-offset: 2px; }
+      #${PANEL_ID} button:active { transform: translateY(1px); }
+      #${PANEL_ID} .subjap-listening-secondary { background: #1b1e24; color: #f4f1ea; border: 1px solid #343842; }
+      #${PANEL_ID} .subjap-listening-secondary:hover { background: #252932; }
+      @media (prefers-reduced-motion: reduce) {
+        #${PANEL_ID} button { transition: none; }
+      }
     `;
     document.head.appendChild(style);
   }

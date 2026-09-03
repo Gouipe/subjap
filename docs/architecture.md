@@ -51,6 +51,13 @@ Les principaux modules sont organisés ainsi :
 | `src/overlay/` | Rendu DOM vanilla des cues et popover de définition. |
 | `src/mining/` | Modal de création de carte, TTS, capture d’image et client AnkiConnect. |
 | `src/popup/`, `src/options/`, `src/onboarding/` | Surfaces UI et configuration initiale. |
+| `src/ui/` | Thème partagé des pages de l’extension : palette, typographie, focus et transitions. |
+
+L'identité visuelle de référence est décrite dans [`PRODUCT.md`](../PRODUCT.md)
+et [`DESIGN.md`](../DESIGN.md). Les pages React importent
+[`src/ui/theme.css`](../src/ui/theme.css), tandis que les surfaces injectées
+dans la page vidéo et les cartes Anki reprennent les mêmes tokens dans leurs
+styles isolés afin de ne pas dépendre du CSS du site hôte.
 
 ## Sélection de plateforme et capture des sous-titres
 
@@ -377,7 +384,7 @@ Anki, le popup, les options et l’onboarding.
 
 Les évolutions naturelles sont :
 
-- alimenter l’accent tonal et ajouter les raccourcis clavier ;
+- alimenter l’accent tonal et étendre les raccourcis clavier aux autres surfaces ;
 - compléter les statistiques et l’historique ;
 - ajouter un sélecteur de deck dans les Options ;
 - brancher YouTube, Crunchyroll et Prime ;

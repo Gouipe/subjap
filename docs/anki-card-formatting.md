@@ -81,7 +81,7 @@ Le verso conserve cette structure verticale :
 
 1. `Mot` en haut, dans la couleur d’accent ;
 2. `Phrase` ;
-3. les boutons `AudioMot` puis `AudioPhrase` ;
+3. les contrôles audio `Mot` puis `Phrase` (si les champs existent) ;
 4. le bouton de révélation de `Traduction`, si le champ existe ;
 5. le séparateur ;
 6. le panneau `Définitions` ;
@@ -92,20 +92,42 @@ Ne pas réafficher automatiquement `Mot` ou `Lecture` dans la définition. Ne pa
 changer l’ordre vertical sans demande explicite : il correspond aux habitudes
 de révision établies.
 
+## Raccourcis de notation
+
+Sur le verso d’une carte, SubJap relaie les touches AZERTY vers les commandes de
+notation natives d’Anki : `&` pour « À revoir », `é` pour « Difficile », `"` pour
+« Correct » et `'` pour « Facile ». Les touches avec `Ctrl`, `Alt` ou `Cmd`, ainsi
+que les champs éditables, sont ignorées afin de ne pas intercepter une saisie.
+Les boutons et leur ordre restent ceux du reviewer Anki ; le raccourci est un
+accélérateur supplémentaire.
+
 ## Règles visuelles actuelles
 
-Le thème est sombre et cinématographique, mais la carte est destinée à un
-ordinateur. La règle `@media (min-width: 901px)` compacte le verso tout en
-conservant son empilement vertical :
+Les cartes déclinent la direction artistique « L'Après-séance » décrite dans
+[`DESIGN.md`](../DESIGN.md). Le thème évoque un studio de sous-titrage
+contemporain : encres froides, blanc de sous-titre, vermillon rare et
+typographie IBM Plex Sans JP avec des replis système. Il est destiné en priorité
+à un ordinateur dans une ambiance lumineuse faible.
 
-- tailles et marges du mot, de la phrase, de la traduction et de la définition
-  réduites ;
-- boutons audio distincts mais discrets : violet pour le mot, turquoise pour la
-  phrase ;
+La présentation reste plate et tonale : pas de dégradé décoratif, pas de grande
+ombre flottante, pas de liseré coloré sur un seul côté et aucun rayon supérieur
+à 12 px sur un panneau. Le vermillon identifie le mot cible et les actions
+principales ; les contrôles audio restent compacts, nommés et neutres pour ne
+pas concurrencer le contenu.
+
+La règle `@media (min-width: 901px)` compacte le verso tout en conservant son
+empilement vertical :
+
+- colonne de lecture unifiée, avec panneaux texte et image alignés sur la même
+  largeur éditoriale ;
+- contrôles audio nommés `Mot` et `Phrase`, avec une cible tactile compacte ;
 - image affichée en entier avec `object-fit: contain` ;
-- image limitée à `min(300px, 30vh)` en hauteur pour laisser apparaître Notes ;
-- Notes conservées dans la carte, avec une taille de texte et des espacements
-  réduits ;
+- image limitée à `min(360px, 36vh)` en hauteur afin de gagner en présence tout
+  en laissant apparaître Notes ;
+- Notes conservées dans la carte, avec une mesure de lecture limitée à environ
+  70 caractères par ligne ;
+- traduction révélée par « Voir la traduction », puis maintenue visible sans
+  contrôle secondaire qui prend de la place ;
 - pas de règle qui recadre l’image avec `object-fit: cover` ou qui masque Notes.
 
 La mise en page sous 901 px conserve le comportement général non compact. Le

@@ -197,15 +197,15 @@ export class MiningModal {
       <div class="subjap-modal-backdrop"></div>
       <div class="subjap-modal-panel">
         <div class="subjap-modal-header">
-          <span class="subjap-modal-title">Mine Card</span>
-          <button class="subjap-modal-close" title="Close">✕</button>
+          <span class="subjap-modal-title">Créer une carte</span>
+          <button class="subjap-modal-close" title="Fermer" aria-label="Fermer">✕</button>
         </div>
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
-          <button class="subjap-modal-btn subjap-modal-btn-audio">🔊 Word audio</button>
-          <button class="subjap-modal-btn subjap-modal-btn-phrase-audio" disabled>🔊 Phrase audio</button>
-          <button class="subjap-modal-btn subjap-modal-btn-screenshot">📷 Screenshot</button>
-          <button class="subjap-modal-btn subjap-modal-btn-send">📤 Send to Anki</button>
+          <button class="subjap-modal-btn subjap-modal-btn-audio">Audio du mot</button>
+          <button class="subjap-modal-btn subjap-modal-btn-phrase-audio" disabled>Audio de la phrase</button>
+          <button class="subjap-modal-btn subjap-modal-btn-screenshot">Capturer l’image</button>
+          <button class="subjap-modal-btn subjap-modal-btn-send">Créer dans Anki</button>
         </div>
       </div>`;
     return el;
@@ -217,105 +217,116 @@ export class MiningModal {
     style.id = "subjap-mining-styles";
     style.textContent = `
       #${MODAL_ID} {
+        --sj-canvas: #0c0d10; --sj-surface: #14161b; --sj-raised: #1b1e24;
+        --sj-input: #101216; --sj-hairline: #343842; --sj-text: #f4f1ea;
+        --sj-muted: #b2b6bf; --sj-accent: #ff624d; --sj-accent-hover: #ff7966;
+        --sj-success: #78d6a3; --sj-warning: #f1b46d; --sj-danger: #ff8490;
         position: fixed; inset: 0; z-index: 2147483647;
         display: flex; align-items: center; justify-content: center;
       }
       .subjap-modal-backdrop {
-        position: absolute; inset: 0; background: rgba(0,0,0,0.7);
+        position: absolute; inset: 0; background: rgba(12,13,16,0.78);
       }
       .subjap-modal-panel {
-        position: relative; background: #1e1e2e; color: #e0e0e0;
+        position: relative; background: var(--sj-surface); color: var(--sj-text);
         border-radius: 12px; padding: 20px 24px; max-width: 720px; width: 94%;
         box-sizing: border-box; height: 80vh; max-height: 80vh; overflow: hidden;
-        display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+        display: flex; flex-direction: column; box-shadow: 0 8px 8px rgba(0,0,0,0.42);
+        font-family: "IBM Plex Sans JP", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
       }
       .subjap-modal-header {
         display: flex; flex-shrink: 0; justify-content: space-between; align-items: center;
-        margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 8px;
+        margin-bottom: 16px; border-bottom: 1px solid var(--sj-hairline); padding-bottom: 10px;
       }
-      .subjap-modal-title { font-size: 18px; font-weight: 700; }
+      .subjap-modal-title { font-size: 17px; font-weight: 600; }
       .subjap-modal-close {
-        background: none; border: none; color: #999; font-size: 20px;
-        cursor: pointer; padding: 4px 8px; border-radius: 4px;
+        background: none; border: none; color: var(--sj-muted); font-size: 20px;
+        cursor: pointer; padding: 4px 8px; border-radius: 6px;
       }
-      .subjap-modal-close:hover { background: #333; color: #fff; }
+      .subjap-modal-close:hover { background: var(--sj-raised); color: var(--sj-text); }
       .subjap-modal-body {
         flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 16px;
-        line-height: 1.6; font-size: 15px;
+        line-height: 1.6; font-size: 14px;
       }
       .subjap-modal-body .subjap-sentence {
-        font-size: 24px; margin-bottom: 12px; padding: 10px; background: #2a2a3c; border-radius: 8px;
+        font-size: 24px; margin-bottom: 12px; padding: 12px; background: var(--sj-raised); border-radius: 8px;
         user-select: text; cursor: text;
       }
-      .subjap-modal-body .subjap-sentence .subjap-target { color: #facc15; font-weight: 700; }
+      .subjap-modal-body .subjap-sentence .subjap-target { color: var(--sj-accent-hover); font-weight: 600; }
       .subjap-modal-body .subjap-target-word { user-select: text; cursor: text; }
-      .subjap-modal-body .subjap-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+      .subjap-modal-body .subjap-label { font-size: 12px; color: var(--sj-muted); font-weight: 500; }
       .subjap-modal-body .subjap-input, .subjap-modal-body .subjap-textarea {
         display: block; box-sizing: border-box; width: 100%; margin: 4px 0 12px; padding: 8px 10px;
-        background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
+        background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
         border-radius: 6px; font: inherit; line-height: 1.45;
       }
       .subjap-modal-body .subjap-input:focus, .subjap-modal-body .subjap-textarea:focus {
-        outline: 2px solid #8b5cf6; outline-offset: 1px;
+        outline: 2px solid var(--sj-accent); outline-offset: 1px;
       }
-      .subjap-modal-body .subjap-sentence-input { min-height: 78px; resize: vertical; font-size: 22px; }
+      .subjap-modal-body .subjap-sentence-input { min-height: 78px; resize: vertical; font-size: 24px; }
       .subjap-modal-body .subjap-translation { min-height: 58px; resize: vertical; }
       .subjap-modal-body .subjap-definitions {
         display: block; box-sizing: border-box; width: 100%; height: calc(2 * 1.45em + 16px);
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
-        background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
+        background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
         border-radius: 6px; font: inherit; line-height: 1.45;
       }
       .subjap-modal-body .subjap-definitions:focus {
-        outline: 2px solid #8b5cf6; outline-offset: 1px;
+        outline: 2px solid var(--sj-accent); outline-offset: 1px;
       }
       .subjap-modal-body .subjap-notes {
         display: block; box-sizing: border-box; width: 100%; min-height: 120px;
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
-        background: #2a2a3c; color: #e0e0e0; border: 1px solid #4a4a63;
+        background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
         border-radius: 6px; font: inherit; line-height: 1.45;
       }
       .subjap-modal-body .subjap-notes:focus, .subjap-modal-body .subjap-ai-notes:focus {
-        outline: 2px solid #8b5cf6; outline-offset: 1px;
+        outline: 2px solid var(--sj-accent); outline-offset: 1px;
       }
       .subjap-modal-body .subjap-ai-controls {
         display: flex; align-items: center; gap: 10px; margin: 0 0 10px;
       }
       .subjap-modal-body .subjap-modal-btn-ai {
         flex: 0 0 auto; padding: 8px 12px; min-width: 170px;
-        background: #a855f7; color: #fff;
+        background: var(--sj-raised); color: var(--sj-text); border: 1px solid var(--sj-hairline);
       }
-      .subjap-modal-body .subjap-modal-btn-ai:hover:not(:disabled) { background: #9333ea; }
-      .subjap-modal-body .subjap-ai-status { font-size: 13px; color: #c4b5fd; }
+      .subjap-modal-body .subjap-modal-btn-ai:hover:not(:disabled) { background: #252932; }
+      .subjap-modal-body .subjap-ai-status { font-size: 13px; color: var(--sj-muted); }
       .subjap-modal-body .subjap-ai-notes {
         display: block; box-sizing: border-box; width: 100%; min-height: 190px;
         margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
-        background: #241b35; color: #f3e8ff; border: 1px solid #7e22ce;
+        background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
         border-radius: 6px; font: inherit; line-height: 1.45;
       }
       .subjap-modal-body .subjap-audio-info, .subjap-modal-body .subjap-screenshot-info {
-        font-size: 13px; color: #22c55e; margin-top: 6px;
+        font-size: 13px; color: var(--sj-success); margin-top: 6px;
       }
-      .subjap-modal-body .subjap-error { font-size: 13px; color: #f38ba8; margin-top: 6px; }
-      .subjap-modal-body .subjap-local-info { font-size: 13px; color: #facc15; margin-top: 8px; }
+      .subjap-modal-body .subjap-error { font-size: 13px; color: var(--sj-danger); margin-top: 6px; }
+      .subjap-modal-body .subjap-local-info { font-size: 13px; color: var(--sj-warning); margin-top: 8px; }
       .subjap-modal-footer {
         display: flex; flex-shrink: 0; gap: 8px; flex-wrap: wrap;
-        border-top: 1px solid #333; padding-top: 12px;
+        border-top: 1px solid var(--sj-hairline); padding-top: 12px;
       }
       .subjap-modal-btn {
-        flex: 1; padding: 10px 16px; border: none; border-radius: 8px;
-        font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+        flex: 1; padding: 10px 14px; border: 1px solid var(--sj-hairline); border-radius: 6px;
+        font-size: 13px; font-weight: 600; cursor: pointer; transition: background 160ms cubic-bezier(0.22,1,0.36,1), transform 160ms cubic-bezier(0.22,1,0.36,1);
         min-width: 100px;
       }
       .subjap-modal-btn:disabled { opacity: 0.6; cursor: default; }
-      .subjap-modal-btn-audio { background: #3b82f6; color: #fff; }
-      .subjap-modal-btn-audio:hover:not(:disabled) { background: #2563eb; }
-      .subjap-modal-btn-phrase-audio { background: #0f766e; color: #fff; }
-      .subjap-modal-btn-phrase-audio:hover:not(:disabled) { background: #0d9488; }
-      .subjap-modal-btn-screenshot { background: #8b5cf6; color: #fff; }
-      .subjap-modal-btn-screenshot:hover:not(:disabled) { background: #7c3aed; }
-      .subjap-modal-btn-send { background: #22c55e; color: #fff; }
-      .subjap-modal-btn-send:hover:not(:disabled) { background: #16a34a; }
+      .subjap-modal-btn-audio,
+      .subjap-modal-btn-phrase-audio,
+      .subjap-modal-btn-screenshot { background: var(--sj-raised); color: var(--sj-text); }
+      .subjap-modal-btn-audio:hover:not(:disabled),
+      .subjap-modal-btn-phrase-audio:hover:not(:disabled),
+      .subjap-modal-btn-screenshot:hover:not(:disabled) { background: #252932; }
+      .subjap-modal-btn-send { background: var(--sj-accent); border-color: var(--sj-accent); color: var(--sj-canvas); }
+      .subjap-modal-btn-send:hover:not(:disabled) { background: var(--sj-accent-hover); }
+      .subjap-modal-btn:focus-visible,
+      .subjap-modal-close:focus-visible { outline: 2px solid var(--sj-accent); outline-offset: 2px; }
+      .subjap-modal-btn:active:not(:disabled) { transform: translateY(1px); }
+      @media (prefers-reduced-motion: reduce) {
+        .subjap-modal-btn { transition: none; }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -354,13 +365,13 @@ export class MiningModal {
       ${aiNotesHtml}`;
 
     const audioInfo = this.state.wordAudioDataUrl
-      ? '<div class="subjap-audio-info">✓ Word audio ready</div>'
+      ? '<div class="subjap-audio-info">✓ Audio du mot prêt</div>'
       : "";
     const phraseAudioInfo = this.state.phraseAudioDataUrl
-      ? '<div class="subjap-audio-info">✓ Netflix phrase audio ready</div>'
+      ? '<div class="subjap-audio-info">✓ Audio de la phrase prêt</div>'
       : "";
     const screenshotInfo = this.state.screenshotDataUrl
-      ? '<div class="subjap-screenshot-info">✓ Screenshot captured</div>'
+      ? '<div class="subjap-screenshot-info">✓ Image capturée</div>'
       : "";
     const localInfo = this.state.localCardId
       ? '<div class="subjap-local-info">✓ Carte sauvegardée localement</div>'
@@ -738,7 +749,7 @@ export class MiningModal {
       this.render();
       if (sendBtn) {
         sendBtn.disabled = false;
-        sendBtn.textContent = "📤 Send to Anki";
+        sendBtn.textContent = "Créer dans Anki";
       }
     }
   }

@@ -20,7 +20,10 @@ export const MIGAKU_TEMPLATE_MARKER_V3 = 'data-subjap-template-version="3"';
 export const MIGAKU_TEMPLATE_MARKER_V4 = 'data-subjap-template-version="4"';
 export const MIGAKU_TEMPLATE_MARKER_V5 = 'data-subjap-template-version="5"';
 export const MIGAKU_TEMPLATE_MARKER_V6 = 'data-subjap-template-version="6"';
-export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="7"';
+export const MIGAKU_TEMPLATE_MARKER_V7 = 'data-subjap-template-version="7"';
+export const MIGAKU_TEMPLATE_MARKER_V8 = 'data-subjap-template-version="8"';
+export const MIGAKU_TEMPLATE_MARKER_V9 = 'data-subjap-template-version="9"';
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="10"';
 export const MIGAKU_COMPREHENSION_TEMPLATE_NAME = "Compréhension";
 export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
 
@@ -30,41 +33,39 @@ export const ANKI_PRODUCTION_DECK = `${ANKI_VOCABULARY_PARENT_DECK}::Production`
 
 export const MIGAKU_CSS = `
 .card {
-  --bg: #0e1016;
-  --surface: #171a23;
-  --surface-raised: #202532;
-  --border: rgba(255, 255, 255, 0.10);
-  --text: #f5f7fb;
-  --muted: #a9b1c2;
-  --accent: #c084fc;
-  --accent-strong: #e0b5ff;
-  --audio: #57d3d0;
+  --bg: #0c0d10;
+  --surface: #14161b;
+  --surface-raised: #1b1e24;
+  --border: #343842;
+  --text: #f4f1ea;
+  --muted: #b2b6bf;
+  --accent: #ff624d;
+  --accent-strong: #ff7966;
+  --audio: #b2b6bf;
   margin: 0;
-  padding: 34px;
+  padding: 28px;
   min-width: 760px;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, "Avenir Next", "Hiragino Kaku Gothic ProN", "Meiryo", Arial, sans-serif;
-  font-size: 18px;
+  font-family: "IBM Plex Sans JP", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 17px;
   line-height: 1.55;
   text-align: left;
 }
 
 .card-shell {
-  width: min(1120px, calc(100vw - 68px));
+  width: min(840px, calc(100vw - 56px));
   margin: 0 auto;
 }
 
 .front-card {
+  max-width: 720px;
   min-height: 560px;
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 26px;
-  background:
-    radial-gradient(circle at 50% 15%, rgba(192, 132, 252, 0.18), transparent 38%),
-    linear-gradient(145deg, #171a23 0%, #0e1016 70%);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  border-radius: 12px;
+  background: var(--surface);
   text-align: center;
 }
 
@@ -78,22 +79,21 @@ export const MIGAKU_CSS = `
 .eyebrow {
   color: var(--accent);
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .word {
   color: var(--text);
-  font-size: 76px;
-  font-weight: 750;
+  font-size: 64px;
+  font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.3;
 }
 
 .reading {
   color: var(--muted);
-  font-size: 22px;
+  font-size: 17px;
   letter-spacing: 0.08em;
 }
 
@@ -112,9 +112,9 @@ ruby rt {
   width: 34px;
   height: 34px;
   padding: 8px;
-  border: 1px solid rgba(87, 211, 208, 0.55);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: rgba(87, 211, 208, 0.13);
+  background: var(--surface-raised);
   box-sizing: content-box;
 }
 
@@ -126,17 +126,17 @@ ruby rt {
   margin-bottom: 24px;
   padding: 18px 22px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--surface);
 }
 
 .answer-header .word {
-  font-size: 42px;
+  font-size: 32px;
 }
 
 .answer-header .reading {
   margin-left: auto;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .answer-header .audio {
@@ -144,74 +144,79 @@ ruby rt {
 }
 
 .back-card {
-  max-width: 920px;
+  max-width: 800px;
 }
 
 .back-word {
   margin: 0 0 8px;
   color: var(--accent-strong);
-  font-size: 38px;
-  font-weight: 750;
+  font-size: 32px;
+  font-weight: 600;
   line-height: 1.35;
   text-align: center;
 }
 
 .back-sentence {
+  max-width: 70ch;
+  margin: 0 auto;
   padding: 12px 16px 4px;
-  color: #ffffff;
-  font-size: 29px;
+  color: var(--text);
+  font-size: 24px;
   line-height: 1.65;
   text-align: center;
 }
 
 .back-audio-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
-  min-height: 42px;
-  margin: 6px 0 24px;
+  gap: 8px;
+  min-height: 38px;
+  margin: 6px 0 18px;
 }
 
-.back-audio-row .audio {
+.audio-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 5px 10px 5px 9px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.audio-control.audio-word .audio-label {
+  color: var(--accent-strong);
+}
+
+.audio-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.audio-control .audio {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0;
   margin: 0;
 }
 
-.back-audio-row .audio-word,
-.back-audio-row .audio-phrase {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  min-height: 42px;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-.back-audio-row .audio-word {
-  order: 1;
-  border: 1px solid rgba(192, 132, 252, 0.55);
-  background: rgba(192, 132, 252, 0.18);
-  color: #e0b5ff;
-  border-radius: 999px;
-}
-
-.back-audio-row .audio-phrase {
-  order: 2;
-  border: 1px solid rgba(87, 211, 208, 0.55);
-  background: rgba(87, 211, 208, 0.15);
-  color: #8ce9e5;
-  border-radius: 14px;
-}
-
-.back-audio-row .audio-word img.replay-button,
-.back-audio-row .audio-phrase img.replay-button {
-  width: 28px;
-  height: 28px;
-  padding: 4px;
+.audio-control img.replay-button {
+  width: 20px;
+  height: 20px;
+  padding: 2px;
   border: 0;
   background: transparent;
   box-sizing: content-box;
+}
+
+.audio-control:hover {
+  border-color: var(--accent);
 }
 
 .back-divider {
@@ -221,20 +226,19 @@ ruby rt {
 }
 
 .definition-panel {
-  margin-bottom: 22px;
-  padding: 20px 22px 22px;
-  border: 1px solid rgba(192, 132, 252, 0.32);
-  border-left: 5px solid var(--accent);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(192, 132, 252, 0.16), rgba(32, 37, 50, 0.82));
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+  max-width: 760px;
+  margin: 0 auto 18px;
+  padding: 16px 20px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
 }
 
 .definition-panel .definitions {
-  color: #ffffff;
-  font-size: 26px;
-  font-weight: 650;
-  line-height: 1.7;
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.55;
 }
 
 .definition-panel .section-label {
@@ -242,28 +246,29 @@ ruby rt {
 }
 
 .back-image {
-  margin: 0 auto 22px;
+  margin: 0 auto 18px;
   max-width: 760px;
 }
 
 .back-image img {
   display: block;
   width: 100%;
-  max-height: 560px;
+  max-height: 380px;
   object-fit: contain;
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .back-notes {
-  margin-bottom: 16px;
-  padding: 20px 22px;
+  max-width: 760px;
+  margin: 0 auto 12px;
+  padding: 14px 18px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--surface-raised);
 }
 
 .translation-reveal {
-  margin: 2px 0 22px;
+  margin: 2px 0 18px;
   text-align: center;
 }
 
@@ -271,18 +276,17 @@ ruby rt {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 220px;
-  padding: 12px 22px;
-  border: 1px solid rgba(192, 132, 252, 0.45);
-  border-radius: 999px;
-  background: linear-gradient(135deg, #54308d, #352064);
-  color: #ffffff;
+  min-width: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-strong);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  box-shadow: 0 10px 24px rgba(35, 16, 67, 0.35);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .translation-reveal > summary::-webkit-details-marker {
@@ -290,15 +294,18 @@ ruby rt {
 }
 
 .translation-reveal > summary:hover {
-  background: linear-gradient(135deg, #6840a8, #43297c);
+  border-color: var(--accent);
+  background: var(--surface-raised);
 }
 
 .translation-content {
-  margin-top: 16px;
-  padding: 0 8px;
+  max-width: 70ch;
+  margin: 10px auto 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 18px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.55;
   text-align: center;
 }
 
@@ -326,9 +333,8 @@ ruby rt {
   overflow: hidden;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: #050609;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+  border-radius: 10px;
+  background: var(--bg);
 }
 
 .media-frame img {
@@ -349,96 +355,117 @@ ruby rt {
   margin-bottom: 16px;
   padding: 20px 22px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--surface);
 }
 
 .sentence-panel {
-  border-left: 4px solid var(--accent);
+  border-color: var(--border);
 }
 
 .section-label {
   margin-bottom: 8px;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .sentence {
-  color: #ffffff;
-  font-size: 29px;
+  color: var(--text);
+  font-size: 24px;
   line-height: 1.65;
 }
 
 .translation {
-  color: #e4e8f0;
-  font-size: 20px;
+  color: var(--text);
+  font-size: 17px;
   line-height: 1.6;
 }
 
 .definitions {
-  color: #d5dbea;
+  color: var(--text);
   line-height: 1.7;
 }
 
 .notes {
+  max-width: 70ch;
+  margin: 0 auto;
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .target {
   color: var(--accent-strong);
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .production-activation {
-  margin: 8px auto 0;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 760px;
+  margin: 16px auto 0;
+  padding: 0 12px;
   text-align: center;
 }
 
 .production-activation-button {
-  padding: 6px 11px;
-  border: 1px solid rgba(169, 177, 194, 0.28);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
-  font-weight: 650;
-  opacity: 0.68;
-  transition: border-color 120ms ease, color 120ms ease, opacity 120ms ease;
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), color 160ms cubic-bezier(0.22, 1, 0.36, 1), background 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .production-activation-button:hover,
 .production-activation-button:focus-visible {
-  border-color: rgba(87, 211, 208, 0.58);
-  color: #baf5f2;
-  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--surface);
 }
 
 .production-activation-button:disabled {
   cursor: default;
-  opacity: 0.65;
+  color: var(--muted);
+}
+
+.production-activation-button[data-state="success"] {
+  border-color: var(--priority-green, #78d6a3);
+  color: var(--priority-green, #78d6a3);
+}
+
+.production-activation-hint {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .production-activation-status {
   display: none;
   margin-top: 5px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .production-activation-status:not(:empty) {
   display: block;
 }
 
+.production-activation-status[data-state="error"] {
+  color: #ff8490;
+}
+
 .production-card {
-  max-width: 920px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
@@ -450,21 +477,21 @@ ruby rt {
   gap: 24px;
   padding: 32px;
   border: 1px solid var(--border);
-  border-radius: 24px;
-  background: linear-gradient(145deg, #171a23 0%, #0e1016 72%);
+  border-radius: 12px;
+  background: var(--surface);
   text-align: center;
 }
 
 .production-prompt {
   color: var(--accent-strong);
-  font-size: 15px;
-  font-weight: 750;
-  letter-spacing: 0.05em;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .production-sentence {
-  color: #ffffff;
-  font-size: 34px;
+  color: var(--text);
+  font-size: 32px;
   line-height: 1.75;
 }
 
@@ -487,112 +514,127 @@ ruby rt {
 .production-sentence .target::after {
   content: "＿＿＿";
   color: var(--accent-strong);
-  font-size: 34px;
+  font-size: 32px;
   letter-spacing: 0;
 }
 
 .production-definitions {
-  color: #e4e8f0;
-  font-size: 18px;
+  color: var(--text);
+  font-size: 17px;
   line-height: 1.6;
+}
+
+.translation-reveal > summary:focus-visible,
+.production-activation-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.translation-reveal > summary:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .translation-reveal > summary,
+  .production-activation-button {
+    transition: none;
+  }
 }
 
 /* Compact desktop review: keep the familiar vertical stack inside the study window. */
 @media (min-width: 901px) {
   .back-card {
-    margin-top: -16px;
-    margin-bottom: -18px;
+    margin-top: -8px;
+    margin-bottom: -10px;
   }
 
   .back-word {
-    margin-bottom: 2px;
-    font-size: 32px;
-    line-height: 1.15;
+    margin-bottom: 4px;
+    font-size: 30px;
+    line-height: 1.2;
   }
 
   .back-sentence {
-    padding: 4px 10px 0;
-    font-size: 22px;
-    line-height: 1.35;
+    padding: 4px 10px 2px;
+    font-size: 23px;
+    line-height: 1.4;
   }
 
   .back-audio-row {
-    gap: 8px;
-    min-height: 34px;
-    margin: 4px 0 10px;
+    gap: 7px;
+    min-height: 36px;
+    margin: 5px 0 14px;
   }
 
-  .back-audio-row .audio-word,
-  .back-audio-row .audio-phrase {
-    width: 34px;
-    height: 34px;
+  .audio-control {
     min-height: 34px;
+    padding: 4px 9px 4px 8px;
   }
 
-  .back-audio-row .audio-word img.replay-button,
-  .back-audio-row .audio-phrase img.replay-button {
-    width: 22px;
-    height: 22px;
-    padding: 3px;
+  .audio-label {
+    font-size: 11px;
   }
 
   .translation-reveal {
-    margin: 0 0 10px;
+    margin: 0 0 14px;
   }
 
   .translation-reveal > summary {
-    min-width: 0;
-    padding: 7px 16px;
-    font-size: 10px;
+    padding: 7px 13px;
+    font-size: 12px;
   }
 
   .translation-content {
     margin-top: 8px;
-    padding: 0 6px;
+    padding: 10px 14px;
     font-size: 15px;
-    line-height: 1.35;
+    line-height: 1.5;
   }
 
   .back-divider {
-    margin-bottom: 10px;
+    margin-bottom: 14px;
   }
 
   .definition-panel {
-    margin-bottom: 12px;
-    padding: 10px 14px 12px;
-    border-radius: 12px;
+    margin-bottom: 16px;
+    padding: 14px 18px 16px;
+    border-radius: 10px;
   }
 
   .definition-panel .definitions {
-    font-size: 20px;
-    line-height: 1.35;
+    font-size: 18px;
+    line-height: 1.5;
   }
 
   .definition-panel .section-label,
   .back-notes .section-label {
-    margin-bottom: 4px;
-    font-size: 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
   }
 
   .back-image {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
 
   .back-image img {
-    height: min(300px, 30vh);
-    max-height: min(300px, 30vh);
-    border-radius: 12px;
+    height: auto;
+    max-height: min(360px, 36vh);
+    border-radius: 8px;
   }
 
   .back-notes {
-    margin-bottom: 6px;
-    padding: 10px 14px;
-    border-radius: 12px;
+    margin-bottom: 10px;
+    padding: 13px 17px;
+    border-radius: 10px;
   }
 
   .notes {
-    font-size: 13px;
-    line-height: 1.35;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .production-activation {
+    margin-top: 14px;
   }
 }
 
@@ -617,7 +659,7 @@ ruby rt {
 
   .production-sentence,
   .production-sentence .target::after {
-    font-size: 27px;
+    font-size: 24px;
   }
 }
 `;
@@ -626,10 +668,11 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
 {{^Production}}
 <div class="production-activation">
   <button class="production-activation-button" id="subjap-activate-production" type="button"
-    title="Première révision dans deux jours · à réserver aux mots utiles à l’oral">
-    ＋ Production orale
+    aria-describedby="subjap-production-hint" title="Première révision dans deux jours · à réserver aux mots utiles à l’oral">
+    Activer la production orale
   </button>
-  <div class="production-activation-status" id="subjap-production-status"></div>
+  <div class="production-activation-hint" id="subjap-production-hint">Crée une carte sœur disponible dans deux jours.</div>
+  <div class="production-activation-status" id="subjap-production-status" role="status" aria-live="polite"></div>
 </div>
 <script>
 (() => {
@@ -640,6 +683,7 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
   const target = document.querySelector(".back-sentence .target");
   if (!target) {
     button.disabled = true;
+    status.dataset.state = "error";
     status.textContent = "Activation impossible : mot cible introuvable dans la phrase.";
     return;
   }
@@ -660,6 +704,7 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
 
   button.addEventListener("click", async () => {
     button.disabled = true;
+    status.dataset.state = "";
     status.textContent = "Activation en cours…";
     try {
       const permission = await invoke("requestPermission");
@@ -694,11 +739,13 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
       await invoke("suspend", { cards: productionCards });
 
       button.textContent = "Production activée";
+      button.dataset.state = "success";
       status.textContent = "";
       await invoke("guiShowAnswer").catch(() => {});
     } catch (error) {
       button.disabled = false;
-      status.textContent = "Échec : " + (error && error.message ? error.message : String(error));
+      status.dataset.state = "error";
+      status.textContent = "Activation impossible. Vérifie qu’Anki est ouvert, puis réessaie.";
     }
   });
 })();
@@ -709,6 +756,43 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
   <div class="production-activation-status">Production orale activée</div>
 </div>
 {{/Production}}
+`;
+
+export const MIGAKU_REVIEW_SHORTCUTS_FRAGMENT = `
+<script id="subjap-anki-review-shortcuts">
+(() => {
+  if (window.__subjapReviewShortcutsInstalled) return;
+  window.__subjapReviewShortcutsInstalled = true;
+
+  const commands = {
+    "&": "ease1",
+    "é": "ease2",
+    '"': "ease3",
+    "'": "ease4",
+  };
+
+  const isEditable = (target) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  };
+
+  document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isEditable(event.target)) return;
+    const command = commands[event.key];
+    if (!command) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof window.pycmd === "function") {
+      window.pycmd(command);
+      return;
+    }
+
+    const button = document.querySelector('[onclick*="' + command + '"]');
+    if (button instanceof HTMLElement) button.click();
+  }, true);
+})();
+</script>
 `;
 
 export const MIGAKU_FRONT_TEMPLATE = `
@@ -725,9 +809,9 @@ const MIGAKU_SHARED_BACK_TEMPLATE = `
 <div class="card-shell back-card" ${MIGAKU_TEMPLATE_MARKER}>
   <div class="back-word">{{Mot}}</div>
   {{#Phrase}}<div class="back-sentence">{{Phrase}}</div>{{/Phrase}}
-  <div class="back-audio-row">
-    {{#AudioMot}}<div class="audio audio-word">{{AudioMot}}</div>{{/AudioMot}}
-    {{#AudioPhrase}}<div class="audio audio-phrase">{{AudioPhrase}}</div>{{/AudioPhrase}}
+  <div class="back-audio-row" aria-label="Écoute">
+    {{#AudioMot}}<div class="audio-control audio-word"><span class="audio-label">Mot</span><div class="audio">{{AudioMot}}</div></div>{{/AudioMot}}
+    {{#AudioPhrase}}<div class="audio-control audio-phrase"><span class="audio-label">Phrase</span><div class="audio">{{AudioPhrase}}</div></div>{{/AudioPhrase}}
   </div>
 
   {{#Traduction}}
@@ -758,6 +842,7 @@ const MIGAKU_SHARED_BACK_TEMPLATE = `
   </div>
   {{/Notes}}
 </div>
+${MIGAKU_REVIEW_SHORTCUTS_FRAGMENT}
 `;
 
 export const MIGAKU_BACK_TEMPLATE = `

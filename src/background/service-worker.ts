@@ -35,12 +35,16 @@ import {
   MIGAKU_PRODUCTION_BACK_TEMPLATE,
   MIGAKU_PRODUCTION_FRONT_TEMPLATE,
   MIGAKU_PRODUCTION_TEMPLATE_NAME,
+  MIGAKU_REVIEW_SHORTCUTS_FRAGMENT,
   MIGAKU_TEMPLATE_MARKER,
   MIGAKU_TEMPLATE_MARKER_V2,
   MIGAKU_TEMPLATE_MARKER_V3,
   MIGAKU_TEMPLATE_MARKER_V4,
   MIGAKU_TEMPLATE_MARKER_V5,
   MIGAKU_TEMPLATE_MARKER_V6,
+  MIGAKU_TEMPLATE_MARKER_V7,
+  MIGAKU_TEMPLATE_MARKER_V8,
+  MIGAKU_TEMPLATE_MARKER_V9,
 } from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -614,6 +618,11 @@ function migrateManagedTemplatePart(
   replacement: string,
   appendActivation = false,
 ): string {
+  const ensureReviewShortcuts = (template: string): string =>
+    !template.includes("back-card") || template.includes("subjap-anki-review-shortcuts")
+      ? template
+      : `${template}\n${MIGAKU_REVIEW_SHORTCUTS_FRAGMENT}`;
+
   const restoreAnswerSideAfterActivation = (template: string): string => {
     if (!appendActivation || template.includes('invoke("guiShowAnswer")')) return template;
     return template.replace(
@@ -623,6 +632,41 @@ function migrateManagedTemplatePart(
   };
 
   if (current.includes(MIGAKU_TEMPLATE_MARKER)) return current;
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V9)) {
+    return ensureReviewShortcuts(current.replace(MIGAKU_TEMPLATE_MARKER_V9, MIGAKU_TEMPLATE_MARKER));
+  }
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V8)) {
+    return ensureReviewShortcuts(
+      current
+        .replace(MIGAKU_TEMPLATE_MARKER_V8, MIGAKU_TEMPLATE_MARKER)
+        .replace(
+          '<summary><span class="translation-label-show">Voir la traduction</span><span class="translation-label-hide">Masquer la traduction</span></summary>',
+          '<summary>Voir la traduction</summary>',
+        ),
+    );
+  }
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V7)) {
+    let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V7, MIGAKU_TEMPLATE_MARKER);
+    migrated = migrated.replace(
+      /<div class="back-audio-row">\s*\{\{#AudioMot\}\}<div class="audio audio-word">\{\{AudioMot\}\}<\/div>\{\{\/AudioMot\}\}\s*\{\{#AudioPhrase\}\}<div class="audio audio-phrase">\{\{AudioPhrase\}\}<\/div>\{\{\/AudioPhrase\}\}\s*<\/div>/u,
+      `<div class="back-audio-row" aria-label="Écoute">
+    {{#AudioMot}}<div class="audio-control audio-word"><span class="audio-label">Mot</span><div class="audio">{{AudioMot}}</div></div>{{/AudioMot}}
+    {{#AudioPhrase}}<div class="audio-control audio-phrase"><span class="audio-label">Phrase</span><div class="audio">{{AudioPhrase}}</div></div>{{/AudioPhrase}}
+  </div>`,
+    );
+    if (appendActivation) {
+      migrated = migrated
+        .replace(
+          'title="Première révision dans deux jours · à réserver aux mots utiles à l’oral">\n    ＋ Production orale',
+          'aria-describedby="subjap-production-hint" title="Première révision dans deux jours · à réserver aux mots utiles à l’oral">\n    Activer la production orale',
+        )
+        .replace(
+          '  <div class="production-activation-status" id="subjap-production-status"></div>',
+          '  <div class="production-activation-hint" id="subjap-production-hint">Crée une carte sœur disponible dans deux jours.</div>\n  <div class="production-activation-status" id="subjap-production-status" role="status" aria-live="polite"></div>',
+        );
+    }
+    return ensureReviewShortcuts(migrated);
+  }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V6)) {
     let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V6, MIGAKU_TEMPLATE_MARKER);
     if (migrated.includes('class="production-card back-card"')) {
@@ -647,7 +691,7 @@ function migrateManagedTemplatePart(
         )
         .replace(/\s*<div class="production-grading">[\s\S]*?<\/div>/u, "");
     }
-    return migrated;
+    return ensureReviewShortcuts(migrated);
   }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V5)) {
     return migrateManagedTemplatePart(

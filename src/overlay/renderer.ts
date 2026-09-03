@@ -35,6 +35,14 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
   style.id = STYLE_ID;
   style.textContent = `
     #${CONTAINER_ID} {
+      --sj-canvas: #0c0d10;
+      --sj-text: #f4f1ea;
+      --sj-muted: #b2b6bf;
+      --sj-accent: #ff624d;
+      --sj-learning: #aab3ff;
+      --sj-priority-high: #78d6a3;
+      --sj-priority-mid: #73b9f8;
+      --sj-priority-low: #f1b46d;
       position: fixed;
       pointer-events: none;
       z-index: 2147483646;
@@ -61,8 +69,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       pointer-events: auto;
       font-size: ${opts.fontSize}px;
       font-family: ${opts.fontFamily};
-      color: #ffffff;
-      background-color: rgba(0, 0, 0, 0.62);
+      color: var(--sj-text);
+      background-color: rgba(12, 13, 16, 0.82);
       border-radius: 0.18em;
       white-space: normal;
       overflow-wrap: break-word;
@@ -88,7 +96,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       pointer-events: none;
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
       font-family: ${opts.fontFamily};
-      color: #e2e8f0;
+      color: var(--sj-muted);
       line-height: 1.3;
       text-align: center;
       white-space: normal;
@@ -123,8 +131,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       white-space: nowrap;
       padding-inline: 0.02em;
       cursor: pointer;
+      border-bottom: 0.08em solid transparent;
       border-radius: 0.16em;
-      transition: color 0.15s, background-color 0.15s;
+      transition: color 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate {
       /* Keep the signal local to the word while making it unmistakable. An
@@ -133,54 +142,61 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       z-index: 0;
       outline: 2px solid transparent;
       outline-offset: 2px;
-      box-shadow: 0 0 0 1px transparent;
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate--relevant {
-      outline-color: ${opts.highlightKnown ? opts.knownColor : "#22c55e"};
-      box-shadow:
-        0 0 0 1px rgba(34, 197, 94, 0.35),
-        0 0 10px rgba(34, 197, 94, 0.45);
+      outline-color: ${opts.highlightKnown ? opts.knownColor : "#78d6a3"};
+      background-color: rgba(120, 214, 163, 0.16);
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate--near {
-      outline-color: #60a5fa;
-      box-shadow:
-        0 0 0 1px rgba(96, 165, 250, 0.35),
-        0 0 10px rgba(96, 165, 250, 0.45);
+      outline-color: var(--sj-priority-mid);
+      background-color: rgba(115, 185, 248, 0.16);
     }
     #${CONTAINER_ID} .subjap-token:not(.subjap-token--parenthetical):hover {
-      color: #facc15;
-      background-color: rgba(250, 204, 21, 0.16);
+      background-color: rgba(244, 241, 234, 0.14);
+    }
+    #${CONTAINER_ID} .subjap-token:not(.subjap-token--parenthetical):focus-visible {
+      outline: 2px solid var(--sj-accent);
+      outline-offset: 2px;
+      background-color: rgba(244, 241, 234, 0.14);
     }
     #${CONTAINER_ID} .subjap-token--punctuation {
       margin-left: -0.16em;
     }
     #${CONTAINER_ID} .subjap-known {
-      color: #ffffff;
+      color: var(--sj-text);
+      border-bottom-color: transparent;
     }
     #${CONTAINER_ID} .subjap-unknown {
-      color: #fb923c;
+      color: var(--sj-priority-low);
+      border-bottom-color: currentColor;
+      border-bottom-style: dotted;
     }
     #${CONTAINER_ID} .subjap-unknown--relevant {
-      color: ${opts.highlightKnown ? opts.knownColor : "#22c55e"};
+      color: ${opts.highlightKnown ? opts.knownColor : "#78d6a3"};
+      border-bottom-style: solid;
     }
     #${CONTAINER_ID} .subjap-unknown--near {
-      color: #60a5fa;
+      color: var(--sj-priority-mid);
+      border-bottom-style: dashed;
     }
     #${CONTAINER_ID} .subjap-learning {
-      color: #c084fc;
+      color: var(--sj-learning);
+      border-bottom-color: currentColor;
+      border-bottom-style: double;
     }
     #${CONTAINER_ID} .subjap-neutral {
-      color: #ffffff;
+      color: var(--sj-text);
+      border-bottom-color: transparent;
     }
     #${CONTAINER_ID} .subjap-token--parenthetical,
     #${CONTAINER_ID} .subjap-token--parenthetical:hover {
-      color: #64748b;
+      color: var(--sj-muted);
       opacity: 0.7;
       cursor: default;
       pointer-events: none;
     }
     #${CONTAINER_ID} .subjap-token--parenthetical .subjap-furigana {
-      color: #64748b;
+      color: var(--sj-muted);
     }
     #${CONTAINER_ID} .subjap-furigana {
       display: ${opts.showFurigana ? "block" : "none"};
@@ -189,10 +205,16 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       font-size: ${Math.round(opts.fontSize * 0.45)}px;
       line-height: 1;
       margin-bottom: 0.08em;
-      color: #e2e8f0;
+      color: var(--sj-muted);
       font-weight: 500;
       white-space: nowrap;
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 1px #000;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #${CONTAINER_ID} .subjap-token,
+      #${CONTAINER_ID} .subjap-translation-line--hidden {
+        transition: none;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -408,6 +430,11 @@ export class OverlayRenderer {
     if (st.isParenthetical) {
       span.classList.add("subjap-token--parenthetical");
       span.dataset.parenthetical = "true";
+    }
+    if (!isNonWord && !st.isParenthetical && !st.isPending) {
+      span.tabIndex = 0;
+      span.setAttribute("role", "button");
+      span.setAttribute("aria-label", `${st.token.surface} — ouvrir les détails`);
     }
     if (candidateHighlight) {
       span.classList.add("subjap-token--mine-candidate");
