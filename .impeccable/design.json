@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-03T18:46:14.0831239+02:00",
+  "title": "Design System: SubJap",
+  "extensions": {
+    "colorMeta": {
+      "canvas-ink": {
+        "role": "neutral",
+        "displayName": "Encre de projection",
+        "canonical": "#0C0D10",
+        "tonalRamp": ["#08090B", "#0C0D10", "#17191E", "#2A2D35", "#474B56", "#747986", "#B1B4BC", "#F4F5F7"]
+      },
+      "surface-ink": {
+        "role": "neutral",
+        "displayName": "Encre de panneau",
+        "canonical": "#14161B",
+        "tonalRamp": ["#090A0C", "#14161B", "#20232A", "#343842", "#535864", "#7E838E", "#B8BBC2", "#F5F5F6"]
+      },
+      "subtitle-white": {
+        "role": "neutral",
+        "displayName": "Blanc de sous-titre",
+        "canonical": "#F4F1EA",
+        "tonalRamp": ["#24231F", "#3B3933", "#5A574F", "#7D7970", "#A39F95", "#C5C1B8", "#E4E1DA", "#F4F1EA"]
+      },
+      "clap-vermilion": {
+        "role": "primary",
+        "displayName": "Vermillon de clap",
+        "canonical": "#FF624D",
+        "tonalRamp": ["#32100C", "#5B1D16", "#8A2C22", "#BD3D2F", "#E94F3D", "#FF624D", "#FF9B8D", "#FFD8D2"]
+      },
+      "learning-indigo": {
+        "role": "secondary",
+        "displayName": "Indigo d'apprentissage",
+        "canonical": "#AAB3FF",
+        "tonalRamp": ["#151735", "#272B60", "#40468F", "#5E66BC", "#7E88E2", "#AAB3FF", "#CDD2FF", "#EFF0FF"]
+      },
+      "priority-green": {
+        "role": "secondary",
+        "displayName": "Vert de priorité",
+        "canonical": "#78D6A3",
+        "tonalRamp": ["#0D2A1A", "#16462B", "#23653F", "#338756", "#4EAC75", "#78D6A3", "#ACE8C5", "#E0F8EA"]
+      },
+      "priority-blue": {
+        "role": "secondary",
+        "displayName": "Bleu de progression",
+        "canonical": "#73B9F8",
+        "tonalRamp": ["#10243A", "#173C61", "#23568A", "#3272B5", "#4C92DB", "#73B9F8", "#ACD6FA", "#E2F1FD"]
+      },
+      "priority-amber": {
+        "role": "secondary",
+        "displayName": "Ambre de marge",
+        "canonical": "#F1B46D",
+        "tonalRamp": ["#33210D", "#593917", "#825424", "#AC7135", "#D4904B", "#F1B46D", "#F8D29F", "#FCEBD7"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Mot à retenir",
+        "purpose": "Mot japonais principal sur le recto Anki."
+      },
+      "headline": {
+        "displayName": "Phrase de scène",
+        "purpose": "Phrase japonaise, titre de modal ou point de concentration."
+      },
+      "body": {
+        "displayName": "Voix de régie",
+        "purpose": "Contenu courant et explications."
+      },
+      "label": {
+        "displayName": "Repère de montage",
+        "purpose": "Actions, états et métadonnées compactes."
+      }
+    },
+    "shadows": [
+      {
+        "name": "popover-scene",
+        "value": "0 6px 8px rgba(0, 0, 0, 0.38)",
+        "purpose": "Popover flottant réellement au-dessus de la vidéo."
+      },
+      {
+        "name": "mining-modal",
+        "value": "0 8px 8px rgba(0, 0, 0, 0.42)",
+        "purpose": "Dialogue de mining au-dessus de la scène."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "160ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Survol, focus, sélection et confirmation immédiate."
+      },
+      {
+        "name": "reveal",
+        "value": "200ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Ouverture d'une popover ou révélation de traduction."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "anki-compact-desktop",
+        "value": "901px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale unique d'une surface.",
+      "html": "<button class=\"ds-btn-primary\">Créer la carte</button>",
+      "css": ".ds-btn-primary{border:0;border-radius:6px;background:#FF624D;color:#0C0D10;padding:10px 14px;font:600 12px/1.35 'IBM Plex Sans JP',sans-serif;cursor:pointer;transition:background 160ms cubic-bezier(.22,1,.36,1),transform 160ms cubic-bezier(.22,1,.36,1)}.ds-btn-primary:hover{background:#FF7966}.ds-btn-primary:focus-visible{outline:2px solid #FF7966;outline-offset:2px}.ds-btn-primary:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Action secondaire calme et immédiatement lisible.",
+      "html": "<button class=\"ds-btn-secondary\">Écouter la phrase</button>",
+      "css": ".ds-btn-secondary{border:1px solid #343842;border-radius:6px;background:#1B1E24;color:#F4F1EA;padding:10px 14px;font:500 12px/1.35 'IBM Plex Sans JP',sans-serif;cursor:pointer;transition:background 160ms cubic-bezier(.22,1,.36,1)}.ds-btn-secondary:hover{background:#242831}.ds-btn-secondary:focus-visible{outline:2px solid #FF624D;outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Champ sombre, net et sans halo décoratif.",
+      "html": "<input class=\"ds-input\" value=\"0,20 s\" aria-label=\"Décalage des sous-titres\">",
+      "css": ".ds-input{border:1px solid #343842;border-radius:6px;background:#101216;color:#F4F1EA;padding:9px 11px;font:400 14px/1.55 'IBM Plex Sans JP',sans-serif}.ds-input:hover{border-color:#555B68}.ds-input:focus-visible{outline:2px solid #FF624D;outline-offset:1px;border-color:transparent}.ds-input:disabled{color:#777C86;background:#14161B}"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "État compact toujours accompagné d'un libellé.",
+      "html": "<span class=\"ds-chip\"><span class=\"ds-chip-dot\"></span>Déjà dans Anki</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#1B1E24;color:#B2B6BF;padding:4px 8px;font:500 12px/1.35 'IBM Plex Sans JP',sans-serif}.ds-chip-dot{width:7px;height:7px;border-radius:999px;background:#AAB3FF}"
+    },
+    {
+      "name": "Tonal Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Regroupement fonctionnel sans effet de carte flottante.",
+      "html": "<section class=\"ds-panel\"><strong>Sous-titres</strong><p>Japonais · Français</p></section>",
+      "css": ".ds-panel{border-radius:10px;background:#14161B;color:#F4F1EA;padding:16px;font:400 14px/1.55 'IBM Plex Sans JP',sans-serif}.ds-panel strong{font-weight:600}.ds-panel p{margin:6px 0 0;color:#B2B6BF}"
+    },
+    {
+      "name": "Subtitle Token",
+      "kind": "custom",
+      "description": "Composant signature : état pédagogique et affordance de consultation.",
+      "html": "<span class=\"ds-subtitle\"><span>この</span><button class=\"ds-token\">言葉</button><span>を覚える</span></span>",
+      "css": ".ds-subtitle{display:inline-flex;align-items:baseline;gap:2px;border-radius:6px;background:rgba(12,13,16,.82);color:#F4F1EA;padding:6px 10px;font:500 24px/1.5 'IBM Plex Sans JP',sans-serif}.ds-token{border:0;border-bottom:2px solid currentColor;background:transparent;color:#78D6A3;padding:0 1px;font:inherit;cursor:pointer}.ds-token:hover,.ds-token:focus-visible{border-radius:3px;outline:0;background:rgba(120,214,163,.16)}"
+    },
+    {
+      "name": "Anki Review",
+      "kind": "custom",
+      "description": "Le mot et son contexte prolongent la scène sans carte décorative.",
+      "html": "<article class=\"ds-anki\"><div class=\"ds-anki-word\">余韻</div><div class=\"ds-anki-reading\">よいん</div><p>映画の<span>余韻</span>がまだ残っている。</p></article>",
+      "css": ".ds-anki{width:420px;background:#0C0D10;color:#F4F1EA;padding:32px;text-align:center;font-family:'IBM Plex Sans JP',sans-serif}.ds-anki-word{color:#FF624D;font-size:56px;font-weight:600;line-height:1.25}.ds-anki-reading{margin-top:4px;color:#B2B6BF;font-size:16px}.ds-anki p{margin:28px 0 0;font-size:22px;line-height:1.6}.ds-anki p span{color:#FF7966;font-weight:600}"
+    }
+  ],
+  "narrative": {
+    "northStar": "L'Après-séance",
+    "overview": "SubJap prolonge une scène qui vient d'être vécue : le produit prélève un mot, l'éclaire avec précision, puis le conduit jusqu'à la mémoire. L'interface évoque un studio de sous-titrage japonais contemporain dans une pièce peu éclairée. Elle est concentrée et cinématographique, mais reste complice plutôt que froide.",
+    "keyCharacteristics": [
+      "Sombre par contexte d'usage, jamais sombre par effet de mode.",
+      "Compact et calme au repos, tactile et explicite à l'action.",
+      "Une hiérarchie de studio : scène, mot, sens, action.",
+      "Un fil visuel continu entre l'extension et Anki.",
+      "Une couleur de marque rare ; plusieurs couleurs pédagogiques strictement sémantiques."
+    ],
+    "rules": [
+      {
+        "name": "The Ten Percent Rule",
+        "body": "Le vermillon occupe au plus 10 % d'une surface ; sa rareté fait la marque.",
+        "section": "colors"
+      },
+      {
+        "name": "The Pedagogy Rule",
+        "body": "Vert, bleu, ambre et indigo décrivent exclusivement un état d'apprentissage. Ils ne décorent jamais l'interface.",
+        "section": "colors"
+      },
+      {
+        "name": "The Double Signal Rule",
+        "body": "Un état de vocabulaire important associe sa couleur à une forme, un libellé, une icône ou un traitement typographique.",
+        "section": "colors"
+      },
+      {
+        "name": "The Subtitle Rule",
+        "body": "Le japonais n'est jamais comprimé par un interlettrage négatif et conserve une hauteur de ligne généreuse.",
+        "section": "typography"
+      },
+      {
+        "name": "The Natural Case Rule",
+        "body": "Les libellés restent en casse naturelle ; les petites capitales espacées ne sont pas une décoration de section.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-at-Rest Rule",
+        "body": "Une surface au repos choisit soit un contour fin, soit une différence tonale ; elle ne cumule jamais contour et grande ombre douce.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Real Depth Rule",
+        "body": "Aucune ombre n'est autorisée si l'élément ne recouvre pas physiquement un autre plan.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do utiliser l'encre de projection comme canevas et le blanc de sous-titre comme voix principale.",
+      "Do réserver le vermillon de clap aux actions primaires, au focus et à de rares repères de marque.",
+      "Do conserver l'ordre pédagogique des cartes Anki et adapter la densité sans masquer les Notes ni recadrer l'image.",
+      "Do fournir les états default, hover, focus, active, disabled, loading et error pour chaque contrôle interactif.",
+      "Do respecter prefers-reduced-motion et maintenir les transitions fonctionnelles entre 150ms et 200ms.",
+      "Do associer toute couleur de vocabulaire à un second signal perceptible."
+    ],
+    "donts": [
+      "Don't employer l'imagerie kawaii, les mascottes manga ou les clichés touristiques japonais.",
+      "Don't adopter un cyberpunk saturé de néons, des effets futuristes décoratifs ou une surcharge visuelle.",
+      "Don't reproduire une interface SaaS violette générique, ses dégradés décoratifs, ses grandes cartes flottantes ou ses composants uniformément arrondis.",
+      "Don't utiliser de texte en dégradé, de glassmorphism décoratif ou de fond quadrillé.",
+      "Don't utiliser un liseré coloré épais sur un seul côté d'un panneau.",
+      "Don't cumuler un contour de 1px avec une ombre douce de plus de 8px de flou.",
+      "Don't dépasser 12px de rayon sur un panneau ou une carte.",
+      "Don't multiplier les petits titres en capitales espacées au-dessus de chaque section."
+    ]
+  }
+}
