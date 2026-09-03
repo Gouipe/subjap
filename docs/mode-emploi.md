@@ -98,3 +98,9 @@ SubJap et cliquer sur **Synchroniser maintenant**.
 Une décision prise manuellement dans SubJap reste prioritaire sur Anki. Si une
 couleur ne change pas, vérifier le tag, le champ `Mot`, AnkiConnect, puis relancer
 la synchronisation.
+
+Lorsque l’extension est mise à jour ou rechargée pendant qu’un onglet Netflix
+reste ouvert, cet onglet ne peut plus joindre le nouveau service worker. SubJap
+laisse alors les mots en blanc, désactive temporairement leurs actions et affiche
+un message avec un bouton **Recharger**. Le rechargement de Netflix reconnecte
+l’overlay sans modifier les états de vocabulaire.

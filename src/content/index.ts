@@ -84,6 +84,25 @@ let listeningMode: ListeningMode | null = null;
 const listeningExerciseKeys = new Set<string>();
 let nativeSubtitlesHidden = false;
 let nativeSubtitleReplacementReady = false;
+let runtimeUnavailable = false;
+
+function isExtensionContextInvalidated(error: unknown): boolean {
+  return /extension context invalidated/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+/** A reloaded extension cannot reconnect an already injected content script. */
+function handleRuntimeError(error: unknown): void {
+  if (!isExtensionContextInvalidated(error) || runtimeUnavailable) return;
+  runtimeUnavailable = true;
+  clearHoverTimer();
+  clearHideTimer();
+  hoveredToken = null;
+  popoverPinned = false;
+  hidePopover();
+  overlay?.setRuntimeUnavailable(true);
+}
 
 // The action popup prepares tab capture after the user invokes the extension.
 // Keeping the listener in the content script lets tab capture start from the
@@ -231,6 +250,7 @@ async function getWordStates(
     }
   } catch (err: unknown) {
     console.warn("[SubJap] word:getBatch failed:", err);
+    handleRuntimeError(err);
     if (revision !== cueRevision) return;
     for (const { key } of missing) {
       wordStateByLemma.set(key, null);
@@ -250,6 +270,7 @@ function getKnownWordCount(): Promise<number> {
     })
     .catch((err: unknown) => {
       console.warn("[SubJap] stats:get failed:", err);
+      handleRuntimeError(err);
       return knownWordCount;
     });
 
@@ -281,6 +302,7 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
     } catch (err: unknown) {
       // Anki is optional; a missing AnkiConnect must not affect subtitle use.
       console.info("[SubJap] Anki known-word sync unavailable:", err);
+      handleRuntimeError(err);
     }
   })().finally(() => {
     ankiSyncPromise = null;
@@ -301,6 +323,7 @@ async function getFrequencyRanks(
       }
     } catch (err: unknown) {
       console.warn("[SubJap] frequency:batch failed:", err);
+      handleRuntimeError(err);
       for (const term of missing) frequencyRankByTerm.set(term, null);
     }
   }
@@ -344,6 +367,7 @@ function ensureOverlay(): OverlayRenderer | null {
 
   if (!overlay) {
     overlay = new OverlayRenderer(video, overlayOptions);
+    overlay.setRuntimeUnavailable(runtimeUnavailable);
     listeningMode = new ListeningMode(video, adapter, overlay, () => {
       const deferred = deferredCuesWhileListening;
       deferredCuesWhileListening = null;
@@ -787,6 +811,7 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
     );
   } catch (err: unknown) {
     console.warn(`[SubJap] dict:lookup failed for "${tokenDictionaryForm(token)}":`, err);
+    handleRuntimeError(err);
   }
 
   // The lookup is async: the cue may have been re-rendered (anchor gone) or
@@ -811,7 +836,8 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
 async function isMiningCaptureActive(): Promise<boolean> {
   try {
     return (await sendMessage("tabCapture:status", {})).active;
-  } catch {
+  } catch (err: unknown) {
+    handleRuntimeError(err);
     return false;
   }
 }
@@ -906,6 +932,7 @@ function onToggleKnown(lemma: string, currentStatus: WordStatus | null): void {
   void sendMessage("word:set", next)
     .catch((err) => {
       console.warn(`[SubJap] word:set failed for "${lemma}":`, err);
+      handleRuntimeError(err);
     })
     .finally(() => {
       knownWordCountPromise = null;
@@ -935,6 +962,7 @@ function onToggleIgnored(
   void sendMessage("word:set", next)
     .catch((err) => {
       console.warn(`[SubJap] word:set failed for "${lemma}":`, err);
+      handleRuntimeError(err);
     })
     .finally(() => {
       knownWordCountPromise = null;

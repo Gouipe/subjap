@@ -173,6 +173,13 @@ reste visible jusqu’au premier rendu SubJap.
 
 Le tokenizer est un singleton par content script et possède un cache LRU de
 500 phrases. Les cues identiques sont ignorés grâce à une signature de texte.
+
+Si Chrome invalide le contexte d’un content script après une mise à jour ou un
+rechargement de l’extension, les échecs de messagerie ne sont jamais interprétés
+comme des mots inconnus. L’overlay conserve un rendu neutre, désactive les
+interactions qui ne pourraient pas être persistées et demande explicitement de
+recharger Netflix pour joindre le nouveau service worker.
+
 Les unités pédagogiques regroupent notamment les suffixes pluriels `ら`, `たち`,
 `ども` et `がた` uniquement lorsque UniDic les marque comme suffixes ; les
 composants morphologiques restent disponibles pour la popover et le mining.

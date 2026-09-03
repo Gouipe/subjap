@@ -43,6 +43,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       --sj-priority-high: #78d6a3;
       --sj-priority-mid: #73b9f8;
       --sj-priority-low: #f1b46d;
+      --sj-danger: #ff8490;
       position: fixed;
       pointer-events: none;
       z-index: 2147483646;
@@ -81,6 +82,42 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-cue-line + .subjap-cue-line {
       margin-top: 4px;
+    }
+    #${CONTAINER_ID} .subjap-runtime-notice {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: min(92%, 620px);
+      margin-bottom: 8px;
+      padding: 10px 12px;
+      box-sizing: border-box;
+      pointer-events: auto;
+      font: 500 13px/1.5 IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif;
+      color: var(--sj-text);
+      background: #14161b;
+      border: 1px solid var(--sj-danger);
+      border-radius: 8px;
+      box-shadow: 0 6px 8px rgba(0, 0, 0, 0.38);
+    }
+    #${CONTAINER_ID} .subjap-runtime-notice__text {
+      min-width: 0;
+    }
+    #${CONTAINER_ID} .subjap-runtime-notice__button {
+      flex: none;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font: 600 12px/1.35 IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif;
+      color: var(--sj-canvas);
+      background: var(--sj-accent);
+    }
+    #${CONTAINER_ID} .subjap-runtime-notice__button:hover {
+      background: #ff7966;
+    }
+    #${CONTAINER_ID} .subjap-runtime-notice__button:focus-visible {
+      outline: 2px solid var(--sj-text);
+      outline-offset: 2px;
     }
     #${CONTAINER_ID} .subjap-cue-line--pending {
       pointer-events: none;
@@ -188,6 +225,10 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-text);
       border-bottom-color: transparent;
     }
+    #${CONTAINER_ID} .subjap-token--unavailable {
+      cursor: default;
+      pointer-events: none;
+    }
     #${CONTAINER_ID} .subjap-token--parenthetical,
     #${CONTAINER_ID} .subjap-token--parenthetical:hover {
       color: var(--sj-muted);
@@ -212,7 +253,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     @media (prefers-reduced-motion: reduce) {
       #${CONTAINER_ID} .subjap-token,
-      #${CONTAINER_ID} .subjap-translation-line--hidden {
+      #${CONTAINER_ID} .subjap-translation-line--hidden,
+      #${CONTAINER_ID} .subjap-runtime-notice__button {
         transition: none;
       }
     }
@@ -231,6 +273,7 @@ export class OverlayRenderer {
   private cues: RenderedCue[] = [];
   private pendingCueTexts: string[] | null = null;
   private translation: SubtitleTranslation | null = null;
+  private runtimeUnavailable = false;
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
   private visible = false;
@@ -340,6 +383,13 @@ export class OverlayRenderer {
     this.render();
   }
 
+  /** Keep vocabulary neutral and ask for a reload when this content script is stale. */
+  setRuntimeUnavailable(unavailable: boolean): void {
+    if (this.runtimeUnavailable === unavailable) return;
+    this.runtimeUnavailable = unavailable;
+    this.render();
+  }
+
   /** Tear down the overlay completely: cancel animation, remove DOM nodes. */
   destroy(): void {
     this.stopRepositionLoop();
@@ -352,6 +402,10 @@ export class OverlayRenderer {
   private render(): void {
     // Clear container
     this.container.replaceChildren();
+
+    if (this.runtimeUnavailable) {
+      this.container.appendChild(this.buildRuntimeNotice());
+    }
 
     if (this.cues.length === 0 && !this.pendingCueTexts?.length) return;
 
@@ -411,6 +465,26 @@ export class OverlayRenderer {
     return line;
   }
 
+  private buildRuntimeNotice(): HTMLDivElement {
+    const notice = document.createElement("div");
+    notice.className = "subjap-runtime-notice";
+    notice.setAttribute("role", "alert");
+
+    const text = document.createElement("span");
+    text.className = "subjap-runtime-notice__text";
+    text.textContent =
+      "SubJap a été mis à jour. Rechargez Netflix pour retrouver vos états de vocabulaire.";
+
+    const button = document.createElement("button");
+    button.className = "subjap-runtime-notice__button";
+    button.type = "button";
+    button.textContent = "Recharger";
+    button.addEventListener("click", () => window.location.reload());
+
+    notice.append(text, button);
+    return notice;
+  }
+
   private buildTokenSpan(
     st: SpanToken,
     candidateHighlight: MiningCandidateHighlight | undefined = undefined,
@@ -418,6 +492,7 @@ export class OverlayRenderer {
     const span = document.createElement("span");
     span.className = "subjap-token";
     const isNonWord = this.isNonWord(st);
+    const interactionUnavailable = this.runtimeUnavailable || st.isPending;
     if (isNonWord) {
       span.classList.add("subjap-token--punctuation");
     }
@@ -431,7 +506,7 @@ export class OverlayRenderer {
       span.classList.add("subjap-token--parenthetical");
       span.dataset.parenthetical = "true";
     }
-    if (!isNonWord && !st.isParenthetical && !st.isPending) {
+    if (!isNonWord && !st.isParenthetical && !interactionUnavailable) {
       span.tabIndex = 0;
       span.setAttribute("role", "button");
       span.setAttribute("aria-label", `${st.token.surface} — ouvrir les détails`);
@@ -441,7 +516,10 @@ export class OverlayRenderer {
       span.classList.add(`subjap-token--mine-candidate--${candidateHighlight}`);
     }
 
-    if (isNonWord || st.isPending) {
+    if (this.runtimeUnavailable) {
+      span.classList.add("subjap-token--unavailable");
+    }
+    if (isNonWord || interactionUnavailable) {
       span.classList.add("subjap-neutral");
     } else {
       const highlight = getFrequencyHighlight(
@@ -486,7 +564,9 @@ export class OverlayRenderer {
   private getMiningCandidateHighlights(
     rc: RenderedCue,
   ): Map<number, MiningCandidateHighlight> {
-    if (rc.spans.some((span) => span.isPending)) return new Map();
+    if (this.runtimeUnavailable || rc.spans.some((span) => span.isPending)) {
+      return new Map();
+    }
     const highlights: Array<FrequencyHighlight | null> = rc.spans.map((st) => {
       if (st.isParenthetical || this.isNonWord(st)) return null;
       return getFrequencyHighlight(
@@ -522,6 +602,7 @@ export class OverlayRenderer {
   private shouldShowTranslation(): boolean {
     if (!this.options.hideSecondarySubtitlesWhenAllKnown) return true;
     if (
+      this.runtimeUnavailable ||
       this.pendingCueTexts?.length ||
       this.cues.some((cue) => cue.spans.some((span) => span.isPending))
     ) {
