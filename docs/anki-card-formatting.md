@@ -17,11 +17,12 @@ Dans le dépôt SubJap, la présentation est définie dans
 - `MIGAKU_TEMPLATE_MARKER` permet de reconnaître un template déjà géré par
   SubJap.
 
-Le dépôt séparé `C:\Users\piola\Projects\migaku-export` possède une copie
-CommonJS de cette présentation dans `anki-presentation.js`. Toute modification
-visuelle destinée à l’export Migaku doit être répercutée dans les deux fichiers.
-Ne pas modifier `dist/` ou un fichier `.apkg` à la main : ce sont des sorties
-générées.
+Le dépôt séparé `C:\Users\piola\Projects\migaku-export` n’appartient plus au
+workflow de maintenance de SubJap : ne pas le modifier ni le construire lors
+des évolutions de cartes Anki. Le modèle `Migaku Memory Import` reste néanmoins
+pris en charge dans Anki afin que les cartes déjà importées bénéficient de la
+présentation actuelle. Ne pas modifier `dist/` à la main : c’est une sortie
+générée.
 
 ## Modèles et decks concernés
 
@@ -71,9 +72,10 @@ Le recto de compréhension reste volontairement simple :
 3. `AudioMot`, si elle existe.
 
 Son verso conserve le bouton d’activation de la production. Le recto de
-production masque le span `.target` de `Phrase` par un blanc fixe et garde la
-traduction repliée. Son verso remet la phrase complète et ordonne `AudioMot`
-avant `AudioPhrase`.
+production masque le span `.target` de `Phrase` par un blanc fixe, affiche
+directement `Définitions` et n’affiche pas `Traduction`. Son verso remet la
+phrase complète et reprend exactement la présentation du verso de compréhension,
+sans le bloc d’activation de la production.
 
 Le verso conserve cette structure verticale :
 
@@ -158,15 +160,10 @@ Pour appliquer une nouvelle présentation aux modèles déjà présents :
 Pour une modification de style ou de template :
 
 1. modifier `src/background/anki-presentation.ts` ;
-2. répercuter le changement dans
-   `C:\Users\piola\Projects\migaku-export\anki-presentation.js` si l’export
-   est concerné ;
-3. conserver les noms de champs et les conditions `{{#Champ}}...{{/Champ}}` ;
-4. conserver le marqueur dans les templates ;
-5. exécuter `npm.cmd run build` dans SubJap ;
-6. exécuter `npm.cmd run build` dans `migaku-export` pour régénérer le paquet
-   si sa présentation a changé ;
-7. appliquer la présentation au modèle existant via `anki:setup` et vérifier
+2. conserver les noms de champs et les conditions `{{#Champ}}...{{/Champ}}` ;
+3. conserver le marqueur dans les templates ;
+4. exécuter `npm.cmd run build` dans SubJap ;
+5. appliquer la présentation au modèle existant via `anki:setup` et vérifier
    visuellement un recto et un verso sur ordinateur.
 
 Selon les instructions du projet, ne pas créer ni lancer de tests automatisés
@@ -174,7 +171,8 @@ ou de vérification navigateur pour une simple modification de présentation.
 
 ## Pièges à éviter
 
-- modifier uniquement `migaku-export/anki-presentation.js` et oublier SubJap ;
+- modifier ou construire le dépôt externe `migaku-export` depuis un travail
+  consacré à SubJap ;
 - modifier uniquement le CSS d’un modèle dans Anki sans mettre à jour la source ;
 - confondre le champ `Définitions` avec un champ hypothétique `Definition` ;
 - rendre l’image plus grande sans réserver de place à `Notes` ;

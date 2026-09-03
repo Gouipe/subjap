@@ -39,6 +39,8 @@ import {
   MIGAKU_TEMPLATE_MARKER_V2,
   MIGAKU_TEMPLATE_MARKER_V3,
   MIGAKU_TEMPLATE_MARKER_V4,
+  MIGAKU_TEMPLATE_MARKER_V5,
+  MIGAKU_TEMPLATE_MARKER_V6,
 } from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -621,13 +623,55 @@ function migrateManagedTemplatePart(
   };
 
   if (current.includes(MIGAKU_TEMPLATE_MARKER)) return current;
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V6)) {
+    let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V6, MIGAKU_TEMPLATE_MARKER);
+    if (migrated.includes('class="production-card back-card"')) {
+      migrated = migrated
+        .replace('class="production-card back-card"', 'class="card-shell back-card"')
+        .replace(
+          /\s*\{\{#Lecture\}\}<div class="reading"[^>]*>\{\{Lecture\}\}<\/div>\{\{\/Lecture\}\}/u,
+          "",
+        )
+        .replace(/\s*<div class="production-repeat">[^<]*<\/div>/u, "")
+        .replace(
+          /\{\{#Traduction\}\}\s*<div class="translation-content">\s*<div class="section-label">Traduction<\/div>\s*\{\{Traduction\}\}\s*<\/div>\s*\{\{\/Traduction\}\}/u,
+          `{{#Traduction}}
+  <details class="translation-reveal">
+    <summary>Voir la traduction</summary>
+    <div class="translation-content">
+      <div class="section-label">Traduction</div>
+      {{Traduction}}
+    </div>
+  </details>
+  {{/Traduction}}`,
+        )
+        .replace(/\s*<div class="production-grading">[\s\S]*?<\/div>/u, "");
+    }
+    return migrated;
+  }
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V5)) {
+    return migrateManagedTemplatePart(
+      current
+        .replace(MIGAKU_TEMPLATE_MARKER_V5, MIGAKU_TEMPLATE_MARKER_V6)
+        .replace(
+          /\{\{#Traduction\}\}\s*<details class="production-hint">[\s\S]*?<\/details>\s*\{\{\/Traduction\}\}/u,
+          '{{#Définitions}}<div class="production-definitions">{{Définitions}}</div>{{/Définitions}}',
+        ),
+      replacement,
+      appendActivation,
+    );
+  }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V4)) {
-    return restoreAnswerSideAfterActivation(
-      current.replace(MIGAKU_TEMPLATE_MARKER_V4, MIGAKU_TEMPLATE_MARKER),
+    return migrateManagedTemplatePart(
+      restoreAnswerSideAfterActivation(
+        current.replace(MIGAKU_TEMPLATE_MARKER_V4, MIGAKU_TEMPLATE_MARKER_V5),
+      ),
+      replacement,
+      appendActivation,
     );
   }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V3)) {
-    let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V3, MIGAKU_TEMPLATE_MARKER);
+    let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V3, MIGAKU_TEMPLATE_MARKER_V5);
     if (appendActivation) {
       migrated = migrated
         .replace(
@@ -643,14 +687,18 @@ function migrateManagedTemplatePart(
           'status.textContent = "";',
         );
     }
-    return restoreAnswerSideAfterActivation(migrated);
+    return migrateManagedTemplatePart(
+      restoreAnswerSideAfterActivation(migrated),
+      replacement,
+      appendActivation,
+    );
   }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V2)) {
-    let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V2, MIGAKU_TEMPLATE_MARKER);
+    let migrated = current.replace(MIGAKU_TEMPLATE_MARKER_V2, MIGAKU_TEMPLATE_MARKER_V5);
     if (appendActivation && !migrated.includes("subjap-activate-production")) {
       migrated += MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT;
     }
-    return migrated;
+    return migrateManagedTemplatePart(migrated, replacement, appendActivation);
   }
   return replacement;
 }
@@ -702,6 +750,13 @@ async function updateMigakuModelPresentation(modelName: string): Promise<void> {
     });
   }
 
+  const nextProduction = production
+    ? {
+        Front: migrateManagedTemplatePart(production.Front, MIGAKU_PRODUCTION_FRONT_TEMPLATE),
+        Back: migrateManagedTemplatePart(production.Back, MIGAKU_PRODUCTION_BACK_TEMPLATE),
+      }
+    : undefined;
+
   const currentStyling = await ankiInvoke<AnkiModelStyling>("modelStyling", { modelName });
   const hasCurrentStyling = currentStyling.css === MIGAKU_CSS;
 
@@ -710,16 +765,25 @@ async function updateMigakuModelPresentation(modelName: string): Promise<void> {
       model: { name: modelName, css: MIGAKU_CSS },
     });
   }
+  const updatedTemplates: Record<string, AnkiModelTemplate> = {};
   if (
     nextComprehension.Front !== comprehension.Front ||
     nextComprehension.Back !== comprehension.Back
   ) {
+    updatedTemplates[MIGAKU_COMPREHENSION_TEMPLATE_NAME] = nextComprehension;
+  }
+  if (
+    production &&
+    nextProduction &&
+    (nextProduction.Front !== production.Front || nextProduction.Back !== production.Back)
+  ) {
+    updatedTemplates[MIGAKU_PRODUCTION_TEMPLATE_NAME] = nextProduction;
+  }
+  if (Object.keys(updatedTemplates).length > 0) {
     await ankiInvoke("updateModelTemplates", {
       model: {
         name: modelName,
-        templates: {
-          [MIGAKU_COMPREHENSION_TEMPLATE_NAME]: nextComprehension,
-        },
+        templates: updatedTemplates,
       },
     });
   }

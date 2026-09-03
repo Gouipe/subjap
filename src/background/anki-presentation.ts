@@ -18,7 +18,9 @@ export const MIGAKU_FIELDS = [
 export const MIGAKU_TEMPLATE_MARKER_V2 = 'data-subjap-template-version="2"';
 export const MIGAKU_TEMPLATE_MARKER_V3 = 'data-subjap-template-version="3"';
 export const MIGAKU_TEMPLATE_MARKER_V4 = 'data-subjap-template-version="4"';
-export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="5"';
+export const MIGAKU_TEMPLATE_MARKER_V5 = 'data-subjap-template-version="5"';
+export const MIGAKU_TEMPLATE_MARKER_V6 = 'data-subjap-template-version="6"';
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="7"';
 export const MIGAKU_COMPREHENSION_TEMPLATE_NAME = "Compréhension";
 export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
 
@@ -489,59 +491,10 @@ ruby rt {
   letter-spacing: 0;
 }
 
-.production-hint {
-  margin: 0;
-}
-
-.production-hint > summary {
-  display: inline-flex;
-  padding: 9px 16px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.production-hint > summary::-webkit-details-marker {
-  display: none;
-}
-
-.production-hint[open] > summary {
-  display: none;
-}
-
-.production-hint-content {
+.production-definitions {
   color: #e4e8f0;
   font-size: 18px;
   line-height: 1.6;
-}
-
-.production-hint-warning,
-.production-repeat {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.production-repeat {
-  margin: 4px 0 16px;
-  color: #baf5f2;
-  font-size: 14px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.production-grading {
-  margin: 12px 0;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.55;
 }
 
 /* Compact desktop review: keep the familiar vertical stack inside the study window. */
@@ -768,7 +721,7 @@ export const MIGAKU_FRONT_TEMPLATE = `
 </div>
 `;
 
-export const MIGAKU_BACK_TEMPLATE = `
+const MIGAKU_SHARED_BACK_TEMPLATE = `
 <div class="card-shell back-card" ${MIGAKU_TEMPLATE_MARKER}>
   <div class="back-word">{{Mot}}</div>
   {{#Phrase}}<div class="back-sentence">{{Phrase}}</div>{{/Phrase}}
@@ -805,6 +758,10 @@ export const MIGAKU_BACK_TEMPLATE = `
   </div>
   {{/Notes}}
 </div>
+`;
+
+export const MIGAKU_BACK_TEMPLATE = `
+${MIGAKU_SHARED_BACK_TEMPLATE}
 ${MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT}
 `;
 
@@ -813,56 +770,9 @@ export const MIGAKU_PRODUCTION_FRONT_TEMPLATE = `
 <div class="production-card production-front" ${MIGAKU_TEMPLATE_MARKER}>
   <div class="production-prompt">Prononce le mot manquant à voix haute</div>
   {{#Phrase}}<div class="production-sentence">{{Phrase}}</div>{{/Phrase}}
-  {{#Traduction}}
-  <details class="production-hint">
-    <summary>Voir la traduction</summary>
-    <div class="production-hint-content">{{Traduction}}</div>
-    <div class="production-hint-warning">Traduction utilisée : Difficile au maximum</div>
-  </details>
-  {{/Traduction}}
+  {{#Définitions}}<div class="production-definitions">{{Définitions}}</div>{{/Définitions}}
 </div>
 {{/Production}}
 `;
 
-export const MIGAKU_PRODUCTION_BACK_TEMPLATE = `
-<div class="production-card back-card" ${MIGAKU_TEMPLATE_MARKER}>
-  <div class="back-word">{{Mot}}</div>
-  {{#Lecture}}<div class="reading" style="text-align:center">{{Lecture}}</div>{{/Lecture}}
-  {{#Phrase}}<div class="back-sentence">{{Phrase}}</div>{{/Phrase}}
-  <div class="back-audio-row">
-    {{#AudioMot}}<div class="audio audio-word">{{AudioMot}}</div>{{/AudioMot}}
-    {{#AudioPhrase}}<div class="audio audio-phrase">{{AudioPhrase}}</div>{{/AudioPhrase}}
-  </div>
-  <div class="production-repeat">Écoute, puis répète toute la phrase à voix haute.</div>
-
-  {{#Traduction}}
-  <div class="translation-content">
-    <div class="section-label">Traduction</div>
-    {{Traduction}}
-  </div>
-  {{/Traduction}}
-
-  <div class="back-divider"></div>
-
-  {{#Définitions}}
-  <div class="definition-panel">
-    <div class="section-label">Définition</div>
-    <div class="definitions">{{Définitions}}</div>
-  </div>
-  {{/Définitions}}
-
-  {{#Image}}<div class="back-image">{{Image}}</div>{{/Image}}
-
-  {{#Notes}}
-  <div class="back-notes">
-    <div class="section-label">Notes</div>
-    <div class="notes">{{Notes}}</div>
-  </div>
-  {{/Notes}}
-
-  <div class="production-grading">
-    À revoir : absent, faux ou mauvaise lecture · Difficile : flexion, hésitation ou traduction utilisée ·
-    Bon : forme exacte en quelques secondes · Facile : immédiat et phrase complète fluide
-  </div>
-</div>
-`;
+export const MIGAKU_PRODUCTION_BACK_TEMPLATE = MIGAKU_SHARED_BACK_TEMPLATE;

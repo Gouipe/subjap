@@ -61,19 +61,17 @@ Le recto contient :
 1. la phrase japonaise d’origine, avec la cible remplacée par un blanc de
    longueur fixe ;
 2. la consigne **Prononce le mot manquant à voix haute** ;
-3. la traduction française complète, repliée derrière **Voir la traduction**.
+3. les définitions du mot, affichées directement.
 
-Il ne contient ni image, ni audio, ni indice kana du mot cible. SubJap n’ajoute
-pas de transcription kana supplémentaire à la phrase. Révéler la traduction
-constitue une aide et limite la note à **Difficile**.
+Il ne contient ni traduction, ni image, ni audio, ni indice kana du mot cible.
+SubJap n’ajoute pas de transcription kana supplémentaire à la phrase.
 
 ## Verso de production
 
-Le verso affiche le lemme, sa lecture, la phrase complète, la traduction, les
-définitions, l’image et les notes disponibles. L’audio du mot puis celui de la
-phrase sont placés dans cet ordre afin qu’Anki les lise automatiquement. Une
-consigne demande ensuite de répéter la phrase complète à voix haute. Les deux
-boutons de réécoute restent disponibles.
+Le verso reprend exactement la présentation de la carte de compréhension, sans
+son bloc d’activation de la production : mot, phrase complète, boutons audio,
+traduction repliée, définitions, image et notes disponibles. Il n’affiche aucune
+consigne ni règle de notation.
 
 L’accent de hauteur ne fait pas partie de la notation dans cette première
 version.
@@ -83,7 +81,7 @@ version.
 | Réponse | Critère |
 | --- | --- |
 | À revoir | mot absent ou faux, lecture fausse, réponse obtenue seulement après le verso |
-| Difficile | lemme correct mais flexion ou registre faux, hésitation nette, traduction révélée, synonyme valide ou prononciation imparfaite |
+| Difficile | lemme correct mais flexion ou registre faux, hésitation nette, synonyme valide ou prononciation imparfaite |
 | Bon | forme exacte et lecture correcte, produites en quelques secondes depuis le japonais |
 | Facile | réponse immédiate et fluide, puis phrase complète produite sans hésitation |
 
