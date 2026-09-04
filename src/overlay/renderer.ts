@@ -133,7 +133,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       pointer-events: none;
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
       font-family: ${opts.fontFamily};
-      color: var(--sj-muted);
+      color: var(--sj-text);
       line-height: 1.3;
       text-align: center;
       white-space: normal;
