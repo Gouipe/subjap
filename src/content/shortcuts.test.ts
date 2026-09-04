@@ -341,7 +341,7 @@ describe("CueNavigator", () => {
     removeShortcuts();
   });
 
-  it("keeps q and s targets from the timestamp at each key press", async () => {
+  it("chains mixed rapid navigation from the last requested cue", async () => {
     const navigator = new CueNavigator();
     navigator.observe([cue("one", 5, 8)]);
     navigator.observe([cue("two", 10, 13)]);
@@ -368,7 +368,7 @@ describe("CueNavigator", () => {
     await vi.waitFor(() => expect(seekTo).toHaveBeenCalledTimes(2));
 
     expect(seekTo.mock.calls[0]).toEqual([10, false]);
-    expect(seekTo.mock.calls[1]).toEqual([15, false]);
+    expect(seekTo.mock.calls[1]).toEqual([10, false]);
     removeShortcuts();
   });
 });

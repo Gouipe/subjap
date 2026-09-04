@@ -4,8 +4,10 @@ import { normalizeCueText } from "@/subtitles";
 export type CueShortcutAction = "previous" | "current" | "next";
 
 const NEXT_CUE_OFFSET_SECONDS = 0.05;
-const REEMITTED_CUE_TOLERANCE_SECONDS = 1;
-const SEEK_ANCHOR_TIME_TOLERANCE_SECONDS = 0.5;
+const MATCH_TOLERANCE_SECONDS = 1;
+const PROVISIONAL_CUE_PREROLL_SECONDS = 0.15;
+const PENDING_TTL_MS = 1_500;
+const STALE_DISPLAY_SECONDS = 0.75;
 const COPY_FEEDBACK_DURATION_MS = 1_000;
 const COPY_FEEDBACK_ID = "subjap-copy-feedback";
 
@@ -14,21 +16,33 @@ const COPY_FEEDBACK_ID = "subjap-copy-feedback";
  * revisit them even though Netflix only exposes the currently visible cues.
  */
 export class CueNavigator {
-  private currentCues: SubtitleCue[] = [];
-  private observedCues = new Map<string, SubtitleCue>();
-  private observedKeysByComparison = new Map<string, Set<string>>();
+  private official: SubtitleCue[] = [];
+  private domCues: SubtitleCue[] = [];
+  private displayed: SubtitleCue[] = [];
+  private pending: { cue: SubtitleCue; issuedAtMs: number } | null = null;
   private lastRememberedCues: SubtitleCue[] | null = null;
-  /** Logical destination retained while Netflix rebuilds timed text after seek. */
-  private seekAnchor: SubtitleCue | null = null;
-  /** Action that created the logical destination. */
-  private seekAnchorAction: CueShortcutAction | null = null;
 
   observe(cues: SubtitleCue[]): void {
     const meaningfulCues = cues.filter((cue) => normalizeCueText(cue.text).length > 0);
-    const observed = this.canonicalizeCues(this.applySeekAnchor(meaningfulCues));
-    this.currentCues = observed;
-    for (const cue of observed) {
-      this.storeObservedCue(cue);
+    this.displayed = meaningfulCues.map((cue) => {
+      if (this.findMatchingCue(cue, this.official)) return cue;
+
+      const canonical = this.domCues.find(
+        (candidate) =>
+          this.comparisonText(candidate.text) === this.comparisonText(cue.text) &&
+          this.isSameOccurrence(candidate, cue),
+      );
+      if (canonical) return canonical;
+      this.domCues.push(cue);
+      return cue;
+    });
+    this.domCues.sort((a, b) => a.start - b.start);
+
+    if (
+      this.pending &&
+      this.displayed.some((cue) => this.isSameOccurrence(cue, this.pending!.cue))
+    ) {
+      this.pending = null;
     }
   }
 
@@ -38,185 +52,136 @@ export class CueNavigator {
     // track keeps the same array instance until a new track is loaded.
     if (this.lastRememberedCues === cues) return;
     this.lastRememberedCues = cues;
+    this.official = cues
+      .filter((cue) => normalizeCueText(cue.text).length > 0)
+      .slice()
+      .sort((a, b) => a.start - b.start);
+    this.domCues = this.domCues.filter(
+      (domCue) => !this.findMatchingCue(domCue, this.official),
+    );
 
-    for (const cue of cues) {
-      if (normalizeCueText(cue.text).length === 0) continue;
-      const comparisonKey = this.comparisonKey(cue);
-      const candidateKeys = this.observedKeysByComparison.get(comparisonKey) ?? [];
-      const equivalentKeys = [...candidateKeys].filter((key) => {
-        const observed = this.observedCues.get(key);
-        return observed ? this.isEquivalentCue(observed, cue) : false;
-      });
-
-      // The DOM cue can be provisional (for example, start = observationTime
-      // minus the 150 ms Netflix preroll) while the official track carries the
-      // exact timing for the same occurrence. Replace every provisional alias
-      // with the authoritative cue instead of leaving two timeline entries.
-      for (const key of equivalentKeys) this.removeObservedCue(key);
-      this.storeObservedCue(cue);
-
-      this.currentCues = this.currentCues.map((current) =>
-        this.isEquivalentCue(current, cue) ? cue : current,
-      );
-      if (this.seekAnchor && this.isEquivalentCue(this.seekAnchor, cue)) {
-        this.seekAnchor = cue;
-      }
+    if (this.pending) {
+      const officialCue = this.findMatchingCue(this.pending.cue, this.official);
+      if (officialCue) this.pending = { ...this.pending, cue: officialCue };
     }
   }
 
   reset(): void {
-    this.currentCues = [];
-    this.observedCues.clear();
-    this.observedKeysByComparison.clear();
+    this.official = [];
+    this.domCues = [];
+    this.displayed = [];
+    this.pending = null;
     this.lastRememberedCues = null;
-    this.seekAnchor = null;
-    this.seekAnchorAction = null;
   }
 
-  getSeekTime(action: CueShortcutAction, currentTime: number): number | null {
-    const anchor = this.seekAnchor;
-    const canReuseAnchor =
-      anchor !== null &&
-      (this.seekAnchorAction === action || this.isNearCue(anchor, currentTime));
-    const current = canReuseAnchor ? anchor : this.findCurrentCue(currentTime);
-    if (!current) {
-      if (action !== "previous") return null;
-
-      // During the gap after a cue, Netflix exposes no current cue. Q should
-      // still replay the last subtitle that has already been observed.
-      const previous = [...this.observedCues.values()]
-        .filter((cue) => cue.start <= currentTime)
-        .sort((a, b) => b.start - a.start)[0] ?? null;
-      this.seekAnchor = previous;
-      this.seekAnchorAction = previous ? action : null;
-      return previous?.start ?? null;
+  getSeekTime(action: CueShortcutAction, pressedAt: number): number | null {
+    const timeline = this.timeline();
+    const now = performance.now();
+    if (this.pending && now - this.pending.issuedAtMs >= PENDING_TTL_MS) {
+      this.pending = null;
     }
 
-    if (action === "current") {
-      this.seekAnchor = current;
-      this.seekAnchorAction = action;
-      return current.start;
+    let base: SubtitleCue | null = null;
+    let source: "official" | "dom" | "pending" | "gap" = "gap";
+    if (this.pending) {
+      base = this.pending.cue;
+      source = "pending";
+    } else if (this.displayed.length > 0) {
+      base = this.findMatchingCue(this.displayed[0]!, timeline);
+      if (
+        base &&
+        base.endConfirmed !== false &&
+        pressedAt > base.end + STALE_DISPLAY_SECONDS
+      ) {
+        base = null;
+      }
+      if (base) source = this.official.includes(base) ? "official" : "dom";
     }
 
-    const ordered = [...this.observedCues.values()].sort((a, b) => a.start - b.start);
+    let targetCue: SubtitleCue | null = null;
+    let targetTime: number | null = null;
 
-    if (action === "previous") {
-      const previous = [...ordered].reverse().find((cue) => cue.start < current.start);
-      this.seekAnchor = previous ?? null;
-      this.seekAnchorAction = previous ? action : null;
-      return previous?.start ?? null;
+    if (base) {
+      const baseIndex = this.indexOfCue(base, timeline);
+      if (action === "current") {
+        targetCue = base;
+      } else if (action === "previous") {
+        targetCue = baseIndex > 0 ? timeline[baseIndex - 1] ?? null : null;
+      } else {
+        targetCue = baseIndex >= 0 ? timeline[baseIndex + 1] ?? null : null;
+        if (
+          !targetCue &&
+          base.endConfirmed !== false &&
+          base.end > base.start
+        ) {
+          targetTime = Math.max(base.end, pressedAt) + NEXT_CUE_OFFSET_SECONDS;
+        }
+      }
+    } else if (action === "next") {
+      targetCue = timeline.find((cue) => cue.start > pressedAt) ?? null;
+    } else {
+      targetCue = [...timeline].reverse().find((cue) => cue.start <= pressedAt) ?? null;
     }
 
-    const next = ordered.find((cue) => cue.start > current.start);
-    if (next) {
-      this.seekAnchor = next;
-      this.seekAnchorAction = action;
-      return next.start;
+    if (targetCue) {
+      targetTime = targetCue.start;
+      this.pending = { cue: targetCue, issuedAtMs: now };
     }
 
-    this.seekAnchor = current;
-    this.seekAnchorAction = action;
-    return Math.max(current.end, currentTime) + NEXT_CUE_OFFSET_SECONDS;
+    console.debug(
+      `[SubJap] nav ${action} at=${pressedAt} base=${base?.start ?? "gap"} ` +
+        `src=${source} target=${targetTime ?? "null"} ` +
+        `official=${this.official.length} dom=${this.domCues.length}`,
+    );
+    return targetTime;
   }
 
   cancelPendingSeek(): void {
-    this.seekAnchor = null;
-    this.seekAnchorAction = null;
+    this.pending = null;
   }
 
-  private findCurrentCue(currentTime: number): SubtitleCue | null {
-    const active = this.currentCues.find(
-      (cue) => currentTime >= cue.start && currentTime < cue.end,
+  private timeline(): SubtitleCue[] {
+    const uncoveredDomCues = this.domCues.filter(
+      (domCue) => !this.findMatchingCue(domCue, this.official),
     );
-    if (active) return active;
-
-    const observedActive = [...this.observedCues.values()].find(
-      (cue) => currentTime >= cue.start && currentTime < cue.end,
-    );
-    return observedActive ?? this.currentCues[0] ?? null;
+    return [...this.official, ...uncoveredDomCues].sort((a, b) => a.start - b.start);
   }
 
-  private isNearCue(cue: SubtitleCue, currentTime: number): boolean {
-    if (!Number.isFinite(currentTime)) return false;
-    const end = Math.max(cue.start, cue.end);
+  private indexOfCue(cue: SubtitleCue, timeline: SubtitleCue[]): number {
+    const exactIndex = timeline.indexOf(cue);
+    if (exactIndex >= 0) return exactIndex;
+    const matching = this.findMatchingCue(cue, timeline);
+    return matching ? timeline.indexOf(matching) : -1;
+  }
+
+  private findMatchingCue(
+    cue: SubtitleCue,
+    candidates: SubtitleCue[],
+  ): SubtitleCue | null {
     return (
-      (currentTime >= cue.start && currentTime < end) ||
-      Math.abs(currentTime - cue.start) <= SEEK_ANCHOR_TIME_TOLERANCE_SECONDS
+      candidates
+        .filter((candidate) => this.isSameOccurrence(candidate, cue))
+        .sort(
+          (a, b) =>
+            Math.abs(a.start - cue.start) - Math.abs(b.start - cue.start),
+        )[0] ?? null
     );
   }
 
-  private keyFor(cue: SubtitleCue): string {
-    return `${cue.id}\u0000${cue.start}\u0000${cue.end}\u0000${cue.text}`;
+  private isSameOccurrence(a: SubtitleCue, b: SubtitleCue): boolean {
+    const [aStart, aEnd] = this.cueExtent(a);
+    const [bStart, bEnd] = this.cueExtent(b);
+    const startsNear = Math.abs(a.start - b.start) <= MATCH_TOLERANCE_SECONDS;
+    const rangesOverlap = aStart < bEnd && bStart < aEnd;
+    return startsNear || rangesOverlap;
   }
 
-  private applySeekAnchor(cues: SubtitleCue[]): SubtitleCue[] {
-    const anchor = this.seekAnchor;
-    if (!anchor || cues.length === 0) return cues;
-
-    let matched = false;
-    const stabilized = cues.map((cue) => {
-      if (!this.isEquivalentCue(cue, anchor)) {
-        return cue;
-      }
-      matched = true;
-      return anchor;
-    });
-
-    if (!matched) {
-      this.seekAnchor = null;
-      this.seekAnchorAction = null;
+  private cueExtent(cue: SubtitleCue): [number, number] {
+    if (cue.endConfirmed === false) {
+      const point = cue.start + PROVISIONAL_CUE_PREROLL_SECONDS;
+      return [point, point];
     }
-    return stabilized;
-  }
-
-  private canonicalizeCues(cues: SubtitleCue[]): SubtitleCue[] {
-    return cues.map((cue) => {
-      const candidateKeys = this.observedKeysByComparison.get(this.comparisonKey(cue)) ?? [];
-      const equivalent = [...candidateKeys]
-        .map((key) => this.observedCues.get(key))
-        .find((candidate): candidate is SubtitleCue =>
-          candidate !== undefined && this.isEquivalentCue(candidate, cue),
-        );
-      return equivalent ?? cue;
-    });
-  }
-
-  private storeObservedCue(cue: SubtitleCue): void {
-    const key = this.keyFor(cue);
-    if (this.observedCues.get(key) === cue) return;
-    this.removeObservedCue(key);
-    this.observedCues.set(key, cue);
-    const comparisonKey = this.comparisonKey(cue);
-    const keys = this.observedKeysByComparison.get(comparisonKey) ?? new Set<string>();
-    keys.add(key);
-    this.observedKeysByComparison.set(comparisonKey, keys);
-  }
-
-  private removeObservedCue(key: string): void {
-    const cue = this.observedCues.get(key);
-    if (!cue) return;
-    this.observedCues.delete(key);
-    const comparisonKey = this.comparisonKey(cue);
-    const keys = this.observedKeysByComparison.get(comparisonKey);
-    keys?.delete(key);
-    if (keys?.size === 0) this.observedKeysByComparison.delete(comparisonKey);
-  }
-
-  private comparisonKey(cue: SubtitleCue): string {
-    return (cue.language ?? "") + "\u0000" + this.comparisonText(cue.text);
-  }
-
-  private isEquivalentCue(a: SubtitleCue, b: SubtitleCue): boolean {
-    const aEnd = Math.max(a.start, a.end);
-    const bEnd = Math.max(b.start, b.end);
-    const startsNear =
-      Math.abs(a.start - b.start) <= REEMITTED_CUE_TOLERANCE_SECONDS;
-    const rangesOverlap = a.start < bEnd && b.start < aEnd;
-    return (
-      a.language === b.language &&
-      this.comparisonText(a.text) === this.comparisonText(b.text) &&
-      (startsNear || rangesOverlap)
-    );
+    return [cue.start, Math.max(cue.start, cue.end)];
   }
 
   /** Netflix rebuilds the same Japanese cue with unstable presentation spaces. */
@@ -385,6 +350,7 @@ export function installPlaybackShortcuts(
     if (!action) return;
 
     event.preventDefault();
+    event.stopImmediatePropagation();
     const resume = !adapter.isPaused();
     const pressedAt = adapter.getCurrentTime();
     const runSeek = async (): Promise<void> => {

@@ -152,6 +152,10 @@ const EMIT_DEBOUNCE_MS = 60;
 const FALLBACK_CUE_PREROLL_SECONDS = 0.15;
 /** Match the brief timed-text disappearance caused by a seek to its target. */
 const SEEK_TARGET_TOLERANCE_SECONDS = 0.5;
+/** Accept the media element's seeked event when Netflix lands near the target. */
+const SEEKED_TARGET_TOLERANCE_SECONDS = 1;
+/** Bound suppression when Netflix drops or coalesces a programmatic seek. */
+const SEEK_LANDING_TIMEOUT_MS = 2_500;
 
 function compactCueLines(lines: string[]): string {
   return compactCueText(lines.join(""));
@@ -163,6 +167,15 @@ function compactCueText(text: string): string {
 
 function hasMeaningfulCueText(text: string): boolean {
   return normalizeCueText(text).length > 0;
+}
+
+function overlapsMostOfShorterCue(a: SubtitleCue, b: SubtitleCue): boolean {
+  const overlap = Math.max(0, Math.min(a.end, b.end) - Math.max(a.start, b.start));
+  const shorterDuration = Math.min(
+    Math.max(0, a.end - a.start),
+    Math.max(0, b.end - b.start),
+  );
+  return shorterDuration > 0 && overlap > shorterDuration / 2;
 }
 
 /**
@@ -231,10 +244,12 @@ export class NetflixAdapter implements PlatformAdapter {
   private cueReplaySession: NetflixCueReplaySession | null = null;
   private nextDomCueId = 0;
   private pendingSeekTarget: number | null = null;
+  private seekLandingTimer: ReturnType<typeof setTimeout> | null = null;
   private cueCallback: ((cues: SubtitleCue[]) => void) | null = null;
   private trackUnsubscriber: (() => void) | null = null;
   private videoHuntTimer: ReturnType<typeof setInterval> | null = null;
   private readonly timedTextTracks = new Map<string, SubtitleCue[]>();
+  private readonly timedTextBodies = new Map<string, Map<string, SubtitleCue[]>>();
   private localTranslationCues: SubtitleCue[] = [];
   private localTranslationOffset = 0;
   private localSubtitleLoadRevision = 0;
@@ -246,6 +261,23 @@ export class NetflixAdapter implements PlatformAdapter {
   private messageListener: ((event: MessageEvent) => void) | null = null;
   private timeupdateVideo: HTMLVideoElement | null = null;
   private readonly onTimeUpdate = () => this.emitCues();
+  private readonly onSeeked = (event: Event) => {
+    this.ensurePlaybackSession();
+    const target = this.pendingSeekTarget;
+    if (target === null) return;
+    const video = event.currentTarget;
+    const currentTime = video instanceof HTMLVideoElement
+      ? video.currentTime
+      : this.getCurrentTime();
+    if (Math.abs(currentTime - target) > SEEKED_TARGET_TOLERANCE_SECONDS) return;
+
+    const destinationCue = this.landSeek(target);
+    if (destinationCue && this.cueCallback) {
+      this.cueCallback(this.composeCues([destinationCue]));
+      return;
+    }
+    this.emitCues(target);
+  };
   private storageListener: Parameters<typeof chrome.storage.onChanged.addListener>[0] | null = null;
 
   /** Last native-subtitle visibility request (re-applied on container swap). */
@@ -495,6 +527,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.pendingObservationTime = null;
     this.activeDomCue = null;
     this.pendingSeekTarget = null;
+    this.clearSeekLandingTimer();
     if (this.videoHuntTimer !== null) {
       clearInterval(this.videoHuntTimer);
       this.videoHuntTimer = null;
@@ -597,9 +630,7 @@ export class NetflixAdapter implements PlatformAdapter {
       ) {
         return;
       }
-      this.pendingSeekTarget = null;
-      this.activeDomCue = null;
-      const destinationCue = this.getTrackCueAt("ja", observationTime);
+      const destinationCue = this.landSeek(observationTime);
       if (destinationCue) {
         cb(this.composeCues([destinationCue]));
         return;
@@ -806,10 +837,10 @@ export class NetflixAdapter implements PlatformAdapter {
       id: `netflix-${language}-${index}-${cue.id}`,
       language,
     }));
-    const previous = this.timedTextTracks.get(language) ?? [];
-    const byKey = new Map(previous.map((cue) => [`${cue.start}:${cue.end}:${cue.text}`, cue]));
-    for (const cue of cues) byKey.set(`${cue.start}:${cue.end}:${cue.text}`, cue);
-    this.timedTextTracks.set(language, [...byKey.values()].sort((a, b) => a.start - b.start));
+    const bodies = this.timedTextBodies.get(language) ?? new Map<string, SubtitleCue[]>();
+    bodies.set(data.url, cues);
+    this.timedTextBodies.set(language, bodies);
+    this.rebuildTimedTextTrack(language);
     if (language === "ja") {
       this.japaneseCuesByText.clear();
       for (const cue of this.timedTextTracks.get("ja") ?? []) {
@@ -820,6 +851,49 @@ export class NetflixAdapter implements PlatformAdapter {
       }
     }
     this.emitCues();
+  }
+
+  private rebuildTimedTextTrack(language: string): void {
+    const accepted: SubtitleCue[] = [];
+    for (const body of this.timedTextBodies.get(language)?.values() ?? []) {
+      // Cues within one body may intentionally overlap (for example, two
+      // speakers). Only reject aliases already supplied by an earlier body.
+      const earlierBodies = accepted.slice();
+      for (const cue of body) {
+        if (
+          earlierBodies.some((acceptedCue) =>
+            overlapsMostOfShorterCue(acceptedCue, cue),
+          )
+        ) {
+          continue;
+        }
+        accepted.push(cue);
+      }
+    }
+    this.timedTextTracks.set(language, accepted.sort((a, b) => a.start - b.start));
+  }
+
+  private landSeek(observationTime: number): SubtitleCue | null {
+    this.pendingSeekTarget = null;
+    this.clearSeekLandingTimer();
+    this.activeDomCue = null;
+    return this.getTrackCueAt("ja", observationTime);
+  }
+
+  private clearSeekLandingTimer(): void {
+    if (this.seekLandingTimer === null) return;
+    clearTimeout(this.seekLandingTimer);
+    this.seekLandingTimer = null;
+  }
+
+  private armSeekLandingTimeout(target: number): void {
+    this.clearSeekLandingTimer();
+    this.seekLandingTimer = setTimeout(() => {
+      this.seekLandingTimer = null;
+      if (this.pendingSeekTarget !== target) return;
+      this.landSeek(target);
+      this.scheduleEmit();
+    }, SEEK_LANDING_TIMEOUT_MS);
   }
 
   private finalizeActiveDomCue(observationTime: number): void {
@@ -924,6 +998,7 @@ export class NetflixAdapter implements PlatformAdapter {
       this.cueReplaySession = null;
       this.pendingObservationTime = null;
       this.pendingSeekTarget = null;
+      this.clearSeekLandingTimer();
       this.scheduleEmit();
     });
     this.cueReplaySession = session;
@@ -935,16 +1010,23 @@ export class NetflixAdapter implements PlatformAdapter {
     if (this.cueReplaySession) {
       return this.seekTransport.seek(timeSeconds, resume);
     }
+    this.clearSeekLandingTimer();
     this.pendingSeekTarget = timeSeconds;
     return this.seekTransport.seek(timeSeconds, resume).then(
       (accepted) => {
-        if (!accepted) {
+        if (this.pendingSeekTarget !== timeSeconds) return accepted;
+        if (accepted) {
+          this.armSeekLandingTimeout(timeSeconds);
+        } else {
           this.pendingSeekTarget = null;
         }
         return accepted;
       },
       (error: unknown) => {
-        this.pendingSeekTarget = null;
+        if (this.pendingSeekTarget === timeSeconds) {
+          this.pendingSeekTarget = null;
+          this.clearSeekLandingTimer();
+        }
         throw error;
       },
     );
@@ -1015,6 +1097,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.videoObserver = null;
     this.video = null;
     this.timedTextTracks.clear();
+    this.timedTextBodies.clear();
     this.localTranslationCues = [];
     this.localTranslationOffset = 0;
     this.japaneseCuesByText.clear();
@@ -1023,8 +1106,10 @@ export class NetflixAdapter implements PlatformAdapter {
     this.cueReplaySession = null;
     if (this.timeupdateVideo) {
       this.timeupdateVideo.removeEventListener("timeupdate", this.onTimeUpdate);
+      this.timeupdateVideo.removeEventListener("seeked", this.onSeeked);
       this.timeupdateVideo = null;
     }
+    this.clearSeekLandingTimer();
   }
 
   /**
@@ -1039,12 +1124,14 @@ export class NetflixAdapter implements PlatformAdapter {
     this.playbackSessionId = sessionId;
     this.playbackSessionGeneration += 1;
     this.timedTextTracks.clear();
+    this.timedTextBodies.clear();
     this.japaneseCuesByText.clear();
     this.requestedTimedTextUrls.clear();
     this.cueReplaySession?.close();
     this.cueReplaySession = null;
     this.activeDomCue = null;
     this.pendingSeekTarget = null;
+    this.clearSeekLandingTimer();
     this.pendingObservationTime = null;
     this.nextDomCueId = 0;
     void this.loadLocalTranslation();
@@ -1088,14 +1175,21 @@ export class NetflixAdapter implements PlatformAdapter {
 
     this.videoObserver = new MutationObserver(() => {
       if (!this.video?.isConnected) {
+        if (this.timeupdateVideo) {
+          this.timeupdateVideo.removeEventListener("timeupdate", this.onTimeUpdate);
+          this.timeupdateVideo.removeEventListener("seeked", this.onSeeked);
+          this.timeupdateVideo = null;
+        }
         this.video = null;
         this.activeDomCue = null;
         this.pendingSeekTarget = null;
+        this.clearSeekLandingTimer();
         // Try to re-discover the video.
         for (const sel of NETFLIX_VIDEO_SELECTORS) {
           const el = document.querySelector(sel);
           if (el instanceof HTMLVideoElement) {
             this.video = el;
+            this.attachTimeUpdateListener();
             return;
           }
         }
@@ -1113,7 +1207,9 @@ export class NetflixAdapter implements PlatformAdapter {
     const video = this.video;
     if (!video || this.timeupdateVideo === video) return;
     this.timeupdateVideo?.removeEventListener("timeupdate", this.onTimeUpdate);
+    this.timeupdateVideo?.removeEventListener("seeked", this.onSeeked);
     video.addEventListener("timeupdate", this.onTimeUpdate);
+    video.addEventListener("seeked", this.onSeeked);
     this.timeupdateVideo = video;
   }
 }

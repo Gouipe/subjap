@@ -219,6 +219,13 @@ Les événements sont délégués depuis le document :
 - clic : popover épinglée jusqu’à `Escape` ou clic extérieur ;
 - popover : définition, bascule connu/inconnu et accès au mining.
 
+La navigation `Q` / `S` / `D` prend toujours comme base la cue effectivement
+affichée : elle vise respectivement la cue précédente, son début, puis la cue
+suivante. Dans un silence, `Q` et `S` rejouent la dernière cue passée tandis que
+`D` rejoint la prochaine. Une timeline unique privilégie les bornes exactes de
+la piste officielle Netflix et ne conserve les observations DOM que lorsqu'elles
+ne recouvrent aucune cue officielle.
+
 La recherche utilise `dict:lookup` vers le service worker. Celui-ci lit alors
 JMdict depuis IndexedDB par headword, puis par reading. Le module
 `src/dictionary/index.ts` fournit en parallèle un index mémoire headword /

@@ -213,6 +213,8 @@ export function parseTTML(content: string, language?: string): SubtitleCue[] {
     const cueEnd = parsedEnd ?? (start !== null && duration !== null ? start + duration : null);
     const text = (match[2] ?? "")
       .replace(/<(?:(?:[\w-]+):)?br\s*\/?\s*>/gi, "\n")
+      .replace(/<(?:[\w-]+:)?span\b[^>]*\btts:ruby\s*=\s*["'](?:text|delimiter)["'][^>]*>[\s\S]*?<\/(?:[\w-]+:)?span>/gi, "")
+      .replace(/<rt\b[^>]*>[\s\S]*?<\/rt>/gi, "")
       .replace(/<[^>]+>/g, "")
       .trim();
     if (start === null || cueEnd === null || !text) continue;

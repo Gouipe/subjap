@@ -417,6 +417,10 @@ function cueSignature(cues: SubtitleCue[]): string {
 
 /** Start the newest cue immediately; older async work may finish but cannot commit. */
 function enqueueCues(cues: SubtitleCue[]): void {
+  // The official track can arrive without changing the visible cue payload.
+  // Seed navigation before listening-mode and signature deduplication.
+  rememberNavigationCues();
+
   // Seeking back to the beginning of an exercise can make Netflix emit a
   // transient empty/incomplete cue set. Keep the frozen exercise sentence
   // and its translation while the listening panel owns playback.
@@ -441,10 +445,6 @@ function enqueueCues(cues: SubtitleCue[]): void {
 // ---------------------------------------------------------------------------
 
 async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> {
-  // Netflix can provide its complete official track even when this content
-  // script was loaded in the middle of the current phrase. Seed navigation
-  // before render deduplication so Q can still reach the unseen predecessor.
-  rememberNavigationCues();
   lastCues = cues;
 
   const overlayInstance = ensureOverlay();
