@@ -54,8 +54,16 @@ courante) sur une phrase dont tous les mots sont connus ou ignorés. Les noms
 de locuteur ou indications entre parenthèses dans les sous-titres CC sont
 ignorés. La phrase doit aussi être suffisamment longue et structurée pour
 constituer un exercice.
+Cela fonctionne aussi en pause : **Q** ou **S** prépare l’exercice sans
+reprendre la vidéo, puis **A** démarre l’écoute. Pendant la lecture, l’exercice
+accompagne la phrase rejouée et met la vidéo en pause à sa fin.
+Sans piste japonaise complète, **S** fonctionne aussi sur une phrase encore
+en cours : SubJap observe sa disparition pour en déterminer la fin, puis
+met la vidéo en pause. Aucun temps d'écoute arbitraire n'est ajouté.
 Quand la traduction secondaire est masquée, le survol de la ligne japonaise la
-révèle également ; dans l’exercice, **Z** affiche directement les deux langues.
+révèle également. À la fin de l’écoute, **Z** affiche le japonais et **E** les
+sous-titres secondaires, indépendamment et sans reprendre la vidéo. **R**
+continue la lecture ; **A** rejoue la phrase en masquant à nouveau les deux langues.
 
 L’enrichissement utilise Gemini Nano directement dans Chrome : aucun texte ni
 vocabulaire personnel n’est envoyé à un service distant. La première utilisation

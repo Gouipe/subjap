@@ -25,6 +25,7 @@ import { MiningModal, VideoAudioCapture } from "@/mining";
 import { ListeningMode } from "./listening-mode";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
 import { markParentheticalTokens, normalizeCueText } from "@/subtitles";
+import { subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
 import { tokenizeCue } from "@/tokenizer/cue";
@@ -78,7 +79,13 @@ let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
 let listeningMode: ListeningMode | null = null;
-let listeningActivationRequest: { cue: SubtitleCue; sessionId: string | null } | null = null;
+let listeningActivationRequest: {
+  cue: SubtitleCue;
+  sessionId: string | null;
+  resume: boolean;
+  accepted: boolean;
+  arrived: boolean;
+} | null = null;
 let nativeSubtitlesHidden = false;
 let nativeSubtitleReplacementReady = false;
 let runtimeUnavailable = false;
@@ -417,6 +424,7 @@ function enqueueCues(cues: SubtitleCue[]): void {
   // The official track can arrive without changing the visible cue payload.
   // Seed navigation before listening-mode and signature deduplication.
   rememberNavigationCues();
+  observeListeningSeekArrival(cues);
 
   // Seeking back to the beginning of an exercise can make Netflix emit a
   // transient empty/incomplete cue set. Keep the frozen exercise sentence
@@ -427,7 +435,11 @@ function enqueueCues(cues: SubtitleCue[]): void {
   }
 
   const signature = cueSignature(cues);
-  if (signature === lastSignature) return;
+  if (signature === lastSignature) {
+    // S can land on exactly the same subtitle, without another render pass.
+    maybeTriggerListeningMode(lastRenderedCues);
+    return;
+  }
   lastSignature = signature;
   const revision = ++cueRevision;
   void handleCues(cues, revision).catch((err: unknown) => {
@@ -679,17 +691,38 @@ function isInterestingListeningCue(rendered: RenderedCue): boolean {
   return true;
 }
 
-function listeningCueKey(cue: SubtitleCue): string {
-  return `${cue.id}\u0000${cue.start}\u0000${cue.end}`;
-}
-
-function requestListeningMode(cue: SubtitleCue): void {
-  if (!overlayOptions.activeListeningMode) return;
-  listeningActivationRequest = {
+function requestListeningMode(cue: SubtitleCue, resume: boolean): void | ((accepted: boolean) => void) {
+  if (!overlayOptions.activeListeningMode || listeningMode?.isActive) return;
+  const request: NonNullable<typeof listeningActivationRequest> = {
     cue,
     sessionId: adapter.getNavigationSessionId?.() ?? null,
+    resume,
+    accepted: false,
+    arrived: false,
   };
-  maybeTriggerListeningMode(lastRenderedCues);
+  listeningActivationRequest = request;
+  return (accepted) => {
+    if (listeningActivationRequest !== request) return;
+    if (!accepted) {
+      listeningActivationRequest = null;
+      return;
+    }
+    request.accepted = true;
+    maybeTriggerListeningMode(lastRenderedCues);
+  };
+}
+
+function observeListeningSeekArrival(cues: SubtitleCue[]): void {
+  const request = listeningActivationRequest;
+  if (!request || request.arrived) return;
+  // Only a fresh adapter emission confirms the target, not the old overlay or
+  // Netflix's early acknowledgement of a seek command.
+  const time = adapter.getCurrentTime();
+  if (!currentVideo?.seeking && cues.some((cue) =>
+    isJapaneseTrack(cue.language) && isRequestedListeningCue(cue, request.cue) &&
+    time >= cue.start && (cue.endConfirmed === false || time < cue.end))) {
+    request.arrived = true;
+  }
 }
 
 function isParentheticalOnlyCue(cue: SubtitleCue): boolean {
@@ -701,7 +734,7 @@ function isRequestedListeningCue(
   candidate: SubtitleCue,
   requested: SubtitleCue,
 ): boolean {
-  if (listeningCueKey(candidate) === listeningCueKey(requested)) return true;
+  if (subtitleCueKey(candidate) === subtitleCueKey(requested)) return true;
   if (!isParentheticalOnlyCue(requested)) return false;
   return candidate.start < requested.end && requested.start < candidate.end;
 }
@@ -718,6 +751,7 @@ function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
     listeningActivationRequest = null;
     return;
   }
+  if (!request.accepted || !request.arrived) return;
 
   // CC speaker labels such as "(ミカ)" can arrive as a separate cue. They are
   // already ignored inside a cue by isParenthetical; ignore label-only cues
@@ -731,12 +765,18 @@ function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
   if (candidates.length !== 1) return;
   const candidate = candidates[0];
   if (!candidate || !isRequestedListeningCue(candidate.cue, request.cue)) return;
+  // The interactive first paint is provisional. A missing word state here
+  // means "still loading", not "unknown"; retain the request for enrichment.
+  if (candidate.spans.some((span) => span.isPending)) return;
+  const unresolvedEnd = candidate.cue.endConfirmed === false;
+  if (unresolvedEnd && (candidate.cue.source?.kind !== "dom" || !adapter.getNavigationCues)) return;
   listeningActivationRequest = null;
-  if (candidate.cue.endConfirmed === false) return;
+  if (!unresolvedEnd &&
+    (candidate.cue.end <= candidate.cue.start || adapter.getCurrentTime() >= candidate.cue.end)) return;
   if (!isAllKnownOrIgnored(candidate.spans)) return;
   if (!isInterestingListeningCue(candidate)) return;
 
-  listeningMode.open(candidate);
+  listeningMode.open(candidate, request.resume);
 }
 
 // ---------------------------------------------------------------------------
@@ -1068,8 +1108,10 @@ const removePlaybackShortcuts = installPlaybackShortcuts(
   adapter,
   cueNavigator,
   (cue, action, resume) => {
-    if (resume && (action === "previous" || action === "current")) {
-      requestListeningMode(cue);
+    listeningActivationRequest = null;
+    listeningMode?.cancel();
+    if (cue && (action === "previous" || action === "current")) {
+      return requestListeningMode(cue, resume);
     }
   },
 );

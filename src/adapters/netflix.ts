@@ -639,7 +639,9 @@ export class NetflixAdapter implements PlatformAdapter {
         this.activeDomCue = { ...cue };
         this.pendingDomLanding = null;
       } else if (performance.now() < expiresAt) {
-        cb(this.composeCues([cue]));
+        // A remembered subtitle is a seek target, not evidence of what Netflix
+        // is showing. Publishing it here can start an exercise in a silence.
+        cb(this.composeCues([]));
         return;
       } else {
         this.pendingDomLanding = null;
@@ -673,6 +675,17 @@ export class NetflixAdapter implements PlatformAdapter {
     }
 
     this.finalizeActiveDomCue(observationTime);
+    // Re-observing a known interval during replay must retain its identity.
+    // This is exact text inside confirmed bounds, never a proximity merge.
+    const historical = this.domHistory.find((cue) =>
+      cue.endConfirmed !== false && cue.start <= observationTime && observationTime < cue.end &&
+      (knownStart === null || knownStart === cue.start) &&
+      compactSubtitleText(cue.text) === compactSubtitleText(text));
+    if (historical) {
+      this.activeDomCue = { ...historical };
+      cb(this.composeCues([cueSnapshot(this.activeDomCue)]));
+      return;
+    }
     // A changed visible block is a new observation. Shared words/lines do not
     // prove that A -> A+B -> B is one spoken sentence.
     const start = knownStart ?? Math.max(0, observationTime);
@@ -799,7 +812,7 @@ export class NetflixAdapter implements PlatformAdapter {
     const destination = this.domHistory.find((cue) => cue.start === observationTime);
     if (destination) {
       this.pendingDomLanding = { cue: destination, expiresAt: performance.now() + SEEK_LANDING_TIMEOUT_MS };
-      return destination;
+      // Wait for emitCues to confirm the native text at the destination.
     }
     return null;
   }
@@ -861,8 +874,16 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private rememberDomCue(cue: SubtitleCue): void {
+    const text = compactSubtitleText(cue.text);
     this.domHistory = [
-      ...this.domHistory.filter((existing) => existing.id !== cue.id), cueSnapshot(cue),
+      ...this.domHistory.filter((existing) => existing.id !== cue.id && !(
+        // A continuous, complete replay supersedes a partial observation made
+        // after loading/seeking into this same subtitle. Separate occurrences
+        // outside its interval and overlapping different speakers stay intact.
+        cue.endConfirmed !== false && cue.start <= existing.start && existing.start < cue.end &&
+        compactSubtitleText(existing.text) === text
+      )),
+      ...(cue.endConfirmed === false || cue.end > cue.start ? [cueSnapshot(cue)] : []),
     ].sort((a, b) => a.start - b.start);
   }
 
@@ -963,6 +984,12 @@ export class NetflixAdapter implements PlatformAdapter {
     if (this.cueReplaySession) {
       return this.seekTransport.seek(timeSeconds, resume);
     }
+    // Discard a mutation batch captured before the seek. It must not timestamp
+    // the destination's text using the previous playback position.
+    if (this.debounceTimer !== null) clearTimeout(this.debounceTimer);
+    this.debounceTimer = null;
+    this.pendingObservationTime = null;
+    this.activeDomCue = null;
     this.clearSeekLandingTimer();
     this.pendingSeekTarget = timeSeconds;
     return this.seekTransport.seek(timeSeconds, resume).then(

@@ -238,11 +238,11 @@ export function installPlaybackShortcuts(
   doc: Document,
   adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo" | "getNavigationSessionId">,
   navigator: CueNavigator,
-  onSeekAccepted?: (
-    cue: SubtitleCue,
+  onSeekRequested?: (
+    cue: SubtitleCue | null,
     action: CueShortcutAction,
     resume: boolean,
-  ) => void,
+  ) => void | ((accepted: boolean) => void),
 ): () => void {
   let removed = false;
   let seekQueue: Promise<void> = Promise.resolve();
@@ -271,18 +271,28 @@ export function installPlaybackShortcuts(
     if (seekTime === null) return;
     const targetCue = navigator.getPendingCue();
     const sessionId = adapter.getNavigationSessionId?.();
+    // Release any exercise playback owner before a new navigation can run.
+    const complete = onSeekRequested?.(targetCue, action, resume);
     const runSeek = async (): Promise<void> => {
-      if (removed || sessionId !== adapter.getNavigationSessionId?.()) return;
+      if (removed || sessionId !== adapter.getNavigationSessionId?.()) {
+        complete?.(false);
+        return;
+      }
 
       try {
         const accepted = await adapter.seekTo(seekTime, resume);
+        if (removed || sessionId !== adapter.getNavigationSessionId?.()) {
+          complete?.(false);
+          return;
+        }
+        complete?.(accepted);
         if (accepted) {
-          if (targetCue) onSeekAccepted?.(targetCue, action, resume);
           return;
         }
         navigator.cancelPendingSeek();
         console.warn("[SubJap] Playback seek was not accepted by the adapter");
       } catch (err: unknown) {
+        complete?.(false);
         navigator.cancelPendingSeek();
         console.warn("[SubJap] Playback seek failed:", err);
       }

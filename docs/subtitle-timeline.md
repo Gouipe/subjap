@@ -65,6 +65,12 @@ La fin reste provisoire jusqu’à la disparition ou au remplacement du bloc.
 Une fin résolue met à jour l’historique par identité, sans modifier les
 instantanés déjà remis aux consommateurs.
 
+Une relecture à l'intérieur d'un intervalle DOM confirmé réutilise son identité
+si le texte exact correspond. Lorsqu'une relecture complète retrouve le début
+plus ancien d'une phrase, elle remplace les observations partielles de ce même
+texte contenues dans son intervalle. Les occurrences séparées dans le temps et
+les textes différents restent distincts.
+
 ## Navigation et capture
 
 `CueNavigator` reçoit les segments publiés et la chronologie de l’adaptateur.
@@ -80,6 +86,11 @@ commandes en attente d’un ancien contexte sont ignorées. Les événements
 les transitions du lecteur comme une lecture continue. Sans piste officielle,
 un retour vers un début historique connu réutilise cette observation et attend
 son texte, avec un délai maximal.
+Pendant cette attente, la cible historique n'est pas publiée comme sous-titre :
+le lecteur doit effectivement réafficher le texte avant de pouvoir déclencher
+l'écoute active. Q/S/D ferme l'exercice précédent et annule sa surveillance
+avant tout nouveau déplacement. La fin d'écoute dépend de l'horloge vidéo,
+afin qu'un chargement ou un seek ne raccourcisse pas la phrase.
 
 Netflix accepte des millisecondes entières : un début plus précis est arrondi
 vers le haut, de moins d’une milliseconde, pour éviter de rester juste avant le
