@@ -15,6 +15,15 @@ export interface SubtitleCue {
   endConfirmed?: boolean;
   text: string; // texte brut (kana/kanji)
   language?: string;
+  /** Origin is retained by rendering, navigation and frozen mining snapshots. */
+  source?: Readonly<{
+    kind: "track" | "dom" | "text-track";
+    sessionId: string;
+    trackId?: string;
+    resourceId?: string;
+    segmentId?: string;
+    startPrecision: "exact" | "estimated";
+  }>;
 }
 
 export interface SubtitleTranslation {

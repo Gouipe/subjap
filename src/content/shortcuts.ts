@@ -1,192 +1,95 @@
 import type { PlatformAdapter, SubtitleCue } from "@/core/types";
 import { normalizeCueText } from "@/subtitles";
+import { primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 
 export type CueShortcutAction = "previous" | "current" | "next";
 
 const NEXT_CUE_OFFSET_SECONDS = 0.05;
-const MATCH_TOLERANCE_SECONDS = 1;
-const PROVISIONAL_CUE_PREROLL_SECONDS = 0.15;
 const PENDING_TTL_MS = 1_500;
 const STALE_DISPLAY_SECONDS = 0.75;
 const COPY_FEEDBACK_DURATION_MS = 1_000;
 const COPY_FEEDBACK_ID = "subjap-copy-feedback";
 
-/**
- * Keeps the subtitle cues observed during playback so keyboard navigation can
- * revisit them even though Netflix only exposes the currently visible cues.
- */
+/** Navigation consumes the adapter's segments; it never reconciles sources. */
 export class CueNavigator {
-  private official: SubtitleCue[] = [];
-  private domCues: SubtitleCue[] = [];
+  private cues: SubtitleCue[] = [];
   private displayed: SubtitleCue[] = [];
   private pending: { cue: SubtitleCue; issuedAtMs: number } | null = null;
   private lastRememberedCues: SubtitleCue[] | null = null;
 
   observe(cues: SubtitleCue[]): void {
-    const meaningfulCues = cues.filter((cue) => normalizeCueText(cue.text).length > 0);
-    this.displayed = meaningfulCues.map((cue) => {
-      if (this.findMatchingCue(cue, this.official)) return cue;
-
-      const canonical = this.domCues.find(
-        (candidate) =>
-          this.comparisonText(candidate.text) === this.comparisonText(cue.text) &&
-          this.isSameOccurrence(candidate, cue),
-      );
-      if (canonical) return canonical;
-      this.domCues.push(cue);
-      return cue;
-    });
-    this.domCues.sort((a, b) => a.start - b.start);
-
-    if (
-      this.pending &&
-      this.displayed.some((cue) => this.isSameOccurrence(cue, this.pending!.cue))
-    ) {
-      this.pending = null;
+    this.displayed = cues.filter((cue) => normalizeCueText(cue.text).length > 0);
+    // Adapters without a complete timeline (generic HTML5) retain ID-based
+    // history. Netflix owns its canonical track / DOM history itself.
+    if (!this.lastRememberedCues?.length) {
+      const history = new Map(this.cues.map((cue) => [subtitleCueKey(cue), cue]));
+      for (const cue of this.displayed) history.set(subtitleCueKey(cue), cue);
+      this.cues = [...history.values()].sort((a, b) => a.start - b.start);
     }
+    if (this.pending && this.displayed.some(
+      (cue) => subtitleCueKey(cue) === subtitleCueKey(this.pending!.cue),
+    )) this.pending = null;
   }
 
-  /** Add authoritative track cues to navigation without rendering them. */
   remember(cues: SubtitleCue[]): void {
-    // Netflix emits the current cue on every media timeupdate. The official
-    // track keeps the same array instance until a new track is loaded.
     if (this.lastRememberedCues === cues) return;
+    const hadTimeline = Boolean(this.lastRememberedCues?.length);
     this.lastRememberedCues = cues;
-    this.official = cues
-      .filter((cue) => normalizeCueText(cue.text).length > 0)
-      .slice()
-      .sort((a, b) => a.start - b.start);
-    this.domCues = this.domCues.filter(
-      (domCue) => !this.findMatchingCue(domCue, this.official),
-    );
-
-    if (this.pending) {
-      const officialCue = this.findMatchingCue(this.pending.cue, this.official);
-      if (officialCue) this.pending = { ...this.pending, cue: officialCue };
-    }
+    if (!cues.length && !hadTimeline) return;
+    this.cues = cues.filter((cue) => normalizeCueText(cue.text).length > 0)
+      .slice().sort((a, b) => a.start - b.start);
+    if (this.pending && !this.cues.some(
+      (cue) => subtitleCueKey(cue) === subtitleCueKey(this.pending!.cue),
+    )) this.pending = null;
   }
 
   reset(): void {
-    this.official = [];
-    this.domCues = [];
+    this.cues = [];
     this.displayed = [];
     this.pending = null;
     this.lastRememberedCues = null;
   }
 
   getSeekTime(action: CueShortcutAction, pressedAt: number): number | null {
-    const timeline = this.timeline();
     const now = performance.now();
-    if (this.pending && now - this.pending.issuedAtMs >= PENDING_TTL_MS) {
-      this.pending = null;
+    if (this.pending && now - this.pending.issuedAtMs >= PENDING_TTL_MS) this.pending = null;
+    let base = this.pending?.cue ?? primarySubtitleCue(this.displayed);
+    if (!this.pending && base && base.endConfirmed !== false &&
+      (pressedAt > base.end + STALE_DISPLAY_SECONDS || pressedAt < base.start - STALE_DISPLAY_SECONDS)) {
+      base = null;
     }
-
-    let base: SubtitleCue | null = null;
-    let source: "official" | "dom" | "pending" | "gap" = "gap";
-    if (this.pending) {
-      base = this.pending.cue;
-      source = "pending";
-    } else if (this.displayed.length > 0) {
-      base = this.findMatchingCue(this.displayed[0]!, timeline);
-      if (
-        base &&
-        base.endConfirmed !== false &&
-        pressedAt > base.end + STALE_DISPLAY_SECONDS
-      ) {
-        base = null;
-      }
-      if (base) source = this.official.includes(base) ? "official" : "dom";
-    }
-
     let targetCue: SubtitleCue | null = null;
     let targetTime: number | null = null;
-
     if (base) {
-      const baseIndex = this.indexOfCue(base, timeline);
-      if (action === "current") {
-        targetCue = base;
-      } else if (action === "previous") {
-        targetCue = baseIndex > 0 ? timeline[baseIndex - 1] ?? null : null;
+      if (action === "current") targetCue = base;
+      else if (action === "previous") {
+        targetCue = [...this.cues].reverse().find((cue) => cue.start < base!.start) ?? null;
       } else {
-        targetCue = baseIndex >= 0 ? timeline[baseIndex + 1] ?? null : null;
-        if (
-          !targetCue &&
-          base.endConfirmed !== false &&
-          base.end > base.start
-        ) {
+        targetCue = this.cues.find((cue) => cue.start > base!.start) ?? null;
+        if (!targetCue && base.source?.kind !== "track" && base.endConfirmed !== false && base.end > base.start) {
           targetTime = Math.max(base.end, pressedAt) + NEXT_CUE_OFFSET_SECONDS;
         }
       }
     } else if (action === "next") {
-      targetCue = timeline.find((cue) => cue.start > pressedAt) ?? null;
+      targetCue = this.cues.find((cue) => cue.start > pressedAt) ?? null;
     } else {
-      targetCue = [...timeline].reverse().find((cue) => cue.start <= pressedAt) ?? null;
+      targetCue = [...this.cues].reverse().find((cue) => cue.start <= pressedAt) ?? null;
     }
-
     if (targetCue) {
       targetTime = targetCue.start;
       this.pending = { cue: targetCue, issuedAtMs: now };
     }
-
     console.debug(
-      `[SubJap] nav ${action} at=${pressedAt} base=${base?.start ?? "gap"} ` +
-        `src=${source} target=${targetTime ?? "null"} ` +
-        `official=${this.official.length} dom=${this.domCues.length}`,
+      `[SubJap] nav ${action} at=${pressedAt} base=${base?.source?.segmentId ?? base?.id ?? "gap"} ` +
+      `target=${targetCue?.source?.segmentId ?? targetCue?.id ?? "none"} time=${targetTime ?? "null"} ` +
+      `source=${targetCue?.source?.kind ?? "unknown"} track=${targetCue?.source?.trackId ?? "unknown"} ` +
+      `precision=${targetCue?.source?.startPrecision ?? "unknown"}`,
     );
     return targetTime;
   }
 
   cancelPendingSeek(): void {
     this.pending = null;
-  }
-
-  private timeline(): SubtitleCue[] {
-    const uncoveredDomCues = this.domCues.filter(
-      (domCue) => !this.findMatchingCue(domCue, this.official),
-    );
-    return [...this.official, ...uncoveredDomCues].sort((a, b) => a.start - b.start);
-  }
-
-  private indexOfCue(cue: SubtitleCue, timeline: SubtitleCue[]): number {
-    const exactIndex = timeline.indexOf(cue);
-    if (exactIndex >= 0) return exactIndex;
-    const matching = this.findMatchingCue(cue, timeline);
-    return matching ? timeline.indexOf(matching) : -1;
-  }
-
-  private findMatchingCue(
-    cue: SubtitleCue,
-    candidates: SubtitleCue[],
-  ): SubtitleCue | null {
-    return (
-      candidates
-        .filter((candidate) => this.isSameOccurrence(candidate, cue))
-        .sort(
-          (a, b) =>
-            Math.abs(a.start - cue.start) - Math.abs(b.start - cue.start),
-        )[0] ?? null
-    );
-  }
-
-  private isSameOccurrence(a: SubtitleCue, b: SubtitleCue): boolean {
-    const [aStart, aEnd] = this.cueExtent(a);
-    const [bStart, bEnd] = this.cueExtent(b);
-    const startsNear = Math.abs(a.start - b.start) <= MATCH_TOLERANCE_SECONDS;
-    const rangesOverlap = aStart < bEnd && bStart < aEnd;
-    return startsNear || rangesOverlap;
-  }
-
-  private cueExtent(cue: SubtitleCue): [number, number] {
-    if (cue.endConfirmed === false) {
-      const point = cue.start + PROVISIONAL_CUE_PREROLL_SECONDS;
-      return [point, point];
-    }
-    return [cue.start, Math.max(cue.start, cue.end)];
-  }
-
-  /** Netflix rebuilds the same Japanese cue with unstable presentation spaces. */
-  private comparisonText(text: string): string {
-    return normalizeCueText(text).replace(/\s+/gu, "");
   }
 }
 
@@ -329,7 +232,7 @@ export function installSubtitleCopyShortcut(
 /** Install q/s/d playback navigation and return the cleanup function. */
 export function installPlaybackShortcuts(
   doc: Document,
-  adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo">,
+  adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo" | "getNavigationSessionId">,
   navigator: CueNavigator,
 ): () => void {
   let removed = false;
@@ -353,10 +256,13 @@ export function installPlaybackShortcuts(
     event.stopImmediatePropagation();
     const resume = !adapter.isPaused();
     const pressedAt = adapter.getCurrentTime();
+    // Resolve at keydown, against the displayed snapshot the user acted on.
+    // Queuing transport must not change the meaning of a queued key press.
+    const seekTime = navigator.getSeekTime(action, pressedAt);
+    if (seekTime === null) return;
+    const sessionId = adapter.getNavigationSessionId?.();
     const runSeek = async (): Promise<void> => {
-      if (removed) return;
-      const seekTime = navigator.getSeekTime(action, pressedAt);
-      if (seekTime === null) return;
+      if (removed || sessionId !== adapter.getNavigationSessionId?.()) return;
 
       try {
         const accepted = await adapter.seekTo(seekTime, resume);

@@ -70,15 +70,30 @@ sous-titres natifs.
 
 ### Netflix
 
-[`NetflixAdapter`](../src/adapters/netflix.ts) observe le DOM du lecteur :
+[`NetflixAdapter`](../src/adapters/netflix.ts) publie les segments de la piste
+japonaise identifiée dans le lecteur, depuis un seul fichier de sous-titres.
+L’affichage, la navigation, l’écoute et le mining utilisent ces mêmes segments
+et leurs horaires ; plusieurs segments simultanés restent distincts. Une phrase
+longue peut donc apparaître dans plusieurs sous-titres successifs.
 
-1. `MutationObserver` repère le conteneur `.player-timedtext` et ses lignes ;
-2. les mutations sont regroupées avec un debounce de 60 ms ;
-3. les timestamps `data-start` / `data-end` sont utilisés lorsqu’ils existent,
-   sinon le temps courant de la vidéo sert de repli ;
-4. l’adaptateur réattache ses observateurs lorsqu’un lecteur est recréé par la
-   navigation SPA ;
-5. une voie `textTracks` est conservée comme fallback.
+Le catalogue [`SubtitleTrackCatalog`](../src/subtitles/timeline.ts) conserve
+l’identité de l’épisode, de la piste, du fichier et du segment. Les différentes
+variantes ou représentations d’une langue ne sont pas fusionnées par
+chevauchement. Le bridge relaie la piste japonaise active, y compris après un
+changement tardif de piste, et l’adaptateur conserve cette identité pendant le
+téléchargement MV3. En l’absence d’identité du lecteur, une correspondance de
+texte affiché non ambiguë parmi les pistes disponibles permet un repli.
+
+Sans piste officielle utilisable, une piste japonaise HTML5 fournit ses segments
+horodatés ; à défaut, le DOM fournit un historique des blocs observés. Un
+`MutationObserver` regroupe les mutations pendant 60 ms. Les horaires
+`data-start` / `data-end` sont conservés lorsqu’ils existent ; sinon le début
+est estimé au moment de la première observation et la fin reste provisoire.
+Aucun partage de mots ou de lignes ne fusionne deux blocs. Les observateurs
+sont réattachés lorsque le lecteur est recréé par la navigation SPA.
+
+Le contrat et les limites sont détaillés dans
+[`subtitle-timeline.md`](subtitle-timeline.md).
 
 Les pistes officielles et l’historique de navigation sont isolés par identifiant
 Netflix `/watch/<id>`. Le bridge conserve l’identifiant de lecture trouvé sur
@@ -101,8 +116,8 @@ par le `fetch` du contexte de la page, ce qui évite les bloqueurs qui modifient
 ce dernier. Les pistes TTML/DFXP/VTT sont ensuite choisies selon la préférence
 persistante de l’utilisateur (français ou anglais), avec l’autre langue en
 repli. Le japonais reste toujours la piste d’apprentissage et la piste
-restaurée après une sonde Netflix ; le DOM Netflix est préféré lorsqu’il est
-visible, avec la piste japonaise capturée comme repli. Avant d’associer une
+restaurée après une sonde Netflix ; sa piste capturée et identifiée fournit
+les segments de référence, avec le DOM comme repli lorsque cette piste manque. Avant d’associer une
 réponse à la piste secondaire, le bridge vérifie aussi la langue déclarée ou
 dominante de son contenu afin qu’un sous-titre japonais ne soit pas étiqueté
 FR/EN par erreur.
@@ -200,9 +215,9 @@ Si Netflix remplace l’élément `<video>`, l’ancien overlay et le modal de m
 sont détruits puis recréés pour le nouveau lecteur.
 
 Les cues publiées par l’adaptateur sont des instantanés : une correction de
-timing ou le déroulement `A → A+B → B` produit un nouvel instantané portant la
-même identité, sans modifier celui déjà utilisé par l’overlay ou le modal de
-mining. Les seeks applicatifs sont traités comme une transition et leurs états
+fin provisoire conserve l’identité de l’observation, sans modifier celui déjà
+utilisé par l’overlay ou le modal de mining. Un changement de bloc DOM
+`A → A+B → B` produit des observations distinctes, sans accumulation de texte. Les seeks applicatifs sont traités comme une transition et leurs états
 DOM intermédiaires ne deviennent pas des cues. La relecture destinée à
 `AudioPhrase` ouvre en plus une session privée : elle peut observer le DOM pour
 déterminer la fin d’une cue sans alimenter la timeline visible. La phrase et
@@ -232,12 +247,14 @@ Les événements sont délégués depuis le document :
 - clic : popover épinglée jusqu’à `Escape` ou clic extérieur ;
 - popover : définition, bascule connu/inconnu et accès au mining.
 
-La navigation `Q` / `S` / `D` prend toujours comme base la cue effectivement
-affichée : elle vise respectivement la cue précédente, son début, puis la cue
-suivante. Dans un silence, `Q` et `S` rejouent la dernière cue passée tandis que
-`D` rejoint la prochaine. Une timeline unique privilégie les bornes exactes de
-la piste officielle Netflix et ne conserve les observations DOM que lorsqu'elles
-ne recouvrent aucune cue officielle.
+La navigation `Q` / `S` / `D` utilise la même chronologie que l’affichage,
+sans refaire de correspondance par proximité temporelle. `S` reprend le segment
+affiché ; lorsque plusieurs segments se chevauchent, le dernier commencé sert
+de référence. `Q` et `D` visent le début distinct précédent et suivant ; deux
+segments commençant ensemble partagent une position de navigation. Dans un
+silence, `Q` et `S` reprennent le dernier segment commencé et `D` vise le
+prochain. La cible est choisie dès l’appui, avant la mise en file du déplacement,
+et une commande d’une ancienne session ou piste n’est pas exécutée.
 
 La recherche utilise `dict:lookup` vers le service worker. Le pipeline épuise
 les écritures exactes (forme de dictionnaire, identité canonique et surface)

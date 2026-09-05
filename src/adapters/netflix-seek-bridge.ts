@@ -88,7 +88,9 @@ export class NetflixSeekBridge implements NetflixSeekTransport {
           detail: {
             source: "subjap",
             requestId,
-            timeMs: Math.round(timeSeconds * 1000),
+            // TTML can have sub-millisecond boundaries. Rounding down lands on
+            // the previous segment when playback stays paused after Q/S/D.
+            timeMs: Math.ceil(timeSeconds * 1000),
             resume,
           },
         }),
