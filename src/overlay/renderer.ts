@@ -161,7 +161,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       pointer-events: auto;
       transition: opacity 0.12s ease;
     }
-    #${CONTAINER_ID} .subjap-translation-line--hidden:hover {
+    #${CONTAINER_ID} .subjap-translation-line--hidden:hover,
+    #${CONTAINER_ID} .subjap-cue-line:hover ~ .subjap-translation-line--hidden {
       opacity: 1;
     }
     #${CONTAINER_ID} .subjap-translation-line--exercise-hidden,

@@ -200,9 +200,10 @@ export class ListeningMode {
   private revealNextSubtitles(): void {
     if (this.phase !== "review") return;
     this.japaneseRevealed = true;
-    // Reveal Japanese only. The French layer remains governed by the normal
-    // secondary-subtitle rule, including hover-to-reveal when enabled.
-    this.overlay.setSubtitleVisibility(true, null);
+    // The explicit reveal action overrides the normal secondary-subtitle rule:
+    // the learner asked to see both layers, including when translations are
+    // normally hidden for all-known phrases.
+    this.overlay.setSubtitleVisibility(true, true);
     this.render();
   }
 
@@ -247,7 +248,7 @@ export class ListeningMode {
       <div class="subjap-listening-actions">
         <button data-action="listen">A · ▶ Écouter</button>
         <button data-action="replay" hidden>A · ↻ Réessayer</button>
-        <button data-action="reveal-subtitles" hidden>Z · Afficher les sous-titres</button>
+        <button data-action="reveal-subtitles" hidden>Z · Afficher les deux sous-titres</button>
         <button data-action="continue" hidden>E · Continuer</button>
         <button data-action="skip" class="subjap-listening-secondary">Échap · Passer</button>
       </div>`;
@@ -265,8 +266,8 @@ export class ListeningMode {
     replay.hidden = this.phase !== "review";
     subtitles.hidden = this.phase !== "review";
     subtitles.textContent = this.japaneseRevealed
-      ? "Z · Sous-titres affichés"
-      : "Z · Afficher les sous-titres";
+      ? "Z · Les deux sous-titres sont affichés"
+      : "Z · Afficher les deux sous-titres";
     continueButton.hidden = this.phase !== "review";
     if (hint) {
       hint.textContent =

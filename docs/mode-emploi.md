@@ -52,6 +52,8 @@ Si **Activer l’écoute active** est activé, l’exercice ne se lance pas
 automatiquement : appuyer sur **Q** (phrase précédente) ou **S** (phrase
 courante) sur une phrase dont tous les mots sont connus ou ignorés. La phrase
 doit aussi être suffisamment longue et structurée pour constituer un exercice.
+Quand la traduction secondaire est masquée, le survol de la ligne japonaise la
+révèle également ; dans l’exercice, **Z** affiche directement les deux langues.
 
 L’enrichissement utilise Gemini Nano directement dans Chrome : aucun texte ni
 vocabulaire personnel n’est envoyé à un service distant. La première utilisation
