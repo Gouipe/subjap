@@ -78,7 +78,7 @@ let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
 let listeningMode: ListeningMode | null = null;
-const listeningExerciseKeys = new Set<string>();
+let listeningActivationRequest: { cueKey: string; sessionId: string | null } | null = null;
 let nativeSubtitlesHidden = false;
 let nativeSubtitleReplacementReady = false;
 let runtimeUnavailable = false;
@@ -348,7 +348,7 @@ function ensureOverlay(): OverlayRenderer | null {
     listeningMode = null;
     overlay.destroy();
     overlay = null;
-    listeningExerciseKeys.clear();
+    listeningActivationRequest = null;
     deferredCuesWhileListening = null;
     audioCapture?.destroy();
     audioCapture = null;
@@ -679,22 +679,42 @@ function isInterestingListeningCue(rendered: RenderedCue): boolean {
   return true;
 }
 
-function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
+function listeningCueKey(cue: SubtitleCue): string {
+  return `${cue.id}\u0000${cue.start}\u0000${cue.end}`;
+}
+
+function requestListeningMode(cue: SubtitleCue): void {
   if (!overlayOptions.activeListeningMode) return;
+  listeningActivationRequest = {
+    cueKey: listeningCueKey(cue),
+    sessionId: adapter.getNavigationSessionId?.() ?? null,
+  };
+  maybeTriggerListeningMode(lastRenderedCues);
+}
+
+function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
+  const request = listeningActivationRequest;
+  if (!request) return;
+  if (!overlayOptions.activeListeningMode) {
+    listeningActivationRequest = null;
+    return;
+  }
   if (!listeningMode || listeningMode.isActive) return;
-  if (adapter.isPaused()) return;
+  if ((adapter.getNavigationSessionId?.() ?? null) !== request.sessionId) {
+    listeningActivationRequest = null;
+    return;
+  }
 
   // A multi-line active block is deliberately left alone for now: it is not
   // possible to identify one clean exercise phrase without a larger cue model.
   if (rendered.length !== 1) return;
   const candidate = rendered[0];
-  if (!candidate || candidate.cue.endConfirmed === false) return;
+  if (!candidate || listeningCueKey(candidate.cue) !== request.cueKey) return;
+  listeningActivationRequest = null;
+  if (candidate.cue.endConfirmed === false) return;
   if (!isAllKnownOrIgnored(candidate.spans)) return;
   if (!isInterestingListeningCue(candidate)) return;
 
-  const key = `${candidate.cue.id}\u0000${candidate.cue.start}\u0000${candidate.cue.end}`;
-  if (listeningExerciseKeys.has(key)) return;
-  listeningExerciseKeys.add(key);
   listeningMode.open(candidate);
 }
 
@@ -1022,7 +1042,16 @@ getPopover({
   },
 });
 
-const removePlaybackShortcuts = installPlaybackShortcuts(document, adapter, cueNavigator);
+const removePlaybackShortcuts = installPlaybackShortcuts(
+  document,
+  adapter,
+  cueNavigator,
+  (cue, action, resume) => {
+    if (resume && (action === "previous" || action === "current")) {
+      requestListeningMode(cue);
+    }
+  },
+);
 const removePausePlayShortcut = installPausePlayShortcut(document, adapter);
 const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
   getText: () => {

@@ -48,6 +48,11 @@ acquis. Les choix manuels dans SubJap et les mots ignorés restent prioritaires.
 La synchronisation a lieu à l’ouverture de Netflix, au retour sur l’onglet et
 toutes les deux minutes, avec Anki ouvert. La popup seule ne la déclenche pas.
 
+Si **Activer l’écoute active** est activé, l’exercice ne se lance pas
+automatiquement : appuyer sur **Q** (phrase précédente) ou **S** (phrase
+courante) sur une phrase dont tous les mots sont connus ou ignorés. La phrase
+doit aussi être suffisamment longue et structurée pour constituer un exercice.
+
 L’enrichissement utilise Gemini Nano directement dans Chrome : aucun texte ni
 vocabulaire personnel n’est envoyé à un service distant. La première utilisation
 peut télécharger le modèle. Si Chrome ou l’ordinateur ne le prend pas en charge,

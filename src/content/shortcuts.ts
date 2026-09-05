@@ -88,6 +88,10 @@ export class CueNavigator {
     return targetTime;
   }
 
+  getPendingCue(): SubtitleCue | null {
+    return this.pending?.cue ?? null;
+  }
+
   cancelPendingSeek(): void {
     this.pending = null;
   }
@@ -234,6 +238,11 @@ export function installPlaybackShortcuts(
   doc: Document,
   adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo" | "getNavigationSessionId">,
   navigator: CueNavigator,
+  onSeekAccepted?: (
+    cue: SubtitleCue,
+    action: CueShortcutAction,
+    resume: boolean,
+  ) => void,
 ): () => void {
   let removed = false;
   let seekQueue: Promise<void> = Promise.resolve();
@@ -260,13 +269,17 @@ export function installPlaybackShortcuts(
     // Queuing transport must not change the meaning of a queued key press.
     const seekTime = navigator.getSeekTime(action, pressedAt);
     if (seekTime === null) return;
+    const targetCue = navigator.getPendingCue();
     const sessionId = adapter.getNavigationSessionId?.();
     const runSeek = async (): Promise<void> => {
       if (removed || sessionId !== adapter.getNavigationSessionId?.()) return;
 
       try {
         const accepted = await adapter.seekTo(seekTime, resume);
-        if (accepted) return;
+        if (accepted) {
+          if (targetCue) onSeekAccepted?.(targetCue, action, resume);
+          return;
+        }
         navigator.cancelPendingSeek();
         console.warn("[SubJap] Playback seek was not accepted by the adapter");
       } catch (err: unknown) {

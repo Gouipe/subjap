@@ -438,7 +438,7 @@ const Popup: React.FC = () => {
           <span>Activer l’écoute active</span>
         </label>
         <p style={styles.subtitleHint}>
-          Pause automatiquement les phrases éligibles, sans texte au départ.
+          Avec Q ou S, lance l’écoute sans texte sur une phrase éligible.
         </p>
       </div>
 
