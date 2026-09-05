@@ -530,14 +530,22 @@ onMessage("anki:status", async () => {
 // ── anki:syncKnown ────────────────────────────────────────────────────────
 
 interface AnkiNoteInfo {
+  noteId: number;
   fields: Record<string, { value: string }>;
   tags: string[];
 }
 
-/** Reconcile vocabulary presence and status tags across every Anki deck. */
+/** Combine global status tags with acquired comprehension vocabulary in 日本語. */
 onMessage("anki:syncKnown", async () => {
   await releaseDueProductionCards();
-  const noteIds = await ankiInvoke<number[]>("findNotes", { query: "Mot:*" });
+  // Anki's is:review includes relearning after a lapse, plus suspended/buried
+  // reviews. Production progress must never qualify its comprehension sibling.
+  const [noteIds, learnedNoteIds] = await Promise.all([
+    ankiInvoke<number[]>("findNotes", { query: "Mot:*" }),
+    ankiInvoke<number[]>("findNotes", {
+      query: `Mot:* "deck:日本語" "card:${MIGAKU_COMPREHENSION_TEMPLATE_NAME}" is:review`,
+    }),
+  ]);
   const notes: AnkiNoteInfo[] = [];
   for (let offset = 0; offset < noteIds.length; offset += 500) {
     notes.push(
@@ -546,7 +554,7 @@ onMessage("anki:syncKnown", async () => {
       })),
     );
   }
-  const desired = extractAnkiWordStates(notes);
+  const desired = extractAnkiWordStates(notes, new Set(learnedNoteIds));
   const desiredPresences = extractAnkiWordPresences(notes);
   const [current, currentPresences] = await Promise.all([
     db.wordStates.toArray(),

@@ -364,9 +364,24 @@ jours, sans modifier la planification de la compréhension.
 Toutes les notes Anki dont le champ `Mot` est renseigné sont recherchées dans
 tous les decks au démarrage, au retour sur l’onglet et périodiquement. Le champ
 est normalisé vers le lemme : SubJap conserve à la fois le nombre de cartes et
-les éventuels tags `KNOWN`, `IGNORED`, `UNKNOWN` ou `LEARNING`. Les imports de
-statut sont réconciliés : retirer un tag retire l’ancien état importé, tandis
-qu’un état manuel local reste prioritaire. `KNOWN` et `IGNORED` sont blancs ;
+les éventuels tags `KNOWN`, `IGNORED`, `UNKNOWN` ou `LEARNING`. En complément,
+`anki:syncKnown` recherche les notes ayant une carte `Compréhension` dans
+`日本語` ou ses sous-decks avec `is:review`. Cette recherche Anki inclut le
+réapprentissage après un oubli : ces mots restent donc acquis. Les cartes de
+production seules et les cartes encore en apprentissage initial ne suffisent
+pas. Le résultat rejoint les tags dans une seule table indexée par identité
+lexicale : un mot appris et tagué `KNOWN` ne compte qu'une fois.
+
+`KNOWN` (explicite ou déduit des révisions) prime sur `LEARNING` et `UNKNOWN` ;
+`IGNORED` conserve sa priorité et reste exclu du compteur. Les tags de tous les
+decks, notamment `Migaku Memory::Status`, restent importés indépendamment de
+la planification de leurs cartes. Les imports de statut sont réconciliés :
+retirer un tag retire l’ancien état importé seulement si aucune autre note ou
+carte acquise ne le justifie, tandis qu’un état manuel local reste prioritaire.
+Une remise à zéro volontaire de la carte dans Anki, sa suppression ou sa sortie
+de `日本語` peut retirer ce signal d’acquisition ; un simple oubli ne le retire
+pas. Toutes les lectures Anki doivent réussir avant la réconciliation locale.
+`KNOWN` et `IGNORED` sont blancs ;
 un mot déjà présent dans Anki ou marqué `LEARNING` est violet. Un mot `UNKNOWN`
 sans carte existante suit la fréquence (vert, bleu, puis orange). La
 popover affiche le rang dès qu’il existe et précise `Déjà dans Anki · N cartes`.

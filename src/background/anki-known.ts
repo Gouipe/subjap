@@ -2,6 +2,7 @@ import type { AnkiWordPresence, WordState, WordStatus } from "@/core/types";
 import { canonicalizeLexicalKey } from "@/core/lexical-key";
 
 export interface AnkiNoteInfoForWordStates {
+  noteId?: number;
   fields: Record<string, { value: string }>;
   tags?: string[];
 }
@@ -20,10 +21,11 @@ const TAG_STATUS: Record<string, WordStatus> = {
 
 // IGNORED is an explicit opt-out and must win when notes/tags conflict across
 // decks; otherwise the presence of the same word in Anki can turn it purple.
+// Acquired vocabulary wins over stale UNKNOWN/LEARNING tags in other notes.
 export const WORD_STATUS_PRIORITY: Record<WordStatus, number> = {
   unknown: 1,
-  known: 2,
-  learning: 3,
+  learning: 2,
+  known: 3,
   ignored: 4,
 };
 
@@ -50,6 +52,7 @@ export function normalizeAnkiWord(value: string): string {
 
 export function extractAnkiWordStates(
   notes: AnkiNoteInfoForWordStates[],
+  learnedNoteIds: ReadonlySet<number> = new Set(),
 ): ImportedAnkiWordState[] {
   const byWord = new Map<string, WordStatus>();
   for (const note of notes) {
@@ -58,6 +61,9 @@ export function extractAnkiWordStates(
     const statuses = (note.tags ?? [])
       .map((tag) => TAG_STATUS[tag.toUpperCase()])
       .filter((status): status is WordStatus => status !== undefined);
+    if (note.noteId !== undefined && learnedNoteIds.has(note.noteId)) {
+      statuses.push("known");
+    }
     for (const status of statuses) {
       const current = byWord.get(key);
       if (!current || WORD_STATUS_PRIORITY[status] > WORD_STATUS_PRIORITY[current]) {

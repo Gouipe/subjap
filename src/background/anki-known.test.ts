@@ -19,7 +19,7 @@ describe("Anki word-state import", () => {
     expect(normalizeAnkiWord("男性{。}")).toBe("男性");
   });
 
-  it("importe tous les statuts et donne priorité aux mots à travailler", () => {
+  it("importe tous les statuts et préserve les mots déjà connus", () => {
     expect(
       extractAnkiWordStates([
         { fields: { Mot: { value: "着く" } }, tags: ["KNOWN"] },
@@ -28,7 +28,7 @@ describe("Anki word-state import", () => {
         { fields: { Mot: { value: "犬" } }, tags: ["UNKNOWN"] },
       ]),
     ).toEqual([
-      { key: "着く", status: "learning" },
+      { key: "着く", status: "known" },
       { key: "猫", status: "ignored" },
       { key: "犬", status: "unknown" },
     ]);

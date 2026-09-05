@@ -38,6 +38,16 @@ produites par `migaku-export`.
 6. Réviser les nouvelles cartes dans le deck
    `日本語::Vocabulaire::Compréhension` d’Anki.
 
+Le compteur **Mots connus** inclut automatiquement les mots dont une carte
+`Compréhension` dans `日本語` ou ses sous-decks a terminé l’apprentissage
+initial et est passée en Révision. Un oubli suivi de réapprentissage ne les
+retire pas du compteur. Les mots tagués `KNOWN`, y compris dans
+`Migaku Memory::Status`, restent connus ; chaque identité lexicale compte une
+seule fois. Les anciens tags `UNKNOWN` ou `LEARNING` ne bloquent pas un mot
+acquis. Les choix manuels dans SubJap et les mots ignorés restent prioritaires.
+La synchronisation a lieu à l’ouverture de Netflix, au retour sur l’onglet et
+toutes les deux minutes, avec Anki ouvert. La popup seule ne la déclenche pas.
+
 L’enrichissement utilise Gemini Nano directement dans Chrome : aucun texte ni
 vocabulaire personnel n’est envoyé à un service distant. La première utilisation
 peut télécharger le modèle. Si Chrome ou l’ordinateur ne le prend pas en charge,
