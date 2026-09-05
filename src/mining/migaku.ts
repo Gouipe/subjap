@@ -32,7 +32,7 @@ export function formatMigakuSentence(cue: RenderedCue, targetToken: SpanToken): 
     .map((span) => {
       const target = span.token === targetToken.token;
       const className = target ? ' class="target"' : "";
-      return `<span${className}>${escapeAnkiHtml(span.token.surface)}</span>`;
+      return `<span${className}>${escapeAnkiHtml(span.token.surface).replace(/\n/gu, "<br>")}</span>`;
     })
     .join("");
 }

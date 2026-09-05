@@ -17,20 +17,17 @@ import { NetflixAdapter } from "@/adapters/netflix";
 import { adapterRegistry } from "@/core/adapters/registry";
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
-import { lookup } from "@/dictionary";
+import { lookupCandidates } from "@/dictionary";
+import { dictionaryReadingForToken } from "@/dictionary/match";
 import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import { isAllKnownOrIgnored, isNonLexicalToken } from "@/core/frequency";
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { ListeningMode } from "./listening-mode";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
-import {
-  markParentheticalTokens,
-  normalizeCueText,
-  splitIntoSentences,
-} from "@/subtitles";
+import { markParentheticalTokens, normalizeCueText } from "@/subtitles";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
-import { groupTokens } from "@/tokenizer/group";
+import { tokenizeCue } from "@/tokenizer/cue";
 import {
   CueNavigator,
   installPausePlayShortcut,
@@ -505,14 +502,7 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
   const allTokens: Token[] = [];
 
   for (const cue of japaneseCues) {
-    // Normalize markup, then segment into sentence-sized chunks so the
-    // tokenizer LRU cache hits across repeated sentences.
-    const sentences = splitIntoSentences(normalizeCueText(cue.text));
-    const cueTokens: Token[] = [];
-    for (const sentence of sentences) {
-      const tokens = groupTokens(readyTokenizer.tokenize(sentence));
-      cueTokens.push(...tokens);
-    }
+    const cueTokens = tokenizeCue(normalizeCueText(cue.text), readyTokenizer);
     tokenizedCues.push({ cue, tokens: cueTokens });
     allTokens.push(...cueTokens);
   }
@@ -806,8 +796,11 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
   try {
     dictEntry = await lookupTokenDictionaryEntry(
       token,
-      lookup,
-      async (term) => (await sendMessage("dict:lookup", { lemma: term })).entry,
+      lookupCandidates,
+      async (term, options) => {
+        const response = await sendMessage("dict:lookup", { lemma: term, mode: options?.mode });
+        return response.entries ?? response.entry;
+      },
     );
   } catch (err: unknown) {
     console.warn(`[SubJap] dict:lookup failed for "${tokenDictionaryForm(token)}":`, err);
@@ -914,7 +907,7 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
   miningModal.open({
     cue: rendered,
     targetToken: targetSpan,
-    lemmaReading: entry?.reading || targetSpan.token.reading,
+    lemmaReading: dictionaryReadingForToken(targetSpan.token, entry),
     translation: normalizeCueText(selectTranslationCue(lastCues)?.text ?? ""),
     episodeContext: source,
     definitions: entry?.senses.flatMap((sense) => sense.glosses) ?? [],

@@ -1,11 +1,33 @@
 // ---------------------------------------------------------------------------
-// SubJap — Sentence segmentation for the tokenizer pipeline
+// SubJap — Linguistic segmentation and legacy presentation chunks
 // ---------------------------------------------------------------------------
 //
-// Subtitle cues are often long lines (multi-sentence, multi-line). Tokenizing
-// the whole cue at once (a) defeats the LRU cache when the same sentence
-// reappears across cues, and (b) mixes unrelated clauses in one token run.
-// We split each cue into sentence-sized chunks before tokenizing.
+// Analysis uses linguistic boundaries and preserves original source positions.
+// Presentation chunking remains a separate API for existing callers.
+
+export interface TokenizationSegment {
+  text: string;
+  startOffset: number;
+}
+
+/**
+ * Linguistic boundaries for production analysis. Keep every separator, do not
+ * cut at ellipses or at an arbitrary length, and keep visual line wraps inside
+ * the same sentence. Blank lines and explicit speaker markers remain barriers.
+ * The legacy splitIntoSentences helper below is for presentation-sized chunks.
+ */
+export function segmentForTokenization(text: string): TokenizationSegment[] {
+  const segments: TokenizationSegment[] = [];
+  const boundaries = /[。！？!?]+[」』）)〉》’"”]*|\n{2,}|\n(?=[（(「『―—–-])/gu;
+  let startOffset = 0;
+  for (const match of text.matchAll(boundaries)) {
+    const end = match.index + match[0].length;
+    segments.push({ text: text.slice(startOffset, end), startOffset });
+    startOffset = end;
+  }
+  if (startOffset < text.length) segments.push({ text: text.slice(startOffset), startOffset });
+  return segments;
+}
 
 // Sentence boundaries: 。！？!?… optionally followed by closing brackets
 // 」』）)〉》』』’"” (kept in sync with the regex in splitLine).
@@ -16,10 +38,7 @@
  * kept attached to that sentence.
  */
 function splitLine(line: string): string[] {
-  const marked = line.replace(
-    /[。！？!?…]+[」』）)〉》』』’"”]*/g,
-    (m) => m + "\u0000",
-  );
+  const marked = line.replace(/[。！？!?…]+[」』）)〉》』』’"”]*/g, (m) => m + "\u0000");
   return marked.split("\u0000");
 }
 

@@ -1,33 +1,21 @@
 // ---------------------------------------------------------------------------
 // Dictionary lookup — JMdict-simplified in-memory index.
 // ---------------------------------------------------------------------------
-//
-// ## Data flow (for future reference)
-//
-// 1. On first launch / onboarding the extension fetches a jmdict-simplified
-//    JSON file (typically ~30–45 MB uncompressed) from a CDN or bundled URL.
-// 2. The JSON array of `DictionaryEntry` objects is stored in IndexedDB
-//    (via Dexie, already a dependency) so subsequent starts avoid re-fetch.
-// 3. On startup the stored array is read from IndexedDB and passed to
-//    `loadDictionary()`, which rebuilds the in-memory Map indexes.
-// 4. Runtime lookups are synchronous O(1) Map lookups — fast enough for
-//    every token in every subtitle cue.
-//
-// The in-memory footprint of a Map with ~200k entries is well under the
-// 100 MB budget (typically 40–60 MB for the Map + the entry objects).
 
 import type { DictionaryEntry } from "@/core/types";
+import { toHiragana } from "@/core/kana";
+import {
+  entrySpellings,
+  entryReadings,
+  selectDictionaryEntry,
+  type DictionaryLookupOptions,
+} from "./match";
 
 // ── Indexes ───────────────────────────────────────────────────────────────
 
-/** Primary index: headword → best-matching entry. */
-let headwordIndex: Map<string, DictionaryEntry> | null = null;
-
-/** Secondary index: reading → entry (useful for words looked up via kana). */
-let readingIndex: Map<string, DictionaryEntry> | null = null;
-
-/** Alternative JMdict spelling → entry. */
-let aliasIndex: Map<string, DictionaryEntry> | null = null;
+let headwordCount = 0;
+let spellingCandidates = new Map<string, DictionaryEntry[]>();
+let readingCandidates = new Map<string, DictionaryEntry[]>();
 
 // ── Public API ────────────────────────────────────────────────────────────
 
@@ -40,60 +28,51 @@ let aliasIndex: Map<string, DictionaryEntry> | null = null;
  * Each call replaces the previous indexes entirely (idempotent).
  */
 export function loadDictionary(entries: DictionaryEntry[]): void {
-  const hi = new Map<string, DictionaryEntry>();
-  const ri = new Map<string, DictionaryEntry>();
-  const ai = new Map<string, DictionaryEntry>();
+  headwordCount = new Set(entries.map((entry) => entry.headword)).size;
+  spellingCandidates = new Map();
+  readingCandidates = new Map();
+  const add = (
+    index: Map<string, DictionaryEntry[]>,
+    term: string,
+    entry: DictionaryEntry,
+  ): void => {
+    const matches = index.get(term) ?? [];
+    if (!matches.includes(entry)) matches.push(entry);
+    index.set(term, matches);
+  };
 
   for (const e of entries) {
-    // Headword index: first-write-wins (common entries come first in jmdict).
-    if (!hi.has(e.headword)) {
-      hi.set(e.headword, e);
-    }
-
-    // Reading index: same strategy; skip if reading equals headword
-    // (already covered by the primary index).
-    if (e.reading && e.reading !== e.headword && !ri.has(e.reading)) {
-      ri.set(e.reading, e);
-    }
-
-    for (const alias of e.aliases ?? []) {
-      if (
-        alias &&
-        alias !== e.headword &&
-        alias !== e.reading &&
-        !ai.has(alias)
-      ) {
-        ai.set(alias, e);
-      }
-    }
+    for (const spelling of entrySpellings(e)) add(spellingCandidates, spelling, e);
+    for (const reading of entryReadings(e))
+      add(readingCandidates, toHiragana(reading.normalize("NFKC")), e);
   }
-
-  headwordIndex = hi;
-  readingIndex = ri;
-  aliasIndex = ai;
 }
 
 /**
  * Look up a lemma (dictionary form) and return the best-matching entry.
  *
  * Search order:
- * 1. Exact headword match.
+ * 1. Exact spelling match (headword or written variant).
  * 2. Exact reading match.
  *
  * Returns `null` when no match is found.
  */
 export function lookup(lemma: string): DictionaryEntry | null {
-  if (!headwordIndex) return null;
+  const exact = lookupCandidates(lemma, { mode: "orthography" });
+  return (
+    selectDictionaryEntry(exact, [lemma], "orthography") ??
+    selectDictionaryEntry(lookupCandidates(lemma, { mode: "reading" }), [lemma], "reading")
+  );
+}
 
-  const byHeadword = headwordIndex.get(lemma);
-  if (byHeadword) return byHeadword;
-
-  if (readingIndex) {
-    const byReading = readingIndex.get(lemma);
-    if (byReading) return byReading;
-  }
-
-  return aliasIndex?.get(lemma) ?? null;
+/** All entries must remain available until token context has selected one. */
+export function lookupCandidates(
+  lemma: string,
+  options?: DictionaryLookupOptions,
+): DictionaryEntry[] {
+  return options?.mode === "reading"
+    ? (readingCandidates.get(toHiragana(lemma.normalize("NFKC"))) ?? [])
+    : (spellingCandidates.get(lemma) ?? []);
 }
 
 /**
@@ -101,5 +80,5 @@ export function lookup(lemma: string): DictionaryEntry | null {
  * Returns 0 when the dictionary has not been loaded yet.
  */
 export function entryCount(): number {
-  return headwordIndex?.size ?? 0;
+  return headwordCount;
 }

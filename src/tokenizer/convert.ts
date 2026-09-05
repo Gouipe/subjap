@@ -25,7 +25,7 @@ function nonStar(value: string | undefined, fallback: string): string {
 }
 
 function unique(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))];
+  return [...new Set(values.filter((value) => Boolean(value) && value !== "*"))];
 }
 
 /** Convert one Lindera/UniDic token to the shared SubJap contract. */
@@ -55,6 +55,7 @@ export function toLinderaToken(raw: RawLinderaToken): Token {
     // explicit dictionaryForm/canonicalKey fields above.
     lemma: canonicalKey,
     reading,
+    dictionaryReading: toHiragana(nonStar(raw.phonologicalBaseForm, "")),
     partOfSpeech: raw.partOfSpeech && raw.partOfSpeech !== "*" ? [raw.partOfSpeech] : [],
     ...(details.length > 0 ? { partOfSpeechDetails: details } : undefined),
     ...(raw.conjugationType && raw.conjugationType !== "*"
@@ -75,15 +76,21 @@ export function assertLinderaSurfaceCoverage(
   sentence: string,
   rawTokens: Pick<RawLinderaToken, "surface" | "byteStart" | "byteEnd">[],
 ): void {
-  const bytes = new TextEncoder().encode(sentence);
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(sentence);
   let cursor = 0;
   for (const token of rawTokens) {
-    if (token.byteStart !== cursor || token.byteEnd < token.byteStart) {
+    if (
+      !Number.isInteger(token.byteStart) ||
+      !Number.isInteger(token.byteEnd) ||
+      token.byteStart !== cursor ||
+      token.byteEnd <= token.byteStart
+    ) {
       throw new Error(
         `UniDic offsets are not contiguous at ${token.surface}: expected ${cursor}, got ${token.byteStart}`,
       );
     }
-    const encoded = new TextEncoder().encode(token.surface);
+    const encoded = encoder.encode(token.surface);
     if (encoded.byteLength !== token.byteEnd - token.byteStart) {
       throw new Error(`UniDic offset length mismatch for ${token.surface}`);
     }
@@ -91,5 +98,8 @@ export function assertLinderaSurfaceCoverage(
   }
   if (cursor !== bytes.byteLength) {
     throw new Error(`UniDic surfaces cover ${cursor}/${bytes.byteLength} UTF-8 bytes`);
+  }
+  if (rawTokens.map((token) => token.surface).join("") !== sentence) {
+    throw new Error("UniDic surfaces do not reproduce the input text");
   }
 }

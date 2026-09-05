@@ -6,6 +6,8 @@ import { db } from "@/core/db";
 import { onMessage } from "@/core/messaging";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
+import { selectDictionaryEntry } from "@/dictionary/match";
+import { toHiragana } from "@/core/kana";
 import {
   fetchJapaneseFrequencyRanks,
   FREQUENCY_DATA_VERSION,
@@ -189,16 +191,24 @@ onMessage("netflix:timedTextFetch", fetchNetflixTimedText);
 
 // ── dict:lookup ───────────────────────────────────────────────────────────
 
-onMessage("dict:lookup", async ({ lemma }) => {
-  const entry = await db.dictionaryEntries.where("headword").equals(lemma).first();
-
-  if (entry) return { entry };
-
-  const byReading = await db.dictionaryEntries.where("reading").equals(lemma).first();
-  if (byReading) return { entry: byReading };
-
-  const byAlias = await db.dictionaryEntries.where("aliases").equals(lemma).first();
-  return { entry: byAlias ?? null };
+onMessage("dict:lookup", async ({ lemma, mode }) => {
+  const hiragana = toHiragana(lemma.normalize("NFKC"));
+  const katakana = Array.from(hiragana, (char) => {
+    const point = char.codePointAt(0)!;
+    return point >= 0x3041 && point <= 0x3096 ? String.fromCodePoint(point + 0x60) : char;
+  }).join("");
+  const terms = mode === "reading" ? [...new Set([lemma, hiragana, katakana])] : [lemma];
+  const matches = await Promise.all([
+    db.dictionaryEntries.where("headword").anyOf(terms).toArray(),
+    db.dictionaryEntries.where("aliases").anyOf(terms).toArray(),
+    db.dictionaryEntries.where("reading").anyOf(terms).toArray(),
+  ]);
+  const entries = matches.flat();
+  const entry = mode
+    ? selectDictionaryEntry(entries, [lemma], mode)
+    : selectDictionaryEntry(entries, [lemma], "orthography") ??
+      selectDictionaryEntry(entries, [lemma], "reading");
+  return { entry, ...(mode ? { entries } : {}) };
 });
 
 // ── dict:status ───────────────────────────────────────────────────────────

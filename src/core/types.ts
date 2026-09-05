@@ -70,7 +70,9 @@ export interface PlatformAdapter {
 
 export interface GrammarAnnotation {
   surface: string;
-  kind: "plural-suffix" | "other";
+  kind: "plural-suffix" | "inflection" | "other";
+  /** Learner-facing explanation; never inferred as a separate word state. */
+  label?: string;
 }
 
 export interface Token {
@@ -84,6 +86,11 @@ export interface Token {
   /** @deprecated Use dictionaryForm/canonicalKey. Kept for old serialized data. */
   lemma: string;
   reading: string; // lecture en kana
+  /** Reading of the dictionary form, separate from the inflected surface. */
+  dictionaryReading?: string;
+  /** UTF-16 offsets in the normalized cue (including its original separators). */
+  startOffset?: number;
+  endOffset?: number;
   partOfSpeech: string[];
   /** Morphological POS details such as 自立, 非自立 or 接尾. */
   partOfSpeechDetails?: string[];
@@ -123,6 +130,9 @@ export interface Tokenizer {
 export interface DictionaryEntry {
   headword: string;
   reading: string;
+  /** Separate written forms from readings; optional for previously installed packs. */
+  spellings?: string[];
+  readings?: string[];
   /** Alternative JMdict spellings indexed for exact lookup. */
   aliases?: string[];
   partOfSpeech: string[];
@@ -222,8 +232,11 @@ export type MessageHandler<T = unknown, R = unknown> = (
 
 export interface MessageMap {
   // Dict lookups
-  "dict:lookup": { lemma: string };
-  "dict:lookupResult": { entry: DictionaryEntry | null };
+  "dict:lookup": {
+    lemma: string;
+    mode?: "orthography" | "reading";
+  };
+  "dict:lookupResult": { entry: DictionaryEntry | null; entries?: DictionaryEntry[] };
   "dict:status": Record<string, never>;
   "dict:statusResult": { count: number; installed: boolean };
   "dict:download": { url?: string };

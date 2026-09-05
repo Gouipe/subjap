@@ -135,16 +135,23 @@ Le chemin principal est le suivant :
 1. L’adaptateur émet un tableau de `SubtitleCue`.
 2. [`normalizeCueText()`](../src/subtitles/normalize.ts) retire les balises
    HTML/ASS, décode les entités et normalise les espaces.
-3. [`splitIntoSentences()`](../src/subtitles/segment.ts) sépare les phrases,
-   respecte les retours à la ligne et limite les segments trop longs à 80
-   caractères par défaut.
+3. [`tokenizeCue()`](../src/tokenizer/cue.ts) utilise les frontières de phrase
+   de [`segmentForTokenization()`](../src/subtitles/segment.ts). Les points de
+   suspension et les simples retours visuels ne coupent pas l'analyse ; aucune
+   limite arbitraire de 80 caractères ne coupe un mot. Les espaces et retours
+   à la ligne du texte normalisé sont restitués après analyse, avec des offsets
+   UTF-16 dans la cue. Les lignes vides et marqueurs explicites de locuteur
+   restent des frontières. `splitIntoSentences()` reste un utilitaire de
+   découpage de présentation, hors du pipeline de tokenisation.
 4. Lindera + UniDic est initialisé paresseusement depuis le monde isolé du
    content script. Le chargement WASM est singleton, borné par un timeout et
    réinitialisable après erreur.
 5. Chaque token est converti vers le contrat partagé `Token` : surface, forme
    de dictionnaire naturelle, identité canonique, termes de lookup, lecture,
    POS, conjugaison et composants. Les offsets UTF-8 de Lindera sont vérifiés
-   afin que la concaténation des surfaces reproduise exactement la phrase.
+   et la concaténation des surfaces sont vérifiés pour reproduire exactement
+   la phrase. La lecture de la forme de dictionnaire est conservée séparément
+   de celle de la surface conjuguée.
 6. Les états de mots (`known`, `unknown`, `learning` ou `ignored`) sont
    demandés au service worker, avec déduplication des requêtes en vol. Ils sont
    partagés entre les écritures d'une même identité lexicale reconnue par
@@ -183,6 +190,12 @@ recharger Netflix pour joindre le nouveau service worker.
 Les unités pédagogiques regroupent notamment les suffixes pluriels `ら`, `たち`,
 `ども` et `がた` uniquement lorsque UniDic les marque comme suffixes ; les
 composants morphologiques restent disponibles pour la popover et le mining.
+Les verbes UniDic `非自立可能` peuvent servir de tête lexicale ; ce tag ne
+prouve pas un emploi auxiliaire. Les regroupements couvrent aussi les adjectifs
+et les chaînes de copule négatives, polies et passées. La popover expose les
+composants et les indications grammaticales sans créer de statut connu pour
+chaque flexion. Voir [`tokenization.md`](tokenization.md) pour le contrat et les
+limites de ces regroupements.
 Si Netflix remplace l’élément `<video>`, l’ancien overlay et le modal de mining
 sont détruits puis recréés pour le nouveau lecteur.
 
@@ -226,10 +239,15 @@ suivante. Dans un silence, `Q` et `S` rejouent la dernière cue passée tandis q
 la piste officielle Netflix et ne conserve les observations DOM que lorsqu'elles
 ne recouvrent aucune cue officielle.
 
-La recherche utilise `dict:lookup` vers le service worker. Celui-ci lit alors
-JMdict depuis IndexedDB par headword, puis par reading. Le module
-`src/dictionary/index.ts` fournit en parallèle un index mémoire headword /
-reading, réutilisable lorsque le chargement en mémoire sera branché au flux.
+La recherche utilise `dict:lookup` vers le service worker. Le pipeline épuise
+les écritures exactes (forme de dictionnaire, identité canonique et surface)
+avant les replis par lecture. Toutes les entrées candidates sont conservées
+jusqu'au classement par catégorie grammaticale et lecture du mot de base.
+`src/dictionary/match.ts` partage ce classement avec l'index mémoire de
+`src/dictionary/index.ts`, réutilisable lorsque son chargement sera branché au
+flux. Les packs nouvellement installés distinguent écritures et lectures ;
+les packs existants restent utilisables avec une interprétation conservatrice
+de leurs alias kana.
 
 ## Service worker et persistance
 

@@ -121,6 +121,18 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-cue-line--pending {
       pointer-events: none;
+      display: block;
+      text-align: center;
+      white-space: pre-wrap;
+    }
+    #${CONTAINER_ID} .subjap-line-break {
+      flex-basis: 100%;
+      height: 0;
+    }
+    #${CONTAINER_ID} .subjap-token--separator {
+      white-space: pre;
+      padding: 0;
+      border: 0;
     }
     #${CONTAINER_ID} .subjap-translation-line {
       /* Keep the secondary language attached to the Japanese subtitle block
@@ -458,8 +470,34 @@ export class OverlayRenderer {
     const candidateHighlights = this.getMiningCandidateHighlights(rc);
 
     for (const st of rc.spans) {
-      const span = this.buildTokenSpan(st, candidateHighlights.get(st.index));
-      line.appendChild(span);
+      const fragments = st.token.surface.split("\n");
+      let fragmentOffset = st.token.startOffset ?? 0;
+      fragments.forEach((fragment, fragmentIndex) => {
+        if (fragmentIndex > 0) {
+          const lineBreak = document.createElement("span");
+          lineBreak.className = "subjap-line-break";
+          lineBreak.textContent = "\n";
+          lineBreak.setAttribute("aria-hidden", "true");
+          line.appendChild(lineBreak);
+          fragmentOffset += 1;
+        }
+        if (fragment) {
+          // A group spanning lines keeps one lexical identity and click target.
+          // Only show a fragment reading when its whole morphemes align with it.
+          const components = st.token.components?.filter((component) =>
+            component.startOffset != null && component.endOffset != null &&
+            component.startOffset >= fragmentOffset &&
+            component.endOffset <= fragmentOffset + fragment.length,
+          ) ?? [];
+          const reading = fragments.length === 1 ? st.token.reading :
+            components.map((component) => component.surface).join("") === fragment
+              ? components.map((component) => component.reading).join("") : "";
+          const span = this.buildTokenSpan(st, candidateHighlights.get(st.index), fragment, reading);
+          if (fragmentIndex > 0) span.removeAttribute("tabindex");
+          line.appendChild(span);
+        }
+        fragmentOffset += fragment.length;
+      });
     }
 
     return line;
@@ -488,6 +526,8 @@ export class OverlayRenderer {
   private buildTokenSpan(
     st: SpanToken,
     candidateHighlight: MiningCandidateHighlight | undefined = undefined,
+    surface = st.token.surface,
+    surfaceReading = st.token.reading,
   ): HTMLSpanElement {
     const span = document.createElement("span");
     span.className = "subjap-token";
@@ -496,7 +536,8 @@ export class OverlayRenderer {
     if (isNonWord) {
       span.classList.add("subjap-token--punctuation");
     }
-    const reading = toHiragana(st.token.reading);
+    if (!surface.trim()) span.classList.add("subjap-token--separator");
+    const reading = toHiragana(surfaceReading);
     span.dataset.lemma = tokenCanonicalKey(st.token);
     span.dataset.reading = reading;
     span.dataset.surface = st.token.surface;
@@ -543,14 +584,14 @@ export class OverlayRenderer {
     }
 
     // Text content
-    span.textContent = st.token.surface;
+    span.textContent = surface;
 
     // Optionally append furigana
     if (
       this.options.showFurigana &&
-      containsKanjiOrKatakana(st.token.surface) &&
+      containsKanjiOrKatakana(surface) &&
       reading &&
-      reading !== st.token.surface
+      reading !== surface
     ) {
       const ruby = document.createElement("span");
       ruby.className = "subjap-furigana";

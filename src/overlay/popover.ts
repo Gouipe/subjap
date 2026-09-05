@@ -11,6 +11,7 @@ import {
   type WordStatus,
 } from "@/core/types";
 import { toHiragana } from "@/core/kana";
+import { dictionaryReadingForToken } from "@/dictionary/match";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -248,8 +249,13 @@ export class WordPopover {
       }
       .subjap-popover__grammar {
         font-size: 12px;
-        color: #f1b46d;
+        color: #b2b6bf;
         margin-top: 4px;
+        line-height: 1.5;
+        white-space: pre-line;
+      }
+      .subjap-popover__grammar:empty {
+        display: none;
       }
       .subjap-popover__defs {
         margin-top: 8px;
@@ -350,7 +356,7 @@ export class WordPopover {
     surfaceEl.textContent = dictionaryForm;
 
     const readingEl = this.el.querySelector(".subjap-popover__reading")!;
-    const baseReading = entry?.reading || token.reading;
+    const baseReading = dictionaryReadingForToken(token, entry);
     readingEl.textContent = baseReading ? toHiragana(baseReading) : "";
 
     // Part of speech
@@ -359,13 +365,18 @@ export class WordPopover {
     posEl.textContent = posLabels.length > 0 ? posLabels.join(" · ") : "";
 
     const grammarEl = this.el.querySelector(".subjap-popover__grammar")!;
-    grammarEl.textContent = (token.grammar ?? [])
+    const annotations = (token.grammar ?? [])
       .map((annotation) =>
         annotation.kind === "plural-suffix"
           ? `${annotation.surface} — suffixe pluriel`
-          : annotation.surface,
+          : annotation.label ? `${annotation.surface} — ${annotation.label}` : annotation.surface,
       )
-      .join(" · ");
+      .join("\n");
+    const base = token.components?.[0];
+    const decomposition = base && token.grammar?.some((annotation) => annotation.kind === "inflection")
+      ? `${token.components!.map((component) => component.surface.replace(/\n/gu, "")).join(" + ")}\n`
+      : "";
+    grammarEl.textContent = decomposition + annotations;
 
     // Definitions
     const defsContainer = this.el.querySelector(".subjap-popover__defs")!;

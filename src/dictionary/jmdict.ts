@@ -112,8 +112,10 @@ export function convertJmdictWord(word: JmdictWord): DictionaryEntry | null {
   return {
     headword,
     reading,
+    spellings: word.kanji?.length ? word.kanji.map((form) => form.text) : word.kana.map((form) => form.text),
+    readings: word.kana.map((form) => form.text),
     ...(aliases.length > 0 ? { aliases } : undefined),
-    partOfSpeech: word.sense?.[0]?.partOfSpeech ?? [],
+    partOfSpeech: [...new Set(word.sense.flatMap((sense) => sense.partOfSpeech ?? []))],
     senses,
     common,
   };

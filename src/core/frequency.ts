@@ -17,6 +17,7 @@ export function isNonLexicalToken(
   return (
     token.surface.trim().length === 0 ||
     token.partOfSpeech.includes("記号") ||
+    token.partOfSpeech.includes("補助記号") ||
     /^[、。！？!?.,，．：；「」『』（）()…]+$/u.test(token.surface)
   );
 }

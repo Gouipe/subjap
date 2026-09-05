@@ -1,37 +1,17 @@
 import type { GrammarAnnotation, Token } from "@/core/types";
-import {
-  tokenCanonicalKey,
-  tokenDictionaryForm,
-  tokenLookupTerms,
-} from "@/core/types";
+import { tokenCanonicalKey, tokenDictionaryForm, tokenLookupTerms } from "@/core/types";
 
-type TokenMatcher = string | ((token: Token) => boolean);
-
-interface GroupRule {
-  matchers: TokenMatcher[];
-}
-
-const surface = (expected: string): TokenMatcher => expected;
-const isAuxiliary = (token: Token): boolean =>
-  token.partOfSpeech.includes("助動詞");
+const isAuxiliary = (token: Token): boolean => token.partOfSpeech.includes("助動詞");
 const isExplanatoryN = (token: Token): boolean =>
-  token.surface === "ん" &&
-  (tokenDictionaryForm(token) === "ん" || token.partOfSpeech.includes("名詞"));
-const isCopularNan = (token: Token): boolean =>
-  token.surface === "なん" &&
-  (tokenDictionaryForm(token) === "だ" || isAuxiliary(token));
-const isCopularNa = (token: Token): boolean =>
-  token.surface === "な" &&
-  (tokenDictionaryForm(token) === "だ" || isAuxiliary(token));
+  ["ん", "の"].includes(token.surface) &&
+  !isAuxiliary(token) &&
+  (tokenDictionaryForm(token) === "ん" ||
+    token.partOfSpeech.includes("名詞") ||
+    hasPosDetail(token, "準体助詞"));
+const isCopula = (token: Token): boolean =>
+  isAuxiliary(token) && ["だ", "です", "じゃ"].includes(tokenDictionaryForm(token));
 
-const INFLECTIONAL_SUFFIX_LEMMAS = new Set([
-  "れる",
-  "られる",
-  "せる",
-  "させる",
-  "す",
-  "さす",
-]);
+const INFLECTIONAL_SUFFIX_LEMMAS = new Set(["れる", "られる", "せる", "させる", "す", "さす"]);
 
 const INFLECTIONAL_AUXILIARY_TYPES = new Set([
   "特殊・タ",
@@ -47,6 +27,9 @@ const INFLECTIONAL_AUXILIARY_TYPES = new Set([
   "助動詞-デス",
   "助動詞-ヌ",
   "助動詞-レル",
+  "助動詞-セル",
+  "助動詞-ス",
+  "助動詞-ズ",
 ]);
 
 const INFLECTIONAL_INVARIABLE_AUXILIARIES = new Set(["ん", "う"]);
@@ -54,8 +37,8 @@ const INFLECTIONAL_AUXILIARY_LEMMAS = new Set(["れる", "られる", "せる", 
 
 /**
  * Verbs that commonly act as auxiliaries after the conjunctive て/で form.
- * UniDic marks them as 非自立可能 in that use, so their lexical identity is
- * used only as a second safety check against unrelated verb sequences.
+ * 非自立可能 describes a possible use, not a contextual decision. Only the
+ * preceding conjunctive て/で licenses treating these verbs as auxiliaries.
  */
 const TE_AUXILIARY_LEXEMES = new Set([
   "いる",
@@ -97,25 +80,29 @@ const TE_AUXILIARY_LEXEMES = new Set([
 
 function hasPosDetail(token: Token, detail: string): boolean {
   return (
-    token.partOfSpeechDetails?.includes(detail) === true ||
-    token.partOfSpeech.includes(detail)
+    token.partOfSpeechDetails?.includes(detail) === true || token.partOfSpeech.includes(detail)
   );
 }
 
 function isIndependentVerb(token: Token): boolean {
   if (!token.partOfSpeech.includes("動詞")) return false;
-  if (hasPosDetail(token, "接尾") || hasPosDetail(token, "非自立") || hasPosDetail(token, "非自立可能")) {
+  if (hasPosDetail(token, "接尾") || hasPosDetail(token, "非自立")) {
     return false;
   }
   // Some analyzers explicitly mark 自立; UniDic marks ordinary verbs as 一般.
-  return hasPosDetail(token, "自立") || hasPosDetail(token, "一般") || token.partOfSpeechDetails == null;
+  return (
+    hasPosDetail(token, "自立") ||
+    hasPosDetail(token, "一般") ||
+    hasPosDetail(token, "非自立可能") ||
+    token.partOfSpeechDetails == null
+  );
 }
 
 function isInflectionalSuffixVerb(token: Token): boolean {
   return (
     token.partOfSpeech.includes("動詞") &&
-    (hasPosDetail(token, "接尾") ||
-      INFLECTIONAL_SUFFIX_LEMMAS.has(tokenDictionaryForm(token)))
+    hasPosDetail(token, "接尾") &&
+    INFLECTIONAL_SUFFIX_LEMMAS.has(tokenDictionaryForm(token))
   );
 }
 
@@ -152,6 +139,21 @@ function isContractedTeAuxiliary(token: Token): boolean {
   return isAuxiliary(token) && hasTeAuxiliaryLexeme(token);
 }
 
+function isNegative(token: Token): boolean {
+  return (
+    (isAuxiliary(token) || token.partOfSpeech.includes("形容詞")) &&
+    ["ない", "無い", "ぬ", "ず", "ん"].includes(tokenDictionaryForm(token))
+  );
+}
+
+function canTakeNegativeAdjective(token: Token | undefined): boolean {
+  return (
+    token != null &&
+    (token.partOfSpeech.includes("形容詞") || isCopula(token) || isNegative(token)) &&
+    (token.conjugationForm?.includes("連用") === true || /[くで]$/u.test(token.surface))
+  );
+}
+
 function consumeInflectionalTail(tokens: Token[], start: number): number {
   let end = start;
   let candidate = tokens[end];
@@ -160,7 +162,11 @@ function consumeInflectionalTail(tokens: Token[], start: number): number {
     end += 1;
     candidate = tokens[end];
   }
-  while (candidate && isInflectionalAuxiliary(candidate)) {
+  while (
+    candidate &&
+    (isInflectionalAuxiliary(candidate) ||
+      (isNegative(candidate) && canTakeNegativeAdjective(tokens[end - 1])))
+  ) {
     end += 1;
     candidate = tokens[end];
   }
@@ -199,11 +205,37 @@ function consumeTeAuxiliaryChain(tokens: Token[], start: number): number {
   return consumed ? end : start;
 }
 
-function inflectedVerbLength(tokens: Token[], start: number): number {
+/** Polite negative ありません after an adjective or copular で(は). */
+function negativeAruEnd(tokens: Token[], start: number): number {
   const head = tokens[start];
-  if (!head || !isIndependentVerb(head)) return 0;
+  if (
+    !head?.partOfSpeech.includes("動詞") ||
+    !["ある", "有る"].some((lemma) => tokenLookupTerms(head).includes(lemma))
+  )
+    return start;
+  const end = consumeInflectionalTail(tokens, start + 1);
+  return tokens.slice(start + 1, end).some(isNegative) ? end : start;
+}
+
+function inflectedPredicateLength(tokens: Token[], start: number): number {
+  const head = tokens[start];
+  if (
+    !head ||
+    !(
+      isIndependentVerb(head) ||
+      (head.partOfSpeech.includes("形容詞") && !hasPosDetail(head, "接尾")) ||
+      head.partOfSpeech.includes("形状詞")
+    )
+  )
+    return 0;
 
   let end = consumeInflectionalTail(tokens, start + 1);
+  if (canTakeNegativeAdjective(tokens[end - 1])) end = negativeAruEnd(tokens, end);
+  // A na-adjective keeps its lexical identity while its copula is inflected.
+  if (head.partOfSpeech.includes("形状詞") && tokens[end] && isCopula(tokens[end]!)) {
+    const copulaEnd = copularLength(tokens, end);
+    end += copulaEnd;
+  }
   const teChainEnd = consumeTeAuxiliaryChain(tokens, end);
   if (teChainEnd > end) end = teChainEnd;
 
@@ -224,12 +256,13 @@ function derivedLexicalFields(base: Token): Partial<Token> {
     dictionaryForm: tokenDictionaryForm(base),
     canonicalKey: tokenCanonicalKey(base),
     lookupTerms: tokenLookupTerms(base),
+    dictionaryReading: base.dictionaryReading,
   };
 }
 
-function createInflectedVerbGroup(tokens: Token[]): Token {
+function createInflectedPredicateGroup(tokens: Token[]): Token {
   const verb = tokens[0];
-  if (!verb) throw new Error("An inflected verb group requires a lexical verb");
+  if (!verb) throw new Error("An inflected predicate group requires a lexical head");
   const behavesAsIAdjective = tokens.some(
     (token) => token.conjugationType === "特殊・タイ" || token.conjugationType === "助動詞-タイ",
   );
@@ -242,25 +275,81 @@ function createInflectedVerbGroup(tokens: Token[]): Token {
     partOfSpeech: behavesAsIAdjective
       ? [...new Set([...verb.partOfSpeech, "形容詞"])]
       : verb.partOfSpeech,
-    ...(verb.partOfSpeechDetails
-      ? { partOfSpeechDetails: verb.partOfSpeechDetails }
-      : undefined),
+    ...(verb.partOfSpeechDetails ? { partOfSpeechDetails: verb.partOfSpeechDetails } : undefined),
     components: tokens,
+    grammar: describeInflections(tokens.slice(1)),
   };
 }
 
-const GROUP_RULES: GroupRule[] = [
-  { matchers: [surface("じゃ"), surface("なく"), surface("て")] },
-  { matchers: [surface("じゃ"), surface("なくっ"), surface("て")] },
-  { matchers: [surface("では"), surface("なく"), surface("て")] },
-  { matchers: [surface("では"), surface("なくっ"), surface("て")] },
-  { matchers: [isExplanatoryN, surface("です")] },
-  { matchers: [isExplanatoryN, surface("だ")] },
-  { matchers: [isCopularNan, surface("です")] },
-  { matchers: [isCopularNan, surface("だ")] },
-  { matchers: [isCopularNa, isExplanatoryN, surface("です")] },
-  { matchers: [isCopularNa, isExplanatoryN, surface("だ")] },
-];
+/** Consume a copula with its negative/polite/past tail, not the preceding noun. */
+function copularLength(tokens: Token[], start: number): number {
+  const head = tokens[start];
+  if (!head || !isCopula(head)) return 0;
+  let end = start + 1;
+  // UniDic can split では into copular で + topic particle は.
+  if (
+    head.surface === "で" &&
+    tokens[end]?.surface === "は" &&
+    tokens[end]?.partOfSpeech.includes("助詞") &&
+    tokens[end + 1] &&
+    (isNegative(tokens[end + 1]!) || negativeAruEnd(tokens, end + 1) > end + 1)
+  )
+    end += 1;
+  if (["で", "では", "じゃ"].includes(head.surface) && tokens[end] && isNegative(tokens[end]!)) {
+    end += 1;
+  }
+  if (["で", "では", "じゃ"].includes(head.surface)) end = negativeAruEnd(tokens, end);
+  end = consumeInflectionalTail(tokens, end);
+  if (tokens[end] && isTeConjunctiveParticle(tokens[end]!)) end += 1;
+  return end - start;
+}
+
+function grammarExpressionLength(tokens: Token[], start: number): number {
+  const head = tokens[start];
+  if (!head) return 0;
+  let copulaStart = start;
+  if (
+    head.surface === "な" &&
+    isCopula(head) &&
+    tokens[start + 1] &&
+    isExplanatoryN(tokens[start + 1]!)
+  )
+    copulaStart += 2;
+  else if (isExplanatoryN(head) || (head.surface === "なん" && isCopula(head))) copulaStart += 1;
+  const length = copularLength(tokens, copulaStart);
+  return length > 0 && copulaStart + length - start > 1 ? copulaStart + length - start : 0;
+}
+
+/** Keep ambiguous morphology explicit rather than claim a contextual meaning. */
+function describeInflections(tokens: Token[]): GrammarAnnotation[] {
+  return tokens.flatMap((token) => {
+    const lemma = tokenDictionaryForm(token);
+    const type = token.conjugationType ?? "";
+    let label: string | undefined;
+    if (isExplanatoryN(token) && !isAuxiliary(token)) label = "explication";
+    else if (isNegative(token)) label = "négation";
+    else if (isAuxiliary(token) && (lemma === "た" || /(?:-|・)タ$/u.test(type)))
+      label = "passé / accompli";
+    else if (isAuxiliary(token) && lemma === "ます") label = "politesse";
+    else if (isCopula(token)) label = lemma === "です" ? "copule polie" : "copule";
+    else if (isAuxiliary(token) && lemma === "たい") label = "souhait";
+    else if (
+      ["れる", "られる"].includes(lemma) &&
+      (isAuxiliary(token) || isInflectionalSuffixVerb(token))
+    ) {
+      label = "passif / potentiel / honorifique (selon le contexte)";
+    } else if (
+      ["せる", "させる", "す", "さす"].includes(lemma) &&
+      (isAuxiliary(token) || isInflectionalSuffixVerb(token))
+    )
+      label = "causatif";
+    else if (isAuxiliary(token) && lemma === "う") label = "volonté / conjecture";
+    else if (isTeConjunctiveParticle(token)) label = "liaison en て / で";
+    else if (isNonIndependentTeAuxiliary(token) || isContractedTeAuxiliary(token))
+      label = `auxiliaire ${lemma}`;
+    return label ? [{ surface: token.surface, kind: "inflection" as const, label }] : [];
+  });
+}
 
 const PLURAL_SUFFIXES = new Map([
   ["ら", "ら"],
@@ -298,19 +387,10 @@ function createPluralGroup(base: Token, suffix: Token): Token {
     lemma: tokenCanonicalKey(base),
     reading: `${base.reading}${suffix.reading}`,
     partOfSpeech: base.partOfSpeech,
-    ...(base.partOfSpeechDetails
-      ? { partOfSpeechDetails: base.partOfSpeechDetails }
-      : undefined),
+    ...(base.partOfSpeechDetails ? { partOfSpeechDetails: base.partOfSpeechDetails } : undefined),
     components: [base, suffix],
     grammar: [grammar],
   };
-}
-
-function matchesAt(tokens: Token[], start: number, rule: GroupRule): boolean {
-  return rule.matchers.every((matcher, offset) => {
-    const token = tokens[start + offset];
-    return token != null && (typeof matcher === "string" ? token.surface === matcher : matcher(token));
-  });
 }
 
 function createGroup(tokens: Token[]): Token {
@@ -322,6 +402,7 @@ function createGroup(tokens: Token[]): Token {
     reading: tokens.map((token) => token.reading).join(""),
     partOfSpeech: [...new Set(tokens.flatMap((token) => token.partOfSpeech))],
     components: tokens,
+    grammar: describeInflections(tokens),
   };
 }
 
@@ -329,7 +410,7 @@ function createGroup(tokens: Token[]): Token {
 export function groupTokens(tokens: Token[]): Token[] {
   const result: Token[] = [];
 
-  for (let index = 0; index < tokens.length; ) {
+  for (let index = 0; index < tokens.length;) {
     const base = tokens[index];
     const suffix = tokens[index + 1];
     const label = base && suffix && isNominalBase(base) ? pluralSuffixLabel(suffix) : null;
@@ -339,17 +420,17 @@ export function groupTokens(tokens: Token[]): Token[] {
       continue;
     }
 
-    const verbLength = inflectedVerbLength(tokens, index);
-    if (verbLength > 0) {
-      result.push(createInflectedVerbGroup(tokens.slice(index, index + verbLength)));
-      index += verbLength;
+    const predicateLength = inflectedPredicateLength(tokens, index);
+    if (predicateLength > 0) {
+      result.push(createInflectedPredicateGroup(tokens.slice(index, index + predicateLength)));
+      index += predicateLength;
       continue;
     }
 
-    const rule = GROUP_RULES.find((candidate) => matchesAt(tokens, index, candidate));
-    if (rule) {
-      result.push(createGroup(tokens.slice(index, index + rule.matchers.length)));
-      index += rule.matchers.length;
+    const grammarLength = grammarExpressionLength(tokens, index);
+    if (grammarLength > 0) {
+      result.push(createGroup(tokens.slice(index, index + grammarLength)));
+      index += grammarLength;
     } else {
       if (base) result.push(base);
       index += 1;
