@@ -62,8 +62,9 @@ en cours : SubJap observe sa disparition pour en déterminer la fin, puis
 met la vidéo en pause. Aucun temps d'écoute arbitraire n'est ajouté.
 Quand la traduction secondaire est masquée, le survol de la ligne japonaise la
 révèle également. À la fin de l’écoute, **Z** affiche le japonais et **E** les
-sous-titres secondaires, indépendamment et sans reprendre la vidéo. **R**
-continue la lecture ; **A** rejoue la phrase en masquant à nouveau les deux langues.
+sous-titres secondaires, indépendamment et sans reprendre la vidéo. **R** ou
+**Espace** continue la lecture ; **A** rejoue la phrase. Les langues déjà
+révélées restent affichées à la fin de la relecture.
 
 L’enrichissement utilise Gemini Nano directement dans Chrome : aucun texte ni
 vocabulaire personnel n’est envoyé à un service distant. La première utilisation

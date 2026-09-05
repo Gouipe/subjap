@@ -118,6 +118,7 @@ export class ListeningMode {
     }
 
     const key = event.key.toLowerCase();
+    const isSpace = event.code === "Space" || event.key === " " || event.key === "Spacebar";
     if (key === "a" && this.phase === "ready") {
       event.preventDefault();
       event.stopPropagation();
@@ -134,7 +135,7 @@ export class ListeningMode {
       event.preventDefault();
       event.stopPropagation();
       this.revealSubtitles("secondary");
-    } else if (key === "r" && this.phase === "review") {
+    } else if ((key === "r" || isSpace) && this.phase === "review") {
       event.preventDefault();
       event.stopPropagation();
       void this.continuePlayback();
@@ -151,8 +152,6 @@ export class ListeningMode {
     const cue = this.activeCue.cue;
     this.stopTimer();
     this.awaitingReplayStart = true;
-    this.japaneseRevealed = false;
-    this.secondaryRevealed = false;
     this.overlay.setSubtitleVisibility(false, false);
     this.phase = "playing";
     this.render();
@@ -161,6 +160,7 @@ export class ListeningMode {
     if (sessionId !== this.sessionId || !this.activeCue) return;
     if (!accepted) {
       this.phase = "review";
+      this.restoreRevealedSubtitles();
       this.render();
       return;
     }
@@ -216,6 +216,7 @@ export class ListeningMode {
     this.stopTimer();
     this.video.pause();
     this.phase = "review";
+    this.restoreRevealedSubtitles();
     this.render();
   }
 
@@ -226,6 +227,10 @@ export class ListeningMode {
     // Each explicit reveal preserves the other layer's current state.
     this.overlay.setSubtitleVisibility(this.japaneseRevealed, this.secondaryRevealed);
     this.render();
+  }
+
+  private restoreRevealedSubtitles(): void {
+    this.overlay.setSubtitleVisibility(this.japaneseRevealed, this.secondaryRevealed);
   }
 
   private async continuePlayback(): Promise<void> {
@@ -276,7 +281,7 @@ export class ListeningMode {
         <button data-action="replay" hidden>A · ↻ Réessayer</button>
         <button data-action="reveal-japanese" hidden>Z · Afficher le japonais</button>
         <button data-action="reveal-secondary" hidden>E · Afficher la traduction</button>
-        <button data-action="continue" hidden>R · Continuer</button>
+        <button data-action="continue" hidden>R / Espace · Continuer</button>
         <button data-action="skip" class="subjap-listening-secondary">Échap · Passer</button>
       </div>`;
     return container;
