@@ -50,8 +50,10 @@ toutes les deux minutes, avec Anki ouvert. La popup seule ne la déclenche pas.
 
 Si **Activer l’écoute active** est activé, l’exercice ne se lance pas
 automatiquement : appuyer sur **Q** (phrase précédente) ou **S** (phrase
-courante) sur une phrase dont tous les mots sont connus ou ignorés. La phrase
-doit aussi être suffisamment longue et structurée pour constituer un exercice.
+courante) sur une phrase dont tous les mots sont connus ou ignorés. Les noms
+de locuteur ou indications entre parenthèses dans les sous-titres CC sont
+ignorés. La phrase doit aussi être suffisamment longue et structurée pour
+constituer un exercice.
 Quand la traduction secondaire est masquée, le survol de la ligne japonaise la
 révèle également ; dans l’exercice, **Z** affiche directement les deux langues.
 

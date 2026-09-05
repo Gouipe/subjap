@@ -78,7 +78,7 @@ let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
 let listeningMode: ListeningMode | null = null;
-let listeningActivationRequest: { cueKey: string; sessionId: string | null } | null = null;
+let listeningActivationRequest: { cue: SubtitleCue; sessionId: string | null } | null = null;
 let nativeSubtitlesHidden = false;
 let nativeSubtitleReplacementReady = false;
 let runtimeUnavailable = false;
@@ -686,10 +686,24 @@ function listeningCueKey(cue: SubtitleCue): string {
 function requestListeningMode(cue: SubtitleCue): void {
   if (!overlayOptions.activeListeningMode) return;
   listeningActivationRequest = {
-    cueKey: listeningCueKey(cue),
+    cue,
     sessionId: adapter.getNavigationSessionId?.() ?? null,
   };
   maybeTriggerListeningMode(lastRenderedCues);
+}
+
+function isParentheticalOnlyCue(cue: SubtitleCue): boolean {
+  const text = normalizeCueText(cue.text).trim();
+  return /^[\(（][\s\S]*[\)）]$/u.test(text);
+}
+
+function isRequestedListeningCue(
+  candidate: SubtitleCue,
+  requested: SubtitleCue,
+): boolean {
+  if (listeningCueKey(candidate) === listeningCueKey(requested)) return true;
+  if (!isParentheticalOnlyCue(requested)) return false;
+  return candidate.start < requested.end && requested.start < candidate.end;
 }
 
 function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
@@ -705,11 +719,18 @@ function maybeTriggerListeningMode(rendered: RenderedCue[]): void {
     return;
   }
 
-  // A multi-line active block is deliberately left alone for now: it is not
-  // possible to identify one clean exercise phrase without a larger cue model.
-  if (rendered.length !== 1) return;
-  const candidate = rendered[0];
-  if (!candidate || listeningCueKey(candidate.cue) !== request.cueKey) return;
+  // CC speaker labels such as "(ミカ)" can arrive as a separate cue. They are
+  // already ignored inside a cue by isParenthetical; ignore label-only cues
+  // here as well so they do not turn an otherwise clean phrase into a
+  // multi-line block.
+  const candidates = rendered.filter((cue) =>
+    cue.spans.some(
+      (span) => !span.isParenthetical && !isNonLexicalToken(span.token),
+    ),
+  );
+  if (candidates.length !== 1) return;
+  const candidate = candidates[0];
+  if (!candidate || !isRequestedListeningCue(candidate.cue, request.cue)) return;
   listeningActivationRequest = null;
   if (candidate.cue.endConfirmed === false) return;
   if (!isAllKnownOrIgnored(candidate.spans)) return;
