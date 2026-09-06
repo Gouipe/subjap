@@ -893,7 +893,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </Row>
             <Row
               label="Masquer les sous-titres FR/EN"
-              hint="masque la traduction quand tous les mots sont connus/ignorés, ou avec un seul mot bleu/vert"
+              hint="masque la traduction quand tous les mots sont connus ou ignorés"
             >
               <Toggle
                 checked={options.hideSecondarySubtitlesWhenAllKnown}

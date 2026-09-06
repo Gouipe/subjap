@@ -421,11 +421,8 @@ const Popup: React.FC = () => {
               void toggleSecondarySubtitles(event.target.checked)
             }
           />
-          <span>Masquer FR/EN si tout est connu ou ciblé</span>
+          <span>Masquer FR/EN si tout est connu ou ignoré</span>
         </label>
-        <p style={styles.subtitleHint}>
-          Aussi actif avec un seul mot bleu ou vert à apprendre.
-        </p>
         <label style={{ ...styles.checkLabel, marginTop: 10 }}>
           <input
             type="checkbox"

@@ -14,7 +14,7 @@ import { DEFAULT_OPTIONS } from "@/core/options";
 import { containsKanjiOrKatakana, toHiragana } from "@/core/kana";
 import {
   getFrequencyHighlight,
-  isJapaneseOnlyEligible,
+  isAllKnownOrIgnored,
   isNonLexicalToken,
   isSingleMiningCandidate,
   type FrequencyHighlight,
@@ -678,10 +678,7 @@ export class OverlayRenderer {
     ) {
       return true;
     }
-    return !isJapaneseOnlyEligible(
-      this.cues.flatMap((cue) => cue.spans),
-      this.knownWordCount,
-    );
+    return !isAllKnownOrIgnored(this.cues.flatMap((cue) => cue.spans));
   }
 
   private currentSubtitleKey(): string {
