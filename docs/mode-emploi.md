@@ -98,8 +98,11 @@ bouton « Restaurer le défaut » remet les instructions d’origine.
    **Activer l’audio de l’onglet**, puis miner comme sur Netflix. Le titre et
    le lien de la vidéo sont conservés dans la carte.
 
-La traduction FR/EN apparaît si une piste correspondante est disponible ;
-SubJap ne demande pas de traduction automatique YouTube. Une traduction locale
+La traduction FR/EN apparaît si une piste du créateur est disponible dans la
+langue choisie, avec l’autre langue en repli. Les pistes générées automatiquement
+et la traduction automatique YouTube sont exclues des sous-titres secondaires.
+Les réglages de masquage et la révélation avec **X** restent ceux de Netflix.
+Une traduction locale
 peut aussi être importée. Les Shorts, directs et lecteurs intégrés ne sont pas
 inclus dans cette première version.
 

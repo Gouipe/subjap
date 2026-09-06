@@ -138,15 +138,20 @@ est `hideNativeSubtitles`, activée par défaut.
 [`YouTubeAdapter`](../src/adapters/youtube.ts) prend en charge les vidéos
 classiques `/watch?v=…`, y compris les changements de vidéo sans rechargement.
 Il choisit une piste japonaise du créateur en priorité, puis une piste japonaise
-automatique. Une piste FR/EN disponible fournit la traduction selon le réglage
-habituel. Les traductions locales SRT/VTT/ASS restent prioritaires et utilisent
+automatique. Une piste FR/EN du créateur fournit la traduction selon le réglage
+habituel, avec l’autre langue en repli. Les pistes secondaires générées ou
+traduites automatiquement par YouTube sont exclues. Les traductions locales SRT/VTT/ASS restent prioritaires et utilisent
 des clés `youtube:<id>` ; les clés Netflix existantes sont conservées.
 
 Le script [`youtube-bridge-entry.ts`](../src/youtube-bridge-entry.ts), injecté
 dans le monde MAIN à `document_start`, lit les métadonnées du lecteur et observe
 ses réponses de sous-titres `fetch`/XHR sans modifier leurs contenus. Il tente
 également un téléchargement JSON3 dans la page ; si ce fichier manque, il
-demande au lecteur de charger la piste japonaise sélectionnée. Les requêtes
+demande au lecteur de charger la piste japonaise sélectionnée. Pour une piste
+secondaire manquante, une fois le fichier japonais disponible, il sélectionne
+temporairement cette piste puis restaure le japonais après réception ou au
+bout de quatre secondes. Cette sonde est isolée par vidéo et ne remplace pas
+la chronologie japonaise de l’overlay. Les requêtes
 signées réellement émises par YouTube servent ainsi de repli. Aucun service
 tiers ni clé API n’est utilisé pour obtenir les sous-titres.
 

@@ -56,7 +56,11 @@ servent aussi à la navigation et à la capture audio, avec la même marge audio
 de 300 ms. Les publicités suspendent ce contexte et interrompent l’exercice
 ou la capture en cours.
 
-La traduction locale conserve sa priorité sur les pistes FR/EN disponibles.
+La traduction locale conserve sa priorité sur les pistes FR/EN du créateur.
+La langue secondaire préférée est recherchée parmi les pistes non automatiques,
+puis l’autre langue FR/EN ; les pistes générées et traduites automatiquement
+par YouTube sont exclues. La sonde du lecteur pour charger une traduction
+manquante restaure le japonais sans changer sa chronologie.
 Sans fichier japonais exploitable, YouTube conserve ses sous-titres natifs et
 SubJap ne crée pas d’historique à partir d’un texte dont la langue ou les bornes
 ne seraient pas confirmées.

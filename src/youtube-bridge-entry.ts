@@ -33,6 +33,8 @@ interface YouTubePlayer extends HTMLElement {
   const attempts = new Map<string, { count: number; at: number }>();
   const controllers = new Set<AbortController>();
   let nativeSelection = "";
+  const nativeSecondarySelections = new Set<string>();
+  let secondaryProbe: { trackId: string; restore: YouTubeCaptionTrack; deadline: number } | null = null;
   let navigationGeneration = 0;
   const observedFiles = new Map<string, string>();
 
@@ -161,19 +163,26 @@ interface YouTubePlayer extends HTMLElement {
     if (response?.videoDetails?.videoId !== videoId) response = page.ytInitialPlayerResponse;
     if (response?.videoDetails?.videoId !== videoId) return;
     const available = response.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
-    const choose = (language: string): YouTubeCaptionTrack | null => {
+    const isAutomatic = (track: NativeTrack): boolean => track.kind === "asr" ||
+      track.vssId?.startsWith("a.") === true ||
+      (typeof track.baseUrl === "string" && validUrl(track.baseUrl)?.searchParams.get("kind") === "asr");
+    const choose = (language: string, allowAutomatic = true): YouTubeCaptionTrack | null => {
       const candidate = available.filter((track) => typeof track.languageCode === "string" &&
         track.languageCode.split(/[-_]/)[0] === language && typeof track.baseUrl === "string" &&
-        validUrl(track.baseUrl)?.searchParams.get("v") === videoId)
-        .sort((a, b) => Number(a.kind === "asr") - Number(b.kind === "asr"))[0];
+        validUrl(track.baseUrl)?.searchParams.get("v") === videoId &&
+        !validUrl(track.baseUrl)?.searchParams.has("tlang") &&
+        (allowAutomatic || !isAutomatic(track)))
+        .sort((a, b) => Number(isAutomatic(a)) - Number(isAutomatic(b)))[0];
       if (!candidate?.baseUrl) return null;
       return {
         id: candidate.vssId || `${candidate.languageCode}:${candidate.kind ?? "manual"}`,
-        language, automatic: candidate.kind === "asr", url: candidate.baseUrl,
+        language, automatic: isAutomatic(candidate), url: candidate.baseUrl,
       };
     };
     const primary = choose("ja");
-    const secondary = choose(preferred) ?? choose(preferred === "fr" ? "en" : "fr");
+    // Filter before language fallback: an automatic preferred track must not
+    // prevent an authored track in the other supported language from appearing.
+    const secondary = choose(preferred, false) ?? choose(preferred === "fr" ? "en" : "fr", false);
     tracks = [primary, secondary].filter((track): track is YouTubeCaptionTrack => track !== null);
     const info: YouTubePlaybackInfo = {
       videoId, session, title: response.videoDetails?.title ?? "YouTube",
@@ -184,20 +193,37 @@ interface YouTubePlayer extends HTMLElement {
     if (info.live || playingVideoId !== videoId || player.matches(".ad-showing, .ad-interrupting")) return;
     for (const [url, body] of observedFiles) captureResponse(url, body, navigationGeneration);
     for (const track of tracks) void load(track);
+    const selectNative = (track: YouTubeCaptionTrack): boolean => {
+      try {
+        player.loadModule?.("captions");
+        if (!player.setOption) return false;
+        player.setOption("captions", "track", {
+          languageCode: available.find((candidate) => candidate.vssId === track.id)?.languageCode ?? track.language,
+          vssId: track.id, kind: track.automatic ? "asr" : "",
+        });
+        return true;
+      } catch { return false; }
+    };
+    // Let the native player sign a missing secondary request, then restore
+    // Japanese. The already loaded Japanese file keeps the overlay stable.
+    if (secondaryProbe) {
+      if (files.has(secondaryProbe.trackId) || Date.now() >= secondaryProbe.deadline ||
+        secondary?.id !== secondaryProbe.trackId) {
+        if (selectNative(primary ?? secondaryProbe.restore)) secondaryProbe = null;
+      }
+      return;
+    }
     // If a plain download is unavailable, ask YouTube to load Japanese itself.
     // This happens once per selected track and leaves the player's timing intact.
     if (primary && !files.has(primary.id) && nativeSelection !== primary.id &&
       Date.now() - (attempts.get(primary.url)?.at ?? Date.now()) > 2000) {
-      try {
-        player.loadModule?.("captions");
-        if (player.setOption) {
-          player.setOption("captions", "track", {
-            languageCode: available.find((track) => track.vssId === primary.id)?.languageCode ?? "ja",
-            vssId: primary.id, kind: primary.automatic ? "asr" : "",
-          });
-          nativeSelection = primary.id;
-        }
-      } catch { /* Player modules can be unavailable during a navigation. */ }
+      if (selectNative(primary)) nativeSelection = primary.id;
+    }
+    if (primary && files.has(primary.id) && secondary && !files.has(secondary.id) &&
+      !nativeSecondarySelections.has(secondary.id) &&
+      Date.now() - (attempts.get(secondary.url)?.at ?? Date.now()) > 2000 && selectNative(secondary)) {
+      nativeSecondarySelections.add(secondary.id);
+      secondaryProbe = { trackId: secondary.id, restore: primary, deadline: Date.now() + 4000 };
     }
   };
 
@@ -211,6 +237,7 @@ interface YouTubePlayer extends HTMLElement {
     if (session !== payload.session) {
       for (const controller of controllers) controller.abort();
       files.clear(); attempts.clear(); tracks = []; nativeSelection = "";
+      nativeSecondarySelections.clear(); secondaryProbe = null;
       videoId = payload.videoId; session = payload.session;
     }
     preferred = payload.preferredSecondaryLanguage === "en" ? "en" : "fr";
@@ -224,6 +251,8 @@ interface YouTubePlayer extends HTMLElement {
   window.addEventListener("message", onMessage);
   document.addEventListener("yt-navigate-start", () => {
     navigationGeneration++;
+    secondaryProbe = null;
+    nativeSecondarySelections.clear();
     observedFiles.clear();
     for (const controller of controllers) controller.abort();
     session = "";

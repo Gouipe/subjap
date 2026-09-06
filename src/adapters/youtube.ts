@@ -220,8 +220,10 @@ export class YouTubeAdapter implements PlatformAdapter {
         typeof info.playingVideoId !== "string" || typeof info.live !== "boolean") return;
       if (info.tracks.some((track) => !track || typeof track.id !== "string" || typeof track.url !== "string" ||
         !["ja", "fr", "en"].includes(track.language) || typeof track.automatic !== "boolean")) return;
-      this.info = info;
-      for (const track of info.tracks) this.catalog.selectTrack(track.language, track.id);
+      // Secondary captions must be authored, even if an older page bridge
+      // announces automatic tracks. Japanese keeps its automatic fallback.
+      this.info = { ...info, tracks: info.tracks.filter((track) => track.language === "ja" || !track.automatic) };
+      for (const track of this.info.tracks) this.catalog.selectTrack(track.language, track.id);
     } else if (data.type === "file") {
       const file = payload as unknown as YouTubeCaptionFile;
       if (typeof file.body !== "string" || file.body.length > 8_000_000) return;
