@@ -247,7 +247,13 @@ export class YouTubeAdapter implements PlatformAdapter {
     const time = this.getCurrentTime();
     const japanese = this.info?.tracks.some((track) => track.language === "ja") ? this.catalog.cues("ja") : [];
     const secondary = this.info?.tracks.find((track) => track.language !== "ja");
-    const translation = this.localCues.length ? this.localCues : secondary ? this.catalog.cues(secondary.language) : [];
+    const translation = this.preferredLanguage === "none"
+      ? []
+      : this.localCues.length
+        ? this.localCues
+        : secondary
+          ? this.catalog.cues(secondary.language)
+          : [];
     const cues = usable ? [...activeSubtitleCues(japanese, time), ...activeSubtitleCues(translation, time)] : [];
     const signature = `${this.getNavigationSessionId()}:${japanese.length}:${cues.map((cue) => cue.id).join("|")}`;
     if (signature === this.lastSignature) return;

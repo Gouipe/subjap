@@ -31,7 +31,7 @@ export interface SubtitleTranslation {
   language: string;
 }
 
-export type SecondarySubtitleLanguage = "fr" | "en";
+export type SecondarySubtitleLanguage = "fr" | "en" | "none";
 
 export interface EpisodeContext {
   platform: PlatformId;
@@ -67,7 +67,7 @@ export interface PlatformAdapter {
   getNavigationSessionId?(): string;
   /** Freeze live cue publication while one cue is replayed for media capture. */
   beginCueReplay?(cue: SubtitleCue): CueReplaySession | null;
-  /** Prefer this translation language, with the other supported language as fallback. */
+  /** Prefer this translation language, with the other supported language as fallback; "none" disables it. */
   setSecondarySubtitleLanguage?(language: SecondarySubtitleLanguage): void;
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
   setNativeSubtitlesVisible(v: boolean): void;
@@ -391,7 +391,7 @@ export interface OverlayOptions {
   knownColor: string;
   /** Hide the platform's native subtitle tracks (the overlay replaces them). */
   hideNativeSubtitles: boolean;
-  /** Preferred translation language; the other supported language is the fallback. */
+  /** Preferred translation language; the other supported language is the fallback, or "none" to disable it. */
   secondarySubtitleLanguage: SecondarySubtitleLanguage;
   /** Hide the rendered FR/EN subtitle when every lexical word is known/ignored. */
   hideSecondarySubtitlesWhenAllKnown: boolean;

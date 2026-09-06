@@ -182,7 +182,9 @@ interface YouTubePlayer extends HTMLElement {
     const primary = choose("ja");
     // Filter before language fallback: an automatic preferred track must not
     // prevent an authored track in the other supported language from appearing.
-    const secondary = choose(preferred, false) ?? choose(preferred === "fr" ? "en" : "fr", false);
+    const secondary = preferred === "none"
+      ? null
+      : choose(preferred, false) ?? choose(preferred === "fr" ? "en" : "fr", false);
     tracks = [primary, secondary].filter((track): track is YouTubeCaptionTrack => track !== null);
     const info: YouTubePlaybackInfo = {
       videoId, session, title: response.videoDetails?.title ?? "YouTube",
@@ -240,7 +242,11 @@ interface YouTubePlayer extends HTMLElement {
       nativeSecondarySelections.clear(); secondaryProbe = null;
       videoId = payload.videoId; session = payload.session;
     }
-    preferred = payload.preferredSecondaryLanguage === "en" ? "en" : "fr";
+    preferred = payload.preferredSecondaryLanguage === "none"
+      ? "none"
+      : payload.preferredSecondaryLanguage === "en"
+        ? "en"
+        : "fr";
     infoSignature = "";
     inspect();
     for (const track of tracks) {

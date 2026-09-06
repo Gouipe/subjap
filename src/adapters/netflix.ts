@@ -714,6 +714,7 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private getActiveTranslationCue(): SubtitleCue | null {
+    if (this.preferredSecondaryLanguage === "none") return null;
     const currentTime = this.getCurrentTime();
     if (this.localTranslationCues.length > 0) {
       const localTime = currentTime - this.localTranslationOffset;

@@ -71,7 +71,8 @@ export function sanitizeOptions(
   }
   if (
     raw.secondarySubtitleLanguage === "fr" ||
-    raw.secondarySubtitleLanguage === "en"
+    raw.secondarySubtitleLanguage === "en" ||
+    raw.secondarySubtitleLanguage === "none"
   ) {
     out.secondarySubtitleLanguage = raw.secondarySubtitleLanguage;
   }

@@ -115,7 +115,8 @@ contenu au service worker via le bus MV3 ; le téléchargement ne passe donc pas
 par le `fetch` du contexte de la page, ce qui évite les bloqueurs qui modifient
 ce dernier. Les pistes TTML/DFXP/VTT sont ensuite choisies selon la préférence
 persistante de l’utilisateur (français ou anglais), avec l’autre langue en
-repli. Le japonais reste toujours la piste d’apprentissage et la piste
+repli ; la valeur « aucun » désactive cette piste. Le japonais reste toujours
+la piste d’apprentissage et la piste
 restaurée après une sonde Netflix ; sa piste capturée et identifiée fournit
 les segments de référence, avec le DOM comme repli lorsque cette piste manque. Avant d’associer une
 réponse à la piste secondaire, le bridge vérifie aussi la langue déclarée ou
@@ -140,7 +141,8 @@ classiques `/watch?v=…`, y compris les changements de vidéo sans rechargement
 Il choisit une piste japonaise du créateur en priorité, puis une piste japonaise
 automatique. Une piste FR/EN du créateur fournit la traduction selon le réglage
 habituel, avec l’autre langue en repli. Les pistes secondaires générées ou
-traduites automatiquement par YouTube sont exclues. Les traductions locales SRT/VTT/ASS restent prioritaires et utilisent
+traduites automatiquement par YouTube sont exclues. La préférence peut aussi
+désactiver complètement la piste secondaire. Les traductions locales SRT/VTT/ASS restent prioritaires lorsque la piste secondaire est activée et utilisent
 des clés `youtube:<id>` ; les clés Netflix existantes sont conservées.
 
 Le script [`youtube-bridge-entry.ts`](../src/youtube-bridge-entry.ts), injecté

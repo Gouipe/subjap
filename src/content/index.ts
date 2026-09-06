@@ -384,7 +384,7 @@ function ensureOverlay(): OverlayRenderer | null {
       const deferred = deferredCuesWhileListening;
       deferredCuesWhileListening = null;
       if (deferred !== null) enqueueCues(deferred);
-    });
+    }, () => overlayOptions.secondarySubtitleLanguage !== "none");
     audioCapture = new VideoAudioCapture(
       video,
       (timeSeconds, resume) => adapter.seekTo(timeSeconds, resume),
@@ -643,6 +643,7 @@ function isJapaneseTrack(language: string | undefined): boolean {
 
 function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {
   const preferredLanguage = overlayOptions.secondarySubtitleLanguage;
+  if (preferredLanguage === "none") return null;
   const fallbackLanguage = preferredLanguage === "fr" ? "en" : "fr";
   return (
     cues.find((cue) => cue.language === "local") ??

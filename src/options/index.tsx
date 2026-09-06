@@ -876,17 +876,21 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </Row>
             <Row
               label="Langues des sous-titres"
-              hint="principal : japonais · l'autre traduction sert de repli"
+              hint="principal : japonais · l'autre traduction sert de repli · ou aucune traduction"
             >
               <select
                 value={options.secondarySubtitleLanguage}
                 style={s.select}
                 onChange={(e) =>
                   void updateOptions({
-                    secondarySubtitleLanguage: e.target.value === "en" ? "en" : "fr",
+                    secondarySubtitleLanguage:
+                      e.target.value === "en" || e.target.value === "none"
+                        ? e.target.value
+                        : "fr",
                   })
                 }
               >
+                <option value="none">Secondaire : aucun</option>
                 <option value="fr">Secondaire : français</option>
                 <option value="en">Secondaire : anglais</option>
               </select>

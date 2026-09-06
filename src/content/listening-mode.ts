@@ -30,6 +30,7 @@ export class ListeningMode {
     adapter: PlatformAdapter,
     overlay: OverlayRenderer,
     private readonly onClosed: () => void,
+    private readonly canRevealSecondary: () => boolean = () => true,
   ) {
     this.video = video;
     this.adapter = adapter;
@@ -134,6 +135,7 @@ export class ListeningMode {
       event.stopPropagation();
       this.revealSubtitles("japanese");
     } else if (key === "e" && this.phase === "review") {
+      if (!this.canRevealSecondary()) return;
       event.preventDefault();
       event.stopPropagation();
       this.revealSubtitles("secondary");
@@ -224,6 +226,7 @@ export class ListeningMode {
 
   private revealSubtitles(language: "japanese" | "secondary"): void {
     if (this.phase !== "review") return;
+    if (language === "secondary" && !this.canRevealSecondary()) return;
     if (language === "japanese") this.japaneseRevealed = true;
     else this.secondaryRevealed = true;
     // Each explicit reveal preserves the other layer's current state.
@@ -300,7 +303,7 @@ export class ListeningMode {
     listen.hidden = this.phase !== "ready";
     replay.hidden = this.phase !== "review";
     japanese.hidden = this.phase !== "review";
-    secondary.hidden = this.phase !== "review";
+    secondary.hidden = this.phase !== "review" || !this.canRevealSecondary();
     japanese.textContent = this.japaneseRevealed
       ? "Z · Japonais affiché"
       : "Z · Afficher le japonais";

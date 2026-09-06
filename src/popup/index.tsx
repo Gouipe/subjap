@@ -409,12 +409,13 @@ const Popup: React.FC = () => {
                 )
               }
             >
+              <option value="none">Aucun</option>
               <option value="fr">Français</option>
               <option value="en">Anglais</option>
             </select>
           </label>
           <p style={styles.languageHint}>
-            L’autre langue est utilisée automatiquement si nécessaire.
+            L’autre langue est utilisée automatiquement si nécessaire, sauf avec « Aucun ».
           </p>
         </div>
         <label style={styles.checkLabel}>

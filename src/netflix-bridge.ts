@@ -4,7 +4,7 @@ export const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 export const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 export const NETFLIX_SELECTED_TRACK_EVENT = "subjap:netflix-selected-track";
 
-type SecondarySubtitleLanguage = "fr" | "en";
+type SecondarySubtitleLanguage = "fr" | "en" | "none";
 
 export interface NetflixTimedTextTrack {
   episodeId: string;
@@ -50,7 +50,7 @@ interface NetflixTimedTextSession extends NetflixPlayer {
 export function selectNetflixSecondaryTrack(
   tracks: NetflixTimedTextTrackOption[],
   current?: NetflixTimedTextTrackOption | null,
-  preferredLanguage: SecondarySubtitleLanguage = "fr",
+  preferredLanguage: Exclude<SecondarySubtitleLanguage, "none"> = "fr",
 ): { native: NetflixTimedTextTrackOption; secondary: NetflixTimedTextTrackOption } | null {
   const native =
     current && /^ja(?:-|_|$)/i.test(readTimedTextLanguage(current))
@@ -783,6 +783,7 @@ function installTimedTextCapture(page: Window): void {
   }
 
   const probeSecondaryTimedTextTrack = (): void => {
+    if (preferredSecondaryLanguage === "none") return;
     const session = resolveNetflixTimedTextSession(page);
     if (!session) {
       probeSecondaryTrackThroughUi();
@@ -962,10 +963,22 @@ function installTimedTextCapture(page: Window): void {
     if (!episodeId || episodeId !== readWatchEpisodeId(page)) return;
     observeNativeTrack(true);
     const requestedLanguage = data.payload?.preferredSecondaryLanguage;
-    if (requestedLanguage === "fr" || requestedLanguage === "en") {
+    if (requestedLanguage === "fr" || requestedLanguage === "en" || requestedLanguage === "none") {
       if (preferredSecondaryLanguage !== requestedLanguage) {
         preferredSecondaryLanguage = requestedLanguage;
         uiProbeAttempted = false;
+        if (requestedLanguage === "none") {
+          const session = resolveNetflixTimedTextSession(page);
+          clearPendingAssociations();
+          if (session && pendingNativeTrack) {
+            restoreNativeTrack(session, pendingNativeTrack);
+          } else if (uiNativeRestore !== null) {
+            restoreNativeTrackThroughUi();
+          } else {
+            pendingSecondaryLanguage = "";
+            pendingNativeTrack = null;
+          }
+        }
       }
     }
     for (const track of discoveredTracks.values()) {

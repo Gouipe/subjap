@@ -25,9 +25,10 @@ produites par `migaku-export`.
 ## Usage quotidien de SubJap
 
 1. Ouvrir Anki, puis la vidéo dans Chrome.
-2. Dans la popup SubJap, choisir la langue secondaire : **Français** ou
-   **Anglais**. Le japonais reste toujours principal ; si la traduction choisie
-   n’existe pas pour l’épisode, SubJap utilise automatiquement l’autre.
+2. Dans la popup SubJap, choisir la langue secondaire : **Aucun**,
+   **Français** ou **Anglais**. Le japonais reste toujours principal ; si la
+   traduction choisie n’existe pas pour l’épisode, SubJap utilise automatiquement
+   l’autre, sauf avec **Aucun**, qui désactive toute traduction secondaire.
 3. Survoler un mot du sous-titre et cliquer sur **Mine this**.
 4. Facultatif : cliquer sur **Enrichir avec l’IA** pour ajouter aux Notes une
    explication concise et modifiable. SubJap privilégie les exemples contenant
@@ -99,8 +100,9 @@ bouton « Restaurer le défaut » remet les instructions d’origine.
    le lien de la vidéo sont conservés dans la carte.
 
 La traduction FR/EN apparaît si une piste du créateur est disponible dans la
-langue choisie, avec l’autre langue en repli. Les pistes générées automatiquement
-et la traduction automatique YouTube sont exclues des sous-titres secondaires.
+langue choisie, avec l’autre langue en repli. Le choix **Aucun** désactive les
+sous-titres secondaires. Les pistes générées automatiquement et la traduction
+automatique YouTube sont exclues des sous-titres secondaires.
 Les réglages de masquage et la révélation avec **X** restent ceux de Netflix.
 Une traduction locale
 peut aussi être importée. Les Shorts, directs et lecteurs intégrés ne sont pas
@@ -120,7 +122,8 @@ dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
 
 Le fichier est mémorisé uniquement pour cette vidéo et cette plateforme. Il
 remplace la traduction FR/EN disponible tant qu’il n’est pas supprimé depuis
-la popup.
+la popup ; le choix **Aucun** empêche également cette traduction locale d’être
+affichée.
 
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
 production orale** au verso. Sa carte sœur apparaît dans
