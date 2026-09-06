@@ -76,10 +76,7 @@ Pas de vérifications automatisées de type navigateur, sauf demande explicite c
 l’utilisateur.
 
 Quand une implémentation est terminée et vérifiée, créer un commit avec les
-changements concernés avant de rendre la main. Si l’utilisateur demande ensuite
-des retours sur cette même implémentation, modifier le commit existant avec
-`git commit --amend --no-edit` plutôt que créer un nouveau commit, sauf demande
-explicite contraire.
+changements concernés avant de rendre la main.
 
 ## Correction de bugs
 
