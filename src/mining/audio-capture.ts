@@ -84,11 +84,13 @@ export class VideoAudioCapture {
   private tabStream: MediaStream | null = null;
   private tabCapturePromise: Promise<void> | null = null;
   private phraseCaptureQueue: Promise<void> = Promise.resolve();
+  private captureGeneration = 0;
 
   constructor(
     video: HTMLVideoElement,
     seekTo: ((timeSeconds: number, resume: boolean) => Promise<boolean>) | null = null,
     beginCueReplay: ((cue: SubtitleCue) => CueReplaySession | null) | null = null,
+    private readonly getPlaybackSessionId: (() => string | undefined) | null = null,
   ) {
     this.video = video as CaptureVideo;
     this.seekTo = seekTo;
@@ -222,7 +224,10 @@ export class VideoAudioCapture {
     onResolvedBounds?: (start: number, end: number) => void,
   ): Promise<string | undefined> {
     const snapshot = { ...cue };
+    const requestSession = this.getPlaybackSessionId?.();
+    const generation = this.captureGeneration;
     return this.enqueuePhraseCapture(async () => {
+      if (generation !== this.captureGeneration || requestSession !== this.getPlaybackSessionId?.()) return undefined;
       const replaySession = this.beginCueReplay?.(snapshot) ?? null;
       try {
         if (snapshot.endConfirmed !== false) {
@@ -293,6 +298,13 @@ export class VideoAudioCapture {
     const initialTime = this.video.currentTime;
     const initialPaused = this.video.paused;
     const initialRate = this.video.playbackRate;
+    const playbackSession = this.getPlaybackSessionId?.();
+    const generation = this.captureGeneration;
+    const isCurrent = (): boolean => generation === this.captureGeneration &&
+      playbackSession === this.getPlaybackSessionId?.();
+    const assertCurrent = (): void => {
+      if (!isCurrent()) throw new Error("La vidéo a changé pendant la capture audio.");
+    };
 
     let offscreenRecording = false;
     let offscreenStartPromise: Promise<void> | null = null;
@@ -312,15 +324,18 @@ export class VideoAudioCapture {
         // recorder before asking the player to resume from that position.
         this.video.pause();
         const seekOk = await this.seekTo(from, false);
-        if (!seekOk) throw new Error("Netflix seek bridge refused phrase start");
+        assertCurrent();
+        if (!seekOk) throw new Error("Le lecteur a refusé le début de la phrase.");
         // The page-world bridge acknowledges that it invoked Netflix's API;
         // the media element can still be several seconds ahead until the seek
         // actually lands. Recording before this point produced random halves.
-        await this.waitForSeekPosition(from);
+        await this.waitForSeekPosition(from, assertCurrent);
         await startOffscreenRecording();
+        assertCurrent();
         onPlaybackStart?.();
         const playOk = await this.seekTo(from, true);
-        if (!playOk) throw new Error("Netflix seek bridge refused phrase playback");
+        assertCurrent();
+        if (!playOk) throw new Error("Le lecteur a refusé la relecture de la phrase.");
         if (resolveEnd) resolvedEnd = await resolveEnd();
       } else {
         offscreenStartPromise = startOffscreenRecording();
@@ -334,15 +349,20 @@ export class VideoAudioCapture {
         await offscreenStartPromise;
       }
       if (resolvedEnd <= start) throw new Error("Invalid phrase cue boundary");
+      assertCurrent();
       onResolvedEnd?.(resolvedEnd);
       await this.waitForVideoTime(
         this.seekTo ? resolvedEnd + marginSeconds : to,
+        assertCurrent,
       );
+      assertCurrent();
       if (this.seekTo) this.video.pause();
       await new Promise((resolve) => setTimeout(resolve, PHRASE_CAPTURE_SETTLE_MS));
+      assertCurrent();
       if (offscreenRecording) {
         const { dataUrl } = await sendMessage("tabCapture:phraseStop", {});
         offscreenRecording = false;
+        assertCurrent();
         if (dataUrl) return dataUrl;
       }
       return this.captureSegment(start, resolvedEnd, marginSeconds);
@@ -353,15 +373,15 @@ export class VideoAudioCapture {
       if (offscreenRecording) {
         void sendMessage("tabCapture:phraseStop", {}).catch(() => undefined);
       }
-      this.video.playbackRate = initialRate;
-      if (this.seekTo) {
+      if (isCurrent()) this.video.playbackRate = initialRate;
+      if (isCurrent() && this.seekTo) {
         try {
           const restored = await this.seekTo(initialTime, !initialPaused);
-          if (restored) await this.waitForSeekPosition(initialTime);
+          if (restored) await this.waitForSeekPosition(initialTime, assertCurrent);
         } catch (err) {
           console.warn("[SubJap] Failed to restore playback after phrase capture:", err);
         }
-      } else {
+      } else if (isCurrent()) {
         this.video.currentTime = initialTime;
         if (initialPaused) {
           this.video.pause();
@@ -373,6 +393,7 @@ export class VideoAudioCapture {
   }
 
   destroy(): void {
+    this.captureGeneration++;
     if (this.processor) this.processor.disconnect();
     if (this.source) this.source.disconnect();
     if (this.silentGain) this.silentGain.disconnect();
@@ -483,9 +504,10 @@ export class VideoAudioCapture {
     );
   }
 
-  private async waitForVideoTime(target: number): Promise<void> {
+  private async waitForVideoTime(target: number, assertCurrent?: () => void): Promise<void> {
     const deadline = performance.now() + PHRASE_CAPTURE_TIMEOUT_MS;
     while (this.video.currentTime < target) {
+      assertCurrent?.();
       if (performance.now() >= deadline) {
         throw new Error(`Timed out waiting for Netflix playback at ${target.toFixed(2)}s`);
       }
@@ -493,12 +515,13 @@ export class VideoAudioCapture {
     }
   }
 
-  private async waitForSeekPosition(target: number): Promise<void> {
+  private async waitForSeekPosition(target: number, assertCurrent?: () => void): Promise<void> {
     const deadline = performance.now() + PHRASE_SEEK_TIMEOUT_MS;
     while (
       Math.abs(this.video.currentTime - target) >
       PHRASE_SEEK_TOLERANCE_SECONDS
     ) {
+      assertCurrent?.();
       if (performance.now() >= deadline) {
         throw new Error(`Timed out waiting for Netflix seek to ${target.toFixed(2)}s`);
       }

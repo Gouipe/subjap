@@ -1,3 +1,5 @@
+import { youtubeVideoId } from "@/core/youtube";
+
 export interface LocalSubtitleRecord {
   fileName: string;
   content: string;
@@ -6,6 +8,12 @@ export interface LocalSubtitleRecord {
 }
 
 const STORAGE_PREFIX = "subjap_local_subtitle_watch_";
+
+/** Keep existing Netflix keys intact; YouTube gets a separate namespace. */
+export function localSubtitleVideoId(url: string): string | null {
+  const youtubeId = youtubeVideoId(url);
+  return youtubeId ? `youtube:${youtubeId}` : netflixWatchId(url);
+}
 
 export function netflixWatchId(url: string): string | null {
   try {

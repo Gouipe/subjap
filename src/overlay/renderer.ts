@@ -21,6 +21,7 @@ import {
 } from "@/core/frequency";
 import { normalizeCueText } from "@/subtitles";
 import { subtitleCueKey } from "@/subtitles/timeline";
+import { forgetVideoSurface, mountVideoSurface } from "./mount";
 
 const CONTAINER_ID = "subjap-overlay-container";
 const STYLE_ID = "subjap-overlay-styles";
@@ -433,6 +434,7 @@ export class OverlayRenderer {
   /** Tear down the overlay completely: cancel animation, remove DOM nodes. */
   destroy(): void {
     this.stopRepositionLoop();
+    forgetVideoSurface(this.container);
     this.container.remove();
     this.styleEl.remove();
   }
@@ -540,7 +542,7 @@ export class OverlayRenderer {
     const text = document.createElement("span");
     text.className = "subjap-runtime-notice__text";
     text.textContent =
-      "SubJap a été mis à jour. Rechargez Netflix pour retrouver vos états de vocabulaire.";
+      "SubJap a été mis à jour. Rechargez la page pour retrouver vos états de vocabulaire.";
 
     const button = document.createElement("button");
     button.className = "subjap-runtime-notice__button";
@@ -710,7 +712,7 @@ export class OverlayRenderer {
     // stacking contexts. An in-player mount can be trapped under transparent
     // platform layers (e.g. Netflix's control backdrop), which would paint over
     // it and swallow pointer events — the overlay stays visible but dead.
-    document.body.appendChild(this.container);
+    mountVideoSurface(this.container);
   }
 
   // ── Positioning ───────────────────────────────────────────────────────

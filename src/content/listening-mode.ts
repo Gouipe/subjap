@@ -1,6 +1,7 @@
 import type { OverlayRenderer } from "@/overlay";
 import type { PlatformAdapter, RenderedCue } from "@/core/types";
 import { subtitleCueKey } from "@/subtitles/timeline";
+import { forgetVideoSurface, mountVideoSurface } from "@/overlay/mount";
 
 const PANEL_ID = "subjap-listening-mode";
 const STYLE_ID = "subjap-listening-mode-styles";
@@ -79,7 +80,7 @@ export class ListeningMode {
     this.secondaryRevealed = false;
     this.overlay.setSubtitleVisibility(false, false);
     this.render();
-    if (!this.container.isConnected) document.body.appendChild(this.container);
+    mountVideoSurface(this.container);
 
     // Q/S preserves pause: the learner starts explicitly with A in that case.
     if (this.phase === "ready") return;
@@ -95,6 +96,7 @@ export class ListeningMode {
 
   destroy(): void {
     this.close();
+    forgetVideoSurface(this.container);
     document.removeEventListener("keydown", this.handleKeydown, true);
     this.container.remove();
   }

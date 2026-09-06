@@ -12,6 +12,7 @@ import {
 } from "@/core/types";
 import { toHiragana } from "@/core/kana";
 import { dictionaryReadingForToken } from "@/dictionary/match";
+import { forgetVideoSurface, mountVideoSurface } from "./mount";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -131,6 +132,7 @@ export class WordPopover {
   /** Tear down the popover and remove its DOM. */
   destroy(): void {
     this.hide();
+    forgetVideoSurface(this.el);
     this.el.remove();
   }
 
@@ -555,7 +557,7 @@ let singleton: WordPopover | null = null;
 export function getPopover(callbacks: PopoverCallbacks): WordPopover {
   if (!singleton) {
     singleton = new WordPopover(callbacks);
-    document.body.appendChild(singleton.getElement());
+    mountVideoSurface(singleton.getElement());
   }
   return singleton;
 }

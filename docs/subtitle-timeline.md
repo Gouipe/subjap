@@ -41,7 +41,27 @@ piste, fichier, identifiant du segment source et précision du début. Les
 instantanés publiés sont immuables. L’arrivée de meilleures données peut changer
 la source active, mais ne modifie pas une phrase déjà figée dans le mining.
 
-## Ordre de repli
+## Sélection YouTube
+
+Sur les vidéos classiques YouTube, la piste japonaise du créateur prime sur
+la piste automatique. Le bridge et l’adaptateur isolent leurs fichiers par
+identifiant vidéo et génération de navigation. Les métadonnées et réponses
+de l’ancienne vidéo ne peuvent pas alimenter la nouvelle chronologie.
+
+Le parseur conserve les segments JSON3/XML/VTT. Un événement JSON3 `aAppend`
+complète sa fenêtre source ; une nouvelle fenêtre automatique termine
+l’ancienne à son début pour éviter la répétition due à l’affichage déroulant.
+Les segments du créateur qui se chevauchent restent distincts. Ces horaires
+servent aussi à la navigation et à la capture audio, avec la même marge audio
+de 300 ms. Les publicités suspendent ce contexte et interrompent l’exercice
+ou la capture en cours.
+
+La traduction locale conserve sa priorité sur les pistes FR/EN disponibles.
+Sans fichier japonais exploitable, YouTube conserve ses sous-titres natifs et
+SubJap ne crée pas d’historique à partir d’un texte dont la langue ou les bornes
+ne seraient pas confirmées.
+
+## Ordre de repli Netflix
 
 1. Piste officielle correspondant à l’identité japonaise du lecteur.
 2. Si cette identité n’est pas disponible, piste dont le texte actif correspond

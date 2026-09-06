@@ -23,6 +23,7 @@ export {
 export {
   getLocalSubtitle,
   localSubtitleStorageKey,
+  localSubtitleVideoId,
   netflixWatchId,
   removeLocalSubtitle,
   saveLocalSubtitle,

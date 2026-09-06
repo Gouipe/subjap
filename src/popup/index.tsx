@@ -11,7 +11,7 @@ import type { SecondarySubtitleLanguage } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
 import {
   getLocalSubtitle,
-  netflixWatchId,
+  localSubtitleVideoId,
   parseSubtitleFile,
   removeLocalSubtitle,
   saveLocalSubtitle,
@@ -79,7 +79,7 @@ const Popup: React.FC = () => {
   useEffect(() => {
     void (async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const currentWatchId = netflixWatchId(tab?.url ?? "");
+      const currentWatchId = localSubtitleVideoId(tab?.url ?? "");
       setWatchId(currentWatchId);
       if (!currentWatchId) return;
       const record = await getLocalSubtitle(currentWatchId);
@@ -297,14 +297,19 @@ const Popup: React.FC = () => {
           {captureStatus === "activating"
             ? "Activation…"
             : captureStatus === "active"
-              ? "✓ Audio Netflix actif"
-              : "Activer l’audio Netflix"}
+              ? "✓ Audio de l’onglet actif"
+              : "Activer l’audio de l’onglet"}
         </button>
         {captureError && <p style={styles.captureError}>{captureError}</p>}
-        <p style={styles.captureHint}>À faire une seule fois par onglet Netflix.</p>
+        <p style={styles.captureHint}>À faire une seule fois par onglet vidéo.</p>
       </div>
 
       <div style={styles.subtitleBox}>
+        {watchId?.startsWith("youtube:") && (
+          <p style={styles.captureHint}>
+            YouTube : sous-titres japonais du créateur en priorité, automatiques en repli.
+          </p>
+        )}
         <div style={styles.localSubtitleSection}>
           <span style={styles.sectionLabel}>Sous-titres locaux</span>
           {watchId ? (
@@ -382,7 +387,7 @@ const Popup: React.FC = () => {
             </>
           ) : (
             <p style={styles.localSubtitleHint}>
-              Ouvre un épisode Netflix pour importer un fichier.
+              Ouvre un épisode Netflix ou une vidéo YouTube pour importer un fichier.
             </p>
           )}
           {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}

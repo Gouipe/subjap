@@ -44,7 +44,7 @@ Les principaux modules sont organisés ainsi :
 | `src/core/` | Types partagés, bus de messages, options, réglages IA et schéma Dexie. |
 | `src/background/` | Persistance, lookups, statistiques, création de cartes, AnkiConnect et installation. |
 | `src/content/` | Orchestration du pipeline dans la page vidéo et gestion des interactions. |
-| `src/adapters/` | Adaptateurs de lecteurs ; Netflix est l’adaptateur réellement utilisé pour le MVP. |
+| `src/adapters/` | Adaptateurs des lecteurs Netflix et YouTube, et base HTML5 générique. |
 | `src/tokenizer/` | Adaptateur Lindera + UniDic, contrat morphologique, regroupements et cache LRU. |
 | `src/subtitles/` | Normalisation, segmentation et parseurs SRT/VTT/ASS prêts pour l’import local. |
 | `src/dictionary/` | Conversion JMdict et index de recherche ; le service worker interroge les entrées persistées. |
@@ -133,6 +133,44 @@ une règle CSS document-level. Cette approche résiste à la recréation du DOM
 Netflix et aux styles `visibility` inline de ses descendants. La préférence
 est `hideNativeSubtitles`, activée par défaut.
 
+### YouTube
+
+[`YouTubeAdapter`](../src/adapters/youtube.ts) prend en charge les vidéos
+classiques `/watch?v=…`, y compris les changements de vidéo sans rechargement.
+Il choisit une piste japonaise du créateur en priorité, puis une piste japonaise
+automatique. Une piste FR/EN disponible fournit la traduction selon le réglage
+habituel. Les traductions locales SRT/VTT/ASS restent prioritaires et utilisent
+des clés `youtube:<id>` ; les clés Netflix existantes sont conservées.
+
+Le script [`youtube-bridge-entry.ts`](../src/youtube-bridge-entry.ts), injecté
+dans le monde MAIN à `document_start`, lit les métadonnées du lecteur et observe
+ses réponses de sous-titres `fetch`/XHR sans modifier leurs contenus. Il tente
+également un téléchargement JSON3 dans la page ; si ce fichier manque, il
+demande au lecteur de charger la piste japonaise sélectionnée. Les requêtes
+signées réellement émises par YouTube servent ainsi de repli. Aucun service
+tiers ni clé API n’est utilisé pour obtenir les sous-titres.
+
+Le parseur [`subtitles/youtube.ts`](../src/subtitles/youtube.ts) accepte JSON3,
+SRV3, XML historique et VTT. Les événements d’ajout à une même fenêtre sont
+rattachés au segment source ; les fenêtres automatiques successives ne doublent
+pas les phrases en conservant leurs anciennes lignes à l’écran. Le catalogue
+commun conserve un fichier par piste avec des instantanés et des horaires
+partagés entre overlay, Q/S/D, écoute active et mining.
+
+Chaque navigation reçoit une génération distincte, même pour un retour à la
+même vidéo. L’adaptateur rejette les réponses d’anciennes sessions, vide les
+phrases et suspend la navigation et l’overlay pendant les publicités ou lorsque
+l’identité du lecteur ne correspond pas à l’URL. Un changement de contexte
+ferme aussi l’exercice et le mining ; la capture audio abandonne sa relecture
+sans déplacer la nouvelle vidéo vers l’ancien horaire.
+
+Les Shorts, lecteurs intégrés et directs ne sont pas pris en charge. Une vidéo
+doit exposer une piste japonaise exploitable : SubJap ne transcrit pas l’audio
+et ne traduit pas une autre langue vers le japonais. Si YouTube refuse les
+fichiers de sous-titres, les sous-titres natifs restent accessibles. Les API
+internes et les sélecteurs YouTube peuvent évoluer ; le fonctionnement réel
+reste à vérifier sur le lecteur après rechargement de l’extension.
+
 ### Adaptateur HTML5 générique
 
 [`GenericHtml5Adapter`](../src/adapters/generic-html5.ts) sait lire les
@@ -140,8 +178,8 @@ est `hideNativeSubtitles`, activée par défaut.
 Il constitue la base pour les lecteurs HTML5 standards et les futurs
 adaptateurs. Le registre possède également un fallback ultime sans émission de
 cues lorsque la page ne correspond à aucun adaptateur spécialisé. Dans le
-content script actuel, Netflix est l’adaptateur explicitement enregistré ; le
-branchement d’autres adaptateurs est une extension du registre.
+content script actuel, Netflix ou YouTube est explicitement enregistré selon
+le domaine ; le branchement d’autres adaptateurs est une extension du registre.
 
 ## Pipeline de rendu
 
@@ -228,7 +266,9 @@ ses bornes sont donc figées pour toute la durée du minage.
 [`OverlayRenderer`](../src/overlay/renderer.ts) est implémenté en DOM vanilla
 pour éviter de faire passer le rendu de chaque token par React. Le conteneur :
 
-- est monté directement sur `document.body` ;
+- est monté sur `document.body` en mode normal, puis dans l’élément plein écran
+  lorsque le lecteur utilise l’API Fullscreen ; popover, mining et écoute active
+  suivent la même règle via `src/overlay/mount.ts` ;
 - est en `position: fixed`, avec un z-index très élevé ;
 - reprend les coordonnées de `video.getBoundingClientRect()` ;
 - est repositionné périodiquement pour suivre resize, plein écran et contrôles
@@ -446,7 +486,7 @@ bus de messages et les modules partagés pour lire ou modifier l’état.
 
 ## État actuel et extensions prévues
 
-Le MVP couvre le squelette MV3, Netflix, le pipeline de rendu, JMdict,
+Le MVP couvre le squelette MV3, Netflix et les vidéos classiques YouTube, le pipeline de rendu, JMdict,
 l’interaction hover/clic, le marquage connu/inconnu, le mining local, le push
 Anki, le popup, les options et l’onboarding.
 
@@ -455,8 +495,8 @@ Les évolutions naturelles sont :
 - alimenter l’accent tonal et étendre les raccourcis clavier aux autres surfaces ;
 - compléter les statistiques et l’historique ;
 - ajouter un sélecteur de deck dans les Options ;
-- brancher YouTube, Crunchyroll et Prime ;
+- brancher Crunchyroll et Prime ;
 - ajouter l’export/import JSON et l’i18n FR/EN.
 
 Les parseurs SRT/VTT/ASS sont isolés dans `src/subtitles/` et leur import comme
-traduction secondaire Netflix est disponible depuis la popup.
+traduction secondaire Netflix ou YouTube est disponible depuis la popup.

@@ -14,6 +14,8 @@
 // ---------------------------------------------------------------------------
 
 import { NetflixAdapter } from "@/adapters/netflix";
+import { YouTubeAdapter } from "@/adapters/youtube";
+import { forgetVideoSurface, mountVideoSurface } from "@/overlay/mount";
 import { adapterRegistry } from "@/core/adapters/registry";
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
@@ -61,7 +63,12 @@ import type {
 // 1. Platform adapters
 // ---------------------------------------------------------------------------
 
-adapterRegistry.register(new NetflixAdapter());
+// Netflix's constructor prepares its page bridge; do not inject it on YouTube.
+if (/(^|\.)youtube\.com$/i.test(location.hostname)) {
+  adapterRegistry.register(new YouTubeAdapter());
+} else {
+  adapterRegistry.register(new NetflixAdapter());
+}
 
 const adapter: PlatformAdapter = adapterRegistry.findActive(document, window.location.href);
 
@@ -384,6 +391,7 @@ function ensureOverlay(): OverlayRenderer | null {
       adapter.beginCueReplay
         ? (cue) => adapter.beginCueReplay?.(cue) ?? null
         : null,
+      adapter.id === "youtube" ? () => adapter.getNavigationSessionId?.() : null,
     );
     currentVideo = video;
   }
@@ -424,7 +432,16 @@ function cueSignature(cues: SubtitleCue[]): string {
 function enqueueCues(cues: SubtitleCue[]): void {
   // The official track can arrive without changing the visible cue payload.
   // Seed navigation before listening-mode and signature deduplication.
-  rememberNavigationCues();
+  const navigationChanged = rememberNavigationCues();
+  if (navigationChanged && adapter.id === "youtube") {
+    listeningActivationRequest = null;
+    deferredCuesWhileListening = null;
+    listeningMode?.cancel();
+    miningModal?.destroy();
+    miningModal = null;
+    nativeSubtitleReplacementReady = false;
+    applyNativeSubtitleVisibility();
+  }
   observeListeningSeekArrival(cues);
 
   // Seeking back to the beginning of an exercise can make Netflix emit a
@@ -459,7 +476,13 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
 
   const overlayInstance = ensureOverlay();
   if (!overlayInstance) {
-    if (revision === cueRevision) lastSignature = "";
+    if (revision === cueRevision) {
+      lastSignature = "";
+      overlay?.hide();
+      hidePopover();
+      spanRegistry.clear();
+      lastRenderedCues = [];
+    }
     console.log("[SubJap] render: skipped (no video yet)");
     return;
   }
@@ -936,7 +959,7 @@ function showMiningCaptureWarning(): void {
     <div style="max-width:420px;padding:24px;border-radius:12px;background:#14161b;color:#f4f1ea;box-shadow:0 8px 8px rgba(0,0,0,.42)">
       <div style="font-size:17px;font-weight:600;margin-bottom:12px">Enregistrement audio désactivé</div>
       <div style="line-height:1.5;color:#b2b6bf">
-        Active d’abord « Audio Netflix » depuis le popup SubJap pour pouvoir miner une phrase avec son audio.
+        Active d’abord « Audio de l’onglet » depuis la popup SubJap pour pouvoir miner une phrase avec son audio.
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:20px">
         <button data-action="close" style="padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer">Fermer</button>
@@ -944,9 +967,10 @@ function showMiningCaptureWarning(): void {
     </div>
   `;
   warning.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener("click", () => {
+    forgetVideoSurface(warning);
     warning.remove();
   });
-  document.body.appendChild(warning);
+  mountVideoSurface(warning);
 }
 
 async function ensureMiningCaptureReady(): Promise<boolean> {
@@ -1142,6 +1166,7 @@ window.addEventListener(
     document.removeEventListener("keydown", resumeTabAudio, true);
     audioCapture?.destroy();
     audioCapture = null;
+    adapter.destroy();
   },
   { once: true },
 );

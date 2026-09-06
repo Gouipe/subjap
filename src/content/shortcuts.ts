@@ -199,7 +199,7 @@ export function installSubtitleCopyShortcut(
 
   const showFeedback = (message: string, failed = false): void => {
     if (removed) return;
-    if (!feedback.isConnected) doc.body.appendChild(feedback);
+    if (!feedback.isConnected) (doc.fullscreenElement ?? doc.body).appendChild(feedback);
     if (feedbackTimer !== null) clearTimeout(feedbackTimer);
     feedback.textContent = message;
     feedback.style.background = failed
@@ -237,6 +237,8 @@ export function installSubtitleCopyShortcut(
     if (!text) return;
 
     event.preventDefault();
+    // YouTube also binds C to native captions; one key must perform one action.
+    event.stopImmediatePropagation();
     const runCopy = async (): Promise<void> => {
       if (removed) return;
       try {

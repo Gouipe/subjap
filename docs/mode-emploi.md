@@ -83,15 +83,41 @@ Le prompt global se modifie depuis la page Options, dans la section
 `{{kanjiCandidates}}` sont remplacées automatiquement pour chaque carte. Le
 bouton « Restaurer le défaut » remet les instructions d’origine.
 
-### Utiliser une traduction locale sur Netflix
+### Utiliser SubJap sur YouTube
 
-1. Ouvrir l’épisode Netflix concerné, puis la popup SubJap.
+1. Après compilation, recharger SubJap dans `chrome://extensions`, puis
+   recharger les onglets YouTube déjà ouverts.
+2. Ouvrir une vidéo classique possédant des sous-titres japonais. SubJap
+   privilégie ceux du créateur et utilise les sous-titres automatiques japonais
+   lorsqu’aucune piste du créateur n’est disponible. Il ne génère pas de
+   transcription pour les vidéos sans piste japonaise.
+3. Utiliser les mots interactifs, le dictionnaire et les raccourcis habituels
+   **Q/S/D**, **C**, **X** et **Espace**. Les modes normal, cinéma et plein écran
+   utilisent le même overlay ; celui-ci se suspend pendant les publicités.
+4. Avant de miner avec l’audio, ouvrir la popup et cliquer sur
+   **Activer l’audio de l’onglet**, puis miner comme sur Netflix. Le titre et
+   le lien de la vidéo sont conservés dans la carte.
+
+La traduction FR/EN apparaît si une piste correspondante est disponible ;
+SubJap ne demande pas de traduction automatique YouTube. Une traduction locale
+peut aussi être importée. Les Shorts, directs et lecteurs intégrés ne sont pas
+inclus dans cette première version.
+
+Si aucun texte SubJap n’apparaît malgré une piste japonaise, activer les
+sous-titres dans le lecteur YouTube et sélectionner le japonais, puis recharger
+la page si nécessaire. YouTube peut refuser le téléchargement d’une piste ;
+dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
+
+### Utiliser une traduction locale sur Netflix ou YouTube
+
+1. Ouvrir l’épisode Netflix ou la vidéo YouTube concernée, puis la popup SubJap.
 2. Dans **Sous-titres locaux**, choisir un fichier SRT, VTT ou ASS.
 3. Si nécessaire, régler le décalage au centième de seconde. Une valeur
    positive affiche la traduction plus tard ; les boutons ajustent de 0,1 s.
 
-Le fichier est mémorisé uniquement pour cet identifiant d’épisode et remplace
-la traduction FR/EN de Netflix tant qu’il n’est pas supprimé depuis la popup.
+Le fichier est mémorisé uniquement pour cette vidéo et cette plateforme. Il
+remplace la traduction FR/EN disponible tant qu’il n’est pas supprimé depuis
+la popup.
 
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
 production orale** au verso. Sa carte sœur apparaît dans

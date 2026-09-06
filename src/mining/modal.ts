@@ -16,6 +16,7 @@ import {
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
 import { normalizeCueText } from "@/subtitles";
+import { forgetVideoSurface, mountVideoSurface } from "@/overlay/mount";
 import { captureFrame } from "./capture";
 import {
   createAiSession,
@@ -105,7 +106,7 @@ export class MiningModal {
     this.video = video;
     this.audioCapture = audioCapture;
     this.container = this.buildContainer();
-    document.body.appendChild(this.container);
+    mountVideoSurface(this.container);
     this.injectStyles();
     // Single delegated listener — avoids duplicate handlers across re-renders.
     this.container.addEventListener("click", (e) => {
@@ -180,6 +181,8 @@ export class MiningModal {
   }
 
   destroy(): void {
+    forgetVideoSurface(this.container);
+    this.state = null;
     this.isOpen = false;
     this.close();
     this.phraseAudioPromise = null;
@@ -565,7 +568,7 @@ export class MiningModal {
       console.error("[SubJap] Screenshot capture failed:", err);
     } finally {
       if (wasVisible && this.state === state && this.isOpen) {
-        document.body.appendChild(this.container);
+        mountVideoSurface(this.container);
         this.show();
       }
       if (this.state === state && this.isOpen) this.render();
