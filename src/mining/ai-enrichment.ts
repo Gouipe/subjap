@@ -1,8 +1,8 @@
 import { canonicalizeLexicalKey } from "@/core/lexical-key";
 import { sendMessage } from "@/core/messaging";
+import { DEFAULT_ENRICHMENT_PROMPT, getAiSettings } from "@/core/ai-settings";
 import type { AiKanjiCandidates } from "@/core/types";
 
-const PROMPT_TIMEOUT_MS = 45_000;
 const responseCache = new Map<string, RawAiEnrichment>();
 
 export interface AiEnrichmentInput {
@@ -37,12 +37,10 @@ interface RawAiEnrichment {
   association: string;
 }
 
-export interface LocalAiSession {
+export interface AiSession {
   generate(input: AiEnrichmentInput, force?: boolean): Promise<RawAiEnrichment>;
   destroy(): void;
 }
-
-export class LocalAiUnavailableError extends Error {}
 
 const RESPONSE_SCHEMA: Record<string, unknown> = {
   type: "object",
@@ -117,27 +115,17 @@ function parseRawEnrichment(value: string): RawAiEnrichment {
   };
 }
 
-function buildPrompt(input: AiEnrichmentInput): string {
-  return `Crée une note pédagogique très concise pour un apprenant francophone de japonais.
-
-Mot cible : ${input.targetWord}
-Lecture : ${input.targetReading || "inconnue"}
-Phrase rencontrée : ${input.sentence}
-Définitions sélectionnées : ${input.definitions.join(" ; ") || "aucune"}
-
-Candidats familiers classés par préférence (known, puis learning, puis Anki) :
-${JSON.stringify(input.kanjiCandidates)}
-
-Règles impératives :
-- Propose au maximum deux synonymes, seulement s'ils sont très importants et réellement substituables dans un sens proche du contexte. Sinon retourne un tableau vide.
-- Pour chaque synonyme, explique en une seule phrase française la différence d'usage avec ${input.targetWord}.
-- Donne pour chaque kanji du mot cible une définition française en un seul mot.
-- Les exemples de kanji doivent provenir exactement des candidats familiers fournis.
-- Ne retiens un exemple que si le kanji y possède la même lecture que dans le mot cible. En cas de doute, ne le retiens pas.
-- Maximum deux exemples par kanji. Il est parfaitement valide de n'en donner aucun.
-- Si le mot contient plusieurs kanjis, la phrase d'association doit citer chacun d'eux dans l'ordre, rappeler brièvement leur sens et expliquer comment leurs sens se combinent pour produire celui du mot cible. Par exemple : « 全 (« totalité ») + 国 (« pays ») désignent l'ensemble du pays, donc 全国. » Ne donne pas seulement la définition ou la lecture d'un kanji isolé.
-- Présente cette association comme une aide mnémotechnique, jamais comme une étymologie certaine. Si l'association serait trompeuse, retourne une chaîne vide.
-- N'ajoute aucune justification, avertissement ou texte hors du JSON.`;
+function buildPrompt(input: AiEnrichmentInput, template: string): string {
+  const values: Record<string, string> = {
+    targetWord: input.targetWord,
+    targetReading: input.targetReading || "inconnue",
+    sentence: input.sentence,
+    definitions: input.definitions.join(" ; ") || "aucune",
+    kanjiCandidates: JSON.stringify(input.kanjiCandidates),
+  };
+  return template.replace(/\{\{([a-zA-Z]+)\}\}/g, (placeholder, key: string) =>
+    values[key] ?? placeholder,
+  );
 }
 
 function associationCoversEveryKanji(input: AiEnrichmentInput, association: string): boolean {
@@ -166,89 +154,44 @@ function parseRepairedAssociation(value: string): string {
   return typeof association === "string" ? association : "";
 }
 
-function cacheKey(input: AiEnrichmentInput): string {
-  return JSON.stringify(input);
+function cacheKey(input: AiEnrichmentInput, promptTemplate: string): string {
+  return JSON.stringify({ input, promptTemplate });
 }
 
-/** Start Chrome's on-device model from the learner's explicit button click. */
-export async function createLocalAiSession(
-  onStatus: (message: string) => void,
-): Promise<LocalAiSession> {
-  if (typeof LanguageModel === "undefined") {
-    throw new LocalAiUnavailableError("L’IA locale n’est pas disponible dans ce navigateur.");
-  }
-
-  const modelOptions: LanguageModelCreateCoreOptions = {
-    expectedInputs: [{ type: "text", languages: ["fr", "ja", "en"] }],
-    expectedOutputs: [{ type: "text", languages: ["fr"] }],
-  };
-  const availability = await LanguageModel.availability(modelOptions);
-  if (availability === "unavailable") {
-    throw new LocalAiUnavailableError(
-      "Ce PC ou cette version de Chrome ne permet pas l’IA locale.",
-    );
-  }
-  if (availability === "downloadable" || availability === "downloading") {
-    onStatus("Téléchargement du modèle local…");
-  } else {
-    onStatus("Préparation de l’analyse locale…");
-  }
-
-  const session = await LanguageModel.create({
-    ...modelOptions,
-    initialPrompts: [
-      {
-        role: "system",
-        content:
-          "Tu aides à mémoriser le vocabulaire japonais. Tu privilégies l'exactitude, la concision et l'absence de réponse quand aucun enrichissement fiable n'existe.",
-      },
-    ],
-    monitor(monitor) {
-      monitor.addEventListener("downloadprogress", (event) => {
-        const percent = Math.round(event.loaded * 100);
-        onStatus(`Téléchargement du modèle local… ${percent}%`);
-      });
-    },
-  });
-
+/** Connect to the configured Cloudflare Worker from the learner's explicit button click. */
+export async function createAiSession(onStatus: (message: string) => void): Promise<AiSession> {
+  onStatus("Connexion à Gemini…");
+  const { enrichmentPrompt } = await getAiSettings();
+  const promptTemplate = enrichmentPrompt || DEFAULT_ENRICHMENT_PROMPT;
   return {
     async generate(input, force = false) {
-      const key = cacheKey(input);
+      const key = cacheKey(input, promptTemplate);
       const cached = responseCache.get(key);
       if (cached && !force) return cached;
 
       onStatus("Analyse du mot et de tes exemples…");
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), PROMPT_TIMEOUT_MS);
-      try {
-        const response = await session.prompt(buildPrompt(input), {
-          responseConstraint: RESPONSE_SCHEMA,
-          signal: controller.signal,
+      const response = await sendMessage("ai:generateEnrichment", {
+        prompt: buildPrompt(input, promptTemplate),
+        responseSchema: RESPONSE_SCHEMA,
+      });
+      const parsed = parseRawEnrichment(response.text);
+      if (
+        input.kanjiCandidates.length > 1 &&
+        parsed.association &&
+        !associationCoversEveryKanji(input, parsed.association)
+      ) {
+        onStatus("Correction de l’association des kanjis…");
+        const repairedResponse = await sendMessage("ai:generateEnrichment", {
+          prompt: buildAssociationRepairPrompt(input, parsed),
+          responseSchema: ASSOCIATION_SCHEMA,
         });
-        const parsed = parseRawEnrichment(response);
-        if (
-          input.kanjiCandidates.length > 1 &&
-          parsed.association &&
-          !associationCoversEveryKanji(input, parsed.association)
-        ) {
-          onStatus("Correction de l’association des kanjis…");
-          const repairedResponse = await session.prompt(
-            buildAssociationRepairPrompt(input, parsed),
-            {
-              responseConstraint: ASSOCIATION_SCHEMA,
-              signal: controller.signal,
-            },
-          );
-          parsed.association = parseRepairedAssociation(repairedResponse);
-        }
-        responseCache.set(key, parsed);
-        return parsed;
-      } finally {
-        window.clearTimeout(timeout);
+        parsed.association = parseRepairedAssociation(repairedResponse.text);
       }
+      responseCache.set(key, parsed);
+      return parsed;
     },
     destroy() {
-      session.destroy();
+      // Remote requests are scoped to the current generation and need no session cleanup.
     },
   };
 }

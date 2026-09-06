@@ -6,6 +6,11 @@
 
 Je recommande **Gemini 3.1 Flash-Lite**, appelé depuis un petit endpoint serveur, avec une sortie JSON structurée.
 
+Pour la migration effectivement retenue par SubJap, le modèle configuré dans le
+Worker est finalement **Gemini 3.5 Flash-Lite** : il conserve le même contrat
+JSON et la même validation locale, avec un compromis qualité/coût choisi pour
+l’usage personnel du projet.
+
 C’est actuellement le meilleur compromis pour SubJap :
 
 - palier gratuit annoncé par Google pour les entrées et sorties textuelles ;

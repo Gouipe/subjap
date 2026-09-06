@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { db } from "@/core/db";
+import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
 import { onMessage } from "@/core/messaging";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
@@ -78,6 +79,9 @@ chrome.runtime.onStartup.addListener(() => {
 // ---------------------------------------------------------------------------
 
 const ANKI_CONNECT_URL = "http://127.0.0.1:8765";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
+const GEMINI_ENDPOINT = import.meta.env.VITE_SUBJAP_AI_ENDPOINT?.trim() ?? "";
+const GEMINI_TIMEOUT_MS = 15_000;
 
 interface AnkiRequest {
   action: string;
@@ -382,6 +386,47 @@ onMessage("ai:prepareEnrichment", async ({ targetWord }) => ({
   kanji: await prepareAiEnrichmentCandidates(targetWord),
 }));
 
+interface GeminiEndpointResponse {
+  text?: string;
+  model?: string;
+  error?: string | { message?: string };
+}
+
+onMessage("ai:generateEnrichment", async ({ prompt, responseSchema }) => {
+  if (!GEMINI_ENDPOINT) {
+    throw new Error(
+      "Endpoint Gemini non configuré. Définis VITE_SUBJAP_AI_ENDPOINT puis reconstruis l’extension.",
+    );
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  try {
+    const response = await fetch(GEMINI_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, responseSchema }),
+      signal: controller.signal,
+    });
+
+    const data = (await response.json()) as GeminiEndpointResponse;
+    if (!response.ok) {
+      const errorMessage = typeof data.error === "string" ? data.error : data.error?.message;
+      throw new Error(errorMessage ?? `Endpoint Gemini HTTP ${response.status}.`);
+    }
+
+    if (!data.text) throw new Error("Gemini n’a renvoyé aucun enrichissement.");
+    return { text: data.text, model: data.model ?? GEMINI_MODEL };
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("La génération Gemini a dépassé 15 secondes.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // ── stats:get ─────────────────────────────────────────────────────────────
 
 onMessage("stats:get", async () => {
@@ -409,6 +454,7 @@ onMessage("data:reset", async () => {
   await db.frequencyEntries.clear();
   await db.settings.clear();
   await chrome.storage.local.remove("subjap_options");
+  await chrome.storage.local.remove(AI_SETTINGS_STORAGE_KEY);
   await chrome.storage.local.remove("subjap_dictionary_loaded");
 });
 

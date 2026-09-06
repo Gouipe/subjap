@@ -118,7 +118,7 @@ async function buildCandidatesForKanji(
     .map(({ candidate }) => candidate);
 }
 
-/** Build a small, local shortlist; the full learner vocabulary never reaches the model. */
+/** Build a small shortlist from all eligible Anki/local vocabulary; ignored words stay excluded. */
 export async function prepareAiEnrichmentCandidates(
   targetWord: string,
 ): Promise<AiKanjiCandidates[]> {

@@ -66,11 +66,18 @@ sous-titres secondaires, indépendamment et sans reprendre la vidéo. **R** ou
 **Espace** continue la lecture ; **A** rejoue la phrase. Les langues déjà
 révélées restent affichées à la fin de la relecture.
 
-L’enrichissement utilise Gemini Nano directement dans Chrome : aucun texte ni
-vocabulaire personnel n’est envoyé à un service distant. La première utilisation
-peut télécharger le modèle. Si Chrome ou l’ordinateur ne le prend pas en charge,
-le bouton affiche une erreur sans empêcher le mining normal. Une régénération
-remplace uniquement le bloc IA ; les Notes personnelles restent intactes.
+L’enrichissement utilise Gemini 3.5 Flash-Lite via le Worker Cloudflare configuré
+pour SubJap. La phrase, le mot et une courte liste d’exemples familiers sont
+envoyés à ce service pour générer la note. La clé Gemini reste côté serveur.
+Si le Worker n’est pas configuré ou devient indisponible, le bouton affiche une
+erreur sans empêcher le mining normal. Une régénération remplace uniquement le
+bloc IA ; les Notes personnelles restent intactes.
+
+Le prompt global se modifie depuis la page Options, dans la section
+« Intelligence artificielle ». Les variables `{{targetWord}}`,
+`{{targetReading}}`, `{{sentence}}`, `{{definitions}}` et
+`{{kanjiCandidates}}` sont remplacées automatiquement pour chaque carte. Le
+bouton « Restaurer le défaut » remet les instructions d’origine.
 
 ### Utiliser une traduction locale sur Netflix
 

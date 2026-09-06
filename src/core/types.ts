@@ -277,6 +277,11 @@ export interface MessageMap {
   "mine:updateNotesResult": void;
   "ai:prepareEnrichment": { targetWord: string };
   "ai:prepareEnrichmentResult": { kanji: AiKanjiCandidates[] };
+  "ai:generateEnrichment": {
+    prompt: string;
+    responseSchema: Record<string, unknown>;
+  };
+  "ai:generateEnrichmentResult": { text: string; model: string };
   "screenshot:capture": Record<string, never>;
   "screenshot:captureResult": { dataUrl: string };
 

@@ -13,6 +13,11 @@ import { createRoot } from "react-dom/client";
 import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, saveOptions, DEFAULT_OPTIONS } from "@/core/options";
+import {
+  DEFAULT_ENRICHMENT_PROMPT,
+  getAiSettings,
+  saveAiSettings,
+} from "@/core/ai-settings";
 import { JMDICT_PACKS } from "@/dictionary/jmdict";
 import type { JmdictPack } from "@/dictionary/jmdict";
 import {
@@ -545,22 +550,60 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [syncingAnki, setSyncingAnki] = useState(false);
   const [ankiSyncNote, setAnkiSyncNote] = useState<string | null>(null);
   const [ankiNote, setAnkiNote] = useState<{ deckName: string; modelName: string } | null>(null);
+  const [aiPrompt, setAiPrompt] = useState<string | null>(null);
+  const [savingAiPrompt, setSavingAiPrompt] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [d, a, o] = await Promise.all([
+      const [d, a, o, ai] = await Promise.all([
         sendMessage("dict:status", {}),
         sendMessage("anki:status", {}),
         getOptions(),
+        getAiSettings(),
       ]);
       setDict(d);
       setAnki(a);
       setOptions(o);
+      setAiPrompt(ai.enrichmentPrompt);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
+  const saveAiPrompt = useCallback(async () => {
+    if (!aiPrompt?.trim()) {
+      setError("Le prompt ne peut pas être vide.");
+      return;
+    }
+    setSavingAiPrompt(true);
+    setError(null);
+    try {
+      const next = await saveAiSettings({ enrichmentPrompt: aiPrompt });
+      setAiPrompt(next.enrichmentPrompt);
+      setSavedAt(Date.now());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingAiPrompt(false);
+    }
+  }, [aiPrompt]);
+
+  const resetAiPrompt = useCallback(async () => {
+    setSavingAiPrompt(true);
+    setError(null);
+    try {
+      const next = await saveAiSettings({
+        enrichmentPrompt: DEFAULT_ENRICHMENT_PROMPT,
+      });
+      setAiPrompt(next.enrichmentPrompt);
+      setSavedAt(Date.now());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingAiPrompt(false);
     }
   }, []);
 
@@ -872,6 +915,41 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
         )}
       </Section>
 
+      <Section title="Intelligence artificielle">
+        <p style={s.muted}>
+          Modifie les instructions utilisées pour enrichir les Notes. Les
+          variables entre doubles accolades sont remplacées automatiquement.
+        </p>
+        {aiPrompt !== null && (
+          <>
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              spellCheck={false}
+              aria-label="Prompt global d’enrichissement IA"
+              style={s.promptInput}
+            />
+            <div style={s.btnRow}>
+              <Btn onClick={() => void saveAiPrompt()} disabled={savingAiPrompt}>
+                {savingAiPrompt ? "Enregistrement…" : "Enregistrer le prompt"}
+              </Btn>
+              <Btn
+                variant="ghost"
+                onClick={() => void resetAiPrompt()}
+                disabled={savingAiPrompt}
+              >
+                Restaurer le défaut
+              </Btn>
+            </div>
+            <p style={s.mutedSmall}>
+              Variables disponibles : <code>{"{{targetWord}}"}</code>,{" "}
+              <code>{"{{targetReading}}"}</code>, <code>{"{{sentence}}"}</code>,{" "}
+              <code>{"{{definitions}}"}</code> et <code>{"{{kanjiCandidates}}"}</code>.
+            </p>
+          </>
+        )}
+      </Section>
+
       <Section title="Données">
         <Row label="Effacer" hint="états de mots, cartes, dictionnaire et réglages">
           <Btn variant="danger" onClick={() => void resetData()} disabled={resetting}>
@@ -1019,6 +1097,21 @@ const s: Record<string, React.CSSProperties> = {
     padding: "6px 8px",
     fontSize: 13,
     minWidth: 200,
+  },
+  promptInput: {
+    display: "block",
+    width: "100%",
+    minHeight: 360,
+    boxSizing: "border-box",
+    resize: "vertical",
+    backgroundColor: "#101216",
+    color: C.text,
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 6,
+    padding: "10px 12px",
+    fontSize: 13,
+    lineHeight: 1.5,
+    fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
   },
   select: {
     backgroundColor: "#101216",

@@ -1,0 +1,11 @@
+name = "subjap-ai"
+main = "src/index.ts"
+compatibility_date = "2026-09-06"
+workers_dev = true
+
+[secrets]
+required = ["GEMINI_API_KEY"]
+
+[vars]
+# Tighten this to the extension origin once the extension has a stable ID.
+ALLOWED_ORIGINS = "*"

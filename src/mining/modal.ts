@@ -18,11 +18,10 @@ import { sendMessage } from "@/core/messaging";
 import { normalizeCueText } from "@/subtitles";
 import { captureFrame } from "./capture";
 import {
-  createLocalAiSession,
+  createAiSession,
   formatValidatedAiEnrichment,
-  LocalAiUnavailableError,
   type AiEnrichmentInput,
-  type LocalAiSession,
+  type AiSession,
 } from "./ai-enrichment";
 import {
   formatMigakuDefinitions,
@@ -351,7 +350,7 @@ export class MiningModal {
       ? `<span class="subjap-ai-status">${escapeHtml(this.state.aiStatus)}</span>`
       : "";
     const aiErrorHtml = this.state.aiError
-      ? `<div class="subjap-error">IA locale : ${escapeHtml(this.state.aiError)}</div>`
+      ? `<div class="subjap-error">IA distante : ${escapeHtml(this.state.aiError)}</div>`
       : "";
     const defListHtml = `<div class="subjap-label">Definitions</div>
       <textarea class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</textarea>
@@ -455,14 +454,14 @@ export class MiningModal {
     state.aiError = null;
     this.render();
 
-    const aiSessionRef: { current: LocalAiSession | null } = { current: null };
+    const aiSessionRef: { current: AiSession | null } = { current: null };
     try {
-      // Start both operations from the explicit click. The model download can
-      // use the activation while IndexedDB builds the small candidate list.
+      // Start both operations from the explicit click while IndexedDB builds
+      // the small candidate list.
       const candidatesPromise = sendMessage("ai:prepareEnrichment", {
         targetWord: state.targetWordText.trim(),
       });
-      const sessionPromise = createLocalAiSession((message) => {
+      const sessionPromise = createAiSession((message) => {
         if (this.state !== state) return;
         state.aiStatus = message;
         this.render();
@@ -491,10 +490,8 @@ export class MiningModal {
         : "Aucun enrichissement suffisamment fiable trouvé.";
     } catch (err) {
       if (this.state !== state) return;
-      if (err instanceof LocalAiUnavailableError) {
-        state.aiError = err.message;
-      } else if (err instanceof DOMException && err.name === "AbortError") {
-        state.aiError = "La génération a dépassé 45 secondes. Tu peux réessayer.";
+      if (err instanceof DOMException && err.name === "AbortError") {
+        state.aiError = "La génération a dépassé 15 secondes. Tu peux réessayer.";
       } else {
         state.aiError = err instanceof Error ? err.message : String(err);
       }

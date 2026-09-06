@@ -41,7 +41,7 @@ Les principaux modules sont organisés ainsi :
 
 | Module | Responsabilité |
 | --- | --- |
-| `src/core/` | Types partagés, bus de messages, options et schéma Dexie. |
+| `src/core/` | Types partagés, bus de messages, options, réglages IA et schéma Dexie. |
 | `src/background/` | Persistance, lookups, statistiques, création de cartes, AnkiConnect et installation. |
 | `src/content/` | Orchestration du pipeline dans la page vidéo et gestion des interactions. |
 | `src/adapters/` | Adaptateurs de lecteurs ; Netflix est l’adaptateur réellement utilisé pour le MVP. |
@@ -330,8 +330,8 @@ Le mining est déclenché depuis la popover et ouvre
 la lecture et les glosses sélectionnables. Le modal peut :
 
 - générer l’audio du mot avec VOICEVOX local à partir de sa lecture ;
-- enrichir manuellement `Notes` avec Gemini Nano via la Prompt API locale de
-  Chrome, sans clé ni appel à un service distant ;
+- enrichir manuellement `Notes` avec Gemini 3.5 Flash-Lite via un endpoint
+  Cloudflare Worker ; la clé Gemini reste dans le secret du Worker ;
 - découper l’audio réel du lecteur dans `AudioPhrase` quand le navigateur
   expose le flux audio ; la relecture couvre 300 ms avant le début de la cue et
   300 ms après sa fin, sans republier les transitions DOM provoquées par ses
@@ -348,7 +348,7 @@ mots candidats par kanji. Il ne retient que le vocabulaire `known`, puis
 JMdict. La liste complète du vocabulaire n’est jamais donnée au modèle.
 
 [`src/mining/ai-enrichment.ts`](../src/mining/ai-enrichment.ts) demande ensuite
-une réponse JSON contrainte à Gemini Nano : synonymes importants, définition en
+une réponse JSON contrainte à Gemini 3.5 Flash-Lite : synonymes importants, définition en
 un mot de chaque kanji, au plus deux exemples familiers de même lecture et une
 phrase mnémotechnique d’association lorsque le mot possède plusieurs kanjis.
 Après génération, SubJap rejette les exemples absents de la liste locale et les
