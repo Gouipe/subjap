@@ -242,6 +242,9 @@ Les événements sont délégués depuis le document :
 
 - touche `C` seule : copie la phrase japonaise affichée sur une ligne et confirme
   brièvement l'action ; le raccourci est ignoré dans les champs éditables ;
+- touche `X` seule : révèle la traduction secondaire de la phrase affichée
+  jusqu'au changement de sous-titre ; le raccourci est ignoré dans les champs
+  éditables ;
 - survol d’un token : ouverture de la popover après 350 ms ;
 - survol de la ligne japonaise : révélation d’une traduction secondaire masquée ;
 - sortie : fermeture après une grâce de 200 ms pour rejoindre la popover ;

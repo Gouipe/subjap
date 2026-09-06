@@ -66,6 +66,10 @@ sous-titres secondaires, indépendamment et sans reprendre la vidéo. **R** ou
 **Espace** continue la lecture ; **A** rejoue la phrase. Les langues déjà
 révélées restent affichées à la fin de la relecture.
 
+Lorsque le masquage automatique est activé, **X** révèle la traduction de la
+phrase courante. Elle est à nouveau soumise au masquage automatique au
+changement de sous-titre.
+
 L’enrichissement utilise Gemini 3.5 Flash-Lite via le Worker Cloudflare configuré
 pour SubJap. La phrase, le mot et une courte liste d’exemples familiers sont
 envoyés à ce service pour générer la note. La clé Gemini reste côté serveur.

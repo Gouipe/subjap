@@ -19,6 +19,8 @@ import {
   isSingleMiningCandidate,
   type FrequencyHighlight,
 } from "@/core/frequency";
+import { normalizeCueText } from "@/subtitles";
+import { subtitleCueKey } from "@/subtitles/timeline";
 
 const CONTAINER_ID = "subjap-overlay-container";
 const STYLE_ID = "subjap-overlay-styles";
@@ -290,6 +292,8 @@ export class OverlayRenderer {
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
   private visible = false;
+  /** Cue identity for the last translation revealed with X. */
+  private revealedSecondarySubtitleKey: string | null = null;
   private subtitleVisibilityOverride: {
     japanese: boolean;
     /** null keeps the normal translation mode (including hover-to-reveal). */
@@ -334,10 +338,18 @@ export class OverlayRenderer {
     translation: SubtitleTranslation | null,
     knownWordCount: number,
   ): void {
+    const previousKey = this.currentSubtitleKey();
+    const previousTextKey = this.currentSubtitleTextKey();
+    const revealedPreviousCue = this.revealedSecondarySubtitleKey === previousKey;
     this.cues = cues;
     this.pendingCueTexts = null;
     this.translation = translation;
     this.knownWordCount = Math.max(0, Math.floor(knownWordCount));
+    this.preserveSecondaryRevealForSameCue(
+      revealedPreviousCue,
+      previousTextKey,
+      this.currentSubtitleTextKey(),
+    );
     this.render();
   }
 
@@ -347,10 +359,18 @@ export class OverlayRenderer {
     translation: SubtitleTranslation | null,
     knownWordCount: number,
   ): void {
+    const previousKey = this.currentSubtitleKey();
+    const previousTextKey = this.currentSubtitleTextKey();
+    const revealedPreviousCue = this.revealedSecondarySubtitleKey === previousKey;
     this.cues = [];
     this.pendingCueTexts = cueTexts;
     this.translation = translation;
     this.knownWordCount = Math.max(0, Math.floor(knownWordCount));
+    this.preserveSecondaryRevealForSameCue(
+      revealedPreviousCue,
+      previousTextKey,
+      this.currentSubtitleTextKey(),
+    );
     this.render();
   }
 
@@ -366,6 +386,13 @@ export class OverlayRenderer {
 
   updateTranslation(translation: SubtitleTranslation | null): void {
     this.translation = translation;
+    this.render();
+  }
+
+  /** Reveal the current secondary subtitle until the displayed cue changes. */
+  revealSecondarySubtitle(): void {
+    if (!this.translation) return;
+    this.revealedSecondarySubtitleKey = this.currentSubtitleKey();
     this.render();
   }
 
@@ -448,6 +475,7 @@ export class OverlayRenderer {
         line.classList.add("subjap-translation-line--exercise-hidden");
       } else if (
         this.subtitleVisibilityOverride?.translation !== true &&
+        this.revealedSecondarySubtitleKey !== this.currentSubtitleKey() &&
         !this.shouldShowTranslation()
       ) {
         line.classList.add("subjap-translation-line--hidden");
@@ -654,6 +682,28 @@ export class OverlayRenderer {
       this.cues.flatMap((cue) => cue.spans),
       this.knownWordCount,
     );
+  }
+
+  private currentSubtitleKey(): string {
+    if (this.pendingCueTexts?.length) {
+      return `pending:${JSON.stringify(this.pendingCueTexts)}`;
+    }
+    return `cues:${this.cues.map((cue) => subtitleCueKey(cue.cue)).join("|")}`;
+  }
+
+  private currentSubtitleTextKey(): string {
+    const texts = this.pendingCueTexts ?? this.cues.map((cue) => cue.cue.text);
+    return JSON.stringify(texts.map((text) => normalizeCueText(text)));
+  }
+
+  private preserveSecondaryRevealForSameCue(
+    revealedPreviousCue: boolean,
+    previousTextKey: string,
+    nextTextKey: string,
+  ): void {
+    if (revealedPreviousCue && previousTextKey === nextTextKey) {
+      this.revealedSecondarySubtitleKey = this.currentSubtitleKey();
+    }
   }
 
   // ── Mounting ──────────────────────────────────────────────────────────

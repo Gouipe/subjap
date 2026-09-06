@@ -142,6 +142,32 @@ export interface SubtitleCopyShortcutOptions {
   feedbackDurationMs?: number;
 }
 
+/** Install the plain-X secondary subtitle reveal shortcut. */
+export function installSecondarySubtitleRevealShortcut(
+  doc: Document,
+  onReveal: () => void,
+): () => void {
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (
+      event.key.toLowerCase() !== "x" ||
+      event.repeat ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      isBlockedTarget(event.target)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    onReveal();
+  };
+
+  doc.addEventListener("keydown", onKeydown, true);
+  return () => doc.removeEventListener("keydown", onKeydown, true);
+}
+
 /** Install the plain-C copy shortcut and return its cleanup function. */
 export function installSubtitleCopyShortcut(
   doc: Document,

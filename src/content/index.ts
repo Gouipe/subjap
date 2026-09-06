@@ -33,6 +33,7 @@ import {
   CueNavigator,
   installPausePlayShortcut,
   installPlaybackShortcuts,
+  installSecondarySubtitleRevealShortcut,
   installSubtitleCopyShortcut,
   subtitleTextForClipboard,
 } from "./shortcuts";
@@ -1126,12 +1127,17 @@ const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
     );
   },
 });
+const removeSecondarySubtitleRevealShortcut = installSecondarySubtitleRevealShortcut(
+  document,
+  () => overlay?.revealSecondarySubtitle(),
+);
 window.addEventListener(
   "pagehide",
   () => {
     removePlaybackShortcuts();
     removePausePlayShortcut();
     removeSubtitleCopyShortcut();
+    removeSecondarySubtitleRevealShortcut();
     document.removeEventListener("pointerdown", resumeTabAudio, true);
     document.removeEventListener("keydown", resumeTabAudio, true);
     audioCapture?.destroy();
