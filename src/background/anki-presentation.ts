@@ -556,8 +556,8 @@ ruby rt {
 
   .back-sentence {
     padding: 4px 10px 2px;
-    font-size: 23px;
-    line-height: 1.4;
+    font-size: 28px;
+    line-height: 1.5;
   }
 
   .back-audio-row {
