@@ -25,7 +25,8 @@ export const MIGAKU_TEMPLATE_MARKER_V8 = 'data-subjap-template-version="8"';
 export const MIGAKU_TEMPLATE_MARKER_V9 = 'data-subjap-template-version="9"';
 export const MIGAKU_TEMPLATE_MARKER_V10 = 'data-subjap-template-version="10"';
 export const MIGAKU_TEMPLATE_MARKER_V11 = 'data-subjap-template-version="11"';
-export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="12"';
+export const MIGAKU_TEMPLATE_MARKER_V12 = 'data-subjap-template-version="12"';
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="13"';
 export const MIGAKU_COMPREHENSION_TEMPLATE_NAME = "Compréhension";
 export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
 
@@ -891,29 +892,31 @@ export const MIGAKU_REVIEW_SHORTCUTS_FRAGMENT = `
 export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
 <script id="subjap-anki-audio-controls">
 (() => {
-  document.querySelectorAll(".audio-control").forEach((control) => {
-    if (control.dataset.subjapAudioControlInstalled) return;
-    control.dataset.subjapAudioControlInstalled = "true";
+  const controls = document.querySelectorAll(".audio-control");
+  controls.forEach((control) => {
     control.setAttribute("role", "button");
     control.setAttribute("tabindex", "0");
-
-    const replay = () => control.querySelector("img.replay-button");
-    const activate = () => {
-      const replayButton = replay();
-      const clickable = replayButton?.closest("a, button") ?? replayButton;
-      if (clickable instanceof HTMLElement) clickable.click();
-    };
-
-    control.addEventListener("click", (event) => {
-      if (event.target instanceof Element && event.target.closest("img.replay-button")) return;
-      activate();
-    });
-    control.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      activate();
-    });
   });
+
+  const activate = (control) => {
+    const replay = control.querySelector("a.replay-button, button.replay-button, img.replay-button");
+    const clickable = replay?.closest("a, button") ?? replay;
+    if (clickable instanceof HTMLElement) clickable.click();
+  };
+
+  document.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) return;
+    const control = event.target.closest(".audio-control");
+    if (!control || event.target.closest("a.replay-button, button.replay-button, img.replay-button")) return;
+    activate(control);
+  }, true);
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const control = event.target instanceof Element ? event.target.closest(".audio-control") : null;
+    if (!control) return;
+    event.preventDefault();
+    activate(control);
+  }, true);
 })();
 </script>
 `;
