@@ -7,8 +7,8 @@ communs restent décrits dans [`anki-card-formatting.md`](anki-card-formatting.m
 ## Objectif pédagogique
 
 La carte de production entraîne le rappel oral indicé d’un mot japonais déjà
-maîtrisé en compréhension. Elle demande de retrouver le mot cible dans son
-contexte syntaxique et de prononcer sa forme fléchie exacte. Elle ne remplace
+maîtrisé en compréhension. Elle demande de retrouver le mot japonais à partir de ses
+définitions et de le prononcer à voix haute. Elle ne remplace
 ni la carte de compréhension, ni une pratique de conversation libre.
 
 La production est volontairement sélective : l’utilisateur l’active uniquement
@@ -51,19 +51,9 @@ Une fois la production libérée, le champ `Production` prend la valeur `active`
 SubJap ne réactive pas automatiquement une production suspendue plus tard comme
 sangsue ou par choix de l’utilisateur.
 
-Le bouton dépend d’Anki Desktop et d’AnkiConnect. L’activation n’est pas proposée
-si la phrase ne contient pas de cible identifiable (`.target`).
-
-En l’absence de cible marquée, les modèles reconnaissent automatiquement une
-variante kanji/kana à partir de `Lecture` ou des furigana HTML de `Mot` et de
-`Phrase`. La correspondance doit couvrir un mot complet selon la segmentation
-japonaise d’Anki et être unique dans la phrase. Les lectures contradictoires,
-les lectures d’un seul kana, les correspondances partielles et les mots écrits
-avec des kanji différents mais homophones ne sont pas acceptés. Aucune lecture
-ni flexion n’est devinée ; sans `Intl.Segmenter` dans Anki, ce repli est désactivé.
-La même reconnaissance sert à l’activation et au masquage sur le recto de
-production, sans réécrire les champs de la note. Les cibles déjà marquées sont
-conservées.
+Le bouton dépend d’Anki Desktop et d’AnkiConnect. L’activation ne dépend plus
+de la phrase : elle reste disponible si la phrase est vide, si le mot n’y est
+pas repéré, si son écriture diffère ou s’il apparaît plusieurs fois.
 
 Pour en faire bénéficier les cartes existantes, recharger l’extension compilée,
 puis utiliser **Configurer les decks Anki** et rouvrir la carte dans Anki.
@@ -73,13 +63,12 @@ Les personnalisations des modèles gérés, notamment HyperTTS, sont conservées
 
 Le recto contient :
 
-1. la phrase japonaise d’origine, avec la cible remplacée par un blanc de
-   longueur fixe ;
-2. la consigne **Prononce le mot manquant à voix haute** ;
-3. les définitions du mot, affichées directement.
+1. la consigne **Retrouve le mot japonais et prononce-le à voix haute** ;
+2. les définitions du mot, affichées directement.
 
-Il ne contient ni traduction, ni image, ni audio, ni indice kana du mot cible.
-SubJap n’ajoute pas de transcription kana supplémentaire à la phrase.
+La phrase d’exemple n’apparaît pas au recto. Il ne contient ni traduction de
+phrase, ni image, ni audio, ni champ Mot ou Lecture. Le contenu du champ
+Définitions est conservé tel quel, y compris le japonais qu’il peut contenir.
 
 ## Verso de production
 
@@ -96,9 +85,9 @@ version.
 | Réponse | Critère |
 | --- | --- |
 | À revoir | mot absent ou faux, lecture fausse, réponse obtenue seulement après le verso |
-| Difficile | lemme correct mais flexion ou registre faux, hésitation nette, synonyme valide ou prononciation imparfaite |
-| Bon | forme exacte et lecture correcte, produites en quelques secondes depuis le japonais |
-| Facile | réponse immédiate et fluide, puis phrase complète produite sans hésitation |
+| Difficile | hésitation nette, synonyme valide ou prononciation imparfaite |
+| Bon | mot attendu et lecture correcte, retrouvés en quelques secondes à partir des définitions |
+| Facile | réponse immédiate et fluide |
 
 La réponse doit être prononcée à voix haute. Une carte de production devenue
 sangsue est suspendue sans affecter sa sœur de compréhension ; elle peut être

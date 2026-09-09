@@ -72,8 +72,9 @@ Le recto de compréhension reste volontairement simple :
 3. `AudioMot`, si elle existe.
 
 Son verso conserve le bouton d’activation de la production. Le recto de
-production masque le span `.target` de `Phrase` par un blanc fixe, affiche
-directement `Définitions` et n’affiche pas `Traduction`. Son verso remet la
+production affiche la consigne de rappel oral et directement `Définitions`,
+sans `Phrase` ni `Traduction`. Son activation ne requiert aucune cible dans la
+phrase. Son verso affiche la
 phrase complète et reprend exactement la présentation du verso de compréhension,
 sans le bloc d’activation de la production.
 

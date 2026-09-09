@@ -40,7 +40,6 @@ import {
   MIGAKU_PRODUCTION_TEMPLATE_NAME,
   MIGAKU_AUDIO_CONTROLS_FRAGMENT,
   MIGAKU_REVIEW_SHORTCUTS_FRAGMENT,
-  MIGAKU_TARGET_RECOGNITION_FRAGMENT,
   MIGAKU_TEMPLATE_MARKER,
   MIGAKU_TEMPLATE_MARKER_V2,
   MIGAKU_TEMPLATE_MARKER_V3,
@@ -704,17 +703,15 @@ function migrateManagedTemplateStructure(
   replacement: string,
   appendActivation = false,
 ): string {
-  // Add recognition before activation on existing templates, retaining custom audio.
-  if (current.includes("data-subjap-template-version=") &&
-      !current.includes('id="subjap-target-recognition"')) {
-    if (current.includes("back-sentence")) {
-      const activationStart = current.indexOf("{{^Production}}");
-      current = activationStart >= 0
-        ? current.slice(0, activationStart) + MIGAKU_TARGET_RECOGNITION_FRAGMENT + current.slice(activationStart)
-        : current + MIGAKU_TARGET_RECOGNITION_FRAGMENT;
-    } else if (current.includes("production-sentence")) {
-      current = current.replace("{{/Production}}", MIGAKU_TARGET_RECOGNITION_FRAGMENT + "{{/Production}}");
-    }
+  // Remove the former cloze requirement from existing managed cards while
+  // preserving their surrounding customizations (including audio controls).
+  if (current.includes("data-subjap-template-version=")) {
+    current = current
+      .replace(/<template id="subjap-target-(?:word|reading)">[\s\S]*?<\/template>\s*/gu, "")
+      .replace(/<script id="subjap-target-recognition">[\s\S]*?<\/script>\s*/gu, "")
+      .replace(/  const target = document\.querySelector\("\.back-sentence \.target"\);\s*if \(!target\) \{[\s\S]*?\n  \}\s*/u, "")
+      .replace(/\{\{#Phrase\}\}<div class="production-sentence">\{\{Phrase\}\}<\/div>\{\{\/Phrase\}\}/gu, "")
+      .replace("Prononce le mot manquant à voix haute", "Retrouve le mot japonais et prononce-le à voix haute");
   }
 
   const ensureReviewShortcuts = (template: string): string =>
