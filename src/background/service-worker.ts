@@ -687,6 +687,23 @@ function migrateManagedTemplatePart(
   replacement: string,
   appendActivation = false,
 ): string {
+  const migrated = migrateManagedTemplateStructure(current, replacement, appendActivation);
+  if (!migrated.includes("back-card")) return migrated;
+
+  // Refresh our script even when a previous migration already advanced the marker.
+  // Keep the surrounding template (including custom HyperTTS tags) untouched.
+  const audioScript = /<script\b[^>]*\bid=["']subjap-anki-audio-controls["'][^>]*>[\s\S]*?<\/script>/gu;
+  if (audioScript.test(migrated)) {
+    return migrated.replace(audioScript, () => MIGAKU_AUDIO_CONTROLS_FRAGMENT.trim());
+  }
+  return `${migrated}\n${MIGAKU_AUDIO_CONTROLS_FRAGMENT}`;
+}
+
+function migrateManagedTemplateStructure(
+  current: string,
+  replacement: string,
+  appendActivation = false,
+): string {
   // Add recognition before activation on existing templates, retaining custom audio.
   if (current.includes("data-subjap-template-version=") &&
       !current.includes('id="subjap-target-recognition"')) {

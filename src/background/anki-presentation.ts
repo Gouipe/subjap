@@ -898,25 +898,36 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     control.setAttribute("tabindex", "0");
   });
 
+  // Anki reuses the document between cards: replace, rather than accumulate, listeners.
+  if (window.__subjapAudioControlsCleanup) window.__subjapAudioControlsCleanup();
+
   const activate = (control) => {
     const replay = control.querySelector("a.replay-button, button.replay-button, img.replay-button");
     const clickable = replay?.closest("a, button") ?? replay;
     if (clickable instanceof HTMLElement) clickable.click();
   };
 
-  document.addEventListener("click", (event) => {
+  const onClick = (event) => {
     if (!(event.target instanceof Element)) return;
     const control = event.target.closest(".audio-control");
     if (!control || event.target.closest("a.replay-button, button.replay-button, img.replay-button")) return;
     activate(control);
-  }, true);
-  document.addEventListener("keydown", (event) => {
+  };
+  const onKeyDown = (event) => {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
     if (event.key !== "Enter" && event.key !== " ") return;
-    const control = event.target instanceof Element ? event.target.closest(".audio-control") : null;
+    const control = event.target instanceof Element && event.target.matches(".audio-control") ? event.target : null;
     if (!control) return;
     event.preventDefault();
+    event.stopPropagation();
     activate(control);
-  }, true);
+  };
+  document.addEventListener("click", onClick, true);
+  document.addEventListener("keydown", onKeyDown, true);
+  window.__subjapAudioControlsCleanup = () => {
+    document.removeEventListener("click", onClick, true);
+    document.removeEventListener("keydown", onKeyDown, true);
+  };
 })();
 </script>
 `;

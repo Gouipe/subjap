@@ -160,14 +160,22 @@ carte.
 1. il vérifie les champs du modèle ;
 2. il lit le CSS et les templates existants via AnkiConnect ;
 3. il appelle `updateModelStyling` uniquement si le CSS a changé ;
-4. il appelle `updateModelTemplates` uniquement si le template n’a pas déjà le
-   marqueur SubJap ;
+4. il migre les anciennes versions de templates et actualise le script audio
+   identifié par `subjap-anki-audio-controls`, même si le marqueur est déjà à
+   jour, puis appelle `updateModelTemplates` seulement si le contenu a changé ;
 5. il traite aussi `Migaku Memory Import` lorsqu’il existe.
 
 Cette mise à jour agit au niveau du type de note : les cartes existantes qui
 utilisent ce modèle adoptent le nouveau CSS sans réécriture de leurs champs.
 La mise à jour des modèles ne doit donc pas être remplacée par une migration
 note par note.
+
+Le script audio géré doit être remplacé, et pas seulement ajouté lorsqu’il
+manque : changer le marqueur de version ne met pas à jour son contenu. Le
+reste du template, notamment les balises HyperTTS personnalisées, est conservé.
+Les clics sur toute la zone « Mot » ou « Phrase » sont relayés au bouton de
+lecture natif ; les écouteurs sont remplacés à chaque affichage pour éviter
+leur accumulation dans le document réutilisé par Anki.
 
 Pour appliquer une nouvelle présentation aux modèles déjà présents :
 
