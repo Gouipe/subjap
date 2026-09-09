@@ -23,7 +23,8 @@ export const MIGAKU_TEMPLATE_MARKER_V6 = 'data-subjap-template-version="6"';
 export const MIGAKU_TEMPLATE_MARKER_V7 = 'data-subjap-template-version="7"';
 export const MIGAKU_TEMPLATE_MARKER_V8 = 'data-subjap-template-version="8"';
 export const MIGAKU_TEMPLATE_MARKER_V9 = 'data-subjap-template-version="9"';
-export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="10"';
+export const MIGAKU_TEMPLATE_MARKER_V10 = 'data-subjap-template-version="10"';
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="11"';
 export const MIGAKU_COMPREHENSION_TEMPLATE_NAME = "Compréhension";
 export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
 
@@ -186,6 +187,7 @@ ruby rt {
   background: var(--surface-raised);
   border-radius: 6px;
   color: var(--text);
+  cursor: pointer;
 }
 
 .audio-control.audio-word .audio-label {
@@ -885,6 +887,35 @@ export const MIGAKU_REVIEW_SHORTCUTS_FRAGMENT = `
 </script>
 `;
 
+export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
+<script id="subjap-anki-audio-controls">
+(() => {
+  document.querySelectorAll(".audio-control").forEach((control) => {
+    if (control.dataset.subjapAudioControlInstalled) return;
+    control.dataset.subjapAudioControlInstalled = "true";
+    control.setAttribute("role", "button");
+    control.setAttribute("tabindex", "0");
+
+    const replay = () => control.querySelector("img.replay-button");
+    const activate = () => {
+      const button = replay();
+      if (button instanceof HTMLElement) button.click();
+    };
+
+    control.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("img.replay-button")) return;
+      activate();
+    });
+    control.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      activate();
+    });
+  });
+})();
+</script>
+`;
+
 export const MIGAKU_FRONT_TEMPLATE = `
 <div class="card-shell front-card" ${MIGAKU_TEMPLATE_MARKER}>
   <div class="focus">
@@ -933,6 +964,7 @@ const MIGAKU_SHARED_BACK_TEMPLATE = `
   {{/Notes}}
 </div>
 ${MIGAKU_REVIEW_SHORTCUTS_FRAGMENT}
+${MIGAKU_AUDIO_CONTROLS_FRAGMENT}
 ${MIGAKU_TARGET_RECOGNITION_FRAGMENT}
 `;
 

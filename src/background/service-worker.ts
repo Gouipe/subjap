@@ -38,6 +38,7 @@ import {
   MIGAKU_PRODUCTION_BACK_TEMPLATE,
   MIGAKU_PRODUCTION_FRONT_TEMPLATE,
   MIGAKU_PRODUCTION_TEMPLATE_NAME,
+  MIGAKU_AUDIO_CONTROLS_FRAGMENT,
   MIGAKU_REVIEW_SHORTCUTS_FRAGMENT,
   MIGAKU_TARGET_RECOGNITION_FRAGMENT,
   MIGAKU_TEMPLATE_MARKER,
@@ -49,6 +50,7 @@ import {
   MIGAKU_TEMPLATE_MARKER_V7,
   MIGAKU_TEMPLATE_MARKER_V8,
   MIGAKU_TEMPLATE_MARKER_V9,
+  MIGAKU_TEMPLATE_MARKER_V10,
 } from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -701,6 +703,11 @@ function migrateManagedTemplatePart(
       ? template
       : `${template}\n${MIGAKU_REVIEW_SHORTCUTS_FRAGMENT}`;
 
+  const ensureAudioControls = (template: string): string =>
+    !template.includes("back-card") || template.includes("subjap-anki-audio-controls")
+      ? template
+      : `${template}\n${MIGAKU_AUDIO_CONTROLS_FRAGMENT}`;
+
   const restoreAnswerSideAfterActivation = (template: string): string => {
     if (!appendActivation || template.includes('invoke("guiShowAnswer")')) return template;
     return template.replace(
@@ -710,6 +717,9 @@ function migrateManagedTemplatePart(
   };
 
   if (current.includes(MIGAKU_TEMPLATE_MARKER)) return current;
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V10)) {
+    return ensureAudioControls(current.replace(MIGAKU_TEMPLATE_MARKER_V10, MIGAKU_TEMPLATE_MARKER));
+  }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V9)) {
     return ensureReviewShortcuts(current.replace(MIGAKU_TEMPLATE_MARKER_V9, MIGAKU_TEMPLATE_MARKER));
   }
