@@ -24,7 +24,8 @@ export const MIGAKU_TEMPLATE_MARKER_V7 = 'data-subjap-template-version="7"';
 export const MIGAKU_TEMPLATE_MARKER_V8 = 'data-subjap-template-version="8"';
 export const MIGAKU_TEMPLATE_MARKER_V9 = 'data-subjap-template-version="9"';
 export const MIGAKU_TEMPLATE_MARKER_V10 = 'data-subjap-template-version="10"';
-export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="11"';
+export const MIGAKU_TEMPLATE_MARKER_V11 = 'data-subjap-template-version="11"';
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="12"';
 export const MIGAKU_COMPREHENSION_TEMPLATE_NAME = "Compréhension";
 export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
 
@@ -898,8 +899,9 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
 
     const replay = () => control.querySelector("img.replay-button");
     const activate = () => {
-      const button = replay();
-      if (button instanceof HTMLElement) button.click();
+      const replayButton = replay();
+      const clickable = replayButton?.closest("a, button") ?? replayButton;
+      if (clickable instanceof HTMLElement) clickable.click();
     };
 
     control.addEventListener("click", (event) => {

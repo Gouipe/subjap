@@ -51,6 +51,7 @@ import {
   MIGAKU_TEMPLATE_MARKER_V8,
   MIGAKU_TEMPLATE_MARKER_V9,
   MIGAKU_TEMPLATE_MARKER_V10,
+  MIGAKU_TEMPLATE_MARKER_V11,
 } from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -717,6 +718,9 @@ function migrateManagedTemplatePart(
   };
 
   if (current.includes(MIGAKU_TEMPLATE_MARKER)) return current;
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V11)) {
+    return ensureAudioControls(current.replace(MIGAKU_TEMPLATE_MARKER_V11, MIGAKU_TEMPLATE_MARKER));
+  }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V10)) {
     return ensureAudioControls(current.replace(MIGAKU_TEMPLATE_MARKER_V10, MIGAKU_TEMPLATE_MARKER));
   }
