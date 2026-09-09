@@ -664,6 +664,96 @@ ruby rt {
 }
 `;
 
+// Shared by comprehension and production: resolve only a unique whole word.
+// Fields live in inert templates, never inside JavaScript string literals.
+export const MIGAKU_TARGET_RECOGNITION_FRAGMENT = String.raw`
+<template id="subjap-target-word">{{Mot}}</template>
+<template id="subjap-target-reading">{{Lecture}}</template>
+<script id="subjap-target-recognition">
+(() => {
+  const sentence = document.querySelector(".back-sentence, .production-sentence");
+  if (!sentence || sentence.querySelector(".target") || typeof Intl.Segmenter !== "function") return;
+  const normalize = (value) => value.normalize("NFKC").replace(/[ァ-ヶ]/g,
+    (char) => String.fromCharCode(char.charCodeAt(0) - 0x60)).trim();
+  const kana = (value) => /^[ぁ-ゖー]+$/.test(value);
+  const readingOf = (root) => {
+    const copy = root.cloneNode(true);
+    for (const ruby of copy.querySelectorAll("ruby")) {
+      const readings = ruby.querySelectorAll("rt");
+      // Complex grouped ruby is ambiguous; do not invent its reading.
+      if (readings.length !== 1) return "";
+      ruby.replaceWith(readings[0].textContent);
+    }
+    for (const annotation of copy.querySelectorAll("rt, rp")) annotation.remove();
+    return normalize(copy.textContent || "");
+  };
+  const word = document.getElementById("subjap-target-word").content;
+  const wordBase = word.cloneNode(true);
+  for (const annotation of wordBase.querySelectorAll("rt, rp")) annotation.remove();
+  const spelling = normalize(wordBase.textContent || "");
+  const explicitReading = normalize(document.getElementById("subjap-target-reading").content.textContent || "");
+  const rubyReading = readingOf(word);
+  if (explicitReading && !kana(explicitReading)) return;
+  if (explicitReading && kana(rubyReading) && explicitReading !== rubyReading) return;
+  const expected = explicitReading || rubyReading;
+  if (!kana(expected) || expected.length < 2) return;
+
+  // Map visible characters to DOM positions, keeping ruby annotations out of
+  // segmentation and preserving the original markup when wrapping the match.
+  let visible = "";
+  const positions = [];
+  const visit = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      for (let offset = 0; offset < node.data.length; offset += 1) {
+        positions.push({ node, offset });
+        visible += node.data[offset];
+      }
+      return;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && node.matches("rt, rp, script, style")) return;
+    if (node.nodeType === Node.ELEMENT_NODE && node.matches("br")) {
+      visible += "\n";
+      positions.push(null);
+      return;
+    }
+    for (const child of node.childNodes) visit(child);
+  };
+  visit(sentence);
+  const matches = [];
+  const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
+  for (const part of segmenter.segment(visible)) {
+    if (!part.isWordLike) continue;
+    // Equal readings do not establish equivalence between different kanji words.
+    if (!kana(spelling) && !kana(normalize(part.segment)) && normalize(part.segment) !== spelling) continue;
+    const start = positions[part.index];
+    const end = positions[part.index + part.segment.length - 1];
+    if (!start || !end) continue;
+    const range = document.createRange();
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset + 1);
+    // Include a ruby's reading only when the entire ruby base is selected.
+    let valid = true;
+    for (const ruby of sentence.querySelectorAll("ruby")) {
+      if (!range.intersectsNode(ruby)) continue;
+      const indices = positions.map((position, index) => position && ruby.contains(position.node) ? index : -1).filter((index) => index >= 0);
+      if (!indices.length || indices[0] < part.index || indices[indices.length - 1] >= part.index + part.segment.length) {
+        valid = false;
+        break;
+      }
+      if (ruby.contains(start.node)) range.setStartBefore(ruby);
+      if (ruby.contains(end.node)) range.setEndAfter(ruby);
+    }
+    if (valid && readingOf(range.cloneContents()) === expected) matches.push(range);
+  }
+  if (matches.length !== 1) return;
+  const target = document.createElement("span");
+  target.className = "target";
+  target.append(matches[0].extractContents());
+  matches[0].insertNode(target);
+})();
+</script>
+`;
+
 export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
 {{^Production}}
 <div class="production-activation">
@@ -843,6 +933,7 @@ const MIGAKU_SHARED_BACK_TEMPLATE = `
   {{/Notes}}
 </div>
 ${MIGAKU_REVIEW_SHORTCUTS_FRAGMENT}
+${MIGAKU_TARGET_RECOGNITION_FRAGMENT}
 `;
 
 export const MIGAKU_BACK_TEMPLATE = `
@@ -857,6 +948,7 @@ export const MIGAKU_PRODUCTION_FRONT_TEMPLATE = `
   {{#Phrase}}<div class="production-sentence">{{Phrase}}</div>{{/Phrase}}
   {{#Définitions}}<div class="production-definitions">{{Définitions}}</div>{{/Définitions}}
 </div>
+${MIGAKU_TARGET_RECOGNITION_FRAGMENT}
 {{/Production}}
 `;
 

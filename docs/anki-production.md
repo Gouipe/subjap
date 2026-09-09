@@ -54,6 +54,21 @@ sangsue ou par choix de l’utilisateur.
 Le bouton dépend d’Anki Desktop et d’AnkiConnect. L’activation n’est pas proposée
 si la phrase ne contient pas de cible identifiable (`.target`).
 
+En l’absence de cible marquée, les modèles reconnaissent automatiquement une
+variante kanji/kana à partir de `Lecture` ou des furigana HTML de `Mot` et de
+`Phrase`. La correspondance doit couvrir un mot complet selon la segmentation
+japonaise d’Anki et être unique dans la phrase. Les lectures contradictoires,
+les lectures d’un seul kana, les correspondances partielles et les mots écrits
+avec des kanji différents mais homophones ne sont pas acceptés. Aucune lecture
+ni flexion n’est devinée ; sans `Intl.Segmenter` dans Anki, ce repli est désactivé.
+La même reconnaissance sert à l’activation et au masquage sur le recto de
+production, sans réécrire les champs de la note. Les cibles déjà marquées sont
+conservées.
+
+Pour en faire bénéficier les cartes existantes, recharger l’extension compilée,
+puis utiliser **Configurer les decks Anki** et rouvrir la carte dans Anki.
+Les personnalisations des modèles gérés, notamment HyperTTS, sont conservées.
+
 ## Recto de production
 
 Le recto contient :
