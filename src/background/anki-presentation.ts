@@ -773,6 +773,7 @@ export const MIGAKU_REVIEW_SHORTCUTS_FRAGMENT = `
 </script>
 `;
 
+// Keep the managed script ID stable so existing templates receive both shortcuts.
 export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
 <script id="subjap-anki-audio-controls">
 (() => {
@@ -793,6 +794,19 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
       }
     }
   });
+
+  const translationSummary = document.querySelector(".back-card .translation-reveal > summary");
+  if (translationSummary) {
+    translationSummary.setAttribute("aria-keyshortcuts", "W");
+    translationSummary.setAttribute("title", "Afficher la traduction (W)");
+    if (!translationSummary.querySelector(".translation-shortcut")) {
+      const hint = document.createElement("span");
+      hint.className = "translation-shortcut";
+      hint.textContent = " · W";
+      hint.setAttribute("aria-hidden", "true");
+      translationSummary.appendChild(hint);
+    }
+  }
 
   // Anki reuses the document between cards: replace, rather than accumulate, listeners.
   if (window.__subjapAudioControlsCleanup) window.__subjapAudioControlsCleanup();
@@ -815,6 +829,15 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.repeat || event.isComposing) return;
     const target = event.target;
     if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+    if (!event.shiftKey && event.key.toLowerCase() === "w") {
+      const translation = document.querySelector(".back-card details.translation-reveal");
+      if (translation instanceof HTMLDetailsElement) {
+        translation.open = true;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
     if (!event.shiftKey && event.key.toLowerCase() === "q") {
       const phrase = document.querySelector(".back-card .audio-control.audio-phrase");
       if (phrase && activate(phrase)) {

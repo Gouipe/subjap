@@ -114,6 +114,15 @@ raccourcis natifs de révision ; un add-on personnalisé peut toutefois l'utilis
 Le rappel est ajouté par le script audio géré, y compris aux templates existants
 lors de leur synchronisation, sans remplacer leurs personnalisations.
 
+## Raccourci de traduction
+
+Sur les versos de compréhension et de production, `W` affiche la traduction
+de la phrase. Elle reste visible lors des appuis suivants, comme après un clic
+sur « Voir la traduction ». Le bouton affiche le rappel « · W », ajouté par le
+script géré `subjap-anki-audio-controls` pour actualiser aussi les templates
+existants sans remplacer leurs personnalisations. Le raccourci reste inactif
+au recto, sans traduction, pendant une saisie ou avec une touche modificatrice.
+
 ## Règles visuelles actuelles
 
 Les cartes déclinent la direction artistique « L'Après-séance » décrite dans
