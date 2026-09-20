@@ -223,6 +223,21 @@ ruby rt {
   border-color: var(--accent);
 }
 
+.audio-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.audio-shortcut {
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .back-divider {
   height: 1px;
   margin: 0 0 22px;
@@ -765,6 +780,18 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
   controls.forEach((control) => {
     control.setAttribute("role", "button");
     control.setAttribute("tabindex", "0");
+    if (control.matches(".audio-phrase")) {
+      control.setAttribute("aria-label", "Rejouer la phrase");
+      control.setAttribute("aria-keyshortcuts", "Q");
+      control.setAttribute("title", "Rejouer la phrase (Q)");
+      if (!control.querySelector(".audio-shortcut")) {
+        const hint = document.createElement("kbd");
+        hint.className = "audio-shortcut";
+        hint.textContent = "Q";
+        hint.setAttribute("aria-hidden", "true");
+        control.appendChild(hint);
+      }
+    }
   });
 
   // Anki reuses the document between cards: replace, rather than accumulate, listeners.
@@ -773,7 +800,9 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
   const activate = (control) => {
     const replay = control.querySelector("a.replay-button, button.replay-button, img.replay-button");
     const clickable = replay?.closest("a, button") ?? replay;
-    if (clickable instanceof HTMLElement) clickable.click();
+    if (!(clickable instanceof HTMLElement)) return false;
+    clickable.click();
+    return true;
   };
 
   const onClick = (event) => {
@@ -783,7 +812,17 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     activate(control);
   };
   const onKeyDown = (event) => {
-    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.repeat || event.isComposing) return;
+    const target = event.target;
+    if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+    if (!event.shiftKey && event.key.toLowerCase() === "q") {
+      const phrase = document.querySelector(".back-card .audio-control.audio-phrase");
+      if (phrase && activate(phrase)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
     if (event.key !== "Enter" && event.key !== " ") return;
     const control = event.target instanceof Element && event.target.matches(".audio-control") ? event.target : null;
     if (!control) return;

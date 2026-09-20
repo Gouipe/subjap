@@ -102,6 +102,18 @@ que les champs éditables, sont ignorées afin de ne pas intercepter une saisie.
 Les boutons et leur ordre restent ceux du reviewer Anki ; le raccourci est un
 accélérateur supplémentaire.
 
+## Raccourci audio de la phrase
+
+Sur les versos de compréhension et de production, `Q` rejoue uniquement
+`AudioPhrase` via son bouton de lecture natif Anki. Le bouton « Phrase » affiche
+un rappel `Q`. Le raccourci reste inactif au recto, sans audio de phrase,
+pendant une saisie ou avec une touche modificatrice ; maintenir la touche
+n'entraîne pas de répétitions. `A` est réservé à l'ajout de notes dans Anki et
+`R` conserve la relecture native d'Anki. `Q` n'est pas attribué par les
+raccourcis natifs de révision ; un add-on personnalisé peut toutefois l'utiliser.
+Le rappel est ajouté par le script audio géré, y compris aux templates existants
+lors de leur synchronisation, sans remplacer leurs personnalisations.
+
 ## Règles visuelles actuelles
 
 Les cartes déclinent la direction artistique « L'Après-séance » décrite dans
