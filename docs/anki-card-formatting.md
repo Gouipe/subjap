@@ -223,6 +223,24 @@ ou de vérification navigateur pour une simple modification de présentation.
 
 ## Pièges à éviter
 
+### Anki réaffiche visuellement la carte précédente
+
+Si révéler une réponse fait réapparaître la carte précédente de manière
+intermittente, vérifier aussi le moteur de rendu d’Anki avant de modifier les
+templates. Ce symptôme a été [signalé dans Anki](https://forums.ankiweb.net/t/anki-glitch-showing-previous-card-answer-instead-of-new-card/12482),
+où le changement de pilote graphique est recommandé. Cela constitue une piste
+de diagnostic, pas la preuve que tout décalage recto-verso a cette cause.
+
+Sous Windows, le [manuel Anki](https://docs.ankiweb.net/platform/windows/display-issues.html)
+propose le rendu logiciel : choisir « Software / Logiciel » dans les préférences,
+ou écrire `software` dans `%APPDATA%\Anki2\gldriver6`, puis redémarrer Anki.
+Ce réglage concerne l’application Anki et ne se distribue pas avec l’extension.
+Il peut réduire la fluidité ; supprimer ce fichier ou y écrire `auto` restaure
+le choix automatique. Confirmer l’effet pendant les révisions habituelles,
+puis poursuivre le diagnostic si le problème persiste.
+
+### Maintenance des modèles
+
 - modifier ou construire le dépôt externe `migaku-export` depuis un travail
   consacré à SubJap ;
 - modifier uniquement le CSS d’un modèle dans Anki sans mettre à jour la source ;
