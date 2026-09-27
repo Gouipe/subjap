@@ -719,6 +719,7 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
       button.textContent = "Production activée";
       button.dataset.state = "success";
       status.textContent = "";
+      await invoke("guiShowAnswer").catch(() => {});
     } catch (error) {
       button.disabled = false;
       status.dataset.state = "error";
