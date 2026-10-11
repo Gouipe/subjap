@@ -146,6 +146,7 @@ export interface SubtitleCopyShortcutOptions {
 export function installSecondarySubtitleRevealShortcut(
   doc: Document,
   onReveal: () => void,
+  isActive: () => boolean = () => true,
 ): () => void {
   const onKeydown = (event: KeyboardEvent): void => {
     if (
@@ -155,7 +156,8 @@ export function installSecondarySubtitleRevealShortcut(
       event.ctrlKey ||
       event.metaKey ||
       event.shiftKey ||
-      isBlockedTarget(event.target)
+      isBlockedTarget(event.target) ||
+      !isActive()
     ) {
       return;
     }
@@ -264,7 +266,8 @@ export function installSubtitleCopyShortcut(
 /** Install q/s/d playback navigation and return the cleanup function. */
 export function installPlaybackShortcuts(
   doc: Document,
-  adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo" | "getNavigationSessionId">,
+  adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo" | "getNavigationSessionId"> &
+    Partial<Pick<PlatformAdapter, "getVideoElement">>,
   navigator: CueNavigator,
   onSeekRequested?: (
     cue: SubtitleCue | null,
@@ -287,7 +290,7 @@ export function installPlaybackShortcuts(
     }
 
     const action = shortcutActionForKey(event.key);
-    if (!action) return;
+    if (!action || (adapter.getVideoElement && !adapter.getVideoElement())) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();

@@ -57,13 +57,9 @@ const manifest: ManifestV3Export = {
       world: "MAIN",
     },
     {
-      matches: [
-        "*://*.netflix.com/*",
-        "*://*.youtube.com/*",
-        "*://*.crunchyroll.com/*",
-        "*://*.primevideo.com/*",
-        "*://*.disneyplus.com/*",
-      ],
+      // Generic HTML5 playback can use imported local subtitle tracks on any
+      // regular website; Netflix and YouTube still select their own adapters.
+      matches: ["*://*/*"],
       js: ["src/content/index.ts"],
       run_at: "document_end",
     },

@@ -41,6 +41,18 @@ piste, fichier, identifiant du segment source et précision du début. Les
 instantanés publiés sont immuables. L’arrivée de meilleures données peut changer
 la source active, mais ne modifie pas une phrase déjà figée dans le mining.
 
+Les fichiers locaux sont indépendants par rôle. La piste principale est
+étiquetée japonais et remplace la piste japonaise native lorsqu’elle est
+disponible ; son décalage est ajouté aux bornes de chaque cue. La piste
+secondaire utilise le même calcul et est désactivée avec la préférence
+**Aucun**. Les clés Netflix et YouTube existantes sont conservées pour préserver
+les imports secondaires déjà mémorisés. Les autres pages utilisent une clé
+dérivée de leur URL sans fragment ni paramètres de suivi.
+
+L’adaptateur HTML5 générique publie les deux pistes locales selon l’horloge d’une
+vidéo visible. Il ne capture pas le texte natif du lecteur ; les plateformes qui
+ne rendent pas un élément `<video>` accessible nécessitent un adaptateur dédié.
+
 ## Sélection YouTube
 
 Sur les vidéos classiques YouTube, la piste japonaise du créateur prime sur

@@ -1,7 +1,10 @@
 import type { CueReplaySession, EpisodeContext, PlatformAdapter, SecondarySubtitleLanguage, SubtitleCue } from "@/core/types";
 import { youtubeVideoId, type YouTubeCaptionFile, type YouTubePlaybackInfo } from "@/core/youtube";
-import { getLocalSubtitle, localSubtitleStorageKey } from "@/subtitles/local-storage";
-import { parseSubtitleFile } from "@/subtitles/parse";
+import {
+  getLocalSubtitle,
+  localSubtitleStorageKey,
+  parseLocalSubtitleCues,
+} from "@/subtitles/local-storage";
 import { parseYouTubeCaptions } from "@/subtitles/youtube";
 import { activeSubtitleCues, SubtitleTrackCatalog } from "@/subtitles/timeline";
 
@@ -19,7 +22,8 @@ export class YouTubeAdapter implements PlatformAdapter {
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastSignature = "";
   private preferredLanguage: SecondarySubtitleLanguage = "fr";
-  private localCues: SubtitleCue[] = [];
+  private localPrimaryCues: SubtitleCue[] = [];
+  private localSecondaryCues: SubtitleCue[] = [];
   private localRevision = 0;
   private hideNative = false;
   private replay: CueReplaySession | null = null;
@@ -61,11 +65,12 @@ export class YouTubeAdapter implements PlatformAdapter {
   getPlaybackRate(): number { return this.getVideoElement()?.playbackRate ?? 1; }
 
   getNavigationCues(): SubtitleCue[] {
-    return this.canUsePlayback() ? this.catalog.cues("ja") : [];
+    if (!this.canUsePlayback()) return [];
+    return this.localPrimaryCues.length ? this.localPrimaryCues : this.catalog.cues("ja");
   }
 
   getNavigationSessionId(): string {
-    return `${this.session}:${this.info?.tracks.find((track) => track.language === "ja")?.id ?? "pending"}:${this.canUsePlayback() ? "video" : "inactive"}`;
+    return `${this.session}:${this.info?.tracks.find((track) => track.language === "ja")?.id ?? "pending"}:${this.localPrimaryCues[0]?.source?.sessionId ?? "native"}:${this.canUsePlayback() ? "video" : "inactive"}`;
   }
 
   setSecondarySubtitleLanguage(language: SecondarySubtitleLanguage): void {
@@ -147,7 +152,8 @@ export class YouTubeAdapter implements PlatformAdapter {
     this.info = null;
     this.replay = null;
     this.catalog.clear();
-    this.localCues = [];
+    this.localPrimaryCues = [];
+    this.localSecondaryCues = [];
     this.localRevision++;
     this.lastSignature = "";
     this.hideNative = false;
@@ -168,7 +174,8 @@ export class YouTubeAdapter implements PlatformAdapter {
     this.info = null;
     this.catalog.clear();
     this.replay = null;
-    this.localCues = [];
+    this.localPrimaryCues = [];
+    this.localSecondaryCues = [];
     this.localRevision++;
     this.publish();
   };
@@ -188,11 +195,12 @@ export class YouTubeAdapter implements PlatformAdapter {
       this.session = `youtube:${videoId ?? "none"}:${crypto.randomUUID()}`;
       this.info = null;
       this.catalog.clear();
-      this.localCues = [];
+      this.localPrimaryCues = [];
+      this.localSecondaryCues = [];
       this.replay = null;
       this.lastSignature = "";
       this.requestTracks();
-      void this.loadLocalSubtitle();
+      void this.loadLocalSubtitles();
     }
     const video = this.getVideoElement();
     if (video !== this.video) { this.video = video; this.lastSignature = ""; }
@@ -245,12 +253,13 @@ export class YouTubeAdapter implements PlatformAdapter {
     if (this.replay && usable) return;
     if (!usable) this.replay = null;
     const time = this.getCurrentTime();
-    const japanese = this.info?.tracks.some((track) => track.language === "ja") ? this.catalog.cues("ja") : [];
+    const nativeJapanese = this.info?.tracks.some((track) => track.language === "ja") ? this.catalog.cues("ja") : [];
+    const japanese = this.localPrimaryCues.length ? this.localPrimaryCues : nativeJapanese;
     const secondary = this.info?.tracks.find((track) => track.language !== "ja");
     const translation = this.preferredLanguage === "none"
       ? []
-      : this.localCues.length
-        ? this.localCues
+      : this.localSecondaryCues.length
+        ? this.localSecondaryCues
         : secondary
           ? this.catalog.cues(secondary.language)
           : [];
@@ -267,24 +276,30 @@ export class YouTubeAdapter implements PlatformAdapter {
   }
 
   private onStorageChange = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
-    if (area === "local" && this.videoId && changes[localSubtitleStorageKey(`youtube:${this.videoId}`)]) {
-      void this.loadLocalSubtitle();
+    const localVideoId = this.videoId ? `youtube:${this.videoId}` : null;
+    if (area === "local" && localVideoId && (
+      changes[localSubtitleStorageKey(localVideoId, "primary")] ||
+      changes[localSubtitleStorageKey(localVideoId, "secondary")]
+    )) {
+      void this.loadLocalSubtitles();
     }
   };
 
-  private async loadLocalSubtitle(): Promise<void> {
+  private async loadLocalSubtitles(): Promise<void> {
     const revision = ++this.localRevision;
     const videoId = this.videoId;
     if (!videoId) return;
     try {
-      const record = await getLocalSubtitle(`youtube:${videoId}`);
+      const localVideoId = `youtube:${videoId}`;
+      const [primary, secondary] = await Promise.all([
+        getLocalSubtitle(localVideoId, "primary"),
+        getLocalSubtitle(localVideoId, "secondary"),
+      ]);
       if (revision !== this.localRevision || videoId !== this.videoId) return;
-      this.localCues = record ? parseSubtitleFile(record.fileName, record.content).map((cue) => ({
-        ...cue, id: `youtube-local:${revision}:${cue.id}`, language: "local",
-        start: cue.start + record.offsetSeconds, end: cue.end + record.offsetSeconds,
-      })) : [];
+      this.localPrimaryCues = parseLocalSubtitleCues(localVideoId, "primary", primary);
+      this.localSecondaryCues = parseLocalSubtitleCues(localVideoId, "secondary", secondary);
       this.lastSignature = "";
       this.publish();
-    } catch (error) { console.warn("[SubJap] Traduction locale YouTube indisponible:", error); }
+    } catch (error) { console.warn("[SubJap] Sous-titres locaux YouTube indisponibles:", error); }
   }
 }

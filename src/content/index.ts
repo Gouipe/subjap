@@ -16,7 +16,7 @@
 import { NetflixAdapter } from "@/adapters/netflix";
 import { YouTubeAdapter } from "@/adapters/youtube";
 import { forgetVideoSurface, mountVideoSurface } from "@/overlay/mount";
-import { adapterRegistry } from "@/core/adapters/registry";
+import { adapterRegistry, GENERIC_HTML5_ADAPTER } from "@/core/adapters/registry";
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookupCandidates } from "@/dictionary";
@@ -63,11 +63,14 @@ import type {
 // 1. Platform adapters
 // ---------------------------------------------------------------------------
 
-// Netflix's constructor prepares its page bridge; do not inject it on YouTube.
+// Keep platform bridges scoped to their site. Other sites use the generic
+// HTML5 adapter, which can render imported local subtitle tracks.
 if (/(^|\.)youtube\.com$/i.test(location.hostname)) {
   adapterRegistry.register(new YouTubeAdapter());
-} else {
+} else if (/(^|\.)netflix\.com$/i.test(location.hostname)) {
   adapterRegistry.register(new NetflixAdapter());
+} else {
+  adapterRegistry.register(GENERIC_HTML5_ADAPTER);
 }
 
 const adapter: PlatformAdapter = adapterRegistry.findActive(document, window.location.href);
@@ -1155,6 +1158,7 @@ const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
 const removeSecondarySubtitleRevealShortcut = installSecondarySubtitleRevealShortcut(
   document,
   () => overlay?.revealSecondarySubtitle(),
+  () => adapter.getVideoElement() !== null,
 );
 window.addEventListener(
   "pagehide",
