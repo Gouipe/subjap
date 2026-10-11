@@ -33,7 +33,6 @@ import { LRUCache } from "@/tokenizer/lru-cache";
 import { tokenizeCue } from "@/tokenizer/cue";
 import {
   CueNavigator,
-  installPausePlayShortcut,
   installPlaybackShortcuts,
   installSecondarySubtitleRevealShortcut,
   installSubtitleCopyShortcut,
@@ -1144,7 +1143,6 @@ const removePlaybackShortcuts = installPlaybackShortcuts(
     }
   },
 );
-const removePausePlayShortcut = installPausePlayShortcut(document, adapter);
 const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
   getText: () => {
     const renderedCues = lastRenderedCues.map((rendered) => rendered.cue);
@@ -1164,7 +1162,6 @@ window.addEventListener(
   "pagehide",
   () => {
     removePlaybackShortcuts();
-    removePausePlayShortcut();
     removeSubtitleCopyShortcut();
     removeSecondarySubtitleRevealShortcut();
     document.removeEventListener("pointerdown", resumeTabAudio, true);

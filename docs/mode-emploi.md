@@ -98,7 +98,7 @@ bouton « Restaurer le défaut » remet les instructions d’origine.
    lorsqu’aucune piste du créateur n’est disponible. Il ne génère pas de
    transcription pour les vidéos sans piste japonaise.
 3. Utiliser les mots interactifs, le dictionnaire et les raccourcis habituels
-   **Q/S/D**, **C**, **X** et **Espace**. Les modes normal, cinéma et plein écran
+   **Q/S/D**, **C** et **X**. Les modes normal, cinéma et plein écran
    utilisent le même overlay ; celui-ci se suspend pendant les publicités.
 4. Avant de miner avec l’audio, ouvrir la popup et cliquer sur
    **Activer l’audio de l’onglet**, puis miner comme sur Netflix. Le titre et
