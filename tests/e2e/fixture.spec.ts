@@ -491,8 +491,6 @@ test.describe("SubJap UX fixture", () => {
           sendMessage: async (message: Record<string, unknown>) => {
             messages.push(message);
             switch (message.type) {
-              case "tts:generate":
-                return { dataUrl: "data:audio/wav;base64:fixture" };
               case "mine:create":
                 return { id: "fixture-card" };
               case "anki:setup":

@@ -164,6 +164,11 @@ Les templates marqués par `MIGAKU_TEMPLATE_MARKER` sont considérés comme déj
 gérés : la synchronisation de présentation préserve alors les personnalisations
 du template, notamment ces balises.
 
+SubJap ne génère pas l’audio du mot et envoie le champ `AudioMot` vide. Pour
+obtenir une prononciation, installer et configurer HyperTTS dans Anki, puis
+ajouter sa balise realtime au modèle `Migaku Memory`. Le champ `Lecture` fournit
+les kana de prononciation sans le balisage ruby présent dans `Mot`.
+
 Pour éviter qu’un kanji soit lu avec une mauvaise prononciation, la source
 recommandée pour l’audio du mot est `Lecture`, pas `Mot`. Si HyperTTS affiche
 « preset not found » ou « Source text is empty », diagnostiquer d’abord la

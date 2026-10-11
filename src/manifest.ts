@@ -10,7 +10,6 @@ const manifest: ManifestV3Export = {
     "alarms",
     "scripting",
     "activeTab",
-    "nativeMessaging",
     "tabCapture",
     "offscreen",
     "clipboardWrite",
@@ -27,7 +26,6 @@ const manifest: ManifestV3Export = {
     "*://*.primevideo.com/*",
     "*://*.disneyplus.com/*",
     "http://127.0.0.1:8765/*",
-    "http://127.0.0.1:50021/*",
     // Dictionary downloads: GitHub Release "latest" URLs redirect to the
     // versioned asset on objects/release-assets.githubusercontent.com. Both
     // hosts must be permitted or the SW fetch is CORS-blocked.

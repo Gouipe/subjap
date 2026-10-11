@@ -10,10 +10,6 @@ const { sendMessageMock } = vi.hoisted(() => ({
 const { captureCueMock } = vi.hoisted(() => ({
   captureCueMock: vi.fn(),
 }));
-const { audioPlayMock } = vi.hoisted(() => ({
-  audioPlayMock: vi.fn(),
-}));
-
 vi.mock("./capture", () => ({
   captureFrame: captureFrameMock,
 }));
@@ -30,18 +26,7 @@ describe("MiningModal", () => {
     captureFrameMock.mockReset();
     captureFrameMock.mockResolvedValue("data:image/jpeg;base64,fixture");
     captureCueMock.mockReset();
-    audioPlayMock.mockReset();
     sendMessageMock.mockReset();
-    sendMessageMock.mockResolvedValue({ dataUrl: "data:audio/wav;base64,fixture" });
-    vi.stubGlobal(
-      "Audio",
-      class {
-        play(): Promise<void> {
-          audioPlayMock();
-          return Promise.resolve();
-        }
-      },
-    );
   });
 
   it("captures the video frame when the modal opens", async () => {
@@ -79,19 +64,11 @@ describe("MiningModal", () => {
       expect(document.querySelector(".subjap-screenshot-info")?.textContent).toContain(
         "✓ Screenshot captured",
       );
-      expect(sendMessageMock).toHaveBeenCalledWith("tts:generate", { text: "やくそく" });
-      expect(document.querySelector(".subjap-audio-info")?.textContent).toContain(
-        "✓ Word audio ready",
-      );
-      expect(audioPlayMock).not.toHaveBeenCalled();
     });
   });
 
   it("sends edited definitions and notes to Anki", async () => {
     sendMessageMock.mockImplementation((type: string) => {
-      if (type === "tts:generate") {
-        return Promise.resolve({ dataUrl: "data:audio/wav;base64:word" });
-      }
       if (type === "mine:create") return Promise.resolve({ id: "local-card" });
       if (type === "anki:setup") {
         return Promise.resolve({ deckName: "SubJap", modelName: "Migaku Memory" });
@@ -168,7 +145,6 @@ describe("MiningModal", () => {
     );
     captureCueMock.mockResolvedValue("data:audio/wav;base64,phrase");
     sendMessageMock.mockImplementation((type: string) => {
-      if (type === "tts:generate") return Promise.resolve({ dataUrl: "data:audio/wav;base64,word" });
       if (type === "mine:create") return Promise.resolve({ id: "local-card" });
       if (type === "anki:setup") return Promise.resolve({ deckName: "SubJap", modelName: "Migaku Memory" });
       if (type === "anki:addNote") return Promise.resolve({ noteId: 42, modelName: "Migaku Memory" });
@@ -229,9 +205,6 @@ describe("MiningModal", () => {
   it("creates the card without phrase audio when the cue end stays unknown", async () => {
     captureCueMock.mockResolvedValue(undefined);
     sendMessageMock.mockImplementation((type: string) => {
-      if (type === "tts:generate") {
-        return Promise.resolve({ dataUrl: "data:audio/wav;base64,word" });
-      }
       if (type === "mine:create") return Promise.resolve({ id: "local-card" });
       if (type === "anki:setup") {
         return Promise.resolve({ deckName: "SubJap", modelName: "Migaku Memory" });
@@ -291,7 +264,6 @@ describe("MiningModal", () => {
   it("conserve la carte locale, affiche l’erreur Anki et réessaie sans doublon local", async () => {
     let setupAttempts = 0;
     sendMessageMock.mockImplementation((type: string) => {
-      if (type === "tts:generate") return Promise.resolve({ dataUrl: "data:audio/wav;base64,fixture" });
       if (type === "mine:create") return Promise.resolve({ id: "local-card" });
       if (type === "anki:setup") {
         setupAttempts++;

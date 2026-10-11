@@ -43,7 +43,7 @@ documentation à consulter :
 - `testing*`, `fixture*`, `e2e*` : stratégie de vérification et harnais ;
 - `mode-emploi*`, `guide*`, `instructions*` : procédure d’utilisation ou de
   développement ;
-- `voicevox*`, `audio*`, `tts*` : synthèse, capture et fichiers audio ;
+- `audio*`, `tts*` : capture et fichiers audio ;
 - `benchmark*`, `performance*`, `perf*` : mesures et contraintes de
   performance ;
 - `TODO*`, `plan*`, `spec*`, `historique*`, `handoff*` : backlog, décisions ou

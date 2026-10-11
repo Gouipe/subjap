@@ -322,8 +322,6 @@ export interface MessageMap {
   // TTS
   "tts:speak": { text: string };
   "tts:speakResult": void;
-  "tts:generate": { text: string };
-  "tts:generateResult": { dataUrl: string };
 
   // AnkiConnect
   "anki:status": Record<string, never>;
@@ -338,7 +336,6 @@ export interface MessageMap {
   "anki:addNote": {
     deckName: string;
     fields: Record<string, string>;
-    audioMotDataUrl?: string;
     audioPhraseDataUrl?: string;
     imageDataUrl?: string;
     tags?: string[];

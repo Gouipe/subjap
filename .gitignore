@@ -1,9 +1,10 @@
 # Dependencies
 node_modules/
 
-# Local build configuration, including the private Worker URL during development.
-.env.local
-.env.*.local
+# Local build configuration and secrets. Keep the checked-in example template.
+.env
+.env.*
+!.env.example
 
 # Build output (rebuilt with `npm run build`)
 dist/

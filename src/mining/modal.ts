@@ -50,7 +50,6 @@ interface MiningState {
   aiGeneratedOnce: boolean;
   aiStatus: string | null;
   aiError: string | null;
-  wordAudioDataUrl: string | null;
   phraseAudioDataUrl: string | null;
   phraseAudioAttempted: boolean;
   screenshotDataUrl: string | null;
@@ -111,9 +110,7 @@ export class MiningModal {
     // Single delegated listener — avoids duplicate handlers across re-renders.
     this.container.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
-      if (target.classList.contains("subjap-modal-btn-audio")) {
-        void this.generateAudio(true);
-      } else if (target.classList.contains("subjap-modal-btn-phrase-audio")) {
+      if (target.classList.contains("subjap-modal-btn-phrase-audio")) {
         this.playPhraseAudio();
       } else if (target.classList.contains("subjap-modal-btn-screenshot")) {
         void this.captureScreenshot();
@@ -152,7 +149,6 @@ export class MiningModal {
       aiGeneratedOnce: false,
       aiStatus: null,
       aiError: null,
-      wordAudioDataUrl: null,
       phraseAudioDataUrl: null,
       phraseAudioAttempted: false,
       screenshotDataUrl: null,
@@ -165,7 +161,6 @@ export class MiningModal {
     this.render();
     this.show();
     this.registerKeyboard();
-    void this.generateAudio();
     // Freeze the frame chosen by the learner before phrase replay seeks the
     // Netflix player back to the cue start.
     this.phraseAudioPromise = this.captureScreenshot().then(() => {
@@ -204,7 +199,6 @@ export class MiningModal {
         </div>
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
-          <button class="subjap-modal-btn subjap-modal-btn-audio">Audio du mot</button>
           <button class="subjap-modal-btn subjap-modal-btn-phrase-audio" disabled>Audio de la phrase</button>
           <button class="subjap-modal-btn subjap-modal-btn-screenshot">Capturer l’image</button>
           <button class="subjap-modal-btn subjap-modal-btn-send">Créer dans Anki</button>
@@ -315,10 +309,8 @@ export class MiningModal {
         min-width: 100px;
       }
       .subjap-modal-btn:disabled { opacity: 0.6; cursor: default; }
-      .subjap-modal-btn-audio,
       .subjap-modal-btn-phrase-audio,
       .subjap-modal-btn-screenshot { background: var(--sj-raised); color: var(--sj-text); }
-      .subjap-modal-btn-audio:hover:not(:disabled),
       .subjap-modal-btn-phrase-audio:hover:not(:disabled),
       .subjap-modal-btn-screenshot:hover:not(:disabled) { background: #252932; }
       .subjap-modal-btn-send { background: var(--sj-accent); border-color: var(--sj-accent); color: var(--sj-canvas); }
@@ -366,9 +358,6 @@ export class MiningModal {
       ${aiErrorHtml}
       ${aiNotesHtml}`;
 
-    const audioInfo = this.state.wordAudioDataUrl
-      ? '<div class="subjap-audio-info">✓ Audio du mot prêt</div>'
-      : "";
     const phraseAudioInfo = this.state.phraseAudioDataUrl
       ? '<div class="subjap-audio-info">✓ Audio de la phrase prêt</div>'
       : "";
@@ -392,7 +381,6 @@ export class MiningModal {
       <div class="subjap-label">Translation</div>
       <textarea class="subjap-textarea subjap-translation" data-testid="mining-translation" aria-label="Translation">${escapeHtml(this.state.translationText)}</textarea>
       ${defListHtml}
-      ${audioInfo}
       ${phraseAudioInfo}
       ${screenshotInfo}
       ${localInfo}
@@ -420,8 +408,6 @@ export class MiningModal {
     readingInput?.addEventListener("input", () => {
       if (this.state) {
         this.state.readingText = readingInput.value;
-        // A changed reading must not keep the audio generated for the old one.
-        this.state.wordAudioDataUrl = null;
       }
     });
 
@@ -505,32 +491,6 @@ export class MiningModal {
         state.aiGenerating = false;
         this.render();
       }
-    }
-  }
-
-  private async generateAudio(playPreview = false): Promise<void> {
-    const state = this.state;
-    if (!state) return;
-    try {
-      const result = await sendMessage("tts:generate", {
-        text: state.readingText || state.targetWordText,
-      });
-      // Ignore a late response if the modal was closed and reopened for a
-      // different card while VOICEVOX was synthesizing.
-      if (this.state !== state) return;
-      state.wordAudioDataUrl = result.dataUrl;
-      if (playPreview) {
-        const preview = new Audio(result.dataUrl);
-        try {
-          void Promise.resolve(preview.play()).catch(() => undefined);
-        } catch {
-          // Preview playback can be blocked by autoplay policy; the data URL
-          // remains available for Anki regardless.
-        }
-      }
-      this.render();
-    } catch (err) {
-      console.error("[SubJap] VOICEVOX word audio failed:", err);
     }
   }
 
@@ -695,19 +655,6 @@ export class MiningModal {
       }
 
       try {
-        let wordAudioDataUrl: string | undefined = state.wordAudioDataUrl ?? undefined;
-        if (!wordAudioDataUrl) {
-          try {
-            wordAudioDataUrl = (
-              await sendMessage("tts:generate", {
-                text: targetReading || targetWord,
-              })
-            ).dataUrl;
-          } catch (err) {
-            console.warn("[SubJap] VOICEVOX word audio unavailable:", err);
-          }
-        }
-
         const { deckName } = await sendMessage("anki:setup", {});
         await sendMessage("anki:addNote", {
           deckName,
@@ -722,7 +669,6 @@ export class MiningModal {
             AudioMot: "",
             AudioPhrase: "",
           },
-          audioMotDataUrl: wordAudioDataUrl,
           audioPhraseDataUrl: phraseAudioDataUrl ?? undefined,
           imageDataUrl: state.screenshotDataUrl ?? undefined,
           tags: ["subjap", episodeContext.platform],

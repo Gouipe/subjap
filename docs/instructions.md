@@ -1,33 +1,29 @@
-# SubJap — Browser Extension MV3 (TypeScript + Vite)
+# Repères du projet
 
-Mode d’emploi utilisateur : [`docs/mode-emploi.md`](mode-emploi.md).
+Pour installer et utiliser l’extension, commencer par le [README](../README.md).
+Le [mode d’emploi](mode-emploi.md) décrit les fonctions destinées aux
+utilisateurs. Le contrat des cartes Anki est dans
+[`anki-card-formatting.md`](anki-card-formatting.md), et les frontières entre
+modules sont décrites dans [`architecture.md`](architecture.md).
 
-Extension navigateur Manifest V3 pour l'apprentissage du japonais via les sous-titres d'anime sur Netflix et autres plateformes de streaming.
+## Compiler l’extension
 
-## Stack
-- TypeScript strict, Vite + @crxjs/vite-plugin, React (popup/options)
-- Dexie (IndexedDB), Lindera + UniDic WASM (tokenizer japonais), speechSynthesis (TTS offline)
-- Chrome/Edge MV3, AnkiConnect (localhost:8765)
+Installer les dépendances verrouillées, puis construire le dossier `dist` :
 
-## Build
-```bash
-npm install
-npm run build        # → dist/
-npm test             # Vitest
+```powershell
+npm.cmd ci
+npm.cmd run build
 ```
 
-## Structure
-- `src/core/types.ts` — TOUTES les interfaces (source unique, 186 lignes)
-- `src/core/db.ts` — Dexie, 4 tables
-- `src/core/messaging.ts` — sendMessage<T>(), onMessage<T>() typés
-- `src/background/service-worker.ts` — tous les handlers + AnkiConnect
-- `src/content/index.ts` — entry point content script
-- `src/adapters/` — Netflix L1 + generic-html5
-- `src/overlay/` — DOM vanilla renderer + popover
-- `src/mining/` — Anki, TTS, capture, modal
-- `src/onboarding/` — logique 3-step
-- `src/popup/`, `src/options/` — placeholders React
+Le dossier `dist` est produit localement et n’est pas versionné. Pour le charger
+dans Chrome ou Edge, utiliser le bouton **Charger l’extension non empaquetée**
+dans la page des extensions et sélectionner `dist`.
 
-## Spec
-`SPEC.md` — référence complète (v0.2, 471 lignes)
-`src/core/types.ts` — MessageMap avec 10 types de messages
+## Organisation du code
+
+- `src/core/` : types partagés, messages, options et stockage ;
+- `src/background/` : service worker, persistance et intégration AnkiConnect ;
+- `src/content/` et `src/adapters/` : orchestration et lecteurs vidéo ;
+- `src/tokenizer/` et `src/dictionary/` : segmentation et dictionnaire ;
+- `src/overlay/` et `src/mining/` : sous-titres interactifs et création de cartes ;
+- `src/popup/`, `src/options/` et `src/onboarding/` : surfaces de configuration.

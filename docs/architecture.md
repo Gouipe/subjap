@@ -379,7 +379,6 @@ Le mining est déclenché depuis la popover et ouvre
 [`MiningModal`](../src/mining/modal.ts), qui présente la phrase, le token cible,
 la lecture et les glosses sélectionnables. Le modal peut :
 
-- générer l’audio du mot avec VOICEVOX local à partir de sa lecture ;
 - enrichir manuellement `Notes` avec Gemini 3.5 Flash-Lite via un endpoint
   Cloudflare Worker ; la clé Gemini reste dans le secret du Worker ;
 - découper l’audio réel du lecteur dans `AudioPhrase` quand le navigateur
@@ -454,10 +453,10 @@ un mot déjà présent dans Anki ou marqué `LEARNING` est violet. Un mot `UNKNO
 sans carte existante suit la fréquence (vert, bleu, puis orange). La
 popover affiche le rang dès qu’il existe et précise `Déjà dans Anki · N cartes`.
 
-VOICEVOX est démarré localement par un Native Messaging host Windows enregistré
-une seule fois ; voir [`docs/voicevox.md`](voicevox.md). Si la capture du flux
-Netflix est bloquée par le navigateur ou le DRM, `AudioPhrase` reste vide et
-la carte demeure valide.
+SubJap laisse `AudioMot` vide lors de l’envoi à Anki ; la prononciation du mot
+peut être fournie par HyperTTS depuis le champ `Lecture`. Si la capture du flux
+Netflix est bloquée par le navigateur ou le DRM, `AudioPhrase` reste vide et la
+carte demeure valide.
 
 ## Interfaces utilisateur
 

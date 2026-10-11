@@ -22,6 +22,11 @@ notamment les balises realtime créées par HyperTTS. Le modèle
 `Migaku Memory Import` est celui utilisé par les cartes de compréhension
 produites par `migaku-export`.
 
+SubJap ne génère pas l’audio du mot. Pour entendre le mot dans Anki, installer et
+configurer HyperTTS sur le modèle `Migaku Memory`, avec `Lecture` comme source,
+puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
+[`anki-card-formatting.md`](anki-card-formatting.md).
+
 ## Usage quotidien de SubJap
 
 1. Ouvrir Anki, puis la vidéo dans Chrome.

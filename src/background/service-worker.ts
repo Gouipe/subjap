@@ -16,7 +16,6 @@ import {
 } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
 import { fetchNetflixTimedText } from "./netflix-timed-text";
-import { synthesizeVoicevox, warmupVoicevox } from "@/mining/voicevox";
 import {
   countAnkiWordPresenceChanges,
   extractAnkiWordPresences,
@@ -72,9 +71,6 @@ chrome.runtime.onStartup.addListener(() => {
   void scheduleProductionReleaseAlarm();
   void releaseDueProductionCards().catch((err) => {
     console.info("[SubJap] Pending production release unavailable:", err);
-  });
-  void warmupVoicevox().catch((err) => {
-    console.info("[SubJap] VOICEVOX warm-up unavailable:", err);
   });
 });
 
@@ -474,10 +470,6 @@ onMessage("tts:speak", ({ text }) => {
   // type and call speechSynthesis.speak() itself.
   console.log("[SubJap] TTS requested for:", text, "(foreground-only; no-op in SW)");
 });
-
-onMessage("tts:generate", async ({ text }) => ({
-  dataUrl: await synthesizeVoicevox(text),
-}));
 
 onMessage("screenshot:capture", async (_payload, sender) => {
   const windowId = sender.tab?.windowId;
@@ -1174,16 +1166,12 @@ async function storeAnkiMedia(dataUrl: string, prefix: string, extension: string
 
 onMessage(
   "anki:addNote",
-  async ({ fields, audioMotDataUrl, audioPhraseDataUrl, imageDataUrl, tags }) => {
+  async ({ fields, audioPhraseDataUrl, imageDataUrl, tags }) => {
     const deckName = ANKI_COMPREHENSION_DECK;
     await ensureAnkiDeck(deckName);
     await ensureMigakuModel();
     const noteFields: Record<string, string> = { ...fields, [PRODUCTION_FIELD]: "" };
 
-    if (audioMotDataUrl) {
-      const filename = await storeAnkiMedia(audioMotDataUrl, "subjap_mot", "wav");
-      noteFields.AudioMot = `[sound:${filename}]`;
-    }
     if (audioPhraseDataUrl) {
       const filename = await storeAnkiMedia(audioPhraseDataUrl, "subjap_phrase", "wav");
       noteFields.AudioPhrase = `[sound:${filename}]`;
