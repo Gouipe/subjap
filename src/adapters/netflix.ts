@@ -13,6 +13,7 @@ import {
   getLocalSubtitle,
   localSubtitleStorageKey,
   normalizeCueText,
+  parseLocalSubtitleCues,
   parseSubtitleFile,
 } from "@/subtitles";
 import {
@@ -195,8 +196,8 @@ export class NetflixAdapter implements PlatformAdapter {
   private standardCues: SubtitleCue[] = [];
   private pendingDomLanding: { cue: SubtitleCue; expiresAt: number } | null = null;
   private boundaryTimer: ReturnType<typeof setTimeout> | null = null;
+  private localPrimaryCues: SubtitleCue[] = [];
   private localTranslationCues: SubtitleCue[] = [];
-  private localTranslationOffset = 0;
   private localSubtitleLoadRevision = 0;
   private readonly requestedTimedTextUrls = new Set<string>();
   private preferredSecondaryLanguage: SecondarySubtitleLanguage = "fr";
@@ -345,11 +346,14 @@ export class NetflixAdapter implements PlatformAdapter {
     this.storageListener = (changes, areaName) => {
       if (areaName !== "local") return;
       const watchId = this.currentWatchId();
-      if (!watchId || !changes[localSubtitleStorageKey(watchId)]) return;
-      void this.loadLocalTranslation();
+      if (!watchId || (
+        !changes[localSubtitleStorageKey(watchId, "primary")] &&
+        !changes[localSubtitleStorageKey(watchId, "secondary")]
+      )) return;
+      void this.loadLocalSubtitles();
     };
     chrome.storage.onChanged.addListener(this.storageListener);
-    void this.loadLocalTranslation();
+    void this.loadLocalSubtitles();
     this.requestCurrentEpisodeTimedText();
 
     // Primary path: observe Netflix's timed-text DOM container.
@@ -706,9 +710,11 @@ export class NetflixAdapter implements PlatformAdapter {
   private composeCues(japanese: SubtitleCue[]): SubtitleCue[] {
     const official = this.tracks.cues("ja");
     const timed = official.length ? official : this.standardCues;
-    const japaneseCues = timed.length
-      ? activeSubtitleCues(timed, this.getCurrentTime())
-      : japanese.filter((cue) => hasMeaningfulCueText(cue.text));
+    const japaneseCues = this.localPrimaryCues.length
+      ? activeSubtitleCues(this.localPrimaryCues, this.getCurrentTime())
+      : timed.length
+        ? activeSubtitleCues(timed, this.getCurrentTime())
+        : japanese.filter((cue) => hasMeaningfulCueText(cue.text));
     const translation = this.getActiveTranslationCue();
     return (translation ? [...japaneseCues, translation] : japaneseCues).map(cueSnapshot);
   }
@@ -717,11 +723,7 @@ export class NetflixAdapter implements PlatformAdapter {
     if (this.preferredSecondaryLanguage === "none") return null;
     const currentTime = this.getCurrentTime();
     if (this.localTranslationCues.length > 0) {
-      const localTime = currentTime - this.localTranslationOffset;
-      return (
-        this.localTranslationCues.find((cue) => cue.start <= localTime && localTime < cue.end) ??
-        null
-      );
+      return activeSubtitleCues(this.localTranslationCues, currentTime)[0] ?? null;
     }
     const languagePriority: SecondarySubtitleLanguage[] =
       this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
@@ -742,30 +744,27 @@ export class NetflixAdapter implements PlatformAdapter {
     this.emitCues();
   }
 
-  private async loadLocalTranslation(): Promise<void> {
+  private async loadLocalSubtitles(): Promise<void> {
     const watchId = this.currentWatchId();
     const sessionId = this.playbackSessionId;
     const revision = ++this.localSubtitleLoadRevision;
     if (!watchId) {
+      this.localPrimaryCues = [];
       this.localTranslationCues = [];
-      this.localTranslationOffset = 0;
       this.emitCues();
       return;
     }
 
     try {
-      const record = await getLocalSubtitle(watchId);
+      const [primary, secondary] = await Promise.all([
+        getLocalSubtitle(watchId, "primary"),
+        getLocalSubtitle(watchId, "secondary"),
+      ]);
       if (revision !== this.localSubtitleLoadRevision || sessionId !== this.playbackSessionId) {
         return;
       }
-      this.localTranslationCues = record
-        ? parseSubtitleFile(record.fileName, record.content).map((cue, index) => ({
-            ...cue,
-            id: `local-${index}-${cue.id}`,
-            language: "local",
-          }))
-        : [];
-      this.localTranslationOffset = record?.offsetSeconds ?? 0;
+      this.localPrimaryCues = parseLocalSubtitleCues(watchId, "primary", primary);
+      this.localTranslationCues = parseLocalSubtitleCues(watchId, "secondary", secondary);
       this.emitCues();
     } catch (error: unknown) {
       console.warn("[SubJap] Failed to load local subtitles:", error);
@@ -953,6 +952,7 @@ export class NetflixAdapter implements PlatformAdapter {
 
   getNavigationCues(): SubtitleCue[] {
     this.ensurePlaybackSession();
+    if (this.localPrimaryCues.length > 0) return this.localPrimaryCues;
     // The track array is replaced when timed text is stored. Returning the
     // stable instance lets CueNavigator skip identical timeupdate snapshots.
     const official = this.tracks.cues("ja");
@@ -963,7 +963,8 @@ export class NetflixAdapter implements PlatformAdapter {
     this.ensurePlaybackSession();
     const source = (this.tracks.cues("ja")[0] ?? this.standardCues[0])?.source;
     return JSON.stringify([this.playbackSessionId, this.playbackSessionGeneration,
-      this.nativeTrackId, source?.trackId, source?.resourceId]);
+      this.nativeTrackId, source?.trackId, source?.resourceId,
+      this.localPrimaryCues[0]?.source?.sessionId]);
   }
 
   beginCueReplay(cue: SubtitleCue): CueReplaySession {
@@ -1084,8 +1085,8 @@ export class NetflixAdapter implements PlatformAdapter {
     this.standardTrack = null;
     this.standardCues = [];
     this.pendingDomLanding = null;
+    this.localPrimaryCues = [];
     this.localTranslationCues = [];
-    this.localTranslationOffset = 0;
     this.requestedTimedTextUrls.clear();
     this.cueReplaySession?.close();
     this.cueReplaySession = null;
@@ -1110,6 +1111,8 @@ export class NetflixAdapter implements PlatformAdapter {
     this.standardTrack = null;
     this.standardCues = [];
     this.pendingDomLanding = null;
+    this.localPrimaryCues = [];
+    this.localTranslationCues = [];
     this.requestedTimedTextUrls.clear();
     this.cueReplaySession?.close();
     this.cueReplaySession = null;
@@ -1118,7 +1121,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.clearSeekLandingTimer();
     this.pendingObservationTime = null;
     this.nextDomCueId = 0;
-    void this.loadLocalTranslation();
+    void this.loadLocalSubtitles();
     this.requestCurrentEpisodeTimedText();
     console.info(`[SubJap] Netflix playback session changed: ${sessionId}`);
     return true;

@@ -118,17 +118,25 @@ sous-titres dans le lecteur YouTube et sélectionner le japonais, puis recharger
 la page si nécessaire. YouTube peut refuser le téléchargement d’une piste ;
 dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
 
-### Utiliser une traduction locale sur Netflix ou YouTube
+### Importer des sous-titres locaux
 
-1. Ouvrir l’épisode Netflix ou la vidéo YouTube concernée, puis la popup SubJap.
-2. Dans **Sous-titres locaux**, choisir un fichier SRT, VTT ou ASS.
-3. Si nécessaire, régler le décalage au centième de seconde. Une valeur
-   positive affiche la traduction plus tard ; les boutons ajustent de 0,1 s.
+1. Ouvrir une page web avec un lecteur vidéo HTML5 visible, puis la popup SubJap.
+2. Dans **Sous-titres locaux**, importer le fichier japonais sous **Piste
+   principale**. SubJap le traite comme du japonais pour l’overlay, la navigation
+   et le mining.
+3. Facultativement, importer une traduction sous **Piste secondaire**. Chaque
+   piste possède son propre décalage au centième de seconde ; une valeur positive
+   l’affiche plus tard et les boutons ajustent de 0,1 s.
 
-Le fichier est mémorisé uniquement pour cette vidéo et cette plateforme. Il
-remplace la traduction FR/EN disponible tant qu’il n’est pas supprimé depuis
-la popup ; le choix **Aucun** empêche également cette traduction locale d’être
-affichée.
+Les fichiers SRT, VTT et ASS sont acceptés et mémorisés séparément pour chaque
+vidéo : par identifiant de lecture Netflix ou YouTube, ou par adresse de page
+sur les autres sites. Les anciennes traductions locales restent dans la piste
+secondaire. Sur Netflix et YouTube, une piste locale remplace la piste native de
+son rôle ; le choix **Aucun** masque la piste secondaire locale comme native.
+
+Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
+HTML5 visible. Il ne lit pas les sous-titres natifs de ces sites et ne peut pas
+prendre en charge un lecteur qui n’expose pas d’élément `<video>` accessible.
 
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
 production orale** au verso. Sa carte sœur apparaît dans

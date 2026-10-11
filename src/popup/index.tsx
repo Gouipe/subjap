@@ -16,6 +16,7 @@ import {
   removeLocalSubtitle,
   saveLocalSubtitle,
   type LocalSubtitleRecord,
+  type LocalSubtitleRole,
 } from "@/subtitles";
 
 interface Stats {
@@ -28,6 +29,12 @@ interface DictStatus {
   count: number;
   installed: boolean;
 }
+
+const LOCAL_SUBTITLE_ROLES: LocalSubtitleRole[] = ["primary", "secondary"];
+const EMPTY_LOCAL_SUBTITLES: Record<LocalSubtitleRole, LocalSubtitleRecord | null> = {
+  primary: null,
+  secondary: null,
+};
 
 const Popup: React.FC = () => {
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -44,9 +51,12 @@ const Popup: React.FC = () => {
     useState(false);
   const [activeListeningMode, setActiveListeningMode] = useState(false);
   const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
-  const [watchId, setWatchId] = useState<string | null>(null);
-  const [localSubtitle, setLocalSubtitle] = useState<LocalSubtitleRecord | null>(null);
-  const [offsetInput, setOffsetInput] = useState("0.00");
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [localSubtitles, setLocalSubtitles] = useState(EMPTY_LOCAL_SUBTITLES);
+  const [offsetInputs, setOffsetInputs] = useState<Record<LocalSubtitleRole, string>>({
+    primary: "0.00",
+    secondary: "0.00",
+  });
   const [localSubtitleBusy, setLocalSubtitleBusy] = useState(false);
   const [localSubtitleError, setLocalSubtitleError] = useState<string | null>(null);
 
@@ -79,20 +89,41 @@ const Popup: React.FC = () => {
   useEffect(() => {
     void (async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const currentWatchId = localSubtitleVideoId(tab?.url ?? "");
-      setWatchId(currentWatchId);
-      if (!currentWatchId) return;
-      const record = await getLocalSubtitle(currentWatchId);
-      setLocalSubtitle(record);
-      setOffsetInput((record?.offsetSeconds ?? 0).toFixed(2));
+      if (tab?.id == null || !tab.url) return;
+      let hasVisibleVideo = false;
+      try {
+        const [videoProbe] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => Array.from(document.querySelectorAll("video")).some((video) => {
+            const rect = video.getBoundingClientRect();
+            const style = getComputedStyle(video);
+            return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+          }),
+        });
+        hasVisibleVideo = videoProbe?.result === true;
+      } catch {
+        // Browser-restricted pages do not expose their DOM to extensions.
+      }
+      const currentVideoId = hasVisibleVideo ? localSubtitleVideoId(tab.url) : null;
+      setVideoId(currentVideoId);
+      if (!currentVideoId) return;
+      const [primary, secondary] = await Promise.all([
+        getLocalSubtitle(currentVideoId, "primary"),
+        getLocalSubtitle(currentVideoId, "secondary"),
+      ]);
+      setLocalSubtitles({ primary, secondary });
+      setOffsetInputs({
+        primary: (primary?.offsetSeconds ?? 0).toFixed(2),
+        secondary: (secondary?.offsetSeconds ?? 0).toFixed(2),
+      });
     })().catch((err: unknown) => {
       setLocalSubtitleError(err instanceof Error ? err.message : String(err));
     });
   }, []);
 
   const importLocalSubtitle = useCallback(
-    async (file: File | undefined) => {
-      if (!file || !watchId) return;
+    async (role: LocalSubtitleRole, file: File | undefined) => {
+      if (!file || !videoId) return;
       setLocalSubtitleBusy(true);
       setLocalSubtitleError(null);
       try {
@@ -106,52 +137,53 @@ const Popup: React.FC = () => {
           offsetSeconds: 0,
           updatedAt: Date.now(),
         };
-        await saveLocalSubtitle(watchId, record);
-        setLocalSubtitle(record);
-        setOffsetInput("0.00");
+        await saveLocalSubtitle(videoId, record, role);
+        setLocalSubtitles((current) => ({ ...current, [role]: record }));
+        setOffsetInputs((current) => ({ ...current, [role]: "0.00" }));
       } catch (err: unknown) {
         setLocalSubtitleError(err instanceof Error ? err.message : String(err));
       } finally {
         setLocalSubtitleBusy(false);
       }
     },
-    [watchId],
+    [videoId],
   );
 
   const persistOffset = useCallback(
-    async (value: number) => {
-      if (!watchId || !localSubtitle || !Number.isFinite(value)) return;
+    async (role: LocalSubtitleRole, value: number) => {
+      const localSubtitle = localSubtitles[role];
+      if (!videoId || !localSubtitle || !Number.isFinite(value)) return;
       const rounded = Math.round(value * 100) / 100;
       const next = { ...localSubtitle, offsetSeconds: rounded };
-      setLocalSubtitle(next);
-      setOffsetInput(rounded.toFixed(2));
+      setLocalSubtitles((current) => ({ ...current, [role]: next }));
+      setOffsetInputs((current) => ({ ...current, [role]: rounded.toFixed(2) }));
       setLocalSubtitleBusy(true);
       setLocalSubtitleError(null);
       try {
-        await saveLocalSubtitle(watchId, next);
+        await saveLocalSubtitle(videoId, next, role);
       } catch (err: unknown) {
         setLocalSubtitleError(err instanceof Error ? err.message : String(err));
       } finally {
         setLocalSubtitleBusy(false);
       }
     },
-    [localSubtitle, watchId],
+    [localSubtitles, videoId],
   );
 
-  const deleteLocalSubtitle = useCallback(async () => {
-    if (!watchId) return;
+  const deleteLocalSubtitle = useCallback(async (role: LocalSubtitleRole) => {
+    if (!videoId) return;
     setLocalSubtitleBusy(true);
     setLocalSubtitleError(null);
     try {
-      await removeLocalSubtitle(watchId);
-      setLocalSubtitle(null);
-      setOffsetInput("0.00");
+      await removeLocalSubtitle(videoId, role);
+      setLocalSubtitles((current) => ({ ...current, [role]: null }));
+      setOffsetInputs((current) => ({ ...current, [role]: "0.00" }));
     } catch (err: unknown) {
       setLocalSubtitleError(err instanceof Error ? err.message : String(err));
     } finally {
       setLocalSubtitleBusy(false);
     }
-  }, [watchId]);
+  }, [videoId]);
 
   const toggleSecondarySubtitles = useCallback(
     async (enabled: boolean) => {
@@ -305,89 +337,108 @@ const Popup: React.FC = () => {
       </div>
 
       <div style={styles.subtitleBox}>
-        {watchId?.startsWith("youtube:") && (
+        {videoId?.startsWith("youtube:") && (
           <p style={styles.captureHint}>
             YouTube : sous-titres japonais du créateur en priorité, automatiques en repli.
           </p>
         )}
         <div style={styles.localSubtitleSection}>
           <span style={styles.sectionLabel}>Sous-titres locaux</span>
-          {watchId ? (
-            <>
-              <label style={styles.fileButton}>
-                {localSubtitleBusy
-                  ? "Chargement…"
-                  : localSubtitle
-                    ? "Remplacer le fichier"
-                    : "Choisir un fichier"}
-                <input
-                  type="file"
-                  accept=".srt,.vtt,.webvtt,.ass,.ssa"
-                  hidden
-                  disabled={localSubtitleBusy}
-                  onChange={(event) => {
-                    void importLocalSubtitle(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
-              </label>
-              {localSubtitle && (
-                <>
-                  <p style={styles.fileName}>{localSubtitle.fileName}</p>
-                  <label style={styles.offsetLabel}>
-                    <span>Décalage (s)</span>
+          {videoId ? (
+            LOCAL_SUBTITLE_ROLES.map((role) => {
+              const localSubtitle = localSubtitles[role];
+              const roleTitle = role === "primary"
+                ? "Piste principale · japonais"
+                : "Piste secondaire · traduction";
+              const roleHint = role === "primary"
+                ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
+                : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native.";
+              return (
+                <div key={role} style={styles.localSubtitleTrack}>
+                  <span style={styles.localSubtitleRole}>{roleTitle}</span>
+                  <label style={styles.fileButton}>
+                    {localSubtitleBusy
+                      ? "Chargement…"
+                      : localSubtitle
+                        ? "Remplacer le fichier"
+                        : "Choisir un fichier"}
                     <input
-                      style={styles.offsetInput}
-                      type="number"
-                      step="0.01"
-                      value={offsetInput}
+                      type="file"
+                      accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                      hidden
                       disabled={localSubtitleBusy}
-                      onChange={(event) => setOffsetInput(event.target.value)}
-                      onBlur={() => void persistOffset(Number(offsetInput.replace(",", ".")))}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") event.currentTarget.blur();
+                      onChange={(event) => {
+                        void importLocalSubtitle(role, event.target.files?.[0]);
+                        event.target.value = "";
                       }}
                     />
                   </label>
-                  <p style={styles.localSubtitleHint}>
-                    Une valeur positive affiche le texte plus tard.
-                  </p>
-                  <div style={styles.offsetActions}>
-                    <button
-                      style={styles.smallButton}
-                      disabled={localSubtitleBusy}
-                      onClick={() => void persistOffset(localSubtitle.offsetSeconds - 0.1)}
-                    >
-                      − 0,1 s
-                    </button>
-                    <button
-                      style={styles.smallButton}
-                      disabled={localSubtitleBusy}
-                      onClick={() => void persistOffset(localSubtitle.offsetSeconds + 0.1)}
-                    >
-                      + 0,1 s
-                    </button>
-                    <button
-                      style={styles.smallButton}
-                      disabled={localSubtitleBusy}
-                      onClick={() => void persistOffset(0)}
-                    >
-                      Réinitialiser
-                    </button>
-                  </div>
-                  <button
-                    style={styles.deleteButton}
-                    disabled={localSubtitleBusy}
-                    onClick={() => void deleteLocalSubtitle()}
-                  >
-                    Supprimer le fichier
-                  </button>
-                </>
-              )}
-            </>
+                  <p style={styles.localSubtitleHint}>{roleHint}</p>
+                  {localSubtitle && (
+                    <>
+                      <p style={styles.fileName}>{localSubtitle.fileName}</p>
+                      <label style={styles.offsetLabel}>
+                        <span>Décalage (s)</span>
+                        <input
+                          style={styles.offsetInput}
+                          type="number"
+                          step="0.01"
+                          value={offsetInputs[role]}
+                          disabled={localSubtitleBusy}
+                          onChange={(event) => setOffsetInputs((current) => ({
+                            ...current,
+                            [role]: event.target.value,
+                          }))}
+                          onBlur={() => void persistOffset(
+                            role,
+                            Number(offsetInputs[role].replace(",", ".")),
+                          )}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") event.currentTarget.blur();
+                          }}
+                        />
+                      </label>
+                      <p style={styles.localSubtitleHint}>
+                        Une valeur positive affiche le texte plus tard.
+                      </p>
+                      <div style={styles.offsetActions}>
+                        <button
+                          style={styles.smallButton}
+                          disabled={localSubtitleBusy}
+                          onClick={() => void persistOffset(role, localSubtitle.offsetSeconds - 0.1)}
+                        >
+                          − 0,1 s
+                        </button>
+                        <button
+                          style={styles.smallButton}
+                          disabled={localSubtitleBusy}
+                          onClick={() => void persistOffset(role, localSubtitle.offsetSeconds + 0.1)}
+                        >
+                          + 0,1 s
+                        </button>
+                        <button
+                          style={styles.smallButton}
+                          disabled={localSubtitleBusy}
+                          onClick={() => void persistOffset(role, 0)}
+                        >
+                          Réinitialiser
+                        </button>
+                      </div>
+                      <button
+                        style={styles.deleteButton}
+                        disabled={localSubtitleBusy}
+                        onClick={() => void deleteLocalSubtitle(role)}
+                      >
+                        Supprimer la piste
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <p style={styles.localSubtitleHint}>
-              Ouvre un épisode Netflix ou une vidéo YouTube pour importer un fichier.
+              Ouvre une page avec un lecteur vidéo HTML5 visible. Les fichiers sont associés à son adresse.
             </p>
           )}
           {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
@@ -619,6 +670,17 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 12,
     paddingBottom: 12,
     borderBottom: "1px solid #343842",
+  },
+  localSubtitleTrack: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTop: "1px solid #343842",
+  },
+  localSubtitleRole: {
+    display: "block",
+    marginBottom: 6,
+    fontSize: 11,
+    fontWeight: 600,
   },
   languageSection: {
     marginBottom: 12,

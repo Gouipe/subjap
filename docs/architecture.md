@@ -31,7 +31,8 @@ Le manifeste est construit par Vite et `@crxjs/vite-plugin` à partir de
 [`src/manifest.ts`](../src/manifest.ts). Il déclare :
 
 - un service worker : [`src/background/service-worker.ts`](../src/background/service-worker.ts) ;
-- un content script lancé à `document_end` sur les plateformes ciblées ;
+- un content script lancé à `document_end` sur les pages web ; les bridges de
+  Netflix et YouTube restent limités à leurs domaines ;
 - une popup React et une page Options React ;
   - le binaire Lindera + UniDic embarqué dans le bundle du content script ;
 - les permissions de stockage, d’injection et les accès réseau nécessaires au
@@ -44,7 +45,8 @@ Les principaux modules sont organisés ainsi :
 | `src/core/` | Types partagés, bus de messages, options, réglages IA et schéma Dexie. |
 | `src/background/` | Persistance, lookups, statistiques, création de cartes, AnkiConnect et installation. |
 | `src/content/` | Orchestration du pipeline dans la page vidéo et gestion des interactions. |
-| `src/adapters/` | Adaptateurs des lecteurs Netflix et YouTube, et base HTML5 générique. |
+| `src/adapters/` | Adaptateurs spécialisés Netflix et YouTube. |
+| `src/core/adapters/` | Registre des adaptateurs et fallback HTML5 générique. |
 | `src/tokenizer/` | Adaptateur Lindera + UniDic, contrat morphologique, regroupements et cache LRU. |
 | `src/subtitles/` | Normalisation, segmentation et parseurs SRT/VTT/ASS prêts pour l’import local. |
 | `src/dictionary/` | Conversion JMdict et index de recherche ; le service worker interroge les entrées persistées. |
@@ -123,11 +125,14 @@ réponse à la piste secondaire, le bridge vérifie aussi la langue déclarée o
 dominante de son contenu afin qu’un sous-titre japonais ne soit pas étiqueté
 FR/EN par erreur.
 
-La popup permet aussi d’importer une traduction locale SRT, VTT ou ASS. Son
-contenu et son décalage temporel sont conservés dans `chrome.storage.local`,
-indexés par l’identifiant Netflix `/watch/<id>`. Cette piste locale est
-prioritaire sur les traductions officielles FR/EN et se recharge lors des
-changements d’épisode dans la navigation SPA.
+La popup importe séparément une piste principale et une piste secondaire
+locales, en SRT, VTT ou ASS. Chaque piste a son propre décalage. La principale
+est traitée comme du japonais et remplace la piste japonaise native ; la
+secondaire remplace la traduction native sur Netflix et YouTube. Les fichiers
+sont conservés dans `chrome.storage.local`. Netflix et YouTube gardent leurs
+identifiants de vidéo historiques ; les autres lecteurs sont indexés par une
+empreinte de leur URL canonique. Les anciennes traductions locales restent
+disponibles dans l’emplacement secondaire.
 
 Le masquage des sous-titres natifs est piloté par une classe sur `<html>` et
 une règle CSS document-level. Cette approche résiste à la recréation du DOM
@@ -142,8 +147,9 @@ Il choisit une piste japonaise du créateur en priorité, puis une piste japonai
 automatique. Une piste FR/EN du créateur fournit la traduction selon le réglage
 habituel, avec l’autre langue en repli. Les pistes secondaires générées ou
 traduites automatiquement par YouTube sont exclues. La préférence peut aussi
-désactiver complètement la piste secondaire. Les traductions locales SRT/VTT/ASS restent prioritaires lorsque la piste secondaire est activée et utilisent
-des clés `youtube:<id>` ; les clés Netflix existantes sont conservées.
+désactiver complètement la piste secondaire. Les pistes locales SRT/VTT/ASS
+sont prioritaires lorsqu’elles sont importées dans le rôle correspondant et
+utilisent des clés `youtube:<id>` ; les clés Netflix existantes sont conservées.
 
 Le script [`youtube-bridge-entry.ts`](../src/youtube-bridge-entry.ts), injecté
 dans le monde MAIN à `document_start`, lit les métadonnées du lecteur et observe
@@ -180,13 +186,13 @@ reste à vérifier sur le lecteur après rechargement de l’extension.
 
 ### Adaptateur HTML5 générique
 
-[`GenericHtml5Adapter`](../src/adapters/generic-html5.ts) sait lire les
-`TextTrack` / `VTTCue` d’un élément `<video>` et contrôler leur visibilité.
-Il constitue la base pour les lecteurs HTML5 standards et les futurs
-adaptateurs. Le registre possède également un fallback ultime sans émission de
-cues lorsque la page ne correspond à aucun adaptateur spécialisé. Dans le
-content script actuel, Netflix ou YouTube est explicitement enregistré selon
-le domaine ; le branchement d’autres adaptateurs est une extension du registre.
+[`GenericHtml5Adapter`](../src/core/adapters/registry.ts) suit l’horloge d’un
+élément `<video>` HTML5 visible et publie les fichiers locaux importés dans les
+rôles principal et secondaire. Il choisit une vidéo en lecture, puis la plus
+grande vidéo visible en pause. Le contenu des sous-titres natifs et les lecteurs
+qui ne rendent pas de `<video>` accessible ne sont pas pris en charge par cet
+adaptateur. Les bridges spécialisés Netflix et YouTube restent distincts ; sur
+les autres pages, le content script utilise cet adaptateur générique.
 
 ## Pipeline de rendu
 
@@ -492,9 +498,11 @@ bus de messages et les modules partagés pour lire ou modifier l’état.
 
 ## État actuel et extensions prévues
 
-Le MVP couvre le squelette MV3, Netflix et les vidéos classiques YouTube, le pipeline de rendu, JMdict,
-l’interaction hover/clic, le marquage connu/inconnu, le mining local, le push
-Anki, le popup, les options et l’onboarding.
+Le MVP couvre le squelette MV3, Netflix, les vidéos classiques YouTube et
+l’import de sous-titres locaux sur les pages exposant une vidéo HTML5, le
+pipeline de rendu, JMdict, l’interaction hover/clic, le marquage
+connu/inconnu, le mining local, le push Anki, le popup, les options et
+l’onboarding.
 
 Les évolutions naturelles sont :
 
@@ -504,5 +512,7 @@ Les évolutions naturelles sont :
 - brancher Crunchyroll et Prime ;
 - ajouter l’export/import JSON et l’i18n FR/EN.
 
-Les parseurs SRT/VTT/ASS sont isolés dans `src/subtitles/` et leur import comme
-traduction secondaire Netflix ou YouTube est disponible depuis la popup.
+Les parseurs SRT/VTT/ASS sont isolés dans `src/subtitles/`. L’import local
+principal/secondaire est disponible depuis la popup sur les pages web ordinaires
+avec une vidéo HTML5 visible. L’intégration des pistes natives de Crunchyroll,
+Prime et Disney+ reste à brancher.

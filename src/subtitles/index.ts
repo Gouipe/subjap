@@ -25,8 +25,10 @@ export {
   localSubtitleStorageKey,
   localSubtitleVideoId,
   netflixWatchId,
+  parseLocalSubtitleCues,
   removeLocalSubtitle,
   saveLocalSubtitle,
   type LocalSubtitleRecord,
+  type LocalSubtitleRole,
 } from "./local-storage";
 export type { SubtitleFormat } from "./parse";

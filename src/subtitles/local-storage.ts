@@ -1,4 +1,8 @@
 import { youtubeVideoId } from "@/core/youtube";
+import type { SubtitleCue } from "@/core/types";
+import { parseSubtitleFile } from "@/subtitles/parse";
+
+export type LocalSubtitleRole = "primary" | "secondary";
 
 export interface LocalSubtitleRecord {
   fileName: string;
@@ -11,8 +15,40 @@ const STORAGE_PREFIX = "subjap_local_subtitle_watch_";
 
 /** Keep existing Netflix keys intact; YouTube gets a separate namespace. */
 export function localSubtitleVideoId(url: string): string | null {
-  const youtubeId = youtubeVideoId(url);
-  return youtubeId ? `youtube:${youtubeId}` : netflixWatchId(url);
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (/(^|\.)youtube\.com$/i.test(parsed.hostname)) {
+      const youtubeId = youtubeVideoId(url);
+      return youtubeId ? `youtube:${youtubeId}` : null;
+    }
+    if (/(^|\.)netflix\.com$/i.test(parsed.hostname)) {
+      return netflixWatchId(url);
+    }
+    parsed.hash = "";
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (/^utm_/i.test(key) || ["fbclid", "gclid"].includes(key.toLowerCase())) {
+        parsed.searchParams.delete(key);
+      }
+    }
+    parsed.search = new URLSearchParams(
+      [...parsed.searchParams.entries()].sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+        leftKey.localeCompare(rightKey) || leftValue.localeCompare(rightValue),
+      ),
+    ).toString();
+    return `url:${hashVideoUrl(parsed.href)}`;
+  } catch {
+    return null;
+  }
+}
+
+function hashVideoUrl(value: string): string {
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= BigInt(value.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, "0");
 }
 
 export function netflixWatchId(url: string): string | null {
@@ -25,8 +61,14 @@ export function netflixWatchId(url: string): string | null {
   }
 }
 
-export function localSubtitleStorageKey(watchId: string): string {
-  return `${STORAGE_PREFIX}${watchId}`;
+export function localSubtitleStorageKey(
+  videoId: string,
+  role: LocalSubtitleRole = "secondary",
+): string {
+  // Keep the original key for secondary tracks so existing imports remain available.
+  return role === "secondary"
+    ? `${STORAGE_PREFIX}${videoId}`
+    : `${STORAGE_PREFIX}role:primary:${videoId}`;
 }
 
 function isLocalSubtitleRecord(value: unknown): value is LocalSubtitleRecord {
@@ -41,21 +83,52 @@ function isLocalSubtitleRecord(value: unknown): value is LocalSubtitleRecord {
   );
 }
 
-export async function getLocalSubtitle(watchId: string): Promise<LocalSubtitleRecord | null> {
-  const key = localSubtitleStorageKey(watchId);
+export function parseLocalSubtitleCues(
+  videoId: string,
+  role: LocalSubtitleRole,
+  record: LocalSubtitleRecord | null,
+): SubtitleCue[] {
+  if (!record) return [];
+  const sessionId = `${videoId}:local:${role}:${record.updatedAt}:${record.fileName}`;
+  return parseSubtitleFile(record.fileName, record.content).map((cue, index) => ({
+    ...cue,
+    id: `${sessionId}:${index}:${cue.id}`,
+    start: cue.start + record.offsetSeconds,
+    end: cue.end + record.offsetSeconds,
+    language: role === "primary" ? "ja" : "local",
+    source: {
+      kind: "track" as const,
+      sessionId,
+      trackId: `local-${role}`,
+      resourceId: record.fileName,
+      segmentId: cue.id,
+      startPrecision: "exact" as const,
+    },
+  }));
+}
+
+export async function getLocalSubtitle(
+  videoId: string,
+  role: LocalSubtitleRole = "secondary",
+): Promise<LocalSubtitleRecord | null> {
+  const key = localSubtitleStorageKey(videoId, role);
   const stored = await chrome.storage.local.get(key);
   return isLocalSubtitleRecord(stored[key]) ? stored[key] : null;
 }
 
 export async function saveLocalSubtitle(
-  watchId: string,
+  videoId: string,
   record: LocalSubtitleRecord,
+  role: LocalSubtitleRole = "secondary",
 ): Promise<void> {
   await chrome.storage.local.set({
-    [localSubtitleStorageKey(watchId)]: record,
+    [localSubtitleStorageKey(videoId, role)]: record,
   });
 }
 
-export async function removeLocalSubtitle(watchId: string): Promise<void> {
-  await chrome.storage.local.remove(localSubtitleStorageKey(watchId));
+export async function removeLocalSubtitle(
+  videoId: string,
+  role: LocalSubtitleRole = "secondary",
+): Promise<void> {
+  await chrome.storage.local.remove(localSubtitleStorageKey(videoId, role));
 }
