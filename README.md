@@ -80,6 +80,32 @@ au Worker que si l’utilisateur demande l’enrichissement IA.
 2. Survoler un mot du sous-titre et cliquer sur **Mine this**.
 3. Vérifier la carte, puis l’envoyer vers Anki.
 
+### Raccourcis clavier
+
+Dans l’onglet vidéo, hors des champs de saisie :
+
+| Touche | Action |
+| --- | --- |
+| **Q** | Revenir au sous-titre précédent |
+| **S** | Rejouer le sous-titre courant |
+| **D** | Aller au sous-titre suivant |
+| **C** | Copier le japonais affiché |
+| **X** | Révéler la traduction secondaire masquée |
+
+Avec **Activer l’écoute active**, **Q** et **S** préparent aussi un exercice
+d’écoute sur le sous-titre précédent ou courant, si la phrase est éligible.
+Dans cet exercice, **A** démarre ou rejoue l’écoute, **Z** révèle le japonais,
+**E** révèle la traduction, **R** ou **Espace** reprend la vidéo, et **Échap**
+passe l’exercice.
+
+### Problèmes connus
+
+- Au démarrage d’une vidéo, la traduction secondaire peut ne pas apparaître.
+  Recharger la page vidéo permet généralement de l’afficher.
+- **Q** peut parfois faire un premier retour sur un point très bref juste avant
+  le sous-titre précédent, comme une mini-cue fantôme. Appuyer une seconde fois
+  sur **Q** permet alors de revenir au vrai sous-titre précédent.
+
 Après une mise à jour du dépôt, reconstruire l’extension avec
 `npm.cmd run build`, cliquer sur **Recharger** dans la page des extensions,
 puis recharger les onglets vidéo déjà ouverts.
