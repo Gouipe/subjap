@@ -395,107 +395,109 @@ const Popup: React.FC = () => {
             YouTube : sous-titres japonais du créateur en priorité, automatiques en repli.
           </p>
         )}
-        <div style={styles.localSubtitleSection}>
-          <span style={styles.sectionLabel}>Sous-titres locaux</span>
-          {videoId ? (
-            LOCAL_SUBTITLE_ROLES.map((role) => {
-              const localSubtitle = localSubtitles[role];
-              const roleTitle = role === "primary"
-                ? "Piste principale · japonais"
-                : "Piste secondaire · traduction";
-              const roleHint = role === "primary"
-                ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
-                : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native.";
-              return (
-                <div key={role} style={styles.localSubtitleTrack}>
-                  <span style={styles.localSubtitleRole}>{roleTitle}</span>
-                  <label style={styles.fileButton}>
-                    {localSubtitleBusy
-                      ? "Chargement…"
-                      : localSubtitle
-                        ? "Remplacer le fichier"
-                        : "Choisir un fichier"}
-                    <input
-                      type="file"
-                      accept=".srt,.vtt,.webvtt,.ass,.ssa"
-                      hidden
-                      disabled={localSubtitleBusy}
-                      onChange={(event) => {
-                        void importLocalSubtitle(role, event.target.files?.[0]);
-                        event.target.value = "";
-                      }}
-                    />
-                  </label>
-                  <p style={styles.localSubtitleHint}>{roleHint}</p>
-                  {localSubtitle && (
-                    <>
-                      <p style={styles.fileName}>{localSubtitle.fileName}</p>
-                      <label style={styles.offsetLabel}>
-                        <span>Décalage (s)</span>
-                        <input
-                          style={styles.offsetInput}
-                          type="number"
-                          step="0.01"
-                          value={offsetInputs[role]}
-                          disabled={localSubtitleBusy}
-                          onChange={(event) => setOffsetInputs((current) => ({
-                            ...current,
-                            [role]: event.target.value,
-                          }))}
-                          onBlur={() => void persistOffset(
-                            role,
-                            Number(offsetInputs[role].replace(",", ".")),
-                          )}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") event.currentTarget.blur();
-                          }}
-                        />
-                      </label>
-                      <p style={styles.localSubtitleHint}>
-                        Une valeur positive affiche le texte plus tard.
-                      </p>
-                      <div style={styles.offsetActions}>
-                        <button
-                          style={styles.smallButton}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void persistOffset(role, localSubtitle.offsetSeconds - 0.1)}
-                        >
-                          − 0,1 s
-                        </button>
-                        <button
-                          style={styles.smallButton}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void persistOffset(role, localSubtitle.offsetSeconds + 0.1)}
-                        >
-                          + 0,1 s
-                        </button>
-                        <button
-                          style={styles.smallButton}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void persistOffset(role, 0)}
-                        >
-                          Réinitialiser
-                        </button>
-                      </div>
-                      <button
-                        style={styles.deleteButton}
+        <details style={styles.localSubtitleSection}>
+          <summary style={styles.localSubtitleSummary}>Sous-titres locaux</summary>
+          <div style={styles.localSubtitleContent}>
+            {videoId ? (
+              LOCAL_SUBTITLE_ROLES.map((role) => {
+                const localSubtitle = localSubtitles[role];
+                const roleTitle = role === "primary"
+                  ? "Piste principale · japonais"
+                  : "Piste secondaire · traduction";
+                const roleHint = role === "primary"
+                  ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
+                  : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native.";
+                return (
+                  <div key={role} style={styles.localSubtitleTrack}>
+                    <span style={styles.localSubtitleRole}>{roleTitle}</span>
+                    <label style={styles.fileButton}>
+                      {localSubtitleBusy
+                        ? "Chargement…"
+                        : localSubtitle
+                          ? "Remplacer le fichier"
+                          : "Choisir un fichier"}
+                      <input
+                        type="file"
+                        accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                        hidden
                         disabled={localSubtitleBusy}
-                        onClick={() => void deleteLocalSubtitle(role)}
-                      >
-                        Supprimer la piste
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })
-          ) : (
-            <p style={styles.localSubtitleHint}>
-              Ouvre une page avec un lecteur vidéo HTML5 visible. Les fichiers sont associés à son adresse.
-            </p>
-          )}
-          {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
-        </div>
+                        onChange={(event) => {
+                          void importLocalSubtitle(role, event.target.files?.[0]);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                    <p style={styles.localSubtitleHint}>{roleHint}</p>
+                    {localSubtitle && (
+                      <>
+                        <p style={styles.fileName}>{localSubtitle.fileName}</p>
+                        <label style={styles.offsetLabel}>
+                          <span>Décalage (s)</span>
+                          <input
+                            style={styles.offsetInput}
+                            type="number"
+                            step="0.01"
+                            value={offsetInputs[role]}
+                            disabled={localSubtitleBusy}
+                            onChange={(event) => setOffsetInputs((current) => ({
+                              ...current,
+                              [role]: event.target.value,
+                            }))}
+                            onBlur={() => void persistOffset(
+                              role,
+                              Number(offsetInputs[role].replace(",", ".")),
+                            )}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") event.currentTarget.blur();
+                            }}
+                          />
+                        </label>
+                        <p style={styles.localSubtitleHint}>
+                          Une valeur positive affiche le texte plus tard.
+                        </p>
+                        <div style={styles.offsetActions}>
+                          <button
+                            style={styles.smallButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void persistOffset(role, localSubtitle.offsetSeconds - 0.1)}
+                          >
+                            − 0,1 s
+                          </button>
+                          <button
+                            style={styles.smallButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void persistOffset(role, localSubtitle.offsetSeconds + 0.1)}
+                          >
+                            + 0,1 s
+                          </button>
+                          <button
+                            style={styles.smallButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void persistOffset(role, 0)}
+                          >
+                            Réinitialiser
+                          </button>
+                        </div>
+                        <button
+                          style={styles.deleteButton}
+                          disabled={localSubtitleBusy}
+                          onClick={() => void deleteLocalSubtitle(role)}
+                        >
+                          Supprimer la piste
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p style={styles.localSubtitleHint}>
+                Ouvre une page avec un lecteur vidéo HTML5 visible. Les fichiers sont associés à son adresse.
+              </p>
+            )}
+            {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
+          </div>
+        </details>
         <div style={styles.languageSection}>
           <div style={styles.languageRow}>
             <span>Principal</span>
@@ -790,6 +792,15 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 12,
     paddingBottom: 12,
     borderBottom: "1px solid #343842",
+  },
+  localSubtitleSummary: {
+    color: "#f4f1ea",
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  localSubtitleContent: {
+    paddingTop: 4,
   },
   localSubtitleTrack: {
     marginTop: 8,
