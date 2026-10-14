@@ -42,9 +42,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       --sj-text: #f4f1ea;
       --sj-muted: #b2b6bf;
       --sj-accent: #ff624d;
-      --sj-learning: #aab3ff;
+      --sj-learning: #d3a0ff;
       --sj-priority-high: #78d6a3;
-      --sj-priority-mid: #73b9f8;
+      --sj-priority-mid: #55b8ff;
       --sj-priority-low: #f1b46d;
       --sj-danger: #ff8490;
       position: fixed;
@@ -201,7 +201,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate--near {
       outline-color: var(--sj-priority-mid);
-      background-color: rgba(115, 185, 248, 0.16);
+      background-color: rgba(85, 184, 255, 0.16);
     }
     #${CONTAINER_ID} .subjap-token:not(.subjap-token--parenthetical):hover {
       background-color: rgba(244, 241, 234, 0.14);

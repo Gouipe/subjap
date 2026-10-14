@@ -11,9 +11,9 @@ colors:
   text-muted: "#B2B6BF"
   clap-vermilion: "#FF624D"
   clap-vermilion-hover: "#FF7966"
-  learning-indigo: "#AAB3FF"
+  learning-violet: "#D3A0FF"
   priority-green: "#78D6A3"
-  priority-blue: "#73B9F8"
+  priority-blue: "#55B8FF"
   priority-amber: "#F1B46D"
   danger: "#FF8490"
 typography:
@@ -166,7 +166,7 @@ et un vermillon franc inspiré d'un repère de montage plutôt que d'un néon.
 
 ### Secondary
 
-- **Indigo d'apprentissage** (`learning-indigo`) : mot déjà présent dans Anki,
+- **Violet d'apprentissage** (`learning-violet`) : mot déjà présent dans Anki,
   état `LEARNING` et information pédagogique correspondante.
 - **Vert de priorité** (`priority-green`) : mot inconnu fortement pertinent.
 - **Bleu de progression** (`priority-blue`) : mot inconnu de pertinence intermédiaire.

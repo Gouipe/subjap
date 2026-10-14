@@ -280,7 +280,7 @@ export class WordPopover {
       .subjap-popover__anki {
         font-size: 12px;
         font-weight: 600;
-        color: #aab3ff;
+        color: #d3a0ff;
         margin-top: 6px;
       }
       .subjap-popover__pitch {
