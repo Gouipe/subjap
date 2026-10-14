@@ -80,6 +80,12 @@ au Worker que si l’utilisateur demande l’enrichissement IA.
 2. Survoler un mot du sous-titre et cliquer sur **Mine this**.
 3. Vérifier la carte, puis l’envoyer vers Anki.
 
+### Couleurs des mots
+
+Dans les sous-titres, le bleu signale un mot inconnu intéressant à apprendre ;
+le violet indique un mot déjà présent dans Anki ou signalé comme en cours
+d’apprentissage. La popover précise le nombre de cartes Anki existantes.
+
 ### Raccourcis clavier
 
 Dans l’onglet vidéo, hors des champs de saisie :
