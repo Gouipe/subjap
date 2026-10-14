@@ -642,14 +642,8 @@ const Popup: React.FC = () => {
         </div>
       )}
 
-      <div style={styles.dictBox}>
-        {dict === null ? (
-          <span style={styles.dictStatus}>Dictionnaire : …</span>
-        ) : dict.installed ? (
-          <span style={styles.dictStatus}>
-            Dictionnaire : {dict.count.toLocaleString()} entrées
-          </span>
-        ) : (
+      {!dict?.installed && dict !== null && (
+        <div style={styles.dictBox}>
           <button
             style={styles.button}
             onClick={() => void installDictionary()}
@@ -659,8 +653,8 @@ const Popup: React.FC = () => {
               ? "Téléchargement…"
               : "Installer le dictionnaire (~22k mots)"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <button style={styles.linkButton} onClick={() => void chrome.runtime.openOptionsPage()}>
         Options
@@ -1034,10 +1028,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#b2b6bf",
     fontSize: 10,
     lineHeight: 1.4,
-  },
-  dictStatus: {
-    fontSize: 12,
-    color: "#b2b6bf",
   },
   button: {
     width: "100%",
