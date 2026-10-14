@@ -860,12 +860,6 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
               />
             </Row>
             <Row
-              label="Légende"
-              hint="vert plein : très pertinent · bleu tireté : pertinent · ambre pointillé : moins prioritaire · indigo double : dans Anki ou en apprentissage · blanc : connu ou ignoré"
-            >
-              <span style={s.muted}>Couleurs combinées avec les statuts Anki</span>
-            </Row>
-            <Row
               label="Masquer les sous-titres natifs"
               hint="l'overlay remplace les pistes de sous-titres du lecteur"
             >
