@@ -218,13 +218,21 @@ Le chemin principal est le suivant :
    et la concaténation des surfaces sont vérifiés pour reproduire exactement
    la phrase. La lecture de la forme de dictionnaire est conservée séparément
    de celle de la surface conjuguée.
-6. Les états de mots (`known`, `unknown`, `learning` ou `ignored`) sont
+6. Les suites contiguës de noms, préfixes et suffixes nominaux sont recherchées
+   par lot dans les graphies exactes du JMdict installé. Une suite trouvée
+   devient une seule unité cliquable si sa lecture combinée correspond aussi à
+   une lecture JMdict, avec un repli limité au rendaku. Ses composants
+   morphologiques restent dans le token, et l'identité lexicale utilise la tête
+   de l'entrée JMdict. La recherche s'arrête à quatre composants et retient la
+   plus longue correspondance depuis la gauche ; sans dictionnaire ou
+   correspondance exacte, UniDic reste inchangé.
+7. Les états de mots (`known`, `unknown`, `learning` ou `ignored`) sont
    demandés au service worker, avec déduplication des requêtes en vol. Ils sont
    partagés entre les écritures d'une même identité lexicale reconnue par
-   UniDic, mais jamais entre deux mots uniquement parce qu'ils ont la même
-   lecture en hiragana. Un mot ignoré est rendu blanc comme un mot connu, mais
+   UniDic ou JMdict, mais jamais entre deux mots uniquement parce qu'ils ont la
+   même lecture en hiragana. Un mot ignoré est rendu blanc comme un mot connu, mais
    reste exclu du compteur de vocabulaire connu.
-7. Le content script récupère le nombre de mots connus et un rang pratique par
+8. Le content script récupère le nombre de mots connus et un rang pratique par
    lemme. Ce rang vient d’une liste de fréquence issue de sous-titres
    OpenSubtitles (films, séries et anime), préalablement recroisée avec le
    vocabulaire JMdict afin de conserver des mots lexicaux plutôt que des
@@ -236,9 +244,11 @@ Le chemin principal est le suivant :
 
 L’affichage suit un pipeline à deux temps avec priorité à la cue la plus
 récente. Le texte brut est peint immédiatement, puis UniDic le remplace par des
-tokens interactifs blancs. Les états de vocabulaire, la présence Anki et les
-rangs de fréquence sont chargés en une passe asynchrone et appliquent ensuite
-les couleurs. Chaque arrivée incrémente une révision : un traitement plus ancien
+tokens interactifs blancs. Si la cue contient des suites nominales candidates,
+le content script demande leurs entrées exactes en un seul lot et peut regrouper
+les composants reconnus avant le chargement des états de vocabulaire, de la
+présence Anki et des rangs de fréquence. Ces métadonnées appliquent ensuite les
+couleurs. Chaque arrivée incrémente une révision : un traitement plus ancien
 peut terminer ses lectures, mais ne peut plus remplacer la phrase courante. Les
 lectures de mots d’une phrase sont groupées dans un seul message MV3 et les
 résultats récurrents restent en cache. Au premier chargement, le sous-titre natif

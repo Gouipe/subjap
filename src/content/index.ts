@@ -20,6 +20,8 @@ import { adapterRegistry, GENERIC_HTML5_ADAPTER } from "@/core/adapters/registry
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { lookupCandidates } from "@/dictionary";
+import { dictionaryCompoundLookupTerms, mergeDictionaryCompounds } from "@/dictionary/compound";
+import { DICTIONARY_REVISION_STORAGE_KEY } from "@/dictionary/revision";
 import { dictionaryReadingForToken } from "@/dictionary/match";
 import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import { isAllKnownOrIgnored, isNonLexicalToken } from "@/core/frequency";
@@ -197,6 +199,10 @@ const ankiNoteCountByLemma = new LRUCache<string, number>(1_000);
 /** Cached frequency ranks avoid repeating IndexedDB reads for recurring words. */
 const frequencyRankByTerm = new LRUCache<string, number | null>(2_000);
 
+/** Successful compound matches are reused when subtitle cues repeat. */
+const dictionaryCompoundByTerm = new LRUCache<string, DictionaryEntry[]>(1_000);
+const DICTIONARY_COMPOUND_LOOKUP_BATCH_SIZE = 512;
+
 /** Cached learner vocabulary size used by the frequency colour bands. */
 let knownWordCount = 0;
 let knownWordCountPromise: Promise<number> | null = null;
@@ -348,6 +354,46 @@ async function getFrequencyRanks(
       return rank == null ? [] : [[term, rank]];
     }),
   );
+}
+
+async function resolveDictionaryCompounds(
+  cues: Array<{ cue: SubtitleCue; tokens: Token[] }>,
+): Promise<Array<{ cue: SubtitleCue; tokens: Token[] }>> {
+  const candidateTerms = [
+    ...new Set(cues.flatMap(({ tokens }) => dictionaryCompoundLookupTerms(tokens))),
+  ];
+  if (candidateTerms.length === 0) return cues;
+
+  const uncachedTerms = candidateTerms.filter((term) => !dictionaryCompoundByTerm.has(term));
+  if (uncachedTerms.length > 0) {
+    try {
+      for (
+        let offset = 0;
+        offset < uncachedTerms.length;
+        offset += DICTIONARY_COMPOUND_LOOKUP_BATCH_SIZE
+      ) {
+        const terms = uncachedTerms.slice(offset, offset + DICTIONARY_COMPOUND_LOOKUP_BATCH_SIZE);
+        const response = await sendMessage("dict:lookupBatch", { terms });
+        for (const term of terms) {
+          const entries = response.entriesByTerm[term] ?? [];
+          if (entries.length > 0) dictionaryCompoundByTerm.set(term, entries);
+        }
+      }
+    } catch (err: unknown) {
+      console.warn("[SubJap] dict:lookupBatch for compounds failed:", err);
+      handleRuntimeError(err);
+      return cues;
+    }
+  }
+
+  return cues.map(({ cue, tokens }) => {
+    const entriesByTerm: Record<string, DictionaryEntry[]> = {};
+    for (const term of dictionaryCompoundLookupTerms(tokens)) {
+      const entries = dictionaryCompoundByTerm.get(term);
+      if (entries) entriesByTerm[term] = entries;
+    }
+    return { cue, tokens: mergeDictionaryCompounds(tokens, entriesByTerm) };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -536,13 +582,11 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
   const readyTokenizer = await ensureTokenizerReady();
   if (!readyTokenizer || revision !== cueRevision) return;
 
-  const tokenizedCues: Array<{ cue: SubtitleCue; tokens: Token[] }> = [];
-  const allTokens: Token[] = [];
+  let tokenizedCues: Array<{ cue: SubtitleCue; tokens: Token[] }> = [];
 
   for (const cue of japaneseCues) {
     const cueTokens = tokenizeCue(normalizeCueText(cue.text), readyTokenizer);
     tokenizedCues.push({ cue, tokens: cueTokens });
-    allTokens.push(...cueTokens);
   }
 
   const buildRenderedCues = (
@@ -597,6 +641,10 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
   // plain first paint without waiting for vocabulary metadata.
   const provisional = buildRenderedCues(true);
   commitRenderedCues(provisional.rendered, provisional.registry, knownWordCount);
+
+  tokenizedCues = await resolveDictionaryCompounds(tokenizedCues);
+  if (revision !== cueRevision) return;
+  const allTokens = tokenizedCues.flatMap(({ tokens }) => tokens);
 
   const frequencyTerms = [
     ...new Set(
@@ -1104,6 +1152,12 @@ document.addEventListener("visibilitychange", () => {
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
+  if (changes[DICTIONARY_REVISION_STORAGE_KEY]) {
+    dictionaryCompoundByTerm.clear();
+    lastSignature = "";
+    enqueueCues(lastCues);
+  }
+
   const change = changes["subjap_options"];
   if (!change) return;
 

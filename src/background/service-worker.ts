@@ -7,7 +7,7 @@ import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
 import { onMessage } from "@/core/messaging";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
-import { selectDictionaryEntry } from "@/dictionary/match";
+import { entrySpellings, selectDictionaryEntry } from "@/dictionary/match";
 import { toHiragana } from "@/core/kana";
 import {
   fetchJapaneseFrequencyRanks,
@@ -213,6 +213,29 @@ onMessage("dict:lookup", async ({ lemma, mode }) => {
     : selectDictionaryEntry(entries, [lemma], "orthography") ??
       selectDictionaryEntry(entries, [lemma], "reading");
   return { entry, ...(mode ? { entries } : {}) };
+});
+
+onMessage("dict:lookupBatch", async ({ terms }) => {
+  const uniqueTerms = [...new Set(terms.filter(Boolean))].slice(0, 512);
+  if (uniqueTerms.length === 0) return { entriesByTerm: {} };
+
+  const [headwordMatches, aliasMatches] = await Promise.all([
+    db.dictionaryEntries.where("headword").anyOf(uniqueTerms).toArray(),
+    db.dictionaryEntries.where("aliases").anyOf(uniqueTerms).toArray(),
+  ]);
+  const candidates = [...new Set([...headwordMatches, ...aliasMatches])];
+  const entriesByTerm: Record<string, (typeof candidates)[number][]> = Object.fromEntries(
+    uniqueTerms.map((term) => [term, []]),
+  );
+
+  for (const entry of candidates) {
+    for (const spelling of entrySpellings(entry)) {
+      const entries = entriesByTerm[spelling];
+      if (entries) entries.push(entry);
+    }
+  }
+
+  return { entriesByTerm };
 });
 
 // ── dict:status ───────────────────────────────────────────────────────────

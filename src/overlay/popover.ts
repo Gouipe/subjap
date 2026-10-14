@@ -375,7 +375,10 @@ export class WordPopover {
       )
       .join("\n");
     const base = token.components?.[0];
-    const decomposition = base && token.grammar?.some((annotation) => annotation.kind === "inflection")
+    const decomposition =
+      base &&
+      (token.dictionaryCompound ||
+        token.grammar?.some((annotation) => annotation.kind === "inflection"))
       ? `${token.components!.map((component) => component.surface.replace(/\n/gu, "")).join(" + ")}\n`
       : "";
     grammarEl.textContent = decomposition + annotations;

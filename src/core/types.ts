@@ -108,6 +108,8 @@ export interface Token {
   conjugationForm?: string;
   /** Morphological tokens represented by one pedagogical display unit. */
   components?: Token[];
+  /** True when adjacent UniDic fragments match one exact JMdict spelling. */
+  dictionaryCompound?: boolean;
   /** Explanations attached to a pedagogical unit, not separate click targets. */
   grammar?: GrammarAnnotation[];
 }
@@ -246,6 +248,8 @@ export interface MessageMap {
     mode?: "orthography" | "reading";
   };
   "dict:lookupResult": { entry: DictionaryEntry | null; entries?: DictionaryEntry[] };
+  "dict:lookupBatch": { terms: string[] };
+  "dict:lookupBatchResult": { entriesByTerm: Record<string, DictionaryEntry[]> };
   "dict:status": Record<string, never>;
   "dict:statusResult": { count: number; installed: boolean };
   "dict:download": { url?: string };
