@@ -449,7 +449,7 @@ const Popup: React.FC = () => {
         </p>
       </div>
 
-      <details style={styles.localSubtitleSection}>
+      <details style={styles.disclosureSection}>
         <summary style={styles.localSubtitleSummary}>Sous-titres locaux</summary>
         <div style={styles.localSubtitleContent}>
           {videoId ? (
@@ -553,7 +553,7 @@ const Popup: React.FC = () => {
         </div>
       </details>
 
-      <details style={styles.guide}>
+      <details style={styles.disclosureSection}>
         <summary style={styles.guideSummary}>Comprendre les couleurs et les raccourcis</summary>
         <div style={styles.guideContent}>
           <section style={styles.guideSection}>
@@ -784,9 +784,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "10px 0",
     borderBottom: "1px solid #343842",
   },
-  localSubtitleSection: {
-    marginBottom: 12,
-    paddingBottom: 12,
+  disclosureSection: {
+    padding: "8px 0",
     borderBottom: "1px solid #343842",
   },
   localSubtitleSummary: {
@@ -921,11 +920,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 10,
     lineHeight: 1.35,
     color: "#b2b6bf",
-  },
-  guide: {
-    marginTop: 10,
-    padding: "10px 0",
-    borderBottom: "1px solid #343842",
   },
   guideSummary: {
     color: "#f4f1ea",
