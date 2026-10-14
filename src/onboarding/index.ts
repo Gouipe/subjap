@@ -14,6 +14,7 @@
 import { checkAnkiConnect } from "@/mining/anki";
 import { sendMessage } from "@/core/messaging";
 import { DEFAULT_OPTIONS, saveOptions } from "@/core/options";
+import { DICTIONARY_REVISION_STORAGE_KEY } from "@/dictionary/revision";
 import type { OverlayOptions } from "@/core/types";
 
 const STORAGE_KEY = "subjap_onboarding";
@@ -107,6 +108,7 @@ export async function resetOnboarding(): Promise<void> {
   await chrome.storage.local.remove(STORAGE_KEY);
   await chrome.storage.local.remove("subjap_options");
   await chrome.storage.local.remove(DICT_STORAGE_KEY);
+  await chrome.storage.local.remove(DICTIONARY_REVISION_STORAGE_KEY);
 }
 
 /** Check whether the dictionary data has been loaded into IndexedDB. */
@@ -117,5 +119,11 @@ export async function isDictionaryLoaded(): Promise<boolean> {
 
 /** Mark the dictionary as loaded into IndexedDB. */
 export async function markDictionaryLoaded(): Promise<void> {
-  await chrome.storage.local.set({ [DICT_STORAGE_KEY]: true });
+  const stored = await chrome.storage.local.get(DICTIONARY_REVISION_STORAGE_KEY);
+  const previousRevision = stored[DICTIONARY_REVISION_STORAGE_KEY] as number | undefined;
+  const revision = (typeof previousRevision === "number" ? previousRevision : 0) + 1;
+  await chrome.storage.local.set({
+    [DICT_STORAGE_KEY]: true,
+    [DICTIONARY_REVISION_STORAGE_KEY]: revision,
+  });
 }

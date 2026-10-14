@@ -40,17 +40,33 @@ Les noms précédant un verbe en `する` restent séparés. Les particules inte
 ne sont pas absorbées arbitrairement. Les pluriels restent conditionnés au POS
 de suffixe.
 
+Après le regroupement morphologique, le content script cherche aussi les suites
+contiguës de noms, préfixes et suffixes nominaux, jusqu'à quatre morphèmes. Une
+recherche groupée dans le JMdict installé ne fusionne que les suites dont
+l'écriture combinée est une graphie exacte et dont la lecture concaténée
+correspond à une lecture de l'entrée. Une seule alternance de rendaku est admise
+au début d'un morphème suivant. En cas de chevauchement, la plus longue suite
+est retenue depuis la gauche ; le POS et la lecture départagent les homonymes.
+Les composants restent disponibles dans la popover, tandis que l'identité, le
+statut connu et le mining utilisent la tête JMdict. Le rang de fréquence est
+recherché sous cette tête et reste absent si elle n'existe pas dans la liste.
+La popover montre la décomposition, mais le composé fusionné reste l'unique
+cible interactive. Sans entrée exacte ou sans pack JMdict installé, les tokens
+restent séparés. Les correspondances trouvées sont conservées en cache dans le
+content script. Ce cache est invalidé et la cue réaffichée lorsqu'un nouveau
+pack est installé.
+
 `components` conserve les morphèmes. `grammar` décrit négation, passé/accompli,
 politesse, souhait, causatif, liaison ou auxiliaire. La popover montre ces
-informations et la décomposition, mais le statut connu et la cible du mining
-restent attachés au mot de base. Les expressions grammaticales sans tête
-lexicale unique conservent leur propre surface comme identité.
+informations et la décomposition. Pour les formes fléchies, le statut connu et
+le mining restent attachés au mot de base ; pour les composés reconnus, ils
+utilisent la tête JMdict. Les expressions grammaticales sans tête lexicale
+unique conservent leur propre surface comme identité.
 
 `reading` décrit la surface ; `dictionaryReading` conserve la prononciation de
-base fournie par UniDic. La popover et le mining préfèrent une lecture JMdict
-compatible avec celle du mot de base, puis utilisent les données disponibles
-en repli. Une chaîne conjuguée n'est donc pas utilisée comme lecture du lemme
-lorsque sa lecture de base est disponible.
+base fournie par UniDic. Pour un composé, la lecture JMdict qui correspond à la
+lecture combinée des morphèmes est préférée. La popover et le mining utilisent
+ainsi une lecture de lemme plutôt que celle d'une chaîne conjuguée.
 
 ## Sélection dictionnaire
 
@@ -73,7 +89,8 @@ Il s'agit d'une analyse morphologique avec règles contextuelles locales, pas
 d'une analyse sémantique complète. Les annotations de `れる` / `られる` laissent
 explicite l'ambiguïté passif, potentiel ou honorifique. Les noms propres, formes
 orales inhabituelles et changements de locuteur non marqués peuvent rester
-ambigus. Le classement JMdict n'effectue pas de désambiguïsation du sens de
-toute la phrase, ni des restrictions entre chaque écriture, lecture et sens.
-Le traitement reste synchrone ; aucun Worker ni changement de performance
-n'est introduit par ces évolutions.
+ambigus. Le regroupement des composés ne considère que les suites nominales
+contiguës de quatre morphèmes au maximum et ne désambiguïse pas le sens de la phrase.
+Le classement JMdict n'applique pas non plus les restrictions entre chaque
+écriture, lecture et sens. Le tokenizer Lindera reste synchrone ; les éventuels
+composés candidats ajoutent une recherche JMdict groupée et asynchrone par cue.
