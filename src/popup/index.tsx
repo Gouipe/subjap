@@ -35,6 +35,59 @@ const EMPTY_LOCAL_SUBTITLES: Record<LocalSubtitleRole, LocalSubtitleRecord | nul
   primary: null,
   secondary: null,
 };
+const WORD_COLOR_GUIDE = [
+  {
+    word: "大切",
+    color: "#78d6a3",
+    underline: "solid",
+    label: "Vert · trait continu",
+    detail: "Inconnu très pertinent",
+  },
+  {
+    word: "便利",
+    color: "#55b8ff",
+    underline: "dashed",
+    label: "Bleu · tirets",
+    detail: "Inconnu pertinent",
+  },
+  {
+    word: "難しい",
+    color: "#f1b46d",
+    underline: "dotted",
+    label: "Ambre · pointillés",
+    detail: "Inconnu moins prioritaire",
+  },
+  {
+    word: "学ぶ",
+    color: "#d3a0ff",
+    underline: "double",
+    label: "Violet · double trait",
+    detail: "Présent dans Anki ou en apprentissage",
+  },
+  {
+    word: "知る",
+    color: "#f4f1ea",
+    underline: "none",
+    label: "Blanc · sans trait",
+    detail: "Connu ou ignoré",
+  },
+] as const;
+
+const SHORTCUT_GUIDE = [
+  { key: "Q", action: "Revenir au sous-titre précédent" },
+  { key: "S", action: "Rejouer le sous-titre courant" },
+  { key: "D", action: "Aller au sous-titre suivant" },
+  { key: "C", action: "Copier le japonais affiché" },
+  { key: "X", action: "Révéler la traduction secondaire" },
+] as const;
+
+const LISTENING_SHORTCUT_GUIDE = [
+  { key: "A", action: "Démarrer ou rejouer l’écoute" },
+  { key: "Z", action: "Révéler le japonais" },
+  { key: "E", action: "Révéler la traduction" },
+  { key: "R / Espace", action: "Reprendre la vidéo" },
+  { key: "Échap", action: "Passer l’exercice" },
+] as const;
 
 const Popup: React.FC = () => {
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -496,6 +549,73 @@ const Popup: React.FC = () => {
         </p>
       </div>
 
+      <details style={styles.guide}>
+        <summary style={styles.guideSummary}>Comprendre les couleurs et les raccourcis</summary>
+        <div style={styles.guideContent}>
+          <section style={styles.guideSection}>
+            <h2 style={styles.guideHeading}>Couleurs des mots</h2>
+            <p style={styles.guideHint}>
+              Le soulignement complète la couleur. Le vert est personnalisable dans les Options.
+            </p>
+            <div style={styles.guideColorList}>
+              {WORD_COLOR_GUIDE.map((item) => (
+                <div key={item.label} style={styles.guideColorRow}>
+                  <span
+                    style={{
+                      ...styles.guideWord,
+                      color: item.color,
+                      borderBottom:
+                        item.underline === "none"
+                          ? "2px solid transparent"
+                          : `2px ${item.underline} ${item.color}`,
+                    }}
+                  >
+                    {item.word}
+                  </span>
+                  <div style={styles.guideColorCopy}>
+                    <strong style={styles.guideColorLabel}>{item.label}</strong>
+                    <span style={styles.guideHint}>{item.detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section style={styles.guideSection}>
+            <h2 style={styles.guideHeading}>Raccourcis vidéo</h2>
+            <p style={styles.guideHint}>Dans l’onglet vidéo, hors des champs de saisie.</p>
+            <div style={styles.guideShortcutList}>
+              {SHORTCUT_GUIDE.map((item) => (
+                <div key={item.key} style={styles.guideShortcutRow}>
+                  <kbd style={styles.guideKey}>{item.key}</kbd>
+                  <span style={styles.guideShortcutAction}>{item.action}</span>
+                </div>
+              ))}
+            </div>
+            <p style={styles.guideHint}>
+              Avec l’écoute active, Q et S lancent aussi l’exercice si la phrase est éligible.
+            </p>
+            {activeListeningMode ? (
+              <div style={styles.guideListening}>
+                <h3 style={styles.guideSubheading}>Pendant l’écoute active</h3>
+                <div style={styles.guideShortcutList}>
+                  {LISTENING_SHORTCUT_GUIDE.map((item) => (
+                    <div key={item.key} style={styles.guideShortcutRow}>
+                      <kbd style={styles.guideKey}>{item.key}</kbd>
+                      <span style={styles.guideShortcutAction}>{item.action}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p style={styles.guideListeningHint}>
+                A, Z, E, R, Espace et Échap sont disponibles quand l’écoute active est activée.
+              </p>
+            )}
+          </section>
+        </div>
+      </details>
+
       {!onboarded && (
         <div style={styles.onboardingBox}>
           <p style={styles.onboardingText}>
@@ -794,6 +914,115 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 10,
     lineHeight: 1.35,
     color: "#b2b6bf",
+  },
+  guide: {
+    marginTop: 10,
+    padding: "10px 0",
+    borderBottom: "1px solid #343842",
+  },
+  guideSummary: {
+    color: "#f4f1ea",
+    fontSize: 12,
+    fontWeight: 600,
+    lineHeight: 1.4,
+    cursor: "pointer",
+  },
+  guideContent: {
+    paddingTop: 12,
+  },
+  guideSection: {
+    paddingBottom: 12,
+  },
+  guideHeading: {
+    margin: "0 0 4px",
+    color: "#f4f1ea",
+    fontSize: 11,
+    fontWeight: 600,
+  },
+  guideSubheading: {
+    margin: "0 0 6px",
+    color: "#f4f1ea",
+    fontSize: 10,
+    fontWeight: 600,
+  },
+  guideHint: {
+    display: "block",
+    margin: 0,
+    color: "#b2b6bf",
+    fontSize: 10,
+    lineHeight: 1.4,
+  },
+  guideColorList: {
+    display: "grid",
+    gap: 7,
+    marginTop: 9,
+  },
+  guideColorRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minHeight: 25,
+  },
+  guideWord: {
+    display: "inline-block",
+    minWidth: 46,
+    paddingBottom: 1,
+    fontSize: 14,
+    fontWeight: 600,
+    textAlign: "center",
+  },
+  guideColorCopy: {
+    display: "grid",
+    gap: 1,
+  },
+  guideColorLabel: {
+    color: "#f4f1ea",
+    fontSize: 10,
+    fontWeight: 600,
+    lineHeight: 1.3,
+  },
+  guideShortcutList: {
+    display: "grid",
+    gap: 6,
+    marginTop: 8,
+  },
+  guideShortcutRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    minHeight: 20,
+  },
+  guideKey: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 24,
+    padding: "2px 5px",
+    border: "1px solid #343842",
+    borderRadius: 4,
+    background: "#1b1e24",
+    color: "#f4f1ea",
+    fontFamily: "var(--sj-font)",
+    fontSize: 10,
+    fontWeight: 600,
+    lineHeight: 1.2,
+    whiteSpace: "nowrap",
+  },
+  guideShortcutAction: {
+    color: "#b2b6bf",
+    fontSize: 10,
+    lineHeight: 1.35,
+  },
+  guideListening: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTop: "1px solid #343842",
+  },
+  guideListeningHint: {
+    margin: "8px 0 0",
+    color: "#b2b6bf",
+    fontSize: 10,
+    lineHeight: 1.4,
   },
   dictStatus: {
     fontSize: 12,
