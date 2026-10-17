@@ -29,6 +29,8 @@ export interface SubtitleCue {
 export interface SubtitleTranslation {
   text: string;
   language: string;
+  /** Stable source identity for translations rendered without a Japanese cue. */
+  cueKey?: string;
 }
 
 export type SecondarySubtitleLanguage = "fr" | "en" | "none";

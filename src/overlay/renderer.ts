@@ -448,7 +448,11 @@ export class OverlayRenderer {
       this.container.appendChild(this.buildRuntimeNotice());
     }
 
-    if (this.cues.length === 0 && !this.pendingCueTexts?.length) return;
+    if (
+      this.cues.length === 0 &&
+      !this.pendingCueTexts?.length &&
+      !this.translation
+    ) return;
 
     if (this.pendingCueTexts?.length) {
       for (const text of this.pendingCueTexts) {
@@ -686,11 +690,26 @@ export class OverlayRenderer {
     if (this.pendingCueTexts?.length) {
       return `pending:${JSON.stringify(this.pendingCueTexts)}`;
     }
+    if (this.cues.length === 0 && this.translation) {
+      return `translation:${this.translation.cueKey ?? JSON.stringify([
+        this.translation.language,
+        normalizeCueText(this.translation.text),
+      ])}`;
+    }
     return `cues:${this.cues.map((cue) => subtitleCueKey(cue.cue)).join("|")}`;
   }
 
   private currentSubtitleTextKey(): string {
-    const texts = this.pendingCueTexts ?? this.cues.map((cue) => cue.cue.text);
+    if (this.pendingCueTexts?.length) {
+      return JSON.stringify(this.pendingCueTexts.map((text) => normalizeCueText(text)));
+    }
+    if (this.cues.length === 0 && this.translation) {
+      return `translation:${this.translation.cueKey ?? JSON.stringify([
+        this.translation.language,
+        normalizeCueText(this.translation.text),
+      ])}`;
+    }
+    const texts = this.cues.map((cue) => cue.cue.text);
     return JSON.stringify(texts.map((text) => normalizeCueText(text)));
   }
 

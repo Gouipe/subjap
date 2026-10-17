@@ -90,6 +90,12 @@ Une identité de piste connue interdit de choisir un fichier d’identité incon
 ou différente par simple ressemblance textuelle. Tant que la bonne piste manque,
 le repli reste actif. La traduction locale conserve sa priorité indépendante.
 
+Sur Netflix, une traduction active peut aussi être affichée seule lorsqu’aucune
+cue japonaise n’est active. Elle garde ses propres horaires et ses réglages de
+langue et de visibilité ; elle ne crée pas de cue japonaise pour la navigation,
+le mode écoute ou le mining. Les autres lecteurs conservent leur comportement
+habituel lorsque leur piste japonaise est absente.
+
 Avec une piste officielle active, un intervalle sans segment reste vide même
 si Netflix conserve brièvement un ancien texte dans le DOM. Les échéances des
 segments déclenchent aussi le rendu, pour ne pas dépendre uniquement de la

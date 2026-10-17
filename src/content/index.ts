@@ -546,6 +546,7 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
     ? {
         text: normalizeCueText(translationCue.text),
         language: translationCue.language ?? "",
+        cueKey: subtitleCueKey(translationCue),
       }
     : null;
 
@@ -557,6 +558,14 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
   hoveredToken = null;
 
   if (japaneseCues.length === 0) {
+    if (adapter.id === "netflix" && translation) {
+      spanRegistry.clear();
+      lastRenderedCues = [];
+      overlayInstance.updateContent([], translation, knownWordCount);
+      overlayInstance.show();
+      cueNavigator.observe([]);
+      return;
+    }
     overlayInstance.updateContent([], null, knownWordCount);
     overlayInstance.hide();
     spanRegistry.clear();
