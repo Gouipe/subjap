@@ -54,6 +54,12 @@ acquis. Les choix manuels dans SubJap et les mots ignorés restent prioritaires.
 La synchronisation a lieu à l’ouverture de Netflix, au retour sur l’onglet et
 toutes les deux minutes, avec Anki ouvert. La popup seule ne la déclenche pas.
 
+Chaque profil de navigateur possède sa propre base locale : SubJap peut être
+utilisé dans plusieurs navigateurs ou profils, mais leurs états de vocabulaire
+ne se synchronisent pas entre eux. Les décisions manuelles ne sont donc pas
+partagées. Les états provenant d’Anki peuvent être réimportés dans chaque profil
+lors d’une synchronisation, si AnkiConnect y est accessible.
+
 Si **Activer l’écoute active** est activé, l’exercice ne se lance pas
 automatiquement : appuyer sur **Q** (phrase précédente) ou **S** (phrase
 courante) sur une phrase dont tous les mots sont connus ou ignorés. Les noms
