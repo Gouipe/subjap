@@ -1,7 +1,26 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { crx } from "@crxjs/vite-plugin";
+import { readFile } from "fs/promises";
 import { resolve } from "path";
 import manifest from "./src/manifest";
+
+/**
+ * Vite 5 ignores `?inline` on font files and still emits a URL. Content
+ * scripts need the bytes themselves (see src/ui/plex-latin.ts), so inline
+ * `*.woff2?inline` imports as base64 data URLs.
+ */
+function inlineFonts(): Plugin {
+  const suffix = ".woff2?inline";
+  return {
+    name: "subjap-inline-fonts",
+    enforce: "pre",
+    async load(id) {
+      if (!id.endsWith(suffix)) return null;
+      const bytes = await readFile(id.slice(0, -"?inline".length));
+      return `export default "data:font/woff2;base64,${bytes.toString("base64")}";`;
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => ({
   optimizeDeps: {
@@ -15,6 +34,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    inlineFonts(),
     crx({
       manifest:
         mode === "development"

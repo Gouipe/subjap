@@ -34,6 +34,7 @@ import { subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
 import { tokenizeCue } from "@/tokenizer/cue";
+import { registerPlexLatinFont } from "@/ui/plex-latin";
 import {
   CueNavigator,
   installPlaybackShortcuts,
@@ -437,6 +438,7 @@ function ensureOverlay(): OverlayRenderer | null {
   if (overlay && currentVideo !== video) destroyOverlay();
 
   if (!overlay) {
+    registerPlexLatinFont();
     overlay = new OverlayRenderer(video, overlayOptions);
     overlay.setRuntimeUnavailable(runtimeUnavailable);
     listeningMode = new ListeningMode(video, adapter, overlay, () => {

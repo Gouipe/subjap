@@ -201,6 +201,12 @@ et un vermillon franc inspiré d'un repère de montage plutôt que d'un néon.
 
 **Label/Mono Font:** IBM Plex Sans JP ; le monospace est réservé aux valeurs réellement techniques
 
+**Embarquement :** seule la partie latine d'IBM Plex (400, 500, 600) est
+fournie par l'extension, sous le nom `IBM Plex Sans JP`, sur la page vidéo comme
+dans la popup et les Options. Le japonais, trop lourd à embarquer, retombe sur
+la pile système (Yu Gothic UI, Hiragino, Meiryo), sauf si IBM Plex Sans JP est
+installée. Les cartes Anki n'embarquent pas la police.
+
 **Character:** Une seule famille porte l'ensemble du produit. Sa construction
 précise évoque un outil de studio, tandis que ses formes ouvertes gardent les
 textes français et japonais humains et lisibles.
