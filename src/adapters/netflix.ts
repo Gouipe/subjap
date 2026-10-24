@@ -25,6 +25,8 @@ const NETFLIX_TIMED_TEXT_EVENT = "subjap:netflix-timed-text";
 const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 const NETFLIX_SELECTED_TRACK_EVENT = "subjap:netflix-selected-track";
+const MAX_TIMED_TEXT_FETCH_RETRIES = 3;
+const TIMED_TEXT_FETCH_RETRY_MS = 2000;
 
 interface NetflixTimedTextPayload {
   url: string;
@@ -205,6 +207,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private localTranslationCues: SubtitleCue[] = [];
   private localSubtitleLoadRevision = 0;
   private readonly requestedTimedTextUrls = new Set<string>();
+  private readonly timedTextFetchFailures = new Map<string, number>();
   private preferredSecondaryLanguage: SecondarySubtitleLanguage = "fr";
   private playbackSessionId: string;
   private playbackSessionGeneration = 0;
@@ -379,6 +382,7 @@ export class NetflixAdapter implements PlatformAdapter {
       if (this.storageListener) chrome.storage.onChanged.removeListener(this.storageListener);
       this.storageListener = null;
       this.requestedTimedTextUrls.clear();
+      this.timedTextFetchFailures.clear();
     };
 
     return this.trackUnsubscriber;
@@ -423,6 +427,15 @@ export class NetflixAdapter implements PlatformAdapter {
       .catch((error: unknown) => {
         this.requestedTimedTextUrls.delete(requestKey);
         console.warn("[SubJap] timed text fetch failed:", error);
+        // At launch the service worker can still be starting. Nothing else
+        // announces this track again, so retry it a few times.
+        const failures = (this.timedTextFetchFailures.get(requestKey) ?? 0) + 1;
+        this.timedTextFetchFailures.set(requestKey, failures);
+        if (failures > MAX_TIMED_TEXT_FETCH_RETRIES) return;
+        setTimeout(() => {
+          if (!this.cueCallback || requestedGeneration !== this.playbackSessionGeneration) return;
+          this.requestTimedText(payload);
+        }, TIMED_TEXT_FETCH_RETRY_MS * failures);
       });
   }
 
@@ -1141,6 +1154,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.localPrimaryCues = [];
     this.localTranslationCues = [];
     this.requestedTimedTextUrls.clear();
+    this.timedTextFetchFailures.clear();
     this.cueReplaySession?.close();
     this.cueReplaySession = null;
     this.detachTimeUpdateListener();
@@ -1167,6 +1181,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.localPrimaryCues = [];
     this.localTranslationCues = [];
     this.requestedTimedTextUrls.clear();
+    this.timedTextFetchFailures.clear();
     this.cueReplaySession?.close();
     this.cueReplaySession = null;
     this.activeDomCue = null;

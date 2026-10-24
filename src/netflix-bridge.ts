@@ -95,6 +95,8 @@ const EXPLICIT_TIMED_TEXT_URL_PATTERN =
 const JSON_METADATA_PATTERN =
   /json|api|metadata|manifest|playback|session|shakti|pathevaluator/i;
 const SUBTITLE_CONTENT_TYPE_PATTERN = /ttml|vtt|dfxp|subtitle|caption|xml/i;
+const MAX_SECONDARY_PROBE_ATTEMPTS = 4;
+const SECONDARY_PROBE_CHECK_MS = 5000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -370,10 +372,13 @@ function installTimedTextCapture(page: Window): void {
   let pendingSecondaryAssociationExpiry: number | null = null;
   let pendingNativeAssociation: NetflixTimedTextTrack | null = null;
   let pendingNativeAssociationExpiry: number | null = null;
+  const consumedAssociations = new WeakSet<NetflixTimedTextTrack>();
   let uiProbeAttempted = false;
   let uiProbeDiagnosticLogged = false;
   let uiNativeRestore: number | null = null;
   const probedSessions = new WeakMap<object, SecondarySubtitleLanguage>();
+  const secondaryProbeAttempts = new WeakMap<object, number>();
+  const episodeMismatchLogged = new WeakSet<object>();
   const loggedTrackLists = new WeakSet<object>();
   let lastNativeSelection = "";
 
@@ -471,6 +476,7 @@ function installTimedTextCapture(page: Window): void {
         (!language || languagesMatch(candidate.language, language)),
     );
     if (!association) return null;
+    consumedAssociations.add(association);
     if (association === pendingSecondaryAssociation) {
       pendingSecondaryAssociation = null;
       if (pendingSecondaryAssociationExpiry !== null) {
@@ -485,6 +491,30 @@ function installTimedTextCapture(page: Window): void {
       }
     }
     return { ...association, url };
+  };
+
+  /**
+   * At launch the player can answer a translation probe after its
+   * association expired. A request started during the probe still belongs
+   * to it, once.
+   */
+  const claimRequestProbe = (
+    probe: NetflixTimedTextTrack | null,
+    url: string,
+    language: string,
+    requestEpisodeId: string,
+  ): NetflixTimedTextTrack | null => {
+    if (
+      !probe ||
+      consumedAssociations.has(probe) ||
+      probe.episodeId !== requestEpisodeId ||
+      requestEpisodeId !== readWatchEpisodeId(page) ||
+      !languagesMatch(probe.language, language)
+    ) {
+      return null;
+    }
+    consumedAssociations.add(probe);
+    return { ...probe, url };
   };
 
   const restoreNativeTrack = (
@@ -619,6 +649,7 @@ function installTimedTextCapture(page: Window): void {
     language = "",
     validatedSubtitleBody = false,
     requestEpisodeId = "",
+    requestProbe: NetflixTimedTextTrack | null = null,
   ): void => {
     const candidate = subtitleTrackCandidates.get(url);
     if (candidate) {
@@ -631,7 +662,8 @@ function installTimedTextCapture(page: Window): void {
       return;
     }
     const associated = validatedSubtitleBody
-      ? consumeTrackAssociation(url, language, true)
+      ? consumeTrackAssociation(url, language, true) ??
+        claimRequestProbe(requestProbe, url, language, requestEpisodeId)
       : EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
         ? consumeTrackAssociation(url, language)
         : null;
@@ -662,15 +694,18 @@ function installTimedTextCapture(page: Window): void {
     body: string,
     contentType: string,
     requestEpisodeId: string,
+    requestProbe: NetflixTimedTextTrack | null,
   ): void => {
     if (
       !SUBTITLE_CONTENT_TYPE_PATTERN.test(contentType) &&
       !TIMED_TEXT_URL_PATTERN.test(url) &&
-      !pendingSecondaryLanguage
+      !pendingSecondaryLanguage &&
+      !requestProbe
     ) return;
     if (!looksLikeSubtitleBody(body)) return;
     const bodyLanguage = inferSubtitleBodyLanguage(body);
-    const requestedLanguage = inferLanguage(url) || pendingSecondaryLanguage;
+    const requestedLanguage =
+      inferLanguage(url) || pendingSecondaryLanguage || requestProbe?.language || "";
     emitTimedTextUrl(
       url,
       languagesMatch(bodyLanguage, "ja")
@@ -678,6 +713,7 @@ function installTimedTextCapture(page: Window): void {
         : requestedLanguage || bodyLanguage,
       true,
       requestEpisodeId,
+      requestProbe,
     );
     if (pendingSecondaryLanguage) {
       const session = resolveNetflixTimedTextSession(page);
@@ -719,17 +755,19 @@ function installTimedTextCapture(page: Window): void {
       response: Response,
       url: string,
       requestEpisodeId: string,
+      requestProbe: NetflixTimedTextTrack | null,
     ): void => {
       const contentType = response.headers.get("content-type") ?? "";
       if (
         !JSON_METADATA_PATTERN.test(`${contentType} ${url}`) &&
         !SUBTITLE_CONTENT_TYPE_PATTERN.test(contentType) &&
-        !pendingSecondaryLanguage
+        !pendingSecondaryLanguage &&
+        !requestProbe
       ) {
         return;
       }
       void response.clone().text().then((body) => {
-        inspectSubtitleBody(url, body, contentType, requestEpisodeId);
+        inspectSubtitleBody(url, body, contentType, requestEpisodeId, requestProbe);
         if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) return;
         const trimmed = body.trim().replace(/^\)\]\}',?\s*/, "");
         if (trimmed[0] !== "{" && trimmed[0] !== "[") return;
@@ -743,6 +781,7 @@ function installTimedTextCapture(page: Window): void {
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       const requestEpisodeId = readWatchEpisodeId(page);
+      const requestProbe = pendingSecondaryAssociation;
       if (
         subtitleTrackCandidates.has(url) ||
         EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
@@ -759,7 +798,7 @@ function installTimedTextCapture(page: Window): void {
         }
       }
       const response = await fetchImpl(input, init);
-      inspectJsonResponse(response, url, requestEpisodeId);
+      inspectJsonResponse(response, url, requestEpisodeId, requestProbe);
       return response;
     }) as typeof page.fetch;
   }
@@ -786,6 +825,7 @@ function installTimedTextCapture(page: Window): void {
       body?: Document | XMLHttpRequestBodyInit | null,
     ) {
       const requestEpisodeId = readWatchEpisodeId(page);
+      const requestProbe = pendingSecondaryAssociation;
       this.addEventListener("load", () => {
         const url = this.responseURL || xhrUrls.get(this) || "";
         if (
@@ -805,7 +845,7 @@ function installTimedTextCapture(page: Window): void {
           this.responseType === "" || this.responseType === "text"
             ? this.responseText
             : "";
-        inspectSubtitleBody(url, responseBody, contentType, requestEpisodeId);
+        inspectSubtitleBody(url, responseBody, contentType, requestEpisodeId, requestProbe);
         if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) {
           return;
         }
@@ -826,6 +866,39 @@ function installTimedTextCapture(page: Window): void {
       return nativeSend.call(this, body);
     };
   }
+
+  const hasDiscoveredTrack = (episodeId: string, language: string): boolean =>
+    [...discoveredTracks.values()].some(
+      (track) => track.episodeId === episodeId && languagesMatch(track.language, language),
+    );
+
+  /**
+   * At launch the player may not download the translation selected by the
+   * probe, or only after the native track is restored. Probe again until the
+   * translation is captured, as a page reload would.
+   */
+  const scheduleSecondaryProbeCheck = (
+    session: NetflixTimedTextSession,
+    language: string,
+    episodeId: string,
+  ): void => {
+    const attempt = (secondaryProbeAttempts.get(session) ?? 0) + 1;
+    secondaryProbeAttempts.set(session, attempt);
+    if (attempt >= MAX_SECONDARY_PROBE_ATTEMPTS) return;
+    const probedLanguage = preferredSecondaryLanguage;
+    page.setTimeout(() => {
+      if (
+        probedSessions.get(session) !== probedLanguage ||
+        readWatchEpisodeId(page) !== episodeId ||
+        hasDiscoveredTrack(episodeId, language)
+      ) {
+        return;
+      }
+      console.log(`[SubJap] Netflix secondary track not captured, probing again: ${language}`);
+      probedSessions.delete(session);
+      probeSecondaryTimedTextTrack();
+    }, SECONDARY_PROBE_CHECK_MS * attempt);
+  };
 
   const probeSecondaryTimedTextTrack = (): void => {
     if (preferredSecondaryLanguage === "none") return;
@@ -861,26 +934,30 @@ function installTimedTextCapture(page: Window): void {
     }
     const selectedTracks = selectNetflixSecondaryTrack(
       tracks,
-      currentTrack,
+      // A probe still in flight shows the translation, not the native track.
+      pendingNativeTrack ?? currentTrack,
       preferredSecondaryLanguage,
     );
-    if (!selectedTracks || typeof session.setTimedTextTrack !== "function") {
+    if (typeof session.setTimedTextTrack !== "function") {
       probedSessions.set(session, preferredSecondaryLanguage);
       return;
     }
+    // At launch the list can still lack the Japanese or translation track.
+    if (!selectedTracks) return;
     const nativeTrack = selectedTracks.native;
     const secondaryTrack = selectedTracks.secondary;
+    const episodeId = readNetflixSessionEpisodeId(session, page);
+    if (!episodeId) {
+      // At launch the session can report its episode after its track list.
+      if (!episodeMismatchLogged.has(session)) {
+        episodeMismatchLogged.add(session);
+        console.log("[SubJap] Netflix secondary probe waiting: player episode mismatch");
+      }
+      return;
+    }
     try {
       pendingSecondaryLanguage = readTimedTextLanguage(secondaryTrack);
       pendingNativeTrack = nativeTrack;
-      const episodeId = readNetflixSessionEpisodeId(session, page);
-      if (!episodeId) {
-        console.log("[SubJap] Netflix secondary probe skipped: player episode mismatch");
-        probedSessions.set(session, preferredSecondaryLanguage);
-        pendingSecondaryLanguage = "";
-        pendingNativeTrack = null;
-        return;
-      }
       announceTrack(session, nativeTrack);
       announceTrack(session, secondaryTrack);
       scopeActiveSessionTrack(session, nativeTrack);
@@ -903,6 +980,7 @@ function installTimedTextCapture(page: Window): void {
       }, 100);
       probedSessions.set(session, preferredSecondaryLanguage);
       scheduleNativeTrackRestore(session, nativeTrack);
+      scheduleSecondaryProbeCheck(session, pendingSecondaryLanguage, episodeId);
       console.log(`[SubJap] Netflix probing secondary track: ${pendingSecondaryLanguage}`);
     } catch {
       pendingSecondaryLanguage = "";

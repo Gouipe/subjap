@@ -48,6 +48,14 @@ sonde la restaure : un fichier dont le contenu est japonais est alors attribué
 s’il a été demandé pour l’épisode affiché. Le téléchargement par le service worker conserve
 l’identité d’épisode et de piste dans son contexte de requête.
 
+Au lancement, le lecteur peut exposer ses pistes avant leur identité
+d’épisode, ou ignorer la piste de traduction sélectionnée par la sonde. La
+sonde attend donc un état complet, puis recommence (quatre essais au plus,
+espacés de 5, 10 puis 15 s) tant que la traduction n’a pas été capturée. Une
+requête démarrée pendant la sonde lui reste attribuée même si sa réponse
+arrive après le retour au japonais. Un échec du téléchargement par le service
+worker est retenté trois fois.
+
 Le catalogue utilise un seul fichier exploitable par piste sélectionnée. Une
 représentation déjà sélectionnée reste stable pendant la session. Il ne
 concatène pas les variantes japonais/CC ou plusieurs formats, et ne supprime
