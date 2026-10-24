@@ -215,10 +215,6 @@ let knownWordCountPromise: Promise<number> | null = null;
 const HOVER_OPEN_DELAY_MS = 350;
 /** Grace period to move from a token onto the open popover. */
 const HOVER_CLOSE_DELAY_MS = 200;
-/** Wait before showing a translation alone when only DOM history is known. */
-const TRANSLATION_ALONE_DOM_DELAY_MS = 300;
-/** Share of a translation covered by Japanese cues that makes it their counterpart. */
-const TRANSLATION_COUNTERPART_COVERAGE = 0.5;
 
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -562,33 +558,19 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
   hoveredToken = null;
 
   if (japaneseCues.length === 0) {
-    // A translation shown alone covers subtitles burned into the video. When
-    // the Japanese timeline has a counterpart, the gap is transient (seek
-    // landing, boundary between cues) and must not flash the translation.
-    const timeline = adapter.getNavigationCues?.() ?? [];
-    const showTranslationAlone =
-      adapter.id === "netflix" &&
-      translationCue !== null &&
-      !isMostlyCoveredByCues(translationCue, timeline);
+    if (adapter.id === "netflix" && translation) {
+      spanRegistry.clear();
+      lastRenderedCues = [];
+      overlayInstance.updateContent([], translation, knownWordCount);
+      overlayInstance.show();
+      cueNavigator.observe([]);
+      return;
+    }
+    overlayInstance.updateContent([], null, knownWordCount);
+    overlayInstance.hide();
     spanRegistry.clear();
     lastRenderedCues = [];
     cueNavigator.observe([]);
-    if (!showTranslationAlone || !translation) {
-      overlayInstance.updateContent([], null, knownWordCount);
-      overlayInstance.hide();
-      return;
-    }
-
-    // DOM history only knows subtitles already seen: give a Japanese cue
-    // the chance to appear before trusting the absence.
-    if (!timeline.some((cue) => cue.source?.kind !== "dom")) {
-      overlayInstance.updateContent([], null, knownWordCount);
-      overlayInstance.hide();
-      await new Promise((resolve) => setTimeout(resolve, TRANSLATION_ALONE_DOM_DELAY_MS));
-      if (revision !== cueRevision) return;
-    }
-    overlayInstance.updateContent([], translation, knownWordCount);
-    overlayInstance.show();
     return;
   }
 
@@ -716,33 +698,6 @@ function rememberNavigationCues(): boolean {
 
 function isJapaneseTrack(language: string | undefined): boolean {
   return /^ja(?:[-_]|$)/i.test(language ?? "");
-}
-
-/**
- * True when meaningful timeline cues cover most of the cue's interval: the
- * cue then translates them. A brief overlap only reflects independent track
- * timings (a burned-in sign spanning or touching nearby dialogue).
- */
-function isMostlyCoveredByCues(cue: SubtitleCue, timeline: readonly SubtitleCue[]): boolean {
-  const intervals = timeline
-    .filter((candidate) => normalizeCueText(candidate.text).length > 0)
-    .map((candidate): [number, number] => [
-      Math.max(cue.start, candidate.start),
-      candidate.endConfirmed === false ? cue.end : Math.min(cue.end, candidate.end),
-    ])
-    .filter(([start, end]) => start < end)
-    .sort((a, b) => a[0] - b[0]);
-  const duration = cue.end - cue.start;
-  if (duration <= 0) return intervals.length > 0;
-
-  let covered = 0;
-  let coveredUntil = cue.start;
-  for (const [start, end] of intervals) {
-    if (end <= coveredUntil) continue;
-    covered += end - Math.max(start, coveredUntil);
-    coveredUntil = end;
-  }
-  return covered >= duration * TRANSLATION_COUNTERPART_COVERAGE;
 }
 
 function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {

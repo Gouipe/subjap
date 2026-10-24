@@ -93,12 +93,7 @@ le repli reste actif. La traduction locale conserve sa priorité indépendante.
 Sur Netflix, une traduction active peut aussi être affichée seule lorsqu’aucune
 cue japonaise n’est active. Elle garde ses propres horaires et ses réglages de
 langue et de visibilité ; elle ne crée pas de cue japonaise pour la navigation,
-le mode écoute ou le mining. Elle n’est affichée seule que si les cues de la
-timeline japonaise couvrent moins de la moitié de son intervalle : la
-traduction d’une réplique japonaise n’apparaît donc pas pendant un trou
-passager (atterrissage d’un seek Q/S/D, frontière entre deux cues), alors
-qu’un texte incrusté qui chevauche brièvement un dialogue reste affiché. Si la timeline ne provient que de l’historique DOM, la traduction
-seule attend 300 ms avant d’être affichée. Les autres lecteurs conservent leur comportement
+le mode écoute ou le mining. Les autres lecteurs conservent leur comportement
 habituel lorsque leur piste japonaise est absente.
 
 Avec une piste officielle active, un intervalle sans segment reste vide même
@@ -131,7 +126,11 @@ est borné dans le temps et disparaît à l’arrivée du segment demandé.
 Le contexte de navigation inclut la session et la source de sous-titres. Les
 commandes en attente d’un ancien contexte sont ignorées. Les événements
 `seeking` / `seeked` et l’attente d’arrivée de l’adaptateur empêchent de traiter
-les transitions du lecteur comme une lecture continue. Sans piste officielle,
+les transitions du lecteur comme une lecture continue. Netflix atterrit souvent
+un peu avant la cible demandée : tant que l’horloge vidéo ne l’a pas atteinte,
+l’adaptateur lit toutes les pistes (japonaise et traduction) à la destination,
+pour que sa cue ne disparaisse pas brièvement derrière une traduction seule.
+Sans piste officielle,
 un retour vers un début historique connu réutilise cette observation et attend
 son texte, avec un délai maximal.
 Pendant cette attente, la cible historique n'est pas publiée comme sous-titre :
