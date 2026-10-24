@@ -185,6 +185,8 @@ let pairedTranslation: {
 } | null = null;
 /** Share of a translation covered by its Japanese cues that makes it their counterpart. */
 const TRANSLATION_COUNTERPART_COVERAGE = 0.5;
+/** Wait before showing a translation alone when only DOM history is known. */
+const TRANSLATION_ALONE_DOM_DELAY_MS = 300;
 
 /** Last tokenized cues — used by interactions and the mining modal. */
 let lastRenderedCues: RenderedCue[] = [];
@@ -572,9 +574,18 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
     if (adapter.id === "netflix" && translation) {
       spanRegistry.clear();
       lastRenderedCues = [];
+      cueNavigator.observe([]);
+      // DOM history only knows subtitles already seen: give the Japanese line
+      // a translation may precede the chance to appear before trusting it alone.
+      const timeline = adapter.getNavigationCues?.() ?? [];
+      if (!timeline.some((cue) => cue.source?.kind !== "dom")) {
+        overlayInstance.updateContent([], null, knownWordCount);
+        overlayInstance.hide();
+        await new Promise((resolve) => setTimeout(resolve, TRANSLATION_ALONE_DOM_DELAY_MS));
+        if (revision !== cueRevision) return;
+      }
       overlayInstance.updateContent([], translation, knownWordCount);
       overlayInstance.show();
-      cueNavigator.observe([]);
       return;
     }
     overlayInstance.updateContent([], null, knownWordCount);
@@ -717,8 +728,9 @@ function isJapaneseTrack(language: string | undefined): boolean {
  * - when the translation ends first, keep it while one of those Japanese cues
  *   is still shown, until another translation replaces it, so the Japanese
  *   line does not drop into its place and jump back up with the next pair;
- * - when the Japanese line ends first, the rest of its translation is not
- *   shown alone: it would flash, in particular when hidden for known words.
+ * - when the Japanese line ends first, or starts after its translation, that
+ *   part of the translation is not shown alone: it would flash, in
+ *   particular when hidden because every word is known.
  * A translation only briefly overlapping Japanese cues (a burned-in sign) is
  * not their counterpart and is still shown alone outside them.
  */
@@ -741,7 +753,7 @@ function pairTranslationWithJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
   }
 
   if (translation) {
-    if (japaneseShownWithTranslation && isCounterpartOf(translation, japaneseShownWithTranslation)) {
+    if (isCounterpartOf(translation, japaneseShownWithTranslation)) {
       return cues.filter((cue) => cue !== translation);
     }
     pairedTranslation = null;
@@ -759,19 +771,27 @@ function pairTranslationWithJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
   return [...cues, paired.cue];
 }
 
-/** True when the Japanese cues shown with a translation cover most of it. */
+/**
+ * True when Japanese cues cover most of a translation: those shown with it,
+ * and the timeline's, which also knows the Japanese line about to start.
+ */
 function isCounterpartOf(
   translation: SubtitleCue,
-  japaneseCues: ReadonlyMap<string, { cue: SubtitleCue; lastSeen: number }>,
+  shownWith: ReadonlyMap<string, { cue: SubtitleCue; lastSeen: number }> | null,
 ): boolean {
   const duration = translation.end - translation.start;
-  if (duration <= 0) return true;
-  const intervals = [...japaneseCues.values()]
-    .map(({ cue, lastSeen }): [number, number] => [
-      Math.max(translation.start, cue.start),
-      // A provisional DOM end is not known yet: the cue lasted until it was last shown.
-      Math.min(translation.end, cue.endConfirmed === false ? lastSeen : cue.end),
-    ])
+  if (duration <= 0) return shownWith !== null;
+  const japaneseIntervals: Array<[number, number]> = [
+    // A provisional DOM end is not known yet: the cue lasted until it was last shown.
+    ...[...(shownWith?.values() ?? [])].map(({ cue, lastSeen }): [number, number] =>
+      [cue.start, cue.endConfirmed === false ? lastSeen : cue.end]),
+    ...(adapter.getNavigationCues?.() ?? [])
+      .filter((cue) => cue.endConfirmed !== false && normalizeCueText(cue.text).length > 0)
+      .map((cue): [number, number] => [cue.start, cue.end]),
+  ];
+  const intervals = japaneseIntervals
+    .map(([start, end]): [number, number] =>
+      [Math.max(translation.start, start), Math.min(translation.end, end)])
     .filter(([start, end]) => start < end)
     .sort((a, b) => a[0] - b[0]);
 
