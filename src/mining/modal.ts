@@ -5,7 +5,7 @@
 // Opened from the content script when the user mines a word from the popover.
 // Shows the sentence with the target highlighted, the reading and editable
 // definitions, and editable Anki notes; a video-frame screenshot is captured
-// automatically (and can be retaken), then the card is pushed to the local IndexedDB store and
+// automatically, then the card is pushed to the local IndexedDB store and
 // (best-effort) to Anki.
 
 import {
@@ -112,8 +112,6 @@ export class MiningModal {
       const target = e.target as HTMLElement;
       if (target.classList.contains("subjap-modal-btn-phrase-audio")) {
         this.playPhraseAudio();
-      } else if (target.classList.contains("subjap-modal-btn-screenshot")) {
-        void this.captureScreenshot();
       } else if (target.classList.contains("subjap-modal-btn-ai")) {
         void this.generateAiNotes();
       } else if (target.classList.contains("subjap-modal-btn-send")) {
@@ -200,7 +198,6 @@ export class MiningModal {
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
           <button class="subjap-modal-btn subjap-modal-btn-phrase-audio" disabled>Audio de la phrase</button>
-          <button class="subjap-modal-btn subjap-modal-btn-screenshot">Capturer l’image</button>
           <button class="subjap-modal-btn subjap-modal-btn-send">Créer dans Anki</button>
         </div>
       </div>`;
@@ -309,10 +306,8 @@ export class MiningModal {
         min-width: 100px;
       }
       .subjap-modal-btn:disabled { opacity: 0.6; cursor: default; }
-      .subjap-modal-btn-phrase-audio,
-      .subjap-modal-btn-screenshot { background: var(--sj-raised); color: var(--sj-text); }
-      .subjap-modal-btn-phrase-audio:hover:not(:disabled),
-      .subjap-modal-btn-screenshot:hover:not(:disabled) { background: #252932; }
+      .subjap-modal-btn-phrase-audio { background: var(--sj-raised); color: var(--sj-text); }
+      .subjap-modal-btn-phrase-audio:hover:not(:disabled) { background: #252932; }
       .subjap-modal-btn-send { background: var(--sj-accent); border-color: var(--sj-accent); color: var(--sj-canvas); }
       .subjap-modal-btn-send:hover:not(:disabled) { background: var(--sj-accent-hover); }
       .subjap-modal-btn:focus-visible,
