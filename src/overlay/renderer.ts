@@ -294,6 +294,8 @@ export class OverlayRenderer {
   private visible = false;
   /** Cue identity for the last translation revealed with X. */
   private revealedSecondarySubtitleKey: string | null = null;
+  /** Last all-known decision, reused while the same Japanese text re-renders. */
+  private resolvedTranslationVisibility: { textKey: string; show: boolean } | null = null;
   private subtitleVisibilityOverride: {
     japanese: boolean;
     /** null keeps the normal translation mode (including hover-to-reveal). */
@@ -676,14 +678,27 @@ export class OverlayRenderer {
    */
   private shouldShowTranslation(): boolean {
     if (!this.options.hideSecondarySubtitlesWhenAllKnown) return true;
-    if (
-      this.runtimeUnavailable ||
-      this.pendingCueTexts?.length ||
-      this.cues.some((cue) => cue.spans.some((span) => span.isPending))
-    ) {
-      return true;
+    if (this.runtimeUnavailable) return true;
+    if (this.cues.length === 0 && !this.pendingCueTexts?.length) return true;
+
+    // Re-rendering the same Japanese text (a seek with S, a new translation
+    // line) keeps its known decision instead of flashing the translation
+    // while vocabulary metadata is reloaded.
+    const textKey = this.currentSubtitleTextKey();
+    const resolved = this.resolvedTranslationVisibility?.textKey === textKey
+      ? this.resolvedTranslationVisibility.show
+      : null;
+    // Untokenized text only lasts while the tokenizer warms up (or failed):
+    // keep the translation available. Tokenized text awaiting metadata is
+    // resolved within moments, so do not show what may be hidden right after.
+    if (this.pendingCueTexts?.length) return resolved ?? true;
+    if (this.cues.some((cue) => cue.spans.some((span) => span.isPending))) {
+      return resolved ?? false;
     }
-    return !isAllKnownOrIgnored(this.cues.flatMap((cue) => cue.spans));
+
+    const show = !isAllKnownOrIgnored(this.cues.flatMap((cue) => cue.spans));
+    this.resolvedTranslationVisibility = { textKey, show };
+    return show;
   }
 
   private currentSubtitleKey(): string {
