@@ -69,13 +69,9 @@ test.describe("SubJap UX fixture", () => {
     await expect(overlay.locator(".subjap-token").first()).toHaveClass(/subjap-known/);
 
     const cueLine = overlay.locator(".subjap-cue-line");
-    await expect(cueLine).toHaveCSS("align-items", "flex-end");
-    await expect(cueLine).toHaveCSS("background-color", "rgba(0, 0, 0, 0.62)");
-    const gapRatio = await cueLine.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return Number.parseFloat(style.columnGap) / Number.parseFloat(style.fontSize);
-    });
-    expect(gapRatio).toBe(0);
+    await expect(cueLine).toHaveCSS("display", "block");
+    await expect(cueLine).toHaveCSS("background-color", "rgba(12, 13, 16, 0.82)");
+    await expect(overlay.locator(".subjap-token").first()).toHaveCSS("vertical-align", "bottom");
 
     const overlayBox = await overlay.boundingBox();
     const controlsBox = await controls.boundingBox();

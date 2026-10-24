@@ -63,16 +63,13 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       align-items: center;
     }
     #${CONTAINER_ID} .subjap-cue-line {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: flex-end;
-      /* Japanese is written without spaces: tokens touch, and their bounds
-         show through hover, focus and vocabulary underlines instead. */
-      column-gap: 0;
-      /* A tight token line keeps underlines against their word; the spacing
-         between wrapped lines comes from the tokens' top margin instead of the
-         leading (a row-gap would double around each zero-height line break). */
+      /* Inline layout, not a wrapping flexbox: a multi-line flex container
+         sizes itself to all its tokens laid end to end, so the backdrop would
+         span the width of every line combined instead of the longest one. */
+      display: block;
+      text-align: center;
+      /* A tight line keeps underlines against their word; the spacing between
+         wrapped lines comes from the tokens' top margin instead. */
       margin: 0;
       padding: 0 0.24em 0.16em;
       pointer-events: auto;
@@ -138,8 +135,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       white-space: pre-wrap;
     }
     #${CONTAINER_ID} .subjap-line-break {
-      flex-basis: 100%;
-      height: 0;
+      white-space: pre;
     }
     #${CONTAINER_ID} .subjap-token--separator {
       white-space: pre;
@@ -193,6 +189,10 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       display: inline-flex;
       flex-direction: column;
       align-items: center;
+      /* Bottom-align words so those carrying furigana grow upward. Japanese
+         is written without spaces: tokens touch, and their bounds show
+         through hover, focus and vocabulary underlines instead. */
+      vertical-align: bottom;
       min-width: 0;
       white-space: nowrap;
       margin-top: 0.24em;
