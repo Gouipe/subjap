@@ -18,7 +18,10 @@ export function canonicalizeLexicalKey(value: string): string {
 
 /** Candidate keys used when reading states from multiple lexical forms. */
 export function lexicalKeyCandidates(...values: string[]): string[] {
-  const candidates = values.flatMap((value) => {
+  // Values cross the extension message boundary; one malformed alias must not
+  // make the whole subtitle batch lose its vocabulary states.
+  const textValues = values.filter((value: unknown): value is string => typeof value === "string");
+  const candidates = textValues.flatMap((value) => {
     const canonical = canonicalizeLexicalKey(value);
     const variants = canonical === "此奴" ? ["こいつ", "コイツ", "此奴"] : [canonical];
     return [canonical, ...variants];

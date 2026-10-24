@@ -28,8 +28,39 @@ function unique(values: string[]): string[] {
   return [...new Set(values.filter((value) => Boolean(value) && value !== "*"))];
 }
 
+const RAW_TEXT_FIELDS = [
+  "surface",
+  "lexeme",
+  "orthographicBaseForm",
+  "orthographicSurfaceForm",
+  "phonologicalBaseForm",
+  "phonologicalSurfaceForm",
+  "reading",
+  "partOfSpeech",
+  "partOfSpeechSubcategory1",
+  "partOfSpeechSubcategory2",
+  "partOfSpeechSubcategory3",
+  "conjugationType",
+  "conjugationForm",
+] as const;
+
+/**
+ * Lindera's WASM binding returns numeric-looking UniDic features as JSON
+ * numbers: the base form of the ASCII digit "3" arrives as 3. Coerce every
+ * textual feature back to a string so lexical keys stay strings downstream.
+ */
+function normalizeRawToken(raw: RawLinderaToken): RawLinderaToken {
+  const normalized = { ...raw };
+  for (const field of RAW_TEXT_FIELDS) {
+    const value: unknown = raw[field];
+    normalized[field] = value == null ? "" : String(value);
+  }
+  return normalized;
+}
+
 /** Convert one Lindera/UniDic token to the shared SubJap contract. */
-export function toLinderaToken(raw: RawLinderaToken): Token {
+export function toLinderaToken(input: RawLinderaToken): Token {
+  const raw = normalizeRawToken(input);
   const dictionaryForm = nonStar(raw.orthographicBaseForm, raw.surface);
   const canonicalKey = nonStar(raw.lexeme, dictionaryForm);
   const reading = toHiragana(nonStar(raw.reading, raw.surface));
