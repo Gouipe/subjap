@@ -93,10 +93,11 @@ le repli reste actif. La traduction locale conserve sa priorité indépendante.
 Sur Netflix, une traduction active peut aussi être affichée seule lorsqu’aucune
 cue japonaise n’est active. Elle garde ses propres horaires et ses réglages de
 langue et de visibilité ; elle ne crée pas de cue japonaise pour la navigation,
-le mode écoute ou le mining. Elle n’est affichée seule que si aucune cue de la
-timeline japonaise ne chevauche son intervalle : un trou passager (atterrissage
-d’un seek Q/S/D, frontière entre deux cues) ne fait donc pas apparaître la
-traduction. Si la timeline ne provient que de l’historique DOM, la traduction
+le mode écoute ou le mining. Elle n’est affichée seule que si les cues de la
+timeline japonaise couvrent moins de la moitié de son intervalle : la
+traduction d’une réplique japonaise n’apparaît donc pas pendant un trou
+passager (atterrissage d’un seek Q/S/D, frontière entre deux cues), alors
+qu’un texte incrusté qui chevauche brièvement un dialogue reste affiché. Si la timeline ne provient que de l’historique DOM, la traduction
 seule attend 300 ms avant d’être affichée. Les autres lecteurs conservent leur comportement
 habituel lorsque leur piste japonaise est absente.
 
