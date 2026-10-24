@@ -175,6 +175,8 @@ let lastSignature = "";
 /** Monotonic revision: only the newest cue pipeline may update the overlay. */
 let cueRevision = 0;
 let lastCues: SubtitleCue[] = [];
+/** Last translation shown with Japanese cues, and the keys of those cues. */
+let pairedTranslation: { cue: SubtitleCue; japaneseKeys: Set<string> } | null = null;
 
 /** Last tokenized cues — used by interactions and the mining modal. */
 let lastRenderedCues: RenderedCue[] = [];
@@ -478,6 +480,7 @@ function cueSignature(cues: SubtitleCue[]): string {
 
 /** Start the newest cue immediately; older async work may finish but cannot commit. */
 function enqueueCues(cues: SubtitleCue[]): void {
+  cues = holdTranslationThroughJapaneseCues(cues);
   // The official track can arrive without changing the visible cue payload.
   // Seed navigation before listening-mode and signature deduplication.
   const navigationChanged = rememberNavigationCues();
@@ -698,6 +701,33 @@ function rememberNavigationCues(): boolean {
 
 function isJapaneseTrack(language: string | undefined): boolean {
   return /^ja(?:[-_]|$)/i.test(language ?? "");
+}
+
+/**
+ * Tracks time their lines independently: a translation often ends just before
+ * the Japanese line it accompanies. Keep it while one of those Japanese cues
+ * is still shown, until another translation replaces it, so the Japanese line
+ * does not drop into its place and jump back up with the next pair.
+ */
+function holdTranslationThroughJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
+  const japaneseKeys = cues.filter((cue) => isJapaneseTrack(cue.language)).map(subtitleCueKey);
+  const translation = selectTranslationCue(cues);
+  if (translation) {
+    pairedTranslation = japaneseKeys.length > 0
+      ? { cue: translation, japaneseKeys: new Set(japaneseKeys) }
+      : null;
+    return cues;
+  }
+  const paired = pairedTranslation;
+  if (
+    !paired ||
+    !japaneseKeys.some((key) => paired.japaneseKeys.has(key)) ||
+    !selectTranslationCue([paired.cue])
+  ) {
+    pairedTranslation = null;
+    return cues;
+  }
+  return [...cues, paired.cue];
 }
 
 function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {

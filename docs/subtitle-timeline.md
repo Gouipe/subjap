@@ -8,6 +8,11 @@ Les retours à la ligne ne créent pas de nouvelles positions dans la vidéo.
 Une phrase répartie entre plusieurs segments reste répartie entre plusieurs
 sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
 
+Les pistes japonaise et de traduction gardent leurs propres horaires. Une
+traduction qui se termine avant le segment japonais qu’elle accompagne reste
+affichée jusqu’à la fin de ce segment ou jusqu’à la traduction suivante, pour
+que la ligne japonaise ne descende pas brièvement à sa place.
+
 Les segments qui se chevauchent sont affichés ensemble, chacun avec ses propres
 tokens et bornes. Le mot cliqué appartient toujours à son segment pour le
 mining. Le mode écoute conserve sa règle : il ne démarre pas automatiquement
