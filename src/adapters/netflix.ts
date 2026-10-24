@@ -185,8 +185,11 @@ export class NetflixAdapter implements PlatformAdapter {
   private nextDomCueId = 0;
   private pendingSeekTarget: number | null = null;
   private seekLandingTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Requested destination of a landed seek, until the media clock reaches it. */
-  private landedSeekTime: number | null = null;
+  /**
+   * Destination of the last programmatic seek, held from the request until
+   * Netflix has actually moved the media clock there and reached it.
+   */
+  private seekHold: { time: number; started: boolean; expiresAt: number } | null = null;
   private cueCallback: ((cues: SubtitleCue[]) => void) | null = null;
   private trackUnsubscriber: (() => void) | null = null;
   private videoHuntTimer: ReturnType<typeof setInterval> | null = null;
@@ -213,7 +216,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.activeDomCue = null;
     this.pendingObservationTime = null;
     this.pendingDomLanding = null;
-    this.landedSeekTime = null;
+    if (this.seekHold) this.seekHold.started = true;
   };
   private readonly onSeeked = (event: Event) => {
     this.ensurePlaybackSession();
@@ -332,7 +335,7 @@ export class NetflixAdapter implements PlatformAdapter {
           this.standardCues = [];
           this.pendingDomLanding = null;
           this.pendingSeekTarget = null;
-          this.clearSeekLanding();
+          this.clearSeekLandingTimer();
         }
         this.tracks.selectTrack(language, selection.trackId);
         this.emitCues();
@@ -515,7 +518,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.pendingDomLanding = null;
     this.clearBoundaryTimer();
     this.pendingSeekTarget = null;
-    this.clearSeekLanding();
+    this.clearSeekLandingTimer();
     if (this.videoHuntTimer !== null) {
       clearInterval(this.videoHuntTimer);
       this.videoHuntTimer = null;
@@ -724,19 +727,25 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   /**
-   * Netflix often lands a programmatic seek slightly before the requested
-   * time. Until the media clock reaches it, every track is read at the
-   * destination, so its cue does not briefly vanish behind a translation.
+   * Netflix seeks asynchronously and often lands slightly before the
+   * requested time. From the request until the media clock reaches the
+   * destination, every track is read there, so its cue does not briefly
+   * vanish behind a translation shown alone.
    */
   private subtitleTime(): number {
     const currentTime = this.getCurrentTime();
-    const landed = this.landedSeekTime;
-    if (landed !== null) {
-      if (currentTime < landed && landed - currentTime <= SEEKED_TARGET_TOLERANCE_SECONDS) {
-        return landed;
-      }
-      this.landedSeekTime = null;
+    const hold = this.seekHold;
+    if (!hold) return currentTime;
+    if (!hold.started) {
+      // The position about to be left must not decide the displayed cue.
+      if (performance.now() < hold.expiresAt) return hold.time;
+    } else if (
+      this.getVideoElement()?.seeking ||
+      (currentTime < hold.time && hold.time - currentTime <= SEEKED_TARGET_TOLERANCE_SECONDS)
+    ) {
+      return hold.time;
     }
+    this.seekHold = null;
     return currentTime;
   }
 
@@ -824,8 +833,7 @@ export class NetflixAdapter implements PlatformAdapter {
 
   private landSeek(observationTime: number): SubtitleCue | null {
     this.pendingSeekTarget = null;
-    this.clearSeekLanding();
-    this.landedSeekTime = observationTime;
+    this.clearSeekLandingTimer();
     this.activeDomCue = null;
     const timed = this.tracks.cues("ja");
     if (timed.length) return activeSubtitleCues(timed, observationTime)[0] ?? null;
@@ -864,15 +872,14 @@ export class NetflixAdapter implements PlatformAdapter {
     }, Math.max(20, (next - time) / Math.max(0.1, video.playbackRate) * 1000));
   }
 
-  private clearSeekLanding(): void {
-    this.landedSeekTime = null;
+  private clearSeekLandingTimer(): void {
     if (this.seekLandingTimer === null) return;
     clearTimeout(this.seekLandingTimer);
     this.seekLandingTimer = null;
   }
 
   private armSeekLandingTimeout(target: number): void {
-    this.clearSeekLanding();
+    this.clearSeekLandingTimer();
     this.seekLandingTimer = setTimeout(() => {
       this.seekLandingTimer = null;
       if (this.pendingSeekTarget !== target) return;
@@ -991,13 +998,13 @@ export class NetflixAdapter implements PlatformAdapter {
 
   beginCueReplay(cue: SubtitleCue): CueReplaySession {
     this.cueReplaySession?.close();
-    this.landedSeekTime = null;
+    this.seekHold = null;
     const session = new NetflixCueReplaySession(cueSnapshot(cue), (closed) => {
       if (this.cueReplaySession !== closed) return;
       this.cueReplaySession = null;
       this.pendingObservationTime = null;
       this.pendingSeekTarget = null;
-      this.clearSeekLanding();
+      this.clearSeekLandingTimer();
       this.scheduleEmit();
     });
     this.cueReplaySession = session;
@@ -1015,10 +1022,21 @@ export class NetflixAdapter implements PlatformAdapter {
     this.debounceTimer = null;
     this.pendingObservationTime = null;
     this.activeDomCue = null;
-    this.clearSeekLanding();
+    this.clearSeekLandingTimer();
     this.pendingSeekTarget = timeSeconds;
+    const hold = {
+      time: timeSeconds,
+      started: false,
+      expiresAt: performance.now() + SEEK_LANDING_TIMEOUT_MS,
+    };
+    this.seekHold = hold;
     return this.seekTransport.seek(timeSeconds, resume).then(
       (accepted) => {
+        if (this.seekHold === hold) {
+          if (!accepted) this.seekHold = null;
+          // A seek onto the current position may not fire `seeking`.
+          else if (Math.abs(this.getCurrentTime() - timeSeconds) < 0.002) hold.started = true;
+        }
         if (this.pendingSeekTarget !== timeSeconds) return accepted;
         if (accepted) {
           this.armSeekLandingTimeout(timeSeconds);
@@ -1029,9 +1047,10 @@ export class NetflixAdapter implements PlatformAdapter {
         return accepted;
       },
       (error: unknown) => {
+        if (this.seekHold === hold) this.seekHold = null;
         if (this.pendingSeekTarget === timeSeconds) {
           this.pendingSeekTarget = null;
-          this.clearSeekLanding();
+          this.clearSeekLandingTimer();
         }
         throw error;
       },
@@ -1114,7 +1133,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.cueReplaySession?.close();
     this.cueReplaySession = null;
     this.detachTimeUpdateListener();
-    this.clearSeekLanding();
+    this.clearSeekLandingTimer();
   }
 
   /**
@@ -1141,8 +1160,9 @@ export class NetflixAdapter implements PlatformAdapter {
     this.cueReplaySession = null;
     this.activeDomCue = null;
     this.pendingSeekTarget = null;
-    this.clearSeekLanding();
+    this.clearSeekLandingTimer();
     this.pendingObservationTime = null;
+    this.seekHold = null;
     this.nextDomCueId = 0;
     void this.loadLocalSubtitles();
     this.requestCurrentEpisodeTimedText();
@@ -1193,7 +1213,7 @@ export class NetflixAdapter implements PlatformAdapter {
         this.video = null;
         this.activeDomCue = null;
         this.pendingSeekTarget = null;
-        this.clearSeekLanding();
+        this.clearSeekLandingTimer();
         // Try to re-discover the video.
         for (const sel of NETFLIX_VIDEO_SELECTORS) {
           const el = document.querySelector(sel);

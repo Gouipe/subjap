@@ -126,10 +126,12 @@ est borné dans le temps et disparaît à l’arrivée du segment demandé.
 Le contexte de navigation inclut la session et la source de sous-titres. Les
 commandes en attente d’un ancien contexte sont ignorées. Les événements
 `seeking` / `seeked` et l’attente d’arrivée de l’adaptateur empêchent de traiter
-les transitions du lecteur comme une lecture continue. Netflix atterrit souvent
-un peu avant la cible demandée : tant que l’horloge vidéo ne l’a pas atteinte,
-l’adaptateur lit toutes les pistes (japonaise et traduction) à la destination,
-pour que sa cue ne disparaisse pas brièvement derrière une traduction seule.
+les transitions du lecteur comme une lecture continue. Le seek Netflix est
+asynchrone et atterrit souvent un peu avant la cible demandée : dès la demande,
+et jusqu’à ce que le seek ait réellement eu lieu et que l’horloge vidéo ait
+atteint la cible, l’adaptateur lit toutes les pistes (japonaise et traduction)
+à la destination, pour que sa cue ne disparaisse pas brièvement derrière une
+traduction seule.
 Sans piste officielle,
 un retour vers un début historique connu réutilise cette observation et attend
 son texte, avec un délai maximal.
