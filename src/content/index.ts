@@ -175,8 +175,16 @@ let lastSignature = "";
 /** Monotonic revision: only the newest cue pipeline may update the overlay. */
 let cueRevision = 0;
 let lastCues: SubtitleCue[] = [];
-/** Last translation shown with Japanese cues, and the keys of those cues. */
-let pairedTranslation: { cue: SubtitleCue; japaneseKeys: Set<string> } | null = null;
+/**
+ * Last translation shown with Japanese cues, and those cues by key with the
+ * playback time they were last shown at.
+ */
+let pairedTranslation: {
+  cue: SubtitleCue;
+  japaneseCues: Map<string, { cue: SubtitleCue; lastSeen: number }>;
+} | null = null;
+/** Share of a translation covered by its Japanese cues that makes it their counterpart. */
+const TRANSLATION_COUNTERPART_COVERAGE = 0.5;
 
 /** Last tokenized cues — used by interactions and the mining modal. */
 let lastRenderedCues: RenderedCue[] = [];
@@ -480,7 +488,7 @@ function cueSignature(cues: SubtitleCue[]): string {
 
 /** Start the newest cue immediately; older async work may finish but cannot commit. */
 function enqueueCues(cues: SubtitleCue[]): void {
-  cues = holdTranslationThroughJapaneseCues(cues);
+  cues = pairTranslationWithJapaneseCues(cues);
   // The official track can arrive without changing the visible cue payload.
   // Seed navigation before listening-mode and signature deduplication.
   const navigationChanged = rememberNavigationCues();
@@ -704,30 +712,77 @@ function isJapaneseTrack(language: string | undefined): boolean {
 }
 
 /**
- * Tracks time their lines independently: a translation often ends just before
- * the Japanese line it accompanies. Keep it while one of those Japanese cues
- * is still shown, until another translation replaces it, so the Japanese line
- * does not drop into its place and jump back up with the next pair.
+ * Tracks time their lines independently, so a translation rarely starts and
+ * ends exactly with the Japanese line it accompanies:
+ * - when the translation ends first, keep it while one of those Japanese cues
+ *   is still shown, until another translation replaces it, so the Japanese
+ *   line does not drop into its place and jump back up with the next pair;
+ * - when the Japanese line ends first, the rest of its translation is not
+ *   shown alone: it would flash, in particular when hidden for known words.
+ * A translation only briefly overlapping Japanese cues (a burned-in sign) is
+ * not their counterpart and is still shown alone outside them.
  */
-function holdTranslationThroughJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
-  const japaneseKeys = cues.filter((cue) => isJapaneseTrack(cue.language)).map(subtitleCueKey);
+function pairTranslationWithJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
+  const japaneseCues = cues.filter((cue) => isJapaneseTrack(cue.language));
   const translation = selectTranslationCue(cues);
-  if (translation) {
-    pairedTranslation = japaneseKeys.length > 0
-      ? { cue: translation, japaneseKeys: new Set(japaneseKeys) }
+  const paired = pairedTranslation;
+  const japaneseShownWithTranslation =
+    paired && translation && subtitleCueKey(paired.cue) === subtitleCueKey(translation)
+      ? paired.japaneseCues
       : null;
+
+  if (translation && japaneseCues.length > 0) {
+    const pairedJapanese = japaneseShownWithTranslation ??
+      new Map<string, { cue: SubtitleCue; lastSeen: number }>();
+    const lastSeen = adapter.getCurrentTime();
+    for (const cue of japaneseCues) pairedJapanese.set(subtitleCueKey(cue), { cue, lastSeen });
+    pairedTranslation = { cue: translation, japaneseCues: pairedJapanese };
     return cues;
   }
-  const paired = pairedTranslation;
+
+  if (translation) {
+    if (japaneseShownWithTranslation && isCounterpartOf(translation, japaneseShownWithTranslation)) {
+      return cues.filter((cue) => cue !== translation);
+    }
+    pairedTranslation = null;
+    return cues;
+  }
+
   if (
     !paired ||
-    !japaneseKeys.some((key) => paired.japaneseKeys.has(key)) ||
+    !japaneseCues.some((cue) => paired.japaneseCues.has(subtitleCueKey(cue))) ||
     !selectTranslationCue([paired.cue])
   ) {
     pairedTranslation = null;
     return cues;
   }
   return [...cues, paired.cue];
+}
+
+/** True when the Japanese cues shown with a translation cover most of it. */
+function isCounterpartOf(
+  translation: SubtitleCue,
+  japaneseCues: ReadonlyMap<string, { cue: SubtitleCue; lastSeen: number }>,
+): boolean {
+  const duration = translation.end - translation.start;
+  if (duration <= 0) return true;
+  const intervals = [...japaneseCues.values()]
+    .map(({ cue, lastSeen }): [number, number] => [
+      Math.max(translation.start, cue.start),
+      // A provisional DOM end is not known yet: the cue lasted until it was last shown.
+      Math.min(translation.end, cue.endConfirmed === false ? lastSeen : cue.end),
+    ])
+    .filter(([start, end]) => start < end)
+    .sort((a, b) => a[0] - b[0]);
+
+  let covered = 0;
+  let coveredUntil = translation.start;
+  for (const [start, end] of intervals) {
+    if (end <= coveredUntil) continue;
+    covered += end - Math.max(start, coveredUntil);
+    coveredUntil = end;
+  }
+  return covered >= duration * TRANSLATION_COUNTERPART_COVERAGE;
 }
 
 function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {

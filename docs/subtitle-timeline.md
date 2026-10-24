@@ -11,7 +11,13 @@ sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
 Les pistes japonaise et de traduction gardent leurs propres horaires. Une
 traduction qui se termine avant le segment japonais qu’elle accompagne reste
 affichée jusqu’à la fin de ce segment ou jusqu’à la traduction suivante, pour
-que la ligne japonaise ne descende pas brièvement à sa place.
+que la ligne japonaise ne descende pas brièvement à sa place. À l’inverse,
+lorsque le segment japonais se termine avant sa traduction, le reste de cette
+traduction n’est pas affiché seul : il apparaîtrait brièvement, notamment
+lorsqu’elle est masquée parce que tous les mots sont connus. Une traduction
+est la contrepartie des segments japonais affichés avec elle lorsqu’ils
+couvrent au moins la moitié de son intervalle ; un texte incrusté qui ne
+chevauche que brièvement un dialogue reste affiché seul en dehors de celui-ci.
 
 Les segments qui se chevauchent sont affichés ensemble, chacun avec ses propres
 tokens et bornes. Le mot cliqué appartient toujours à son segment pour le
