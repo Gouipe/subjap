@@ -131,7 +131,9 @@ asynchrone et atterrit souvent un peu avant la cible demandée : dès la demande
 et jusqu’à ce que le seek ait réellement eu lieu et que l’horloge vidéo ait
 atteint la cible, l’adaptateur lit toutes les pistes (japonaise et traduction)
 à la destination, pour que sa cue ne disparaisse pas brièvement derrière une
-traduction seule.
+traduction seule. Plus généralement, tant que l’état japonais de la destination
+n’est pas connu (seek en cours, attente du texte DOM historique), une
+traduction n’est jamais publiée seule.
 Sans piste officielle,
 un retour vers un début historique connu réutilise cette observation et attend
 son texte, avec un délai maximal.

@@ -722,8 +722,19 @@ export class NetflixAdapter implements PlatformAdapter {
       : timed.length
         ? activeSubtitleCues(timed, time)
         : japanese.filter((cue) => hasMeaningfulCueText(cue.text));
-    const translation = this.getActiveTranslationCue(time);
+    // A translation published alone asserts that no Japanese is shown there.
+    // While a seek is landing, the Japanese state at the destination is not
+    // known yet: keep the translation for when Japanese is present again.
+    const translation = japaneseCues.length === 0 && this.isSeekLanding()
+      ? null
+      : this.getActiveTranslationCue(time);
     return (translation ? [...japaneseCues, translation] : japaneseCues).map(cueSnapshot);
+  }
+
+  /** True from a seek request until its destination subtitle state is known. */
+  private isSeekLanding(): boolean {
+    return this.pendingSeekTarget !== null || this.pendingDomLanding !== null ||
+      this.seekHold !== null;
   }
 
   /**
