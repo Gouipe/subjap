@@ -212,6 +212,9 @@ const wordStateByLemma = new LRUCache<string, WordState | null>(1_000);
 /** lemma → number of matching notes from the latest successful Anki sync. */
 const ankiNoteCountByLemma = new LRUCache<string, number>(1_000);
 
+/** lemma → aliases already resolved into the caches above. */
+const queriedAliasesByLemma = new LRUCache<string, Set<string>>(1_000);
+
 /** Cached frequency ranks avoid repeating IndexedDB reads for recurring words. */
 const frequencyRankByTerm = new LRUCache<string, number | null>(2_000);
 
@@ -269,11 +272,17 @@ async function getWordStates(
   lookups: Array<{ key: string; aliases: string[] }>,
   revision: number,
 ): Promise<void> {
-  const uniqueLookups = new Map<string, { key: string; aliases: string[] }>();
-  for (const lookup of lookups) {
-    if (!wordStateByLemma.has(lookup.key)) uniqueLookups.set(lookup.key, lookup);
+  // Every spelling of a lexeme (すごい, 凄い, スゴイ) shares the lemma's state,
+  // so resolve the union of their aliases rather than whichever came last.
+  const aliasesByLemma = new Map<string, Set<string>>();
+  for (const { key, aliases } of lookups) {
+    const queried = queriedAliasesByLemma.get(key);
+    if (wordStateByLemma.has(key) && aliases.every((alias) => queried?.has(alias))) continue;
+    const union = aliasesByLemma.get(key) ?? new Set(queried);
+    for (const alias of aliases) union.add(alias);
+    aliasesByLemma.set(key, union);
   }
-  const missing = [...uniqueLookups.values()];
+  const missing = [...aliasesByLemma].map(([key, aliases]) => ({ key, aliases: [...aliases] }));
   if (missing.length === 0) return;
 
   try {
@@ -283,6 +292,8 @@ async function getWordStates(
       wordStateByLemma.set(item.key, item.state);
       wordStatusByLemma.set(item.key, item.state?.status ?? null);
       ankiNoteCountByLemma.set(item.key, item.ankiNoteCount);
+      const aliases = aliasesByLemma.get(item.key);
+      if (aliases) queriedAliasesByLemma.set(item.key, aliases);
     }
   } catch (err: unknown) {
     console.warn("[SubJap] word:getBatch failed:", err);
@@ -332,6 +343,7 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
       wordStateByLemma.clear();
       wordStatusByLemma.clear();
       ankiNoteCountByLemma.clear();
+      queriedAliasesByLemma.clear();
       knownWordCountPromise = null;
       lastSignature = "";
       if (lastCues.length > 0) enqueueCues(lastCues);
