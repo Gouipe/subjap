@@ -67,12 +67,19 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       flex-wrap: wrap;
       justify-content: center;
       align-items: flex-end;
-      column-gap: 0.16em;
+      /* Japanese is written without spaces: tokens touch, and their bounds
+         show through hover, focus and vocabulary underlines instead. */
+      column-gap: 0;
+      /* A tight token line keeps underlines against their word; the spacing
+         between wrapped lines comes from the tokens' top margin instead of the
+         leading (a row-gap would double around each zero-height line break). */
       margin: 0;
-      padding: 0.08em 0.16em 0.12em;
+      padding: 0 0.24em 0.16em;
       pointer-events: auto;
       font-size: ${opts.fontSize}px;
       font-family: ${opts.fontFamily};
+      font-weight: 600;
+      line-height: 1.2;
       color: var(--sj-text);
       background-color: rgba(12, 13, 16, 0.82);
       border-radius: 0.18em;
@@ -125,6 +132,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-cue-line--pending {
       pointer-events: none;
       display: block;
+      padding-top: 0.16em;
+      line-height: 1.5;
       text-align: center;
       white-space: pre-wrap;
     }
@@ -148,7 +157,12 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       pointer-events: none;
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
       font-family: ${opts.fontFamily};
-      color: var(--sj-text);
+      font-weight: 400;
+      /* Same compact backdrop as the Japanese line so it stays legible on
+         bright scenes, but muted so the Japanese remains the protagonist. */
+      color: var(--sj-muted);
+      background-color: rgba(12, 13, 16, 0.82);
+      border-radius: 0.18em;
       line-height: 1.3;
       text-align: center;
       white-space: normal;
@@ -181,6 +195,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       align-items: center;
       min-width: 0;
       white-space: nowrap;
+      margin-top: 0.24em;
       padding-inline: 0.02em;
       cursor: pointer;
       border-bottom: 0.08em solid transparent;
@@ -193,7 +208,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       position: relative;
       z-index: 0;
       outline: 2px solid transparent;
-      outline-offset: 2px;
+      /* Tokens touch each other: a small offset keeps the outline off the
+         neighbouring glyphs. */
+      outline-offset: 1px;
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate--relevant {
       outline-color: ${opts.highlightKnown ? opts.knownColor : "#78d6a3"};
@@ -210,9 +227,6 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       outline: 2px solid var(--sj-accent);
       outline-offset: 2px;
       background-color: rgba(244, 241, 234, 0.14);
-    }
-    #${CONTAINER_ID} .subjap-token--punctuation {
-      margin-left: -0.16em;
     }
     #${CONTAINER_ID} .subjap-known {
       color: var(--sj-text);

@@ -75,7 +75,7 @@ test.describe("SubJap UX fixture", () => {
       const style = getComputedStyle(element);
       return Number.parseFloat(style.columnGap) / Number.parseFloat(style.fontSize);
     });
-    expect(gapRatio).toBeCloseTo(0.16, 2);
+    expect(gapRatio).toBe(0);
 
     const overlayBox = await overlay.boundingBox();
     const controlsBox = await controls.boundingBox();

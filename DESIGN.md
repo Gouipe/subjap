@@ -283,6 +283,12 @@ sélection ajoutent un soulignement ou un fond local afin que la couleur ne soit
 jamais le seul signal. Le sous-titre global reste lisible sur toute image grâce
 à un fond sombre compact, sans large panneau opaque.
 
+Le japonais s'affiche en texte continu, sans espace entre les tokens : les
+limites des mots ne se révèlent que par le survol, le focus et les soulignements
+de vocabulaire, collés à leur mot. Le sous-titre japonais est en graisse `600` ;
+la traduction, sur le même fond compact, passe en gris de régie et en `400` pour
+rester secondaire.
+
 ### Anki Review Card
 
 La carte ne simule pas une carte flottante : le canevas Anki devient la scène.

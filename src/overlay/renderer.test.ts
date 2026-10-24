@@ -417,7 +417,7 @@ describe("OverlayRenderer", () => {
 
     const styles = document.getElementById("subjap-overlay-styles");
     expect(styles?.textContent).toContain("align-items: flex-end");
-    expect(styles?.textContent).toContain("column-gap: 0.16em");
+    expect(styles?.textContent).toContain("column-gap: 0;");
     expect(styles?.textContent).toContain("font-size: 13px");
     expect(styles?.textContent).toContain("margin-bottom: 0.08em");
     expect(
