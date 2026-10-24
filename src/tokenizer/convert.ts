@@ -58,12 +58,54 @@ function normalizeRawToken(raw: RawLinderaToken): RawLinderaToken {
   return normalized;
 }
 
+const KANA_ONLY = /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u;
+const VOWEL_ROWS: [string, string][] = [
+  ["あ", "あかさたなはまやらわがざだばぱぁゃゎ"],
+  ["い", "いきしちにひみりぎじぢびぴぃ"],
+  ["う", "うくすつぬふむゆるぐずづぶぷぅゅ"],
+  // Long e and o are spelled えい / おう in native and Sino-Japanese words.
+  ["い", "えけせてねへめれげぜでべぺぇ"],
+  ["う", "おこそとのほもよろをごぞどぼぽぉょ"],
+];
+const PHONOLOGICAL_SPELLINGS: Record<string, string> = { ー: "あいうえお", ず: "づ", じ: "ぢ" };
+
+function longVowelSpelling(previous: string | undefined): string {
+  return VOWEL_ROWS.find(([, row]) => previous && row.includes(previous))?.[0] ?? "ー";
+}
+
+/**
+ * UniDic's `reading` is the lexeme reading (じゃ→ダ, 選ん→エラブ). Its
+ * phonological forms follow the actual morpheme (来→キ, 本→ポン) but write
+ * long vowels as ー and ぢ/づ as じ/ず: restore them from the lexeme reading
+ * while both still agree, else from the preceding vowel.
+ */
+function kanaReading(written: string, pronunciation: string, lexemeReading: string): string {
+  if (KANA_ONLY.test(written)) return toHiragana(written);
+  if (!pronunciation) return toHiragana(lexemeReading || written);
+  const pron = toHiragana(pronunciation);
+  const lexeme = toHiragana(lexemeReading);
+  let spelled = "";
+  for (const char of pron) {
+    const lexemeChar = lexeme[spelled.length];
+    if (
+      lexemeChar &&
+      lexeme.startsWith(spelled) &&
+      PHONOLOGICAL_SPELLINGS[char]?.includes(lexemeChar)
+    )
+      spelled += lexemeChar;
+    else spelled += char === "ー" ? longVowelSpelling(spelled.at(-1)) : char;
+  }
+  return spelled;
+}
+
 /** Convert one Lindera/UniDic token to the shared SubJap contract. */
 export function toLinderaToken(input: RawLinderaToken): Token {
   const raw = normalizeRawToken(input);
   const dictionaryForm = nonStar(raw.orthographicBaseForm, raw.surface);
   const canonicalKey = nonStar(raw.lexeme, dictionaryForm);
-  const reading = toHiragana(nonStar(raw.reading, raw.surface));
+  const lexemeReading = nonStar(raw.reading, "");
+  const reading = kanaReading(raw.surface, nonStar(raw.phonologicalSurfaceForm, ""), lexemeReading);
+  const phonologicalBaseForm = nonStar(raw.phonologicalBaseForm, "");
   const details = unique([
     raw.partOfSpeechSubcategory1,
     raw.partOfSpeechSubcategory2,
@@ -74,7 +116,7 @@ export function toLinderaToken(input: RawLinderaToken): Token {
     canonicalKey,
     nonStar(raw.orthographicSurfaceForm, raw.surface),
     nonStar(raw.phonologicalSurfaceForm, ""),
-    reading,
+    toHiragana(lexemeReading || raw.surface),
   ]);
 
   return {
@@ -86,7 +128,9 @@ export function toLinderaToken(input: RawLinderaToken): Token {
     // explicit dictionaryForm/canonicalKey fields above.
     lemma: canonicalKey,
     reading,
-    dictionaryReading: toHiragana(nonStar(raw.phonologicalBaseForm, "")),
+    dictionaryReading: phonologicalBaseForm
+      ? kanaReading(dictionaryForm, phonologicalBaseForm, lexemeReading)
+      : "",
     partOfSpeech: raw.partOfSpeech && raw.partOfSpeech !== "*" ? [raw.partOfSpeech] : [],
     ...(details.length > 0 ? { partOfSpeechDetails: details } : undefined),
     ...(raw.conjugationType && raw.conjugationType !== "*"

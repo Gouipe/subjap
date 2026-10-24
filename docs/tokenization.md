@@ -64,7 +64,12 @@ utilisent la tête JMdict. Les expressions grammaticales sans tête lexicale
 unique conservent leur propre surface comme identité.
 
 `reading` décrit la surface ; `dictionaryReading` conserve la prononciation de
-base fournie par UniDic. Pour un composé, la lecture JMdict qui correspond à la
+base fournie par UniDic. Le champ `reading` de Lindera est la lecture du
+lexème (じゃ → ダ, 選ん → エラブ) : il ne sert qu'aux termes de recherche. Les
+deux lectures sont dérivées des formes phonologiques, qui suivent le morphème
+réel (来 → き, 本 → ぽん), en rétablissant l'orthographe kana des voyelles
+longues et de ぢ/づ d'après la lecture du lexème. Une surface en kana est sa
+propre lecture. Pour un composé, la lecture JMdict qui correspond à la
 lecture combinée des morphèmes est préférée. La popover et le mining utilisent
 ainsi une lecture de lemme plutôt que celle d'une chaîne conjuguée.
 
