@@ -215,6 +215,8 @@ let knownWordCountPromise: Promise<number> | null = null;
 const HOVER_OPEN_DELAY_MS = 350;
 /** Grace period to move from a token onto the open popover. */
 const HOVER_CLOSE_DELAY_MS = 200;
+/** Wait before showing a translation alone when only DOM history is known. */
+const TRANSLATION_ALONE_DOM_DELAY_MS = 300;
 
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -558,19 +560,33 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
   hoveredToken = null;
 
   if (japaneseCues.length === 0) {
-    if (adapter.id === "netflix" && translation) {
-      spanRegistry.clear();
-      lastRenderedCues = [];
-      overlayInstance.updateContent([], translation, knownWordCount);
-      overlayInstance.show();
-      cueNavigator.observe([]);
-      return;
-    }
-    overlayInstance.updateContent([], null, knownWordCount);
-    overlayInstance.hide();
+    // A translation shown alone covers subtitles burned into the video. When
+    // the Japanese timeline has a counterpart, the gap is transient (seek
+    // landing, boundary between cues) and must not flash the translation.
+    const timeline = adapter.getNavigationCues?.() ?? [];
+    const showTranslationAlone =
+      adapter.id === "netflix" &&
+      translationCue !== null &&
+      !hasOverlappingCue(translationCue, timeline);
     spanRegistry.clear();
     lastRenderedCues = [];
     cueNavigator.observe([]);
+    if (!showTranslationAlone || !translation) {
+      overlayInstance.updateContent([], null, knownWordCount);
+      overlayInstance.hide();
+      return;
+    }
+
+    // DOM history only knows subtitles already seen: give a Japanese cue
+    // the chance to appear before trusting the absence.
+    if (!timeline.some((cue) => cue.source?.kind !== "dom")) {
+      overlayInstance.updateContent([], null, knownWordCount);
+      overlayInstance.hide();
+      await new Promise((resolve) => setTimeout(resolve, TRANSLATION_ALONE_DOM_DELAY_MS));
+      if (revision !== cueRevision) return;
+    }
+    overlayInstance.updateContent([], translation, knownWordCount);
+    overlayInstance.show();
     return;
   }
 
@@ -698,6 +714,16 @@ function rememberNavigationCues(): boolean {
 
 function isJapaneseTrack(language: string | undefined): boolean {
   return /^ja(?:[-_]|$)/i.test(language ?? "");
+}
+
+/** True when a meaningful timeline cue overlaps the cue's interval. */
+function hasOverlappingCue(cue: SubtitleCue, timeline: readonly SubtitleCue[]): boolean {
+  return timeline.some(
+    (candidate) =>
+      normalizeCueText(candidate.text).length > 0 &&
+      candidate.start < cue.end &&
+      (candidate.endConfirmed === false || cue.start < candidate.end),
+  );
 }
 
 function selectTranslationCue(cues: SubtitleCue[]): SubtitleCue | null {
