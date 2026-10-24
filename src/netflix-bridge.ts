@@ -590,10 +590,35 @@ function installTimedTextCapture(page: Window): void {
 
     return scoped;
   };
+  /**
+   * The Japanese track the player shows, or restores after a translation
+   * probe. Netflix downloads it before SubJap can announce its URL.
+   */
+  const readNativeJapaneseTrack = (
+    requestEpisodeId: string,
+  ): NetflixTimedTextTrack | null => {
+    const session = resolveNetflixTimedTextSession(page);
+    if (!session) return null;
+    let track: NetflixTimedTextTrackOption | null | undefined;
+    try {
+      track = session.getTimedTextTrack?.();
+    } catch {
+      return null;
+    }
+    if (!track || !languagesMatch(readTimedTextLanguage(track), "ja")) track = pendingNativeTrack;
+    if (!track || !languagesMatch(readTimedTextLanguage(track), "ja")) return null;
+    const episodeId = readNetflixSessionEpisodeId(session, page);
+    const trackId = readTimedTextTrackId(track);
+    // A response requested for the previous episode must not be relabelled.
+    if (!episodeId || !trackId || episodeId !== requestEpisodeId) return null;
+    return { episodeId, language: readTimedTextLanguage(track), trackId, url: "" };
+  };
+
   const emitTimedTextUrl = (
     url: string,
     language = "",
     validatedSubtitleBody = false,
+    requestEpisodeId = "",
   ): void => {
     const candidate = subtitleTrackCandidates.get(url);
     if (candidate) {
@@ -618,13 +643,26 @@ function installTimedTextCapture(page: Window): void {
       return;
     }
     const discovered = discoveredTracks.get(url);
-    if (!discovered) return;
+    if (!discovered) {
+      // The body itself proves a Japanese subtitle file with an unannounced
+      // URL: it belongs to the Japanese track selected in the player.
+      const native = validatedSubtitleBody && languagesMatch(language, "ja")
+        ? readNativeJapaneseTrack(requestEpisodeId)
+        : null;
+      if (native) fetchTrack({ ...native, url });
+      return;
+    }
     fetchTrack({
       ...discovered,
       language: discovered.language || language,
     });
   };
-  const inspectSubtitleBody = (url: string, body: string, contentType: string): void => {
+  const inspectSubtitleBody = (
+    url: string,
+    body: string,
+    contentType: string,
+    requestEpisodeId: string,
+  ): void => {
     if (
       !SUBTITLE_CONTENT_TYPE_PATTERN.test(contentType) &&
       !TIMED_TEXT_URL_PATTERN.test(url) &&
@@ -639,6 +677,7 @@ function installTimedTextCapture(page: Window): void {
         ? "ja"
         : requestedLanguage || bodyLanguage,
       true,
+      requestEpisodeId,
     );
     if (pendingSecondaryLanguage) {
       const session = resolveNetflixTimedTextSession(page);
@@ -676,7 +715,11 @@ function installTimedTextCapture(page: Window): void {
 
   const fetchImpl = page.fetch?.bind(page);
   if (fetchImpl) {
-    const inspectJsonResponse = (response: Response, url: string): void => {
+    const inspectJsonResponse = (
+      response: Response,
+      url: string,
+      requestEpisodeId: string,
+    ): void => {
       const contentType = response.headers.get("content-type") ?? "";
       if (
         !JSON_METADATA_PATTERN.test(`${contentType} ${url}`) &&
@@ -686,7 +729,7 @@ function installTimedTextCapture(page: Window): void {
         return;
       }
       void response.clone().text().then((body) => {
-        inspectSubtitleBody(url, body, contentType);
+        inspectSubtitleBody(url, body, contentType, requestEpisodeId);
         if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) return;
         const trimmed = body.trim().replace(/^\)\]\}',?\s*/, "");
         if (trimmed[0] !== "{" && trimmed[0] !== "[") return;
@@ -699,6 +742,7 @@ function installTimedTextCapture(page: Window): void {
     };
     page.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const requestEpisodeId = readWatchEpisodeId(page);
       if (
         subtitleTrackCandidates.has(url) ||
         EXPLICIT_TIMED_TEXT_URL_PATTERN.test(url)
@@ -715,7 +759,7 @@ function installTimedTextCapture(page: Window): void {
         }
       }
       const response = await fetchImpl(input, init);
-      inspectJsonResponse(response, url);
+      inspectJsonResponse(response, url, requestEpisodeId);
       return response;
     }) as typeof page.fetch;
   }
@@ -741,6 +785,7 @@ function installTimedTextCapture(page: Window): void {
       this: XMLHttpRequest,
       body?: Document | XMLHttpRequestBodyInit | null,
     ) {
+      const requestEpisodeId = readWatchEpisodeId(page);
       this.addEventListener("load", () => {
         const url = this.responseURL || xhrUrls.get(this) || "";
         if (
@@ -760,7 +805,7 @@ function installTimedTextCapture(page: Window): void {
           this.responseType === "" || this.responseType === "text"
             ? this.responseText
             : "";
-        inspectSubtitleBody(url, responseBody, contentType);
+        inspectSubtitleBody(url, responseBody, contentType, requestEpisodeId);
         if (!JSON_METADATA_PATTERN.test(`${contentType} ${url}`)) {
           return;
         }

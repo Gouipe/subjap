@@ -41,7 +41,11 @@ des sources appartient à l’adaptateur, jamais aux raccourcis.
 
 Le bridge Netflix relaie l’identité de la piste japonaise active et celle de
 la traduction choisie par la sonde. Le contrôle de la piste japonaise continue
-après la sonde initiale. Le téléchargement par le service worker conserve
+après la sonde initiale. Le lecteur télécharge souvent la piste japonaise
+active avant que son URL soit connue, et ne la retélécharge pas lorsque la
+sonde la restaure : un fichier dont le contenu est japonais est alors attribué
+à la piste japonaise sélectionnée (ou à restaurer après la sonde), seulement
+s’il a été demandé pour l’épisode affiché. Le téléchargement par le service worker conserve
 l’identité d’épisode et de piste dans son contexte de requête.
 
 Le catalogue utilise un seul fichier exploitable par piste sélectionnée. Une
