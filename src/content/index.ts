@@ -19,6 +19,7 @@ import { forgetVideoSurface, mountVideoSurface } from "@/overlay/mount";
 import { adapterRegistry, GENERIC_HTML5_ADAPTER } from "@/core/adapters/registry";
 import { onMessage, sendMessage } from "@/core/messaging";
 import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
+import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { lookupCandidates } from "@/dictionary";
 import { dictionaryCompoundLookupTerms, mergeDictionaryCompounds } from "@/dictionary/compound";
 import { DICTIONARY_REVISION_STORAGE_KEY } from "@/dictionary/revision";
@@ -101,6 +102,8 @@ let listeningActivationRequest: {
 let nativeSubtitlesHidden = false;
 let nativeSubtitleReplacementReady = false;
 let runtimeUnavailable = false;
+/** Global on/off switch: while off, SubJap leaves the page untouched. */
+let enabled = false;
 
 function isExtensionContextInvalidated(error: unknown): boolean {
   return /extension context invalidated/i.test(
@@ -124,6 +127,7 @@ function handleRuntimeError(error: unknown): void {
 // Keeping the listener in the content script lets tab capture start from the
 // extension action without requiring the mining modal to be open first.
 onMessage("tabCapture:stream", async ({ streamId }) => {
+  if (!enabled) return {};
   ensureOverlay();
   await audioCapture?.startTabCapture(streamId);
   return {};
@@ -418,24 +422,7 @@ function ensureOverlay(): OverlayRenderer | null {
 
   // The video element can be swapped on SPA navigation (e.g. Netflix): tear
   // down the overlay mounted in the old player's parent and rebuild.
-  if (overlay && currentVideo !== video) {
-    listeningMode?.destroy();
-    listeningMode = null;
-    overlay.destroy();
-    overlay = null;
-    listeningActivationRequest = null;
-    deferredCuesWhileListening = null;
-    audioCapture?.destroy();
-    audioCapture = null;
-    currentVideo = null;
-    cueNavigator.reset();
-    miningModal?.destroy();
-    miningModal = null;
-    nativeSubtitleReplacementReady = false;
-    applyNativeSubtitleVisibility();
-    // Force the next cue set through the pipeline after a player swap.
-    lastSignature = "";
-  }
+  if (overlay && currentVideo !== video) destroyOverlay();
 
   if (!overlay) {
     overlay = new OverlayRenderer(video, overlayOptions);
@@ -457,6 +444,26 @@ function ensureOverlay(): OverlayRenderer | null {
   }
 
   return overlay;
+}
+
+/** Remove everything mounted on the player and give native subtitles back. */
+function destroyOverlay(): void {
+  listeningMode?.destroy();
+  listeningMode = null;
+  overlay?.destroy();
+  overlay = null;
+  listeningActivationRequest = null;
+  deferredCuesWhileListening = null;
+  audioCapture?.destroy();
+  audioCapture = null;
+  currentVideo = null;
+  cueNavigator.reset();
+  miningModal?.destroy();
+  miningModal = null;
+  nativeSubtitleReplacementReady = false;
+  applyNativeSubtitleVisibility();
+  // Force the next cue set through the pipeline after a player swap.
+  lastSignature = "";
 }
 
 async function ensureTokenizerReady(): Promise<Tokenizer | null> {
@@ -490,6 +497,7 @@ function cueSignature(cues: SubtitleCue[]): string {
 
 /** Start the newest cue immediately; older async work may finish but cannot commit. */
 function enqueueCues(cues: SubtitleCue[]): void {
+  if (!enabled) return;
   cues = pairTranslationWithJapaneseCues(cues);
   // The official track can arrive without changing the visible cue payload.
   // Seed navigation before listening-mode and signature deduplication.
@@ -1244,28 +1252,118 @@ function onToggleIgnored(
 // 7. Boot
 // ---------------------------------------------------------------------------
 
+let removeShortcuts: (() => void) | null = null;
+let ankiSyncTimer: number | null = null;
+
+function installShortcuts(): () => void {
+  const removePlaybackShortcuts = installPlaybackShortcuts(
+    document,
+    adapter,
+    cueNavigator,
+    (cue, action, resume) => {
+      listeningActivationRequest = null;
+      listeningMode?.cancel();
+      if (cue && (action === "previous" || action === "current")) {
+        return requestListeningMode(cue, resume);
+      }
+    },
+  );
+  const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
+    getText: () => {
+      const renderedCues = lastRenderedCues.map((rendered) => rendered.cue);
+      return subtitleTextForClipboard(
+        renderedCues.length > 0
+          ? renderedCues
+          : lastCues.filter((cue) => isJapaneseTrack(cue.language)),
+      );
+    },
+  });
+  const removeSecondarySubtitleRevealShortcut = installSecondarySubtitleRevealShortcut(
+    document,
+    () => overlay?.revealSecondarySubtitle(),
+    () => adapter.getVideoElement() !== null,
+  );
+  return () => {
+    removePlaybackShortcuts();
+    removeSubtitleCopyShortcut();
+    removeSecondarySubtitleRevealShortcut();
+  };
+}
+
+function enable(): void {
+  if (enabled) return;
+  enabled = true;
+  console.log("[SubJap] enabled");
+  // Warm UniDic while the player is mounting so ordinary cues can become
+  // interactive synchronously after their immediate plain-text first paint.
+  void ensureTokenizerReady();
+  void syncKnownWordsFromAnki(true);
+  ankiSyncTimer = window.setInterval(() => void syncKnownWordsFromAnki(), 120_000);
+  // Create the popover singleton (mounted on document.body).
+  getPopover({
+    onToggleKnown,
+    onToggleIgnored,
+    onMine: (token, entry) => {
+      void openMiningModal(token, entry);
+    },
+  });
+  removeShortcuts = installShortcuts();
+  adapter.setSecondarySubtitleLanguage?.(overlayOptions.secondarySubtitleLanguage);
+  adapter.subscribeCues((cues) => {
+    enqueueCues(cues);
+  });
+}
+
+/** Leave the page as if SubJap were not installed, without reloading it. */
+function disable(): void {
+  if (!enabled) return;
+  enabled = false;
+  console.log("[SubJap] disabled");
+  removeShortcuts?.();
+  removeShortcuts = null;
+  if (ankiSyncTimer !== null) window.clearInterval(ankiSyncTimer);
+  ankiSyncTimer = null;
+  // Invalidate cue renders still in flight.
+  cueRevision++;
+  lastCues = [];
+  pairedTranslation = null;
+  spanRegistry.clear();
+  lastRenderedCues = [];
+  cueNavigationSessionId = null;
+  clearHoverTimer();
+  clearHideTimer();
+  hoveredToken = null;
+  popoverPinned = false;
+  hidePopover();
+  const captureWarning = document.getElementById("subjap-mining-capture-warning");
+  if (captureWarning) {
+    forgetVideoSurface(captureWarning);
+    captureWarning.remove();
+  }
+  destroyOverlay();
+  adapter.destroy();
+}
+
 // Load the effective overlay options and keep them in sync when the user
 // changes settings from the options page.
-void getOptions().then((opts) => {
+void Promise.all([getOptions(), isSubJapEnabled()]).then(([opts, on]) => {
   overlayOptions = opts;
-  adapter.setSecondarySubtitleLanguage?.(opts.secondarySubtitleLanguage);
   console.log("[SubJap] options:", opts);
-  // Keep Netflix's subtitle visible until SubJap has painted its replacement.
-  applyNativeSubtitleVisibility();
+  if (on) enable();
 });
 
-// Warm UniDic while Netflix is mounting so ordinary cues can become
-// interactive synchronously after their immediate plain-text first paint.
-void ensureTokenizerReady();
-
-void syncKnownWordsFromAnki(true);
-window.setInterval(() => void syncKnownWordsFromAnki(), 120_000);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") void syncKnownWordsFromAnki();
+  if (enabled && document.visibilityState === "visible") void syncKnownWordsFromAnki();
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
+  const enabledChange = changes[ENABLED_STORAGE_KEY];
+  if (enabledChange) {
+    if (isEnabledValue(enabledChange.newValue)) enable();
+    else disable();
+  }
+
   if (changes[DICTIONARY_REVISION_STORAGE_KEY]) {
     dictionaryCompoundByTerm.clear();
     lastSignature = "";
@@ -1277,6 +1375,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   void getOptions().then((opts) => {
     overlayOptions = opts;
+    if (!enabled) return;
     adapter.setSecondarySubtitleLanguage?.(opts.secondarySubtitleLanguage);
     overlay?.setOptions(opts);
     applyNativeSubtitleVisibility();
@@ -1285,53 +1384,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   });
 });
 
-// Subscribe to subtitle cues from the active adapter.
-adapter.subscribeCues((cues) => {
-  enqueueCues(cues);
-});
-
-// Create the popover singleton (mounted on document.body).
-getPopover({
-  onToggleKnown,
-  onToggleIgnored,
-  onMine: (token, entry) => {
-    void openMiningModal(token, entry);
-  },
-});
-
-const removePlaybackShortcuts = installPlaybackShortcuts(
-  document,
-  adapter,
-  cueNavigator,
-  (cue, action, resume) => {
-    listeningActivationRequest = null;
-    listeningMode?.cancel();
-    if (cue && (action === "previous" || action === "current")) {
-      return requestListeningMode(cue, resume);
-    }
-  },
-);
-const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
-  getText: () => {
-    const renderedCues = lastRenderedCues.map((rendered) => rendered.cue);
-    return subtitleTextForClipboard(
-      renderedCues.length > 0
-        ? renderedCues
-        : lastCues.filter((cue) => isJapaneseTrack(cue.language)),
-    );
-  },
-});
-const removeSecondarySubtitleRevealShortcut = installSecondarySubtitleRevealShortcut(
-  document,
-  () => overlay?.revealSecondarySubtitle(),
-  () => adapter.getVideoElement() !== null,
-);
 window.addEventListener(
   "pagehide",
   () => {
-    removePlaybackShortcuts();
-    removeSubtitleCopyShortcut();
-    removeSecondarySubtitleRevealShortcut();
+    removeShortcuts?.();
+    removeShortcuts = null;
     document.removeEventListener("pointerdown", resumeTabAudio, true);
     document.removeEventListener("keydown", resumeTabAudio, true);
     audioCapture?.destroy();

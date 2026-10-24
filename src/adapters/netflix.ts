@@ -24,6 +24,7 @@ import {
 const NETFLIX_TIMED_TEXT_EVENT = "subjap:netflix-timed-text";
 const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
+const NETFLIX_RELEASE_EVENT = "subjap:netflix-release";
 const NETFLIX_SELECTED_TRACK_EVENT = "subjap:netflix-selected-track";
 const MAX_TIMED_TEXT_FETCH_RETRIES = 3;
 const TIMED_TEXT_FETCH_RETRY_MS = 2000;
@@ -1139,8 +1140,15 @@ export class NetflixAdapter implements PlatformAdapter {
   // destroy
   // -----------------------------------------------------------------------
   destroy(): void {
+    const subscribed = this.cueCallback !== null;
     this.trackUnsubscriber?.();
     this.trackUnsubscriber = null;
+    if (subscribed) {
+      window.postMessage(
+        { source: "subjap", type: NETFLIX_RELEASE_EVENT },
+        window.location.origin,
+      );
+    }
     this.detachTimedTextObserver();
     this.videoObserver?.disconnect();
     this.videoObserver = null;
@@ -1197,6 +1205,8 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private requestCurrentEpisodeTimedText(): void {
+    // A request makes the page bridge probe tracks; only a subscriber may.
+    if (!this.cueCallback) return;
     const episodeId = this.currentWatchId();
     if (!episodeId) return;
     window.postMessage(

@@ -36,6 +36,8 @@ interface YouTubePlayer extends HTMLElement {
   const nativeSecondarySelections = new Set<string>();
   let secondaryProbe: { trackId: string; restore: YouTubeCaptionTrack; deadline: number } | null = null;
   let navigationGeneration = 0;
+  // The adapter unsubscribed: finish a translation probe, then stay passive.
+  let released = false;
   const observedFiles = new Map<string, string>();
 
   const currentId = (): string => location.pathname === "/watch"
@@ -193,8 +195,6 @@ interface YouTubePlayer extends HTMLElement {
     const signature = JSON.stringify(info);
     if (signature !== infoSignature) { infoSignature = signature; emit("info", info); }
     if (info.live || playingVideoId !== videoId || player.matches(".ad-showing, .ad-interrupting")) return;
-    for (const [url, body] of observedFiles) captureResponse(url, body, navigationGeneration);
-    for (const track of tracks) void load(track);
     const selectNative = (track: YouTubeCaptionTrack): boolean => {
       try {
         player.loadModule?.("captions");
@@ -206,6 +206,13 @@ interface YouTubePlayer extends HTMLElement {
         return true;
       } catch { return false; }
     };
+    if (released) {
+      if (secondaryProbe && selectNative(primary ?? secondaryProbe.restore)) secondaryProbe = null;
+      if (!secondaryProbe) session = "";
+      return;
+    }
+    for (const [url, body] of observedFiles) captureResponse(url, body, navigationGeneration);
+    for (const track of tracks) void load(track);
     // Let the native player sign a missing secondary request, then restore
     // Japanese. The already loaded Japanese file keeps the overlay stable.
     if (secondaryProbe) {
@@ -232,7 +239,14 @@ interface YouTubePlayer extends HTMLElement {
   const onMessage = (event: MessageEvent<unknown>): void => {
     if (event.source !== window || event.origin !== location.origin) return;
     const message = event.data as { source?: unknown; type?: unknown; payload?: unknown } | null;
-    if (message?.source !== "subjap" || message.type !== "subjap:youtube-request") return;
+    if (message?.source !== "subjap") return;
+    if (message.type === "subjap:youtube-release") {
+      released = true;
+      for (const controller of controllers) controller.abort();
+      if (!secondaryProbe) session = "";
+      return;
+    }
+    if (message.type !== "subjap:youtube-request") return;
     const payload = message.payload as Record<string, unknown> | null;
     if (typeof payload?.videoId !== "string" || payload.videoId !== currentId() ||
       !/^[\w-]{11}$/.test(payload.videoId) || typeof payload.session !== "string" || payload.session.length > 100) return;
@@ -242,6 +256,7 @@ interface YouTubePlayer extends HTMLElement {
       nativeSecondarySelections.clear(); secondaryProbe = null;
       videoId = payload.videoId; session = payload.session;
     }
+    released = false;
     preferred = payload.preferredSecondaryLanguage === "none"
       ? "none"
       : payload.preferredSecondaryLanguage === "en"

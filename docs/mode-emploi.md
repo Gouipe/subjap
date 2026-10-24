@@ -54,6 +54,12 @@ acquis. Les choix manuels dans SubJap et les mots ignorés restent prioritaires.
 La synchronisation a lieu à l’ouverture de Netflix, au retour sur l’onglet et
 toutes les deux minutes, avec Anki ouvert. La popup seule ne la déclenche pas.
 
+Pour regarder une vidéo sans SubJap, utiliser l’interrupteur en haut de la
+popup. Désactivé, SubJap ne fait plus rien sur aucun site : pas d’overlay, pas
+de raccourcis, sous-titres natifs inchangés. L’effet est immédiat dans les
+onglets ouverts, sans rechargement, et l’icône affiche **OFF** jusqu’à la
+réactivation.
+
 Chaque profil de navigateur possède sa propre base locale : SubJap peut être
 utilisé dans plusieurs navigateurs ou profils, mais leurs états de vocabulaire
 ne se synchronisent pas entre eux. Les décisions manuelles ne sont donc pas

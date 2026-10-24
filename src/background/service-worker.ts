@@ -4,6 +4,7 @@
 
 import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
+import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { onMessage } from "@/core/messaging";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
@@ -64,13 +65,50 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
   void ensureFrequencyRanks();
   void scheduleProductionReleaseAlarm();
+  void isSubJapEnabled().then(updateEnabledBadge);
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  void isSubJapEnabled().then(updateEnabledBadge);
   void ensureFrequencyRanks();
   void scheduleProductionReleaseAlarm();
   void releaseDueProductionCards().catch((err) => {
     console.info("[SubJap] Pending production release unavailable:", err);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Global on/off switch: the action badge shows "OFF" while SubJap is off.
+// ---------------------------------------------------------------------------
+
+const DISABLED_BADGE_COLOR = "#343842";
+const DISABLED_BADGE_TEXT_COLOR = "#f4f1ea";
+const CAPTURE_BADGE_COLOR = "#78d6a3";
+
+async function updateEnabledBadge(enabled: boolean): Promise<void> {
+  await chrome.action.setBadgeText({ text: enabled ? "" : "OFF" });
+  await chrome.action.setBadgeBackgroundColor({ color: DISABLED_BADGE_COLOR });
+  await chrome.action.setBadgeTextColor({ color: DISABLED_BADGE_TEXT_COLOR });
+  // The tab audio capture sets an "ON" badge on its tab, which would
+  // otherwise hide the global state there.
+  const capturedTabs = await new Promise<chrome.tabCapture.CaptureInfo[]>((resolve) => {
+    chrome.tabCapture.getCapturedTabs(resolve);
+  });
+  for (const { tabId, status } of capturedTabs) {
+    if (status !== "active") continue;
+    await chrome.action.setBadgeText({ tabId, text: enabled ? "ON" : "OFF" });
+    await chrome.action.setBadgeBackgroundColor({
+      tabId,
+      color: enabled ? CAPTURE_BADGE_COLOR : DISABLED_BADGE_COLOR,
+    });
+  }
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  const change = changes[ENABLED_STORAGE_KEY];
+  if (areaName !== "local" || !change) return;
+  void updateEnabledBadge(isEnabledValue(change.newValue)).catch((err: unknown) => {
+    console.warn("[SubJap] Badge update failed:", err);
   });
 });
 

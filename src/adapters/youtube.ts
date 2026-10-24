@@ -139,6 +139,10 @@ export class YouTubeAdapter implements PlatformAdapter {
   }
 
   destroy(): void {
+    // Without a subscriber, the page bridge must stop driving the player.
+    if (this.callback) {
+      window.postMessage({ source: "subjap", type: "subjap:youtube-release" }, location.origin);
+    }
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     window.removeEventListener("message", this.onMessage);

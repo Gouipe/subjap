@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, saveOptions } from "@/core/options";
+import { isSubJapEnabled, setSubJapEnabled } from "@/core/enabled";
 import type { SecondarySubtitleLanguage } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
 import {
@@ -90,6 +91,8 @@ const LISTENING_SHORTCUT_GUIDE = [
 ] as const;
 
 const Popup: React.FC = () => {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [savingEnabled, setSavingEnabled] = useState(false);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [dict, setDict] = useState<DictStatus | null>(null);
@@ -130,6 +133,24 @@ const Popup: React.FC = () => {
     setActiveListeningMode(optionsResult.activeListeningMode);
     setConnected(true);
     setError(null);
+  }, []);
+
+  useEffect(() => {
+    void isSubJapEnabled().then(setEnabled, () => setEnabled(true));
+  }, []);
+
+  const toggleEnabled = useCallback(async (next: boolean) => {
+    setEnabled(next);
+    setSavingEnabled(true);
+    setError(null);
+    try {
+      await setSubJapEnabled(next);
+    } catch (err: unknown) {
+      setEnabled(!next);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingEnabled(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -371,8 +392,43 @@ const Popup: React.FC = () => {
         </span>
       </div>
 
+      {enabled !== null && (
+        <div style={styles.enabledBox}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            style={styles.enabledSwitch}
+            disabled={savingEnabled}
+            onClick={() => void toggleEnabled(!enabled)}
+          >
+            <span>{enabled ? "SubJap activé" : "SubJap désactivé"}</span>
+            <span
+              aria-hidden="true"
+              style={{
+                ...styles.switchTrack,
+                background: enabled ? "#ff624d" : "#343842",
+              }}
+            >
+              <span
+                style={{
+                  ...styles.switchKnob,
+                  transform: enabled ? "translateX(14px)" : "none",
+                }}
+              />
+            </span>
+          </button>
+          {!enabled && (
+            <p style={styles.captureHint}>
+              Aucun sous-titre ni raccourci SubJap sur les vidéos jusqu’à la réactivation.
+            </p>
+          )}
+        </div>
+      )}
+
       {error && <p style={styles.error}>{error}</p>}
 
+      {enabled !== false && (<>
       <div style={styles.captureBox}>
         <button
           style={styles.captureButton}
@@ -661,6 +717,7 @@ const Popup: React.FC = () => {
       <button style={styles.linkButton} onClick={() => void chrome.runtime.openOptionsPage()}>
         Options
       </button>
+      </>)}
     </div>
   );
 };
@@ -750,6 +807,43 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 10,
     paddingTop: 10,
     borderTop: "1px solid #343842",
+  },
+  enabledBox: {
+    marginBottom: 10,
+  },
+  enabledSwitch: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    width: "100%",
+    padding: "8px 10px",
+    border: "1px solid #343842",
+    borderRadius: 6,
+    background: "#14161b",
+    color: "#f4f1ea",
+    fontFamily: "inherit",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  switchTrack: {
+    position: "relative",
+    flexShrink: 0,
+    width: 32,
+    height: 18,
+    borderRadius: 999,
+    transition: "background-color 150ms ease",
+  },
+  switchKnob: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    width: 14,
+    height: 14,
+    borderRadius: "50%",
+    background: "#f4f1ea",
+    transition: "transform 150ms ease",
   },
   captureBox: {
     marginTop: 10,

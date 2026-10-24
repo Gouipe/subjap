@@ -487,6 +487,17 @@ carte demeure valide.
   sous-titres natifs, masquage conditionnel des traductions FR/EN, remise à
   zéro des données et relance de l’onboarding.
 
+L’interrupteur global de la popup est persisté dans
+`chrome.storage.local["subjap_enabled"]` ([`src/core/enabled.ts`](../src/core/enabled.ts)),
+hors des options d’overlay. Le content script ne s’abonne à l’adaptateur,
+n’installe ses raccourcis et ne charge UniDic qu’une fois activé ; à la
+désactivation, il détruit overlay et adaptateur et rend les sous-titres natifs.
+Un adaptateur détruit libère son bridge de page (`subjap:netflix-release`,
+`subjap:youtube-release`) : les bridges continuent d’observer passivement mais
+ne changent plus de piste dans le lecteur, et Netflix ne sonde la traduction
+qu’après une première requête d’un adaptateur abonné. Le service worker affiche
+le badge **OFF**.
+
 Les pages React ne contiennent pas la logique de lecture : elles utilisent le
 bus de messages et les modules partagés pour lire ou modifier l’état.
 

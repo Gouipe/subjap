@@ -2,6 +2,7 @@ export const NETFLIX_SEEK_EVENT = "subjap:netflix-seek";
 export const NETFLIX_SEEK_RESULT_EVENT = "subjap:netflix-seek-result";
 export const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 export const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
+export const NETFLIX_RELEASE_EVENT = "subjap:netflix-release";
 export const NETFLIX_SELECTED_TRACK_EVENT = "subjap:netflix-selected-track";
 
 type SecondarySubtitleLanguage = "fr" | "en" | "none";
@@ -381,6 +382,9 @@ function installTimedTextCapture(page: Window): void {
   const episodeMismatchLogged = new WeakSet<object>();
   const loggedTrackLists = new WeakSet<object>();
   let lastNativeSelection = "";
+  // Probes briefly switch Netflix's visible subtitles: only probe for a
+  // subscribed SubJap adapter. Metadata capture itself stays passive.
+  let subscribed = false;
 
   const announceTrack = (
     session: NetflixTimedTextSession,
@@ -901,7 +905,7 @@ function installTimedTextCapture(page: Window): void {
   };
 
   const probeSecondaryTimedTextTrack = (): void => {
-    if (preferredSecondaryLanguage === "none") return;
+    if (!subscribed || preferredSecondaryLanguage === "none") return;
     const session = resolveNetflixTimedTextSession(page);
     if (!session) {
       probeSecondaryTrackThroughUi();
@@ -1050,6 +1054,20 @@ function installTimedTextCapture(page: Window): void {
     }, 250);
   }
 
+  /** Put the Japanese track back if a probe is still showing a translation. */
+  const cancelSecondaryProbe = (): void => {
+    const session = resolveNetflixTimedTextSession(page);
+    clearPendingAssociations();
+    if (session && pendingNativeTrack) {
+      restoreNativeTrack(session, pendingNativeTrack);
+    } else if (uiNativeRestore !== null) {
+      restoreNativeTrackThroughUi();
+    } else {
+      pendingSecondaryLanguage = "";
+      pendingNativeTrack = null;
+    }
+  };
+
   let trackProbeCount = 0;
   const setInterval = page.setInterval?.bind(page);
   if (setInterval) {
@@ -1073,12 +1091,14 @@ function installTimedTextCapture(page: Window): void {
         preferredSecondaryLanguage?: unknown;
       };
     };
-    if (
-      data?.source !== "subjap" ||
-      data.type !== NETFLIX_TIMED_TEXT_REQUEST_EVENT
-    ) {
+    if (data?.source !== "subjap") return;
+    if (data.type === NETFLIX_RELEASE_EVENT) {
+      subscribed = false;
+      cancelSecondaryProbe();
       return;
     }
+    if (data.type !== NETFLIX_TIMED_TEXT_REQUEST_EVENT) return;
+    subscribed = true;
     const episodeId =
       typeof data.payload?.episodeId === "string"
         ? data.payload.episodeId
@@ -1090,18 +1110,7 @@ function installTimedTextCapture(page: Window): void {
       if (preferredSecondaryLanguage !== requestedLanguage) {
         preferredSecondaryLanguage = requestedLanguage;
         uiProbeAttempted = false;
-        if (requestedLanguage === "none") {
-          const session = resolveNetflixTimedTextSession(page);
-          clearPendingAssociations();
-          if (session && pendingNativeTrack) {
-            restoreNativeTrack(session, pendingNativeTrack);
-          } else if (uiNativeRestore !== null) {
-            restoreNativeTrackThroughUi();
-          } else {
-            pendingSecondaryLanguage = "";
-            pendingNativeTrack = null;
-          }
-        }
+        if (requestedLanguage === "none") cancelSecondaryProbe();
       }
     }
     for (const track of discoveredTracks.values()) {
