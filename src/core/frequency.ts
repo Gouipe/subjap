@@ -10,7 +10,11 @@ export type FrequencyHighlight =
   | "near"
   | "unknown";
 
-/** Punctuation and whitespace do not count as words for subtitle modes. */
+// Punctuation, symbols, separators and a standalone long-vowel mark (ー, used
+// as a dash in subtitles; inside a word it stays part of the lexeme).
+const NON_LEXICAL_SURFACE = /^[\p{P}\p{S}\p{Z}\p{C}ー]+$/u;
+
+/** Punctuation, symbols and whitespace do not count as words for subtitle modes. */
 export function isNonLexicalToken(
   token: Pick<Token, "surface" | "partOfSpeech">,
 ): boolean {
@@ -18,7 +22,7 @@ export function isNonLexicalToken(
     token.surface.trim().length === 0 ||
     token.partOfSpeech.includes("記号") ||
     token.partOfSpeech.includes("補助記号") ||
-    /^[、。！？!?.,，．：；「」『』（）()…]+$/u.test(token.surface)
+    NON_LEXICAL_SURFACE.test(token.surface)
   );
 }
 

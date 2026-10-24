@@ -1,9 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
   getFrequencyHighlight,
+  isNonLexicalToken,
   isSingleMiningCandidate,
   NEAR_FREQUENCY_WINDOW,
 } from "@/core/frequency";
+
+describe("isNonLexicalToken", () => {
+  const nonLexical = (surface: string) =>
+    isNonLexicalToken({ surface, partOfSpeech: [] });
+
+  it("treats quotes, dashes and symbols as non-lexical without relying on POS", () => {
+    for (const surface of ['"', "“", "”", "—", "——", "―", "〜", "ー", "ーー", "♪", "・", "…", " "]) {
+      expect(nonLexical(surface), surface).toBe(true);
+    }
+  });
+
+  it("keeps real words, including ones containing a long-vowel mark", () => {
+    for (const surface of ["猫", "もし", "コーヒー", "ABC", "123"]) {
+      expect(nonLexical(surface), surface).toBe(false);
+    }
+  });
+});
 
 describe("getFrequencyHighlight", () => {
   it("keeps known words neutral even when highly frequent", () => {
