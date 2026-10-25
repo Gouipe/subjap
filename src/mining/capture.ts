@@ -60,9 +60,33 @@ export function captureFrame(
   return captureCanvasFrame(video, time);
 }
 
+/**
+ * Viewport rectangle of the visible picture inside a video element. Players
+ * often size the element to the window and let `object-fit` letterbox the
+ * picture, so cropping to the element would keep the black bars.
+ */
+function videoPictureRect(video: HTMLVideoElement): DOMRect {
+  const rect = video.getBoundingClientRect();
+  const { videoWidth, videoHeight } = video;
+  const fit = getComputedStyle(video).objectFit;
+  if (!videoWidth || !videoHeight || rect.width <= 0 || rect.height <= 0) return rect;
+  if (fit === "fill" || fit === "cover") return rect;
+
+  const containScale = Math.min(rect.width / videoWidth, rect.height / videoHeight);
+  const scale = fit === "none" ? 1 : fit === "scale-down" ? Math.min(1, containScale) : containScale;
+  const width = Math.min(rect.width, videoWidth * scale);
+  const height = Math.min(rect.height, videoHeight * scale);
+  return new DOMRect(
+    rect.left + (rect.width - width) / 2,
+    rect.top + (rect.height - height) / 2,
+    width,
+    height,
+  );
+}
+
 function captureTabVideo(sourceVideo: HTMLVideoElement, tabVideo: HTMLVideoElement): Promise<string> {
   return new Promise((resolve, reject) => {
-    const rect = sourceVideo.getBoundingClientRect();
+    const rect = videoPictureRect(sourceVideo);
     const sourceWidth = tabVideo.videoWidth || window.innerWidth;
     const sourceHeight = tabVideo.videoHeight || window.innerHeight;
     const scaleX = sourceWidth / Math.max(window.innerWidth, 1);
@@ -102,7 +126,7 @@ function captureTabVideo(sourceVideo: HTMLVideoElement, tabVideo: HTMLVideoEleme
 async function captureVisibleVideo(video: HTMLVideoElement): Promise<string> {
   const { dataUrl } = await sendMessage("screenshot:capture", {});
   const image = await loadImage(dataUrl);
-  const rect = video.getBoundingClientRect();
+  const rect = videoPictureRect(video);
   const scaleX = image.width / Math.max(window.innerWidth, 1);
   const scaleY = image.height / Math.max(window.innerHeight, 1);
   const sourceX = Math.max(0, Math.round(rect.left * scaleX));
