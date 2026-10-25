@@ -167,7 +167,8 @@ Règles du verso :
   les libellés `Synonyme :`, `Nuance :` et `Association :` mis en valeur. Il
   s’applique aussi aux notes existantes ; une ligne qui ne suit pas ce format
   reste affichée telle quelle, et une note sans ligne reconnue n’est pas
-  modifiée. Le texte garde une mesure d’environ 70 caractères par ligne ;
+  modifiée. Le texte occupe toute la largeur du panneau, la colonne limitant
+  déjà la longueur des lignes ;
 - traduction révélée par « Voir la traduction », puis maintenue visible sans
   contrôle secondaire qui prend de la place ;
 - pas de règle qui recadre l’image avec `object-fit: cover` ou qui masque Notes.

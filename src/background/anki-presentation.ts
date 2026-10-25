@@ -857,13 +857,9 @@ ruby rt {
   background: var(--surface);
 }
 
-/* Tiles use the panel width; only running text keeps a reading measure. */
+/* The column already bounds the reading measure: notes use the full panel width. */
 .back-layout .notes {
   max-width: none;
-}
-
-.notes-text {
-  max-width: 70ch;
 }
 
 .kanji-tiles {
