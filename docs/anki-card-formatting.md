@@ -80,18 +80,24 @@ sans le bloc d’activation de la production.
 
 Le verso (template version 14) s’organise en trois zones :
 
-1. **étude** : la fiche du mot, qui regroupe `Mot` (couleur d’accent) et
-   `Définitions` ;
-2. **scène** : `Image`, puis `Phrase`, puis une ligne de contrôles avec l’audio
-   `Mot`/`Phrase` et le bouton de révélation de `Traduction` ;
+1. **étude** : la fiche du mot, qui regroupe `Mot` (couleur d’accent),
+   `Définitions` et l’action discrète d’activation de la production ;
+2. **scène** : un panneau avec `Image` bord à bord en haut, puis `Phrase`, puis
+   une ligne de contrôles avec l’audio `Mot`/`Phrase` et le bouton de
+   révélation de `Traduction` ; la traduction révélée s’affiche sous cette
+   ligne, sans titre ;
 3. **Notes**, si le champ existe.
 
 À partir de 1100 px de large, l’étude et les Notes forment la colonne de gauche
 et la scène la colonne de droite. En dessous, les zones s’empilent dans l’ordre
 étude → scène → Notes : le sens d’abord, puis le contexte, puis
-l’approfondissement. Le bloc d’activation de la production, placé après la
-carte dans le template, est déplacé par le script géré sous les contrôles de la
-scène, une fois les scripts de la carte exécutés.
+l’approfondissement.
+
+Activer la production est une décision sur le mot : le bloc d’activation, placé
+après la carte dans le template, est déplacé par le script géré à la fin de la
+fiche du mot, une fois les scripts de la carte exécutés. Le bouton y est
+secondaire et aligné à droite ; son explication reste dans l’infobulle et pour
+les lecteurs d’écran.
 
 Lors de la synchronisation, un verso v13 ou antérieur dont le corps est inchangé
 reçoit cette structure ; ce qui l’entoure (balises HyperTTS, scripts) est

@@ -733,9 +733,15 @@ ruby rt {
   min-width: 0;
 }
 
+/* The scene is a panel like the word sheet: image flush on top, then its caption and controls. */
 .back-layout .scene-column {
   grid-area: scene;
   min-width: 0;
+  overflow: hidden;
+  padding-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
   text-align: center;
 }
 
@@ -763,15 +769,17 @@ ruby rt {
 
 .back-layout .back-image {
   max-width: none;
-  margin: 0 0 12px;
+  margin: 0;
+  background: var(--bg);
 }
 
 .back-layout .back-image img {
   max-height: min(420px, 45vh);
+  border-radius: 0;
 }
 
 .back-layout .back-sentence {
-  padding: 0 8px;
+  padding: 16px 20px 0;
   font-size: 28px;
 }
 
@@ -781,7 +789,7 @@ ruby rt {
   justify-content: center;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  margin: 12px 20px 0;
 }
 
 /* Audio controls join the translation button as direct flex items. */
@@ -798,10 +806,49 @@ ruby rt {
   flex-basis: 100%;
 }
 
-.scene-column .production-activation {
+/* Revealed in place of its button, the translation needs no label of its own. */
+.scene-column .translation-content {
+  margin-top: 4px;
+  padding: 12px 8px 0;
+}
+
+.scene-column .translation-content .section-label {
+  display: none;
+}
+
+/* Activating production is a decision about the word: a discreet action closing the word sheet. */
+.word-sheet .production-activation {
+  align-items: flex-end;
   max-width: none;
-  margin: 24px 0 0;
+  margin: 14px 0 0;
   padding: 0;
+  text-align: right;
+}
+
+.word-sheet .production-activation-button {
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.word-sheet .production-activation-button:hover,
+.word-sheet .production-activation-button:focus-visible {
+  color: var(--accent-strong);
+}
+
+.word-sheet .production-activation-button[data-state="success"] {
+  color: var(--priority-green, #78d6a3);
+}
+
+/* The explanation stays in the button tooltip and for screen readers. */
+.word-sheet .production-activation-hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .back-layout .back-notes {
@@ -1156,13 +1203,13 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     notes.appendChild(text);
   });
 
-  // The production block follows the card in the template: place it under the scene controls.
+  // The production block follows the card in the template: place it at the end of the word sheet.
   // Deferred because Anki runs the card's scripts in document order while this one executes;
   // moving the block (and its script) earlier now would make Anki skip that script.
   setTimeout(() => {
     const activation = document.querySelector(".production-activation");
-    const scene = document.querySelector(".back-layout .scene-column");
-    if (activation && scene && !scene.contains(activation)) scene.appendChild(activation);
+    const sheet = document.querySelector(".back-layout .word-sheet");
+    if (activation && sheet && !sheet.contains(activation)) sheet.appendChild(activation);
   }, 0);
 
   // Anki reuses the document between cards: replace, rather than accumulate, listeners.
