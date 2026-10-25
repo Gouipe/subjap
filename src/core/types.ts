@@ -168,7 +168,8 @@ export interface WordState {
   key: string; // canonical lexeme identity
   status: WordStatus;
   knownAt?: number;
-  source: "manual" | "frequency-list" | "import";
+  /** "default" is derived at render time and never persisted. */
+  source: "manual" | "frequency-list" | "import" | "default";
 }
 
 export interface AnkiWordPresence {

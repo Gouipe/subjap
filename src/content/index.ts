@@ -25,7 +25,11 @@ import { dictionaryCompoundLookupTerms, mergeDictionaryCompounds } from "@/dicti
 import { DICTIONARY_REVISION_STORAGE_KEY } from "@/dictionary/revision";
 import { dictionaryReadingForToken } from "@/dictionary/match";
 import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
-import { isAllKnownOrIgnored, isNonLexicalToken } from "@/core/frequency";
+import {
+  effectiveWordState,
+  isAllKnownOrIgnored,
+  isNonLexicalToken,
+} from "@/core/frequency";
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { ListeningMode } from "./listening-mode";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
@@ -205,7 +209,6 @@ let deferredCuesWhileListening: SubtitleCue[] | null = null;
 const spanRegistry = new Map<number, { cue: SubtitleCue; token: Token }>();
 
 /** lemma → last resolved status (synchronous reads for the popover). */
-const wordStatusByLemma = new LRUCache<string, WordStatus | null>(1_000);
 
 /** Full word state used by the fast synchronous subtitle render. */
 const wordStateByLemma = new LRUCache<string, WordState | null>(1_000);
@@ -291,7 +294,6 @@ async function getWordStates(
     if (revision !== cueRevision) return;
     for (const item of result.items) {
       wordStateByLemma.set(item.key, item.state);
-      wordStatusByLemma.set(item.key, item.state?.status ?? null);
       ankiNoteCountByLemma.set(item.key, item.ankiNoteCount);
       const aliases = aliasesByLemma.get(item.key);
       if (aliases) queriedAliasesByLemma.set(item.key, aliases);
@@ -302,7 +304,6 @@ async function getWordStates(
     if (revision !== cueRevision) return;
     for (const { key } of missing) {
       wordStateByLemma.set(key, null);
-      wordStatusByLemma.set(key, null);
       ankiNoteCountByLemma.set(key, 0);
     }
   }
@@ -342,7 +343,6 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
       ) return;
 
       wordStateByLemma.clear();
-      wordStatusByLemma.clear();
       ankiNoteCountByLemma.clear();
       queriedAliasesByLemma.clear();
       knownWordCountPromise = null;
@@ -659,13 +659,18 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
         const index = globalIndex++;
         registry.set(index, { cue, token });
         const lexicalKey = tokenCanonicalKey(token);
+        const storedState = wordStateByLemma.get(lexicalKey) ?? null;
+        const ankiNoteCount = ankiNoteCountByLemma.get(lexicalKey) ?? 0;
         return {
           index,
           token,
-          wordState: wordStateByLemma.get(lexicalKey) ?? null,
+          // Metadata is not loaded yet while pending: wait before defaulting.
+          wordState: pending
+            ? storedState
+            : effectiveWordState(token, storedState, ankiNoteCount),
           isPending: pending,
           isParenthetical: parentheticalFlags[tokenIndex],
-          ankiNoteCount: ankiNoteCountByLemma.get(lexicalKey) ?? 0,
+          ankiNoteCount,
           frequencyRank:
             frequencyRanks[lexicalKey] ??
             frequencyRanks[tokenDictionaryForm(token)] ??
@@ -1112,7 +1117,12 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
     anchor,
     token,
     entry: dictEntry,
-    wordStatus: wordStatusByLemma.get(tokenCanonicalKey(token)) ?? null,
+    wordStatus:
+      effectiveWordState(
+        token,
+        wordStateByLemma.get(tokenCanonicalKey(token)) ?? null,
+        renderedSpan?.ankiNoteCount ?? 0,
+      )?.status ?? null,
     frequencyRank: renderedSpan?.frequencyRank,
     ankiNoteCount: renderedSpan?.ankiNoteCount ?? 0,
   });
@@ -1226,7 +1236,6 @@ function onToggleKnown(lemma: string, currentStatus: WordStatus | null): void {
       enqueueCues(lastCues);
     });
 
-  wordStatusByLemma.set(lemma, next.status);
   wordStateByLemma.set(lemma, next);
   lastSignature = "";
   enqueueCues(lastCues);
@@ -1256,7 +1265,6 @@ function onToggleIgnored(
       enqueueCues(lastCues);
     });
 
-  wordStatusByLemma.set(lemma, next.status);
   wordStateByLemma.set(lemma, next);
   lastSignature = "";
   enqueueCues(lastCues);

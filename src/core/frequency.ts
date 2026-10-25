@@ -26,6 +26,26 @@ export function isNonLexicalToken(
   );
 }
 
+/** Interjections and fillers (んっ, えっ, ああ, えー) are noise for vocabulary tracking. */
+export function isDefaultIgnoredToken(token: Pick<Token, "partOfSpeech">): boolean {
+  return (
+    token.partOfSpeech.includes("感動詞") || token.partOfSpeech.includes("フィラー")
+  );
+}
+
+/**
+ * Apply the default "ignored" status to interjections. Any stored state
+ * (including an explicit Unignore) or an existing Anki card takes precedence.
+ */
+export function effectiveWordState(
+  token: Pick<Token, "partOfSpeech" | "canonicalKey" | "lemma">,
+  stored: WordState | null,
+  ankiNoteCount: number,
+): WordState | null {
+  if (stored || ankiNoteCount > 0 || !isDefaultIgnoredToken(token)) return stored;
+  return { key: token.canonicalKey ?? token.lemma, status: "ignored", source: "default" };
+}
+
 /** Return true when every lexical word is explicitly known or ignored. */
 export function isAllKnownOrIgnored(spans: readonly SpanToken[]): boolean {
   const lexicalSpans = spans.filter(
