@@ -89,7 +89,9 @@ Le verso (template version 14) s’organise en trois zones :
 À partir de 1100 px de large, l’étude et les Notes forment la colonne de gauche
 et la scène la colonne de droite. En dessous, les zones s’empilent dans l’ordre
 étude → scène → Notes : le sens d’abord, puis le contexte, puis
-l’approfondissement. Le bloc d’activation de la production reste sous la carte.
+l’approfondissement. Le bloc d’activation de la production, placé après la
+carte dans le template, est déplacé par le script géré sous les contrôles de la
+scène, une fois les scripts de la carte exécutés.
 
 Lors de la synchronisation, un verso v13 ou antérieur dont le corps est inchangé
 reçoit cette structure ; ce qui l’entoure (balises HyperTTS, scripts) est

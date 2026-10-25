@@ -772,6 +772,7 @@ ruby rt {
 
 .back-layout .back-sentence {
   padding: 0 8px;
+  font-size: 28px;
 }
 
 .scene-controls {
@@ -797,6 +798,12 @@ ruby rt {
   flex-basis: 100%;
 }
 
+.scene-column .production-activation {
+  max-width: none;
+  margin: 24px 0 0;
+  padding: 0;
+}
+
 .back-layout .back-notes {
   grid-area: notes;
   min-width: 0;
@@ -816,7 +823,7 @@ ruby rt {
 
 .kanji-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 8px;
   margin: 2px 0 12px;
 }
@@ -1148,6 +1155,15 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     });
     notes.appendChild(text);
   });
+
+  // The production block follows the card in the template: place it under the scene controls.
+  // Deferred because Anki runs the card's scripts in document order while this one executes;
+  // moving the block (and its script) earlier now would make Anki skip that script.
+  setTimeout(() => {
+    const activation = document.querySelector(".production-activation");
+    const scene = document.querySelector(".back-layout .scene-column");
+    if (activation && scene && !scene.contains(activation)) scene.appendChild(activation);
+  }, 0);
 
   // Anki reuses the document between cards: replace, rather than accumulate, listeners.
   if (window.__subjapAudioControlsCleanup) window.__subjapAudioControlsCleanup();
