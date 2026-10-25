@@ -88,10 +88,12 @@ Le verso (template version 14) s’organise en trois zones :
    ligne, sans titre ;
 3. **Notes**, si le champ existe.
 
-À partir de 1100 px de large, l’étude et les Notes forment la colonne de gauche
-et la scène la colonne de droite. En dessous, les zones s’empilent dans l’ordre
-étude → scène → Notes : le sens d’abord, puis le contexte, puis
-l’approfondissement.
+Les zones s’empilent dans une colonne centrée (760 px au plus), quelle que soit
+la largeur de la fenêtre : le sens d’abord, puis le contexte, puis
+l’approfondissement. Une mise en page en deux colonnes (étude à gauche, scène à
+droite) a été essayée puis abandonnée : elle faisait faire des allers-retours à
+l’œil et laissait un grand vide en plein écran. Les Notes peuvent demander un
+défilement, ce qui est acceptable pour des informations consultées au besoin.
 
 Activer la production est une décision sur le mot : le bloc d’activation, placé
 après la carte dans le template, est déplacé par le script géré à la fin de la
@@ -153,13 +155,13 @@ pas concurrencer le contenu.
 
 Règles du verso :
 
-- mot (44 px) nettement plus grand que la phrase (24 px) ;
+- mot (44 px) nettement plus grand que la phrase (28 px) ;
 - contrôles audio nommés `Mot` et `Phrase` et bouton « Voir la traduction »
   alignés sur une seule ligne, dans le même style secondaire neutre, chacun
   avec son raccourci (`Q`, `W`) ; la traduction révélée occupe sa propre ligne ;
 - image affichée en entier avec `object-fit: contain` ;
-- image limitée à `min(420px, 45vh)` en hauteur, ou `min(560px, 75vh)` en deux
-  colonnes ;
+- image limitée à `min(460px, 60vh)` en hauteur, ce qui laisse une image 16:9
+  remplir la largeur de la colonne dans les fenêtres de révision habituelles ;
 - Notes : le script géré transforme chaque ligne de kanji (`方 — Direction`) et
   ses exemples `・…` en tuiles côte à côte, puis affiche le reste en texte, avec
   les libellés `Synonyme :`, `Nuance :` et `Association :` mis en valeur. Il

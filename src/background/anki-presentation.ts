@@ -717,25 +717,22 @@ ruby rt {
 
 }
 
-/* Back layout: study (word sheet, notes) and scene (image, sentence, controls).
-   Stacked as study → scene → notes, then side by side on wide windows. */
+/* Back layout: one centered column read top to bottom, whatever the window width:
+   study (word sheet) → scene (image, sentence, controls) → notes. */
 .back-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "study" "scene" "notes";
   gap: 16px;
   max-width: 760px;
   text-align: left;
 }
 
 .back-layout .study-column {
-  grid-area: study;
   min-width: 0;
 }
 
 /* The scene is a panel like the word sheet: image flush on top, then its caption and controls. */
 .back-layout .scene-column {
-  grid-area: scene;
   min-width: 0;
   overflow: hidden;
   padding-bottom: 18px;
@@ -773,8 +770,9 @@ ruby rt {
   background: var(--bg);
 }
 
+/* High enough for a 16:9 picture to fill the column width in usual review windows. */
 .back-layout .back-image img {
-  max-height: min(420px, 45vh);
+  max-height: min(460px, 60vh);
   border-radius: 0;
 }
 
@@ -853,7 +851,6 @@ ruby rt {
 }
 
 .back-layout .back-notes {
-  grid-area: notes;
   min-width: 0;
   max-width: none;
   margin: 0;
@@ -914,23 +911,6 @@ ruby rt {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
-}
-
-@media (min-width: 1100px) {
-  .back-layout {
-    width: min(1240px, calc(100vw - 56px));
-    max-width: none;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    grid-template-rows: auto 1fr;
-    grid-template-areas: "study scene" "notes scene";
-    align-items: start;
-    column-gap: 28px;
-  }
-
-  /* Side by side, the study column sets the height: let the image fill its panel width. */
-  .back-layout .back-image img {
-    max-height: min(560px, 75vh);
-  }
 }
 `;
 

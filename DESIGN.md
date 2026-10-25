@@ -298,10 +298,9 @@ rester secondaire.
 ### Anki Review Card
 
 La carte ne simule pas une carte flottante : le canevas Anki devient la scène.
-Le recto concentre le regard sur le mot ; sur grand écran, le verso place la
-fiche du mot et ses notes à côté de la scène (image, phrase, audio,
-traduction), et les empile sur écran étroit dans l'ordre sens, contexte,
-approfondissement. Le
+Le recto concentre le regard sur le mot ; le verso se lit de haut en bas dans
+une seule colonne : la fiche du mot, puis la scène (image, phrase, audio,
+traduction), puis les notes, soit le sens, le contexte et l'approfondissement. Le
 vermillon relie la cible à SubJap, tandis que l'image reste un artefact de la scène.
 
 ## 6. Do's and Don'ts
