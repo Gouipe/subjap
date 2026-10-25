@@ -832,9 +832,10 @@ ruby rt {
   font-weight: 500;
 }
 
+/* Same hover as the scene controls: accent border, brighter text. */
 .word-sheet .production-activation-button:hover,
 .word-sheet .production-activation-button:focus-visible {
-  color: var(--accent-strong);
+  color: var(--text);
 }
 
 .word-sheet .production-activation-button[data-state="success"] {
