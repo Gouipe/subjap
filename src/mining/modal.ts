@@ -101,8 +101,9 @@ function selectedDefinitions(state: MiningState): string[] {
   return state.definitions.filter((_, index) => state.definitionSelected[index]);
 }
 
+/** Personal notes come last, as in the dialog: the card keeps them after the AI association. */
 function combinedNotes(state: MiningState): string {
-  return [state.notesText.trim(), serializeAiNotes(state.aiParagraphs)]
+  return [serializeAiNotes(state.aiParagraphs), state.notesText.trim()]
     .filter((section) => section.length > 0)
     .join("\n\n");
 }
@@ -346,15 +347,22 @@ export class MiningModal {
         display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px;
         border-top: 1px solid var(--sj-hairline);
       }
+      /* Kept senses carry a check and full contrast; the others are only set aside, never struck out. */
       .subjap-definition {
-        padding: 4px 10px; border: 1px solid var(--sj-hairline); border-radius: 6px;
+        display: inline-flex; align-items: baseline; gap: 6px;
+        padding: 4px 10px 4px 8px; border: 1px solid var(--sj-muted); border-radius: 6px;
         background: var(--sj-raised); color: var(--sj-text); font: inherit; font-size: 14px;
         line-height: 1.4; cursor: pointer; text-align: left;
       }
-      .subjap-definition:hover { border-color: var(--sj-muted); }
+      .subjap-definition::before { content: "✓"; width: 1ch; font-weight: 600; text-align: center; }
+      .subjap-definition:hover { border-color: var(--sj-text); }
       .subjap-definition[aria-pressed="false"] {
-        background: transparent; border-style: dashed; color: var(--sj-muted); text-decoration: line-through;
+        border-color: var(--sj-hairline); background: transparent; color: var(--sj-muted);
       }
+      .subjap-definition[aria-pressed="false"]::before { content: "+"; opacity: 0; }
+      .subjap-definition[aria-pressed="false"]:hover { border-color: var(--sj-muted); color: var(--sj-text); }
+      .subjap-definition[aria-pressed="false"]:hover::before,
+      .subjap-definition[aria-pressed="false"]:focus-visible::before { opacity: 1; }
 
       .subjap-scene { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 16px; align-items: start; }
       .subjap-scene-image img {

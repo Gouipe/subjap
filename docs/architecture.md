@@ -425,7 +425,7 @@ uniquement cette phrase avant son affichage. Le texte validé est découpé par
 [`ai-notes.ts`](../src/mining/ai-notes.ts) en paragraphes structurés (tuiles de
 kanji et lignes libellées) que le modal édite sans exposer le format de ligne ;
 il est resérialisé dans ce format, celui que le script de la carte transforme en
-tuiles, et concaténé aux Notes personnelles seulement lors de la sauvegarde. Une
+tuiles, et placé avant les Notes personnelles seulement lors de la sauvegarde. Une
 seconde génération remplace uniquement ce texte IA.
 
 La carte locale, y compris ses Notes combinées, reste la source de vérité : une
