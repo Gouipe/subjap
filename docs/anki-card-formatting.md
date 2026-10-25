@@ -158,7 +158,7 @@ Règles du verso :
   alignés sur une seule ligne, dans le même style secondaire neutre, chacun
   avec son raccourci (`Q`, `W`) ; la traduction révélée occupe sa propre ligne ;
 - image affichée en entier avec `object-fit: contain` ;
-- image limitée à `min(420px, 45vh)` en hauteur, ou `min(520px, 58vh)` en deux
+- image limitée à `min(420px, 45vh)` en hauteur, ou `min(560px, 75vh)` en deux
   colonnes ;
 - Notes : le script géré transforme chaque ligne de kanji (`方 — Direction`) et
   ses exemples `・…` en tuiles côte à côte, puis affiche le reste en texte, avec

@@ -926,8 +926,9 @@ ruby rt {
     column-gap: 28px;
   }
 
+  /* Side by side, the study column sets the height: let the image fill its panel width. */
   .back-layout .back-image img {
-    max-height: min(520px, 58vh);
+    max-height: min(560px, 75vh);
   }
 }
 `;
