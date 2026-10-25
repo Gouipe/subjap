@@ -392,8 +392,10 @@ une API de dictionnaire distante.
 ## Mining et AnkiConnect
 
 Le mining est déclenché depuis la popover et ouvre
-[`MiningModal`](../src/mining/modal.ts), qui présente la phrase, le token cible,
-la lecture et les glosses sélectionnables. Le modal peut :
+[`MiningModal`](../src/mining/modal.ts), un aperçu du verso Anki modifiable sur
+place : mot, lecture, glosses en pastilles (les trois premières retenues),
+vignette de l’image, phrase surlignée, audio et traduction, puis Notes. Le modal
+peut :
 
 - enrichir manuellement `Notes` avec Gemini 3.5 Flash-Lite via un endpoint
   Cloudflare Worker ; la clé Gemini reste dans le secret du Worker ;
@@ -419,9 +421,12 @@ phrase mnémotechnique d’association lorsque le mot possède plusieurs kanjis.
 Après génération, SubJap rejette les exemples absents de la liste locale et les
 synonymes absents des entrées JMdict courantes. La phrase d’association doit
 citer tous les kanjis du mot ; sinon, une seconde requête locale corrige
-uniquement cette phrase avant son affichage. Le texte validé reste modifiable
-dans un éditeur distinct et est concaténé aux Notes personnelles seulement lors
-de la sauvegarde. Une seconde génération remplace uniquement ce texte IA.
+uniquement cette phrase avant son affichage. Le texte validé est découpé par
+[`ai-notes.ts`](../src/mining/ai-notes.ts) en paragraphes structurés (tuiles de
+kanji et lignes libellées) que le modal édite sans exposer le format de ligne ;
+il est resérialisé dans ce format, celui que le script de la carte transforme en
+tuiles, et concaténé aux Notes personnelles seulement lors de la sauvegarde. Une
+seconde génération remplace uniquement ce texte IA.
 
 La carte locale, y compris ses Notes combinées, reste la source de vérité : une
 indisponibilité d’Anki ne fait pas perdre le mining. Le modal conserve alors la

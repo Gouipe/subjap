@@ -122,6 +122,20 @@ class NetflixCueReplaySession implements CueReplaySession {
 // Netflix adapter
 // ---------------------------------------------------------------------------
 
+/**
+ * Netflix splits the player title into show, episode number and episode name
+ * elements; `textContent` would glue them ("ShowE1Episode 1").
+ */
+function readableTitle(element: Element): string {
+  const parts: string[] = [];
+  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.textContent?.replace(/\s+/gu, " ").trim();
+    if (text) parts.push(text);
+  }
+  return parts.join(" · ");
+}
+
 const NETFLIX_VIDEO_SELECTORS = [
   '.watch-video video',
   'video[class*="VideoContainer"]',
@@ -1117,7 +1131,7 @@ export class NetflixAdapter implements PlatformAdapter {
       doc.querySelector('.video-title h4') ??
       doc.querySelector('[data-uia="video-title"]');
     const title =
-      titleEl?.textContent?.trim() ??
+      (titleEl ? readableTitle(titleEl) : undefined) ??
       doc.title.replace(/^Netflix\s*[–—-]?\s*/i, '').trim() ??
       'Unknown';
 

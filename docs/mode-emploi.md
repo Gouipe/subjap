@@ -35,13 +35,21 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
    traduction choisie n’existe pas pour l’épisode, SubJap utilise automatiquement
    l’autre, sauf avec **Aucun**, qui désactive toute traduction secondaire.
 3. Survoler un mot du sous-titre et cliquer sur **Mine this**.
-4. Facultatif : cliquer sur **Enrichir avec l’IA** pour ajouter aux Notes une
-   explication concise et modifiable. SubJap privilégie les exemples contenant
-   des mots déjà connus, puis en apprentissage, puis présents dans Anki.
-5. Vérifier la définition, l’audio, l’image et les Notes, puis envoyer la carte.
-   En cas d’erreur Anki, utiliser **Réessayer Anki** : la carte locale n’est pas
-   recréée.
-6. Réviser les nouvelles cartes dans le deck
+4. La fenêtre « Créer une carte » présente un aperçu du verso Anki. Cliquer sur
+   le mot, la lecture, la phrase ou la traduction pour les corriger sur place.
+   Chaque traduction du dictionnaire est une pastille : les trois premières sont
+   retenues, un clic en écarte ou en ajoute une.
+5. Facultatif : cliquer sur **Enrichir avec l’IA** (`I`) pour ajouter aux Notes
+   la décomposition des kanjis en tuiles, les synonymes et une association.
+   SubJap privilégie les exemples contenant des mots déjà connus, puis en
+   apprentissage, puis présents dans Anki. Le sens d’un kanji, un exemple ou
+   une phrase se corrige au clic ; le × au survol supprime un exemple, une tuile
+   ou un paragraphe. **+ Ajouter une note** ouvre une note personnelle libre.
+6. Écouter la phrase avec `Q`, puis envoyer la carte avec **Créer dans Anki**
+   (`Ctrl+Entrée`). Pendant la saisie d’un champ, `Entrée` valide et `Échap`
+   annule la modification ; `Échap` ne ferme jamais la fenêtre. En cas d’erreur
+   Anki, utiliser **Réessayer Anki** : la carte locale n’est pas recréée.
+7. Réviser les nouvelles cartes dans le deck
    `日本語::Vocabulaire::Compréhension` d’Anki.
 
 Le compteur **Mots connus** inclut automatiquement les mots dont une carte
