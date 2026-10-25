@@ -186,8 +186,8 @@ test.describe("SubJap UX fixture", () => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
 
-    // N = 1: an existing Anki card and LEARNING are violet; low-priority
-    // unknown is orange and KNOWN is white.
+    // N = 1: an existing Anki card and LEARNING get a violet underline; with
+    // several unknowns, no word is coloured and KNOWN is white.
     await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
@@ -195,12 +195,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(3)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
-    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(251, 146, 60)");
-    await expect(tokens.nth(3)).toHaveCSS("color", "rgb(192, 132, 252)");
+    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(244, 241, 234)");
+    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(244, 241, 234)");
+    await expect(tokens.nth(3)).toHaveCSS("color", "rgb(244, 241, 234)");
+    await expect(tokens.nth(3)).toHaveCSS("border-bottom-color", "rgb(211, 160, 255)");
     await expect(tokens.locator(".subjap-token--mine-candidate")).toHaveCount(0);
   });
 
-  test("encadre en bleu le seul mot vert ou bleu sans mot orange", async ({ page }) => {
+  test("colore en bleu le seul mot inconnu de la phrase", async ({ page }) => {
     await page.getByTestId("candidate-cue").click();
 
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
@@ -209,19 +211,17 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-token--mine-candidate/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-token--mine-candidate--near/);
-    await expect(tokens.nth(1)).toHaveCSS("outline-width", "2px");
-    await expect(tokens.nth(1)).toHaveCSS("outline-color", "rgb(96, 165, 250)");
+    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(85, 184, 255)");
   });
 
-  test("encadre en vert un mot vert entouré de mots blancs", async ({ page }) => {
+  test("colore en vert un mot vert entouré de mots blancs", async ({ page }) => {
     await page.getByTestId("green-white-cue").click();
 
     const candidate = page.locator('[data-surface="発表"]');
     await expect(candidate).toHaveClass(/subjap-unknown--relevant/);
     await expect(candidate).toHaveClass(/subjap-token--mine-candidate/);
     await expect(candidate).toHaveClass(/subjap-token--mine-candidate--relevant/);
-    await expect(candidate).toHaveCSS("outline-width", "2px");
-    await expect(candidate).toHaveCSS("outline-color", "rgb(34, 197, 94)");
+    await expect(candidate).toHaveCSS("color", "rgb(120, 214, 163)");
     await expect(page.locator('[data-surface="日本語"]')).not.toHaveClass(
       /subjap-token--mine-candidate/,
     );

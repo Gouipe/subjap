@@ -21,8 +21,9 @@ Les tests Vitest couvrent notamment :
 - le rendu des tokens, du furigana et des mots connus ;
 - le masquage optionnel de la traduction quand tous les mots affichés sont
   connus ou ignorés ;
-- les couleurs de fréquence : inconnus pertinents en vert, tranche suivante de
-  300 rangs en bleu, mots connus et mots éloignés en blanc ;
+- les couleurs de fréquence : seul l’unique inconnu d’une phrase est coloré,
+  en vert s’il est pertinent, en bleu dans la tranche suivante de 300 rangs ;
+  les autres inconnus, mots connus et mots éloignés restent blancs ;
 - le positionnement au-dessus de la vidéo et de sa barre de contrôle.
 
 ## Fixture navigateur

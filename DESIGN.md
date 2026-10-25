@@ -168,9 +168,10 @@ et un vermillon franc inspiré d'un repère de montage plutôt que d'un néon.
 
 - **Violet d'apprentissage** (`learning-violet`) : mot déjà présent dans Anki,
   état `LEARNING` et information pédagogique correspondante.
-- **Vert de priorité** (`priority-green`) : mot inconnu fortement pertinent.
-- **Bleu de progression** (`priority-blue`) : mot inconnu de pertinence intermédiaire.
-- **Ambre de marge** (`priority-amber`) : mot inconnu moins prioritaire.
+- **Vert de priorité** (`priority-green`) : mot à miner fortement pertinent.
+- **Bleu de progression** (`priority-blue`) : mot à miner de pertinence intermédiaire.
+- **Ambre de marge** (`priority-amber`) : avertissement non bloquant ; n'est plus
+  employé dans le sous-titre.
 
 ### Tertiary
 
@@ -283,8 +284,11 @@ reste identique dans la popup, les options, la popover, le mining et Anki.
 
 ### Subtitle Token
 
-Le token japonais est le composant signature. Il conserve le blanc pour le
-connu et emploie les couleurs pédagogiques pour la priorité. Survol, focus et
+Le token japonais est le composant signature. **The Mine-Now Rule.** Un mot
+écrit en couleur est un mot à miner maintenant : seul l'unique inconnu d'une
+phrase prend le vert ou le bleu. Un soulignement seul est une information :
+pointillés gris pour les autres inconnus, double trait violet pour un mot déjà
+dans Anki, dont le texte reste blanc. Survol, focus et
 sélection ajoutent un soulignement ou un fond local afin que la couleur ne soit
 jamais le seul signal. Le sous-titre global reste lisible sur toute image grâce
 à un fond sombre compact, sans large panneau opaque.

@@ -82,9 +82,10 @@ au Worker que si l’utilisateur demande l’enrichissement IA.
 
 ### Couleurs des mots
 
-Dans les sous-titres, le vert signale un mot inconnu très pertinent à apprendre
-et le bleu un mot inconnu intéressant à apprendre. Le violet indique un mot déjà
-présent dans Anki ou signalé comme en cours d’apprentissage. La popover précise
+Dans les sous-titres, seul le mot à miner est coloré : l’unique inconnu de sa
+phrase, en vert s’il est très fréquent, en bleu s’il l’est un peu moins. Les
+autres inconnus restent blancs avec des pointillés gris. Un double trait violet
+indique un mot déjà présent dans Anki ou en cours d’apprentissage. La popover précise
 le nombre de cartes Anki existantes.
 
 ### Raccourcis clavier

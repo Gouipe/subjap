@@ -475,8 +475,10 @@ Une remise à zéro volontaire de la carte dans Anki, sa suppression ou sa sorti
 de `日本語` peut retirer ce signal d’acquisition ; un simple oubli ne le retire
 pas. Toutes les lectures Anki doivent réussir avant la réconciliation locale.
 `KNOWN` et `IGNORED` sont blancs ;
-un mot déjà présent dans Anki ou marqué `LEARNING` est violet. Un mot `UNKNOWN`
-sans carte existante suit la fréquence (vert, bleu, puis orange). La
+un mot déjà présent dans Anki ou marqué `LEARNING` reste blanc avec un double
+soulignement violet. Un mot `UNKNOWN` sans carte existante n’est coloré (vert
+ou bleu selon sa fréquence) que s’il est le seul inconnu de sa phrase, c’est-à-dire
+le mot à miner ; tout autre inconnu reste blanc avec des pointillés gris. La
 popover affiche le rang dès qu’il existe et précise `Déjà dans Anki · N cartes`.
 
 SubJap laisse `AudioMot` vide lors de l’envoi à Anki ; la prononciation du mot
@@ -493,7 +495,7 @@ carte demeure valide.
   rappel de l’onboarding et réglage rapide du masquage des traductions FR/EN
   quand la phrase est entièrement connue.
 - **Options** : installation ou réinstallation du pack JMdict, configuration
-  du deck Anki, taille/police/furigana/couleur de l’overlay, masquage des
+  du deck Anki, taille/police/furigana de l’overlay, masquage des
   sous-titres natifs, masquage conditionnel des traductions FR/EN, remise à
   zéro des données et relance de l’onboarding.
 

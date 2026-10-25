@@ -165,10 +165,11 @@ production orale** au verso. Sa carte sœur apparaît dans
 `日本語::Vocabulaire` pour une session commune, ou sur `Production` seule
 lorsqu’il est possible de répondre à voix haute.
 
-Couleurs : vert = inconnu très pertinent, bleu = plutôt pertinent, ambre =
-inconnu peu pertinent, indigo = `LEARNING` ou déjà présent dans Anki, blanc =
-`KNOWN` ou `IGNORED`. Les soulignements distincts doublent ce code couleur afin
-que l'état reste perceptible sans dépendre uniquement de la teinte. La popover
+Couleurs : un mot n’est coloré que s’il est à miner, c’est-à-dire le seul
+inconnu de sa phrase — vert (trait continu) s’il est très fréquent, bleu
+(tirets) s’il l’est un peu moins. Les autres inconnus restent blancs avec des
+pointillés gris ; un mot `LEARNING` ou déjà présent dans Anki reste blanc avec
+un double trait violet ; `KNOWN` et `IGNORED` sont blancs sans trait. La popover
 affiche toujours le rang disponible et le nombre de cartes Anki existantes.
 
 ## Reconstruire et importer l’export Migaku

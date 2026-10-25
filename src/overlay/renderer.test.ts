@@ -55,10 +55,7 @@ describe("OverlayRenderer", () => {
       new DOMRect(20, 30, 640, 360),
     );
 
-    const overlay = new OverlayRenderer(video, {
-      showFurigana: true,
-      highlightKnown: true,
-    });
+    const overlay = new OverlayRenderer(video, { showFurigana: true });
     overlay.updateCues([renderedCue()]);
     overlay.show();
 

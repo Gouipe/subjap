@@ -16,8 +16,6 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   fontFamily:
     "'IBM Plex Sans JP', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
   showFurigana: true,
-  highlightKnown: true,
-  knownColor: "#78d6a3",
   hideNativeSubtitles: true,
   secondarySubtitleLanguage: "fr",
   hideSecondarySubtitlesWhenAllKnown: false,
@@ -56,15 +54,6 @@ export function sanitizeOptions(
   }
   if (typeof raw.showFurigana === "boolean") {
     out.showFurigana = raw.showFurigana;
-  }
-  if (typeof raw.highlightKnown === "boolean") {
-    out.highlightKnown = raw.highlightKnown;
-  }
-  if (
-    typeof raw.knownColor === "string" &&
-    /^#[0-9a-fA-F]{3,8}$/.test(raw.knownColor)
-  ) {
-    out.knownColor = raw.knownColor;
   }
   if (typeof raw.hideNativeSubtitles === "boolean") {
     out.hideNativeSubtitles = raw.hideNativeSubtitles;

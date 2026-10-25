@@ -15,14 +15,14 @@ describe("mergeOptions", () => {
     const merged = mergeOptions(DEFAULT_OPTIONS, { fontSize: 40 });
     expect(merged.fontSize).toBe(40);
     expect(merged.showFurigana).toBe(true);
-    expect(merged.knownColor).toBe(DEFAULT_OPTIONS.knownColor);
+    expect(merged.hideNativeSubtitles).toBe(DEFAULT_OPTIONS.hideNativeSubtitles);
   });
 
   it("applies the partial over a custom base", () => {
     const base = { ...DEFAULT_OPTIONS, showFurigana: false };
-    const merged = mergeOptions(base, { highlightKnown: false });
+    const merged = mergeOptions(base, { hideNativeSubtitles: false });
     expect(merged.showFurigana).toBe(false);
-    expect(merged.highlightKnown).toBe(false);
+    expect(merged.hideNativeSubtitles).toBe(false);
   });
 });
 
@@ -36,24 +36,20 @@ describe("sanitizeOptions", () => {
     const raw = {
       fontSize: "big",
       showFurigana: "yes",
-      highlightKnown: 1,
-      knownColor: "not-a-color",
+      hideNativeSubtitles: 1,
     } as unknown as Partial<typeof DEFAULT_OPTIONS>;
     const out = sanitizeOptions(raw);
     expect(out.fontSize).toBeUndefined();
     expect(out.showFurigana).toBeUndefined();
-    expect(out.highlightKnown).toBeUndefined();
-    expect(out.knownColor).toBeUndefined();
+    expect(out.hideNativeSubtitles).toBeUndefined();
   });
 
   it("keeps valid boolean toggles", () => {
     const out = sanitizeOptions({
       showFurigana: false,
-      highlightKnown: true,
       hideNativeSubtitles: false,
     });
     expect(out.showFurigana).toBe(false);
-    expect(out.highlightKnown).toBe(true);
     expect(out.hideNativeSubtitles).toBe(false);
   });
 
@@ -77,10 +73,7 @@ describe("sanitizeOptions", () => {
     expect(sanitizeOptions({ fontSize: 28 }).fontSize).toBe(28);
   });
 
-  it("accepts valid hex colors and trims font families", () => {
-    expect(sanitizeOptions({ knownColor: "#abc123" }).knownColor).toBe(
-      "#abc123",
-    );
+  it("trims font families", () => {
     expect(
       sanitizeOptions({ fontFamily: "  'Noto Sans JP', sans-serif  " })
         .fontFamily,

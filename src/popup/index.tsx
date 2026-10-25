@@ -40,35 +40,35 @@ const WORD_COLOR_GUIDE = [
   {
     word: "大切",
     color: "#78d6a3",
-    underline: "solid",
+    underline: "2px solid #78d6a3",
     label: "Vert · trait continu",
-    detail: "Inconnu très pertinent",
+    detail: "Seul inconnu de la phrase, très fréquent : à miner",
   },
   {
     word: "便利",
     color: "#55b8ff",
-    underline: "dashed",
+    underline: "2px dashed #55b8ff",
     label: "Bleu · tirets",
-    detail: "Inconnu pertinent",
+    detail: "Seul inconnu de la phrase, fréquent : à miner",
   },
   {
     word: "難しい",
-    color: "#f1b46d",
-    underline: "dotted",
-    label: "Ambre · pointillés",
-    detail: "Inconnu moins prioritaire",
+    color: "#f4f1ea",
+    underline: "2px dotted #b2b6bf",
+    label: "Blanc · pointillés gris",
+    detail: "Inconnu dans une phrase qui en contient d’autres, ou peu fréquent",
   },
   {
     word: "学ぶ",
-    color: "#d3a0ff",
-    underline: "double",
-    label: "Violet · double trait",
+    color: "#f4f1ea",
+    underline: "3px double #d3a0ff",
+    label: "Blanc · double trait violet",
     detail: "Présent dans Anki ou en apprentissage",
   },
   {
     word: "知る",
     color: "#f4f1ea",
-    underline: "none",
+    underline: "2px solid transparent",
     label: "Blanc · sans trait",
     detail: "Connu ou ignoré",
   },
@@ -615,7 +615,7 @@ const Popup: React.FC = () => {
           <section style={styles.guideSection}>
             <h2 style={styles.guideHeading}>Couleurs des mots</h2>
             <p style={styles.guideHint}>
-              Le soulignement complète la couleur. Le vert est personnalisable dans les Options.
+              Seul le mot à miner est coloré : l’unique inconnu de sa phrase. Le soulignement complète la couleur.
             </p>
             <div style={styles.guideColorList}>
               {WORD_COLOR_GUIDE.map((item) => (
@@ -624,10 +624,7 @@ const Popup: React.FC = () => {
                     style={{
                       ...styles.guideWord,
                       color: item.color,
-                      borderBottom:
-                        item.underline === "none"
-                          ? "2px solid transparent"
-                          : `2px ${item.underline} ${item.color}`,
+                      borderBottom: item.underline,
                     }}
                   >
                     {item.word}

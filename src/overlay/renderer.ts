@@ -198,27 +198,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       margin-top: 0.24em;
       padding-inline: 0.02em;
       cursor: pointer;
-      border-bottom: 0.08em solid transparent;
+      border-bottom: max(2px, 0.08em) solid transparent;
       border-radius: 0.16em;
       transition: color 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
-    }
-    #${CONTAINER_ID} .subjap-token--mine-candidate {
-      /* Keep the signal local to the word while making it unmistakable. An
-         outline does not change the phrase layout like a border would. */
-      position: relative;
-      z-index: 0;
-      outline: 2px solid transparent;
-      /* Tokens touch each other: a small offset keeps the outline off the
-         neighbouring glyphs. */
-      outline-offset: 1px;
-    }
-    #${CONTAINER_ID} .subjap-token--mine-candidate--relevant {
-      outline-color: ${opts.highlightKnown ? opts.knownColor : "#78d6a3"};
-      background-color: rgba(120, 214, 163, 0.16);
-    }
-    #${CONTAINER_ID} .subjap-token--mine-candidate--near {
-      outline-color: var(--sj-priority-mid);
-      background-color: rgba(85, 184, 255, 0.16);
     }
     #${CONTAINER_ID} .subjap-token:not(.subjap-token--parenthetical):hover {
       background-color: rgba(244, 241, 234, 0.14);
@@ -232,23 +214,30 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-text);
       border-bottom-color: transparent;
     }
+    /* A coloured word is a word to mine now: the only unknown of an i+1
+       sentence. Every other unknown, however frequent, stays white with a
+       dotted underline, and words already in Anki only get an underline. */
     #${CONTAINER_ID} .subjap-unknown {
-      color: var(--sj-priority-low);
-      border-bottom-color: currentColor;
+      color: var(--sj-text);
+      border-bottom-color: var(--sj-muted);
       border-bottom-style: dotted;
     }
-    #${CONTAINER_ID} .subjap-unknown--relevant {
-      color: ${opts.highlightKnown ? opts.knownColor : "#78d6a3"};
+    #${CONTAINER_ID} .subjap-token--mine-candidate.subjap-unknown--relevant {
+      color: var(--sj-priority-high);
+      border-bottom-color: currentColor;
       border-bottom-style: solid;
     }
-    #${CONTAINER_ID} .subjap-unknown--near {
+    #${CONTAINER_ID} .subjap-token--mine-candidate.subjap-unknown--near {
       color: var(--sj-priority-mid);
+      border-bottom-color: currentColor;
       border-bottom-style: dashed;
     }
     #${CONTAINER_ID} .subjap-learning {
-      color: var(--sj-learning);
-      border-bottom-color: currentColor;
+      color: var(--sj-text);
+      border-bottom-color: var(--sj-learning);
       border-bottom-style: double;
+      /* A double border needs 3px to draw two distinct lines. */
+      border-bottom-width: max(3px, 0.12em);
     }
     #${CONTAINER_ID} .subjap-neutral {
       color: var(--sj-text);

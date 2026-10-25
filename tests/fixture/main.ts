@@ -396,7 +396,6 @@ function ensureOverlay(): OverlayRenderer | null {
   if (!overlay) {
     overlay = new OverlayRenderer(video, {
       showFurigana: furiganaToggle.checked,
-      highlightKnown: true,
       hideSecondarySubtitlesWhenAllKnown: hideSecondaryWhenKnownToggle.checked,
     });
     currentVideo = video;

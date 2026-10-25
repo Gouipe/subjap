@@ -391,10 +391,6 @@ export interface OverlayOptions {
   fontSize: number;
   fontFamily: string;
   showFurigana: boolean;
-  /** Legacy option name; controls highlighting of frequency-relevant unknowns. */
-  highlightKnown: boolean;
-  /** Colour for unknown words within the learner's known-vocabulary rank. */
-  knownColor: string;
   /** Hide the platform's native subtitle tracks (the overlay replaces them). */
   hideNativeSubtitles: boolean;
   /** Preferred translation language; the other supported language is the fallback, or "none" to disable it. */

@@ -475,33 +475,6 @@ function OnboardingWizard(props: {
           </div>
           <div style={s.row}>
             <div style={s.rowLabel}>
-              <span>Surligner les mots pertinents</span>
-              <span style={s.rowHint}>
-                inconnus jusqu’à ton vocabulaire connu
-              </span>
-            </div>
-            <div style={s.rowControl}>
-              <Toggle
-                checked={options.highlightKnown}
-                onChange={(v) => setOptions({ ...options, highlightKnown: v })}
-              />
-            </div>
-          </div>
-          <div style={s.row}>
-            <div style={s.rowLabel}>
-              <span>Couleur des mots pertinents</span>
-            </div>
-            <div style={s.rowControl}>
-              <input
-                type="color"
-                value={options.knownColor}
-                style={s.colorInput}
-                onChange={(e) => setOptions({ ...options, knownColor: e.target.value })}
-              />
-            </div>
-          </div>
-          <div style={s.row}>
-            <div style={s.rowLabel}>
               <span>Masquer les sous-titres natifs</span>
               <span style={s.rowHint}>l'overlay remplace les pistes de sous-titres du lecteur</span>
             </div>
@@ -845,20 +818,6 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 onChange={(v) => void updateOptions({ showFurigana: v })}
               />
             </Row>
-            <Row label="Surligner les mots pertinents">
-              <Toggle
-                checked={options.highlightKnown}
-                onChange={(v) => void updateOptions({ highlightKnown: v })}
-              />
-            </Row>
-            <Row label="Couleur des mots pertinents">
-              <input
-                type="color"
-                value={options.knownColor}
-                style={s.colorInput}
-                onChange={(e) => void updateOptions({ knownColor: e.target.value })}
-              />
-            </Row>
             <Row
               label="Masquer les sous-titres natifs"
               hint="l'overlay remplace les pistes de sous-titres du lecteur"
@@ -1133,14 +1092,6 @@ const s: Record<string, React.CSSProperties> = {
   range: {
     width: 180,
     accentColor: C.accent,
-  },
-  colorInput: {
-    width: 40,
-    height: 28,
-    padding: 0,
-    border: `1px solid ${C.panelBorder}`,
-    borderRadius: 6,
-    backgroundColor: "#101216",
   },
   toggleWrap: {
     display: "inline-flex",
