@@ -121,6 +121,22 @@ ruby rt {
   box-sizing: content-box;
 }
 
+/* Recent Anki versions render replay buttons as an inline SVG disc. */
+.card .audio .replay-button svg {
+  width: 50px;
+  height: 50px;
+}
+
+.card .audio .replay-button svg circle {
+  fill: var(--surface-raised);
+  stroke: var(--border);
+  stroke-width: 1.5px;
+}
+
+.card .audio .replay-button svg path {
+  fill: var(--text);
+}
+
 .answer-header {
   display: flex;
   align-items: center;
@@ -198,7 +214,7 @@ ruby rt {
 
 .audio-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
 }
@@ -219,8 +235,31 @@ ruby rt {
   box-sizing: content-box;
 }
 
+.card .audio-control .replay-button {
+  display: inline-flex;
+  margin: 0;
+}
+
+.card .audio-control .replay-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.card .audio-control .replay-button svg circle {
+  fill: var(--muted);
+  stroke: none;
+}
+
+.card .audio-control .replay-button svg path {
+  fill: var(--surface-raised);
+}
+
 .audio-control:hover {
   border-color: var(--accent);
+}
+
+.card .audio-control:hover .replay-button svg circle {
+  fill: var(--text);
 }
 
 .audio-control:focus-visible {
@@ -234,7 +273,7 @@ ruby rt {
   border-radius: 3px;
   color: var(--muted);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -258,10 +297,6 @@ ruby rt {
   font-size: 19px;
   font-weight: 500;
   line-height: 1.55;
-}
-
-.definition-panel .section-label {
-  color: var(--accent-strong);
 }
 
 .back-image {
@@ -310,6 +345,13 @@ ruby rt {
 
 .translation-reveal > summary::-webkit-details-marker {
   display: none;
+}
+
+/* The summary is a flex container, which drops the hint's leading space. */
+.translation-shortcut {
+  margin-left: 0.35em;
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .translation-reveal > summary:hover {
@@ -409,10 +451,16 @@ ruby rt {
 
 .notes {
   max-width: 70ch;
-  margin: 0 auto;
+  margin: 0;
   color: var(--muted);
   font-size: 14px;
   line-height: 1.55;
+}
+
+.notes-heading,
+.notes-term {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .target {
@@ -562,7 +610,7 @@ ruby rt {
   }
 
   .audio-label {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .translation-reveal {
@@ -807,6 +855,32 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
       translationSummary.appendChild(hint);
     }
   }
+
+  // Notes are plain text lines: emphasize kanji headings and enrichment labels, including on older notes.
+  document.querySelectorAll(".back-card .notes").forEach((notes) => {
+    if (notes.dataset.subjapFormatted) return;
+    notes.dataset.subjapFormatted = "1";
+    Array.from(notes.childNodes).forEach((node) => {
+      if (node.nodeType !== Node.TEXT_NODE) return;
+      const previous = node.previousSibling;
+      if (previous && previous.nodeName !== "BR") return;
+      if (/^\\s*\\p{Script=Han}{1,2} — \\S/u.test(node.data)) {
+        const heading = document.createElement("span");
+        heading.className = "notes-heading";
+        node.replaceWith(heading);
+        heading.appendChild(node);
+        return;
+      }
+      const label = /^(\\s*)((?:Synonyme|Nuance|Association) :)/u.exec(node.data);
+      if (!label) return;
+      const rest = node.splitText(label[0].length);
+      const term = document.createElement("span");
+      term.className = "notes-term";
+      term.textContent = label[2];
+      node.data = label[1];
+      rest.before(term);
+    });
+  });
 
   // Anki reuses the document between cards: replace, rather than accumulate, listeners.
   if (window.__subjapAudioControlsCleanup) window.__subjapAudioControlsCleanup();

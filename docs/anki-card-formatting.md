@@ -146,8 +146,11 @@ empilement vertical :
 - image affichée en entier avec `object-fit: contain` ;
 - image limitée à `min(360px, 36vh)` en hauteur afin de gagner en présence tout
   en laissant apparaître Notes ;
-- Notes conservées dans la carte, avec une mesure de lecture limitée à environ
-  70 caractères par ligne ;
+- Notes conservées dans la carte, alignées sur leur titre, avec une mesure de
+  lecture limitée à environ 70 caractères par ligne ; le script géré met en
+  valeur les lignes de kanji (`動 — Action`) et les libellés `Synonyme :`,
+  `Nuance :` et `Association :` produits par l'enrichissement IA, y compris sur
+  les notes existantes ;
 - traduction révélée par « Voir la traduction », puis maintenue visible sans
   contrôle secondaire qui prend de la place ;
 - pas de règle qui recadre l’image avec `object-fit: cover` ou qui masque Notes.
