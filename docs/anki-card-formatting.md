@@ -118,15 +118,18 @@ que les champs éditables, sont ignorées afin de ne pas intercepter une saisie.
 Les boutons et leur ordre restent ceux du reviewer Anki ; le raccourci est un
 accélérateur supplémentaire.
 
-## Raccourci audio de la phrase
+## Raccourcis audio
 
-Sur les versos de compréhension et de production, `Q` rejoue uniquement
-`AudioPhrase` via son bouton de lecture natif Anki. Le bouton « Phrase » affiche
-un rappel `Q`. Le raccourci reste inactif au recto, sans audio de phrase,
+Sur les versos de compréhension et de production, `Z` rejoue `AudioMot` et `Q`
+rejoue `AudioPhrase` via leur bouton de lecture natif Anki. Les boutons « Mot »
+et « Phrase » affichent respectivement un rappel `Z` et `Q`. Un raccourci reste
+inactif au recto, sans l'audio correspondant,
 pendant une saisie ou avec une touche modificatrice ; maintenir la touche
 n'entraîne pas de répétitions. `A` est réservé à l'ajout de notes dans Anki et
 `R` conserve la relecture native d'Anki. `Q` n'est pas attribué par les
-raccourcis natifs de révision ; un add-on personnalisé peut toutefois l'utiliser.
+raccourcis natifs de révision, ni `Z` ; un add-on personnalisé peut toutefois
+les utiliser. `S`, `D`, `F`, `T`, `Y` et `B` sont évitées car la fenêtre
+principale d'Anki les intercepte.
 Le rappel est ajouté par le script audio géré, y compris aux templates existants
 lors de leur synchronisation, sans remplacer leurs personnalisations.
 
@@ -158,7 +161,7 @@ Règles du verso :
 - mot (44 px) nettement plus grand que la phrase (28 px) ;
 - contrôles audio nommés `Mot` et `Phrase` et bouton « Voir la traduction »
   alignés sur une seule ligne, dans le même style secondaire neutre, chacun
-  avec son raccourci (`Q`, `W`) ; la traduction révélée occupe sa propre ligne ;
+  avec son raccourci (`Z`, `Q`, `W`) ; la traduction révélée occupe sa propre ligne ;
 - image affichée en entier avec `object-fit: contain` ;
 - image limitée à `min(460px, 60vh)` en hauteur, ce qui laisse une image 16:9
   remplir la largeur de la colonne dans les fenêtres de révision habituelles ;

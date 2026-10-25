@@ -212,10 +212,6 @@ ruby rt {
   cursor: pointer;
 }
 
-.audio-control.audio-word .audio-label {
-  color: var(--accent-strong);
-}
-
 .audio-label {
   color: var(--muted);
   font-size: 12px;
@@ -1037,18 +1033,23 @@ export const MIGAKU_REVIEW_SHORTCUTS_FRAGMENT = `
 export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
 <script id="subjap-anki-audio-controls">
 (() => {
+  const audioShortcuts = [
+    { selector: ".audio-word", key: "Z", label: "Rejouer le mot" },
+    { selector: ".audio-phrase", key: "Q", label: "Rejouer la phrase" },
+  ];
   const controls = document.querySelectorAll(".audio-control");
   controls.forEach((control) => {
     control.setAttribute("role", "button");
     control.setAttribute("tabindex", "0");
-    if (control.matches(".audio-phrase")) {
-      control.setAttribute("aria-label", "Rejouer la phrase");
-      control.setAttribute("aria-keyshortcuts", "Q");
-      control.setAttribute("title", "Rejouer la phrase (Q)");
+    const shortcut = audioShortcuts.find(({ selector }) => control.matches(selector));
+    if (shortcut) {
+      control.setAttribute("aria-label", shortcut.label);
+      control.setAttribute("aria-keyshortcuts", shortcut.key);
+      control.setAttribute("title", shortcut.label + " (" + shortcut.key + ")");
       if (!control.querySelector(".audio-shortcut")) {
         const hint = document.createElement("kbd");
         hint.className = "audio-shortcut";
-        hint.textContent = "Q";
+        hint.textContent = shortcut.key;
         hint.setAttribute("aria-hidden", "true");
         control.appendChild(hint);
       }
@@ -1220,9 +1221,11 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
       }
       return;
     }
-    if (!event.shiftKey && event.key.toLowerCase() === "q") {
-      const phrase = document.querySelector(".back-card .audio-control.audio-phrase");
-      if (phrase && activate(phrase)) {
+    const audioKeys = { q: ".audio-phrase", z: ".audio-word" };
+    const audioSelector = event.shiftKey ? undefined : audioKeys[event.key.toLowerCase()];
+    if (audioSelector) {
+      const control = document.querySelector(".back-card .audio-control" + audioSelector);
+      if (control && activate(control)) {
         event.preventDefault();
         event.stopPropagation();
       }
