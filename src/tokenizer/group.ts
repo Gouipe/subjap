@@ -403,6 +403,7 @@ function createGroup(tokens: Token[]): Token {
     partOfSpeech: [...new Set(tokens.flatMap((token) => token.partOfSpeech))],
     components: tokens,
     grammar: describeInflections(tokens),
+    grammarOnly: true,
   };
 }
 

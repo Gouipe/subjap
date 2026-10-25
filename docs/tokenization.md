@@ -61,7 +61,8 @@ politesse, souhait, causatif, liaison ou auxiliaire. La popover montre ces
 informations et la décomposition. Pour les formes fléchies, le statut connu et
 le mining restent attachés au mot de base ; pour les composés reconnus, ils
 utilisent la tête JMdict. Les expressions grammaticales sans tête lexicale
-unique conservent leur propre surface comme identité. Toutes les graphies d'un
+unique conservent leur propre surface comme identité ; marquées `grammarOnly`,
+elles sont ignorées par défaut tant qu'aucun statut n'est enregistré. Toutes les graphies d'un
 même lexème (すごい, 凄い, スゴイ) partagent un statut : la recherche réunit
 leurs formes, si bien qu'un mot importé d'Anki sous l'une d'elles vaut pour
 toutes.

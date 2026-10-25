@@ -114,6 +114,8 @@ export interface Token {
   dictionaryCompound?: boolean;
   /** Explanations attached to a pedagogical unit, not separate click targets. */
   grammar?: GrammarAnnotation[];
+  /** True for grammar expressions without a lexical head (じゃないです, なんだ). */
+  grammarOnly?: boolean;
 }
 
 /** Read the tokenizer-independent lexical fields with legacy-token fallback. */

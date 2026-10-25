@@ -26,19 +26,26 @@ export function isNonLexicalToken(
   );
 }
 
-/** Interjections and fillers (んっ, えっ, ああ, えー) are noise for vocabulary tracking. */
-export function isDefaultIgnoredToken(token: Pick<Token, "partOfSpeech">): boolean {
+/**
+ * Interjections and fillers (んっ, えっ, ああ, えー) and grammar expressions
+ * without a lexical head (じゃないです, なんだ) are not vocabulary to track.
+ */
+export function isDefaultIgnoredToken(
+  token: Pick<Token, "partOfSpeech" | "grammarOnly">,
+): boolean {
   return (
-    token.partOfSpeech.includes("感動詞") || token.partOfSpeech.includes("フィラー")
+    token.grammarOnly === true ||
+    token.partOfSpeech.includes("感動詞") ||
+    token.partOfSpeech.includes("フィラー")
   );
 }
 
 /**
- * Apply the default "ignored" status to interjections. Any stored state
+ * Apply the default "ignored" status to non-vocabulary units. Any stored state
  * (including an explicit Unignore) or an existing Anki card takes precedence.
  */
 export function effectiveWordState(
-  token: Pick<Token, "partOfSpeech" | "canonicalKey" | "lemma">,
+  token: Pick<Token, "partOfSpeech" | "grammarOnly" | "canonicalKey" | "lemma">,
   stored: WordState | null,
   ankiNoteCount: number,
 ): WordState | null {
