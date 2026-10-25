@@ -78,20 +78,26 @@ phrase. Son verso affiche la
 phrase complète et reprend exactement la présentation du verso de compréhension,
 sans le bloc d’activation de la production.
 
-Le verso conserve cette structure verticale :
+Le verso (template version 14) s’organise en trois zones :
 
-1. `Mot` en haut, dans la couleur d’accent ;
-2. `Phrase` ;
-3. les contrôles audio `Mot` puis `Phrase` (si les champs existent) ;
-4. le bouton de révélation de `Traduction`, si le champ existe ;
-5. le séparateur ;
-6. le panneau `Définitions` ;
-7. `Image` ;
-8. `Notes`, si le champ existe.
+1. **étude** : la fiche du mot, qui regroupe `Mot` (couleur d’accent) et
+   `Définitions` ;
+2. **scène** : `Image`, puis `Phrase`, puis une ligne de contrôles avec l’audio
+   `Mot`/`Phrase` et le bouton de révélation de `Traduction` ;
+3. **Notes**, si le champ existe.
+
+À partir de 1100 px de large, l’étude et les Notes forment la colonne de gauche
+et la scène la colonne de droite. En dessous, les zones s’empilent dans l’ordre
+étude → scène → Notes : le sens d’abord, puis le contexte, puis
+l’approfondissement. Le bloc d’activation de la production reste sous la carte.
+
+Lors de la synchronisation, un verso v13 ou antérieur dont le corps est inchangé
+reçoit cette structure ; ce qui l’entoure (balises HyperTTS, scripts) est
+conservé. Un corps personnalisé de l’intérieur garde l’ancienne présentation en
+une colonne, que le CSS continue de prendre en charge.
 
 Ne pas réafficher automatiquement `Mot` ou `Lecture` dans la définition. Ne pas
-changer l’ordre vertical sans demande explicite : il correspond aux habitudes
-de révision établies.
+changer cette organisation sans demande explicite.
 
 ## Raccourcis de notation
 
@@ -137,30 +143,28 @@ ombre flottante, pas de liseré coloré sur un seul côté et aucun rayon supér
 principales ; les contrôles audio restent compacts, nommés et neutres pour ne
 pas concurrencer le contenu.
 
-La règle `@media (min-width: 901px)` compacte le verso tout en conservant son
-empilement vertical :
+Règles du verso :
 
-- colonne de lecture unifiée, avec panneaux texte et image alignés sur la même
-  largeur éditoriale ;
 - mot (44 px) nettement plus grand que la phrase (24 px) ;
 - contrôles audio nommés `Mot` et `Phrase` et bouton « Voir la traduction »
   alignés sur une seule ligne, dans le même style secondaire neutre, chacun
   avec son raccourci (`Q`, `W`) ; la traduction révélée occupe sa propre ligne ;
 - image affichée en entier avec `object-fit: contain` ;
-- image limitée à `min(360px, 36vh)` en hauteur afin de gagner en présence tout
-  en laissant apparaître Notes ;
-- Notes conservées dans la carte, alignées sur leur titre, avec une mesure de
-  lecture limitée à environ 70 caractères par ligne ; le script géré met en
-  valeur les lignes de kanji (`動 — Action`) et les libellés `Synonyme :`,
-  `Nuance :` et `Association :` produits par l'enrichissement IA, y compris sur
-  les notes existantes ;
+- image limitée à `min(420px, 45vh)` en hauteur, ou `min(520px, 58vh)` en deux
+  colonnes ;
+- Notes : le script géré transforme chaque ligne de kanji (`方 — Direction`) et
+  ses exemples `・…` en tuiles côte à côte, puis affiche le reste en texte, avec
+  les libellés `Synonyme :`, `Nuance :` et `Association :` mis en valeur. Il
+  s’applique aussi aux notes existantes ; une ligne qui ne suit pas ce format
+  reste affichée telle quelle, et une note sans ligne reconnue n’est pas
+  modifiée. Le texte garde une mesure d’environ 70 caractères par ligne ;
 - traduction révélée par « Voir la traduction », puis maintenue visible sans
   contrôle secondaire qui prend de la place ;
 - pas de règle qui recadre l’image avec `object-fit: cover` ou qui masque Notes.
 
-La mise en page sous 901 px conserve le comportement général non compact. Le
-projet cible l’usage ordinateur ; une évolution mobile devra être spécifiée
-séparément.
+Le projet cible l’usage ordinateur : l’empilement des zones garde le verso
+lisible dans une fenêtre étroite, mais une évolution mobile dédiée devra être
+spécifiée séparément.
 
 ## HyperTTS et audio
 
