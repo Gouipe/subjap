@@ -62,13 +62,13 @@ describe("MiningModal", () => {
     await vi.waitFor(() => {
       expect(captureFrameMock).toHaveBeenCalled();
       expect(captureFrameMock.mock.calls[0]?.[0]).toBe(video);
-      expect(document.querySelector(".subjap-screenshot-info")?.textContent).toContain(
-        "✓ Screenshot captured",
+      expect(document.querySelector(".subjap-scene-image img")?.getAttribute("src")).toBe(
+        "data:image/jpeg;base64,fixture",
       );
     });
   });
 
-  it("sends edited definitions and notes to Anki", async () => {
+  it("sends the selected definitions and personal notes to Anki", async () => {
     sendMessageMock.mockImplementation((type: string) => {
       if (type === "mine:create") return Promise.resolve({ id: "local-card" });
       if (type === "anki:setup") {
@@ -101,14 +101,17 @@ describe("MiningModal", () => {
     });
 
     await vi.waitFor(() => {
-      expect(document.querySelector(".subjap-screenshot-info")).not.toBeNull();
+      expect(document.querySelector(".subjap-scene-image img")).not.toBeNull();
     });
 
-    const definitions = document.querySelector<HTMLTextAreaElement>(".subjap-definitions");
-    expect(definitions?.value).toBe("promise\na commitment");
-    if (!definitions) throw new Error("Definitions textarea was not rendered");
-    definitions.value = "to promise\npersonal definition\n";
-    definitions.dispatchEvent(new Event("input", { bubbles: true }));
+    const definitions = [...document.querySelectorAll<HTMLButtonElement>(".subjap-definition")];
+    expect(definitions.map((definition) => definition.getAttribute("aria-pressed"))).toEqual([
+      "true",
+      "true",
+    ]);
+    definitions[1]?.click();
+    expect(definitions[1]?.getAttribute("aria-pressed")).toBe("false");
+    (document.querySelector(".subjap-add-note") as HTMLButtonElement).click();
     const notes = document.querySelector<HTMLTextAreaElement>(".subjap-notes");
     if (!notes) throw new Error("Notes textarea was not rendered");
     notes.value = "personal note\n";
@@ -123,15 +126,15 @@ describe("MiningModal", () => {
 
     expect(sendMessageMock).toHaveBeenCalledWith(
       "mine:create",
-      expect.objectContaining({ definitions: ["to promise", "personal definition"] }),
+      expect.objectContaining({ definitions: ["promise"] }),
     );
     const ankiAddNoteCall = (sendMessageMock.mock.calls as unknown[][]).find(
       ([type]) => type === "anki:addNote",
     );
     expect(ankiAddNoteCall?.[1]).toMatchObject({
       fields: {
-        Définitions: "to promise<br>personal definition",
-        Notes: "personal note\n",
+        Définitions: "promise",
+        Notes: "personal note",
         Traduction: "I made a promise.",
       },
     });
@@ -185,11 +188,9 @@ describe("MiningModal", () => {
       expect(captureCueMock).toHaveBeenCalledWith(
         expect.objectContaining({ id: "fixture", start: 1, end: 2 }),
       );
-      expect(
-        [...document.querySelectorAll(".subjap-audio-info")].some((el) =>
-          el.textContent?.includes("Netflix phrase audio ready"),
-        ),
-      ).toBe(true);
+      expect(document.querySelector<HTMLButtonElement>(".subjap-audio-control")?.disabled).toBe(
+        false,
+      );
     });
     await vi.waitFor(() => {
       expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe("flex");
@@ -303,10 +304,11 @@ describe("MiningModal", () => {
         },
         definitions: ["promise"],
       });
-      await vi.waitFor(() => expect(document.querySelector(".subjap-screenshot-info")).not.toBeNull());
+      await vi.waitFor(() => expect(document.querySelector(".subjap-scene-image img")).not.toBeNull());
       await vi.waitFor(() => {
         expect((document.querySelector("#subjap-mining-modal") as HTMLElement).style.display).toBe("flex");
       });
+      (document.querySelector(".subjap-add-note") as HTMLButtonElement).click();
       const notes = document.querySelector<HTMLTextAreaElement>(".subjap-notes");
       if (!notes) throw new Error("Notes textarea was not rendered");
       notes.value = "keep this note for retry";

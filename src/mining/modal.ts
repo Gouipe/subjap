@@ -3,10 +3,10 @@
 // ---------------------------------------------------------------------------
 //
 // Opened from the content script when the user mines a word from the popover.
-// Shows the sentence with the target highlighted, the reading and editable
-// definitions, and editable Anki notes; a video-frame screenshot is captured
-// automatically, then the card is pushed to the local IndexedDB store and
-// (best-effort) to Anki.
+// The dialog previews the Anki back card in its order (word sheet, scene,
+// notes) and every value is edited in place. A video-frame screenshot and the
+// phrase audio are captured automatically, then the card is pushed to the
+// local IndexedDB store and (best-effort) to Anki.
 
 import {
   tokenDictionaryForm,
@@ -25,6 +25,12 @@ import {
   type AiSession,
 } from "./ai-enrichment";
 import {
+  AI_NOTE_LABEL,
+  parseAiNotes,
+  serializeAiNotes,
+  type AiNoteParagraph,
+} from "./ai-notes";
+import {
   formatMigakuDefinitions,
   formatMigakuNotes,
   formatMigakuSentence,
@@ -33,6 +39,20 @@ import {
 import type { VideoAudioCapture } from "./audio-capture";
 
 const MODAL_ID = "subjap-mining-modal";
+
+/** Dictionary glosses kept on the card unless the learner adds more. */
+const DEFAULT_SELECTED_DEFINITIONS = 3;
+
+type CaptureStatus = "pending" | "ready" | "unavailable";
+
+type EditableField =
+  | "word"
+  | "reading"
+  | "sentence"
+  | "translation"
+  | "kanji-meaning"
+  | "kanji-example"
+  | "note-line";
 
 interface MiningState {
   cue: RenderedCue;
@@ -43,19 +63,28 @@ interface MiningState {
   translationText: string;
   episodeContext: EpisodeContext;
   definitions: string[];
-  definitionText: string;
+  definitionSelected: boolean[];
   notesText: string;
-  aiNotesText: string;
+  notesOpen: boolean;
+  aiParagraphs: AiNoteParagraph[];
   aiGenerating: boolean;
   aiGeneratedOnce: boolean;
   aiStatus: string | null;
   aiError: string | null;
   phraseAudioDataUrl: string | null;
   phraseAudioAttempted: boolean;
+  phraseAudioStatus: CaptureStatus;
   screenshotDataUrl: string | null;
+  screenshotStatus: CaptureStatus;
   localCardId: string | null;
   ankiError: string | null;
   sending: boolean;
+}
+
+interface ActiveEdit {
+  element: HTMLElement;
+  original: string;
+  dirty: boolean;
 }
 
 /** Escape HTML so dictionary glosses / surfaces cannot inject markup. */
@@ -68,35 +97,78 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function definitionLines(text: string): string[] {
-  return text
-    .split(/[\r\n,]+/u)
-    .map((definition) => definition.trim())
-    .filter((definition) => definition.length > 0);
+function selectedDefinitions(state: MiningState): string[] {
+  return state.definitions.filter((_, index) => state.definitionSelected[index]);
 }
 
 function combinedNotes(state: MiningState): string {
-  return [state.notesText.trim(), state.aiNotesText.trim()]
+  return [state.notesText.trim(), serializeAiNotes(state.aiParagraphs)]
     .filter((section) => section.length > 0)
     .join("\n\n");
 }
 
+function defaultSentence(state: MiningState): string {
+  return normalizeCueText(state.cue.cue.text) || state.targetToken.token.surface;
+}
+
+/** While the sentence and word are untouched, the cue tokens locate the exact target. */
+function usesCueSpans(state: MiningState): boolean {
+  return (
+    state.sentenceText === defaultSentence(state) &&
+    state.targetWordText === tokenDictionaryForm(state.targetToken.token)
+  );
+}
+
 /** Render an edited sentence safely while keeping the target word highlighted. */
-function formatEditableSentence(sentence: string, targetWord: string): string {
+function formatEditableSentence(sentence: string, targetWord: string, className = "target"): string {
   const target = targetWord.trim();
   if (!target) return escapeHtml(sentence);
   const targetIndex = sentence.indexOf(target);
   if (targetIndex < 0) return escapeHtml(sentence);
-  return `${escapeHtml(sentence.slice(0, targetIndex))}<span class="target">${escapeHtml(
+  return `${escapeHtml(sentence.slice(0, targetIndex))}<span class="${className}">${escapeHtml(
     target,
   )}</span>${escapeHtml(sentence.slice(targetIndex + target.length))}`;
 }
+
+/** Same highlight as the card: the mined token when untouched, else the edited word. */
+function sentencePreviewHtml(state: MiningState): string {
+  const { spans } = state.cue;
+  if (usesCueSpans(state)) {
+    if (spans.some((span) => span.token === state.targetToken.token)) {
+      return spans
+        .map((span) => {
+          const text = escapeHtml(span.token.surface);
+          return span.token === state.targetToken.token
+            ? `<span class="subjap-target">${text}</span>`
+            : text;
+        })
+        .join("");
+    }
+    return formatEditableSentence(state.sentenceText, state.targetToken.token.surface, "subjap-target");
+  }
+  return formatEditableSentence(state.sentenceText, state.targetWordText, "subjap-target");
+}
+
+function editableAttributes(field: EditableField, label: string, extra = "", className = ""): string {
+  return `class="subjap-editable ${className}" data-edit="${field}" contenteditable="plaintext-only" role="textbox" spellcheck="false" aria-label="${escapeHtml(label)}" ${extra}`;
+}
+
+function isTextInput(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest("input, textarea, select, [contenteditable]") !== null
+  );
+}
+
+const PLAY_ICON =
+  '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10"/><path d="M8 6l6 4-6 4z"/></svg>';
 
 export class MiningModal {
   private container: HTMLDivElement;
   private video: HTMLVideoElement;
   private audioCapture: VideoAudioCapture | null;
   private state: MiningState | null = null;
+  private activeEdit: ActiveEdit | null = null;
   private phraseAudioPromise: Promise<string | undefined> | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
   private isOpen = false;
@@ -107,19 +179,11 @@ export class MiningModal {
     this.container = this.buildContainer();
     mountVideoSurface(this.container);
     this.injectStyles();
-    // Single delegated listener — avoids duplicate handlers across re-renders.
-    this.container.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains("subjap-modal-btn-phrase-audio")) {
-        this.playPhraseAudio();
-      } else if (target.classList.contains("subjap-modal-btn-ai")) {
-        void this.generateAiNotes();
-      } else if (target.classList.contains("subjap-modal-btn-send")) {
-        void this.sendToAnki();
-      } else if (target.classList.contains("subjap-modal-close")) {
-        this.close();
-      }
-    });
+    // Single delegated listeners — sections are re-rendered independently.
+    this.container.addEventListener("click", (e) => this.onClick(e));
+    this.container.addEventListener("focusin", (e) => this.onFocusIn(e));
+    this.container.addEventListener("focusout", (e) => this.onFocusOut(e));
+    this.container.addEventListener("input", (e) => this.onInput(e));
   }
 
   /** Open the mining modal with the given cue, target word, and episode context. */
@@ -140,24 +204,29 @@ export class MiningModal {
       translationText: state.translation ?? "",
       episodeContext: state.episodeContext,
       definitions: state.definitions,
-      definitionText: state.definitions.join(", "),
+      definitionSelected: state.definitions.map((_, index) => index < DEFAULT_SELECTED_DEFINITIONS),
       notesText: "",
-      aiNotesText: "",
+      notesOpen: false,
+      aiParagraphs: [],
       aiGenerating: false,
       aiGeneratedOnce: false,
       aiStatus: null,
       aiError: null,
       phraseAudioDataUrl: null,
       phraseAudioAttempted: false,
+      phraseAudioStatus: "pending",
       screenshotDataUrl: null,
+      screenshotStatus: "pending",
       localCardId: null,
       ankiError: null,
       sending: false,
     };
     const modalState = this.state;
+    this.activeEdit = null;
     this.isOpen = true;
-    this.render();
+    this.renderShell();
     this.show();
+    this.container.querySelector<HTMLElement>(".subjap-modal-panel")?.focus({ preventScroll: true });
     this.registerKeyboard();
     // Freeze the frame chosen by the learner before phrase replay seeks the
     // Netflix player back to the cue start.
@@ -169,6 +238,7 @@ export class MiningModal {
 
   close(): void {
     this.isOpen = false;
+    this.activeEdit = null;
     this.hide();
     this.unregisterKeyboard();
   }
@@ -190,15 +260,18 @@ export class MiningModal {
     el.style.display = "none";
     el.innerHTML = `
       <div class="subjap-modal-backdrop"></div>
-      <div class="subjap-modal-panel">
+      <div class="subjap-modal-panel" role="dialog" aria-modal="true" aria-labelledby="subjap-modal-title" tabindex="-1">
         <div class="subjap-modal-header">
-          <span class="subjap-modal-title">Créer une carte</span>
-          <button class="subjap-modal-close" title="Fermer" aria-label="Fermer">✕</button>
+          <div class="subjap-modal-heading">
+            <span class="subjap-modal-title" id="subjap-modal-title">Créer une carte</span>
+            <span class="subjap-modal-source"></span>
+          </div>
+          <button class="subjap-modal-close" data-action="close" title="Fermer" aria-label="Fermer">✕</button>
         </div>
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
-          <button class="subjap-modal-btn subjap-modal-btn-phrase-audio" disabled>Audio de la phrase</button>
-          <button class="subjap-modal-btn subjap-modal-btn-send">Créer dans Anki</button>
+          <div class="subjap-modal-status" role="status" aria-live="polite"></div>
+          <button class="subjap-modal-btn subjap-modal-btn-send" data-action="send"></button>
         </div>
       </div>`;
     return el;
@@ -221,100 +294,184 @@ export class MiningModal {
         position: absolute; inset: 0; background: rgba(12,13,16,0.78);
       }
       .subjap-modal-panel {
-        position: relative; background: var(--sj-surface); color: var(--sj-text);
-        border-radius: 12px; padding: 20px 24px; max-width: 720px; width: 94%;
-        box-sizing: border-box; height: 80vh; max-height: 80vh; overflow: hidden;
+        position: relative; background: var(--sj-canvas); color: var(--sj-text);
+        border: 1px solid var(--sj-hairline); border-radius: 12px; padding: 18px 20px 16px;
+        max-width: 760px; width: 94%; box-sizing: border-box; max-height: 90vh; overflow: hidden;
         display: flex; flex-direction: column; box-shadow: 0 8px 8px rgba(0,0,0,0.42);
         font-family: "IBM Plex Sans JP", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+        font-size: 14px; line-height: 1.55; text-align: left;
       }
+      .subjap-modal-panel:focus { outline: none; }
       .subjap-modal-header {
-        display: flex; flex-shrink: 0; justify-content: space-between; align-items: center;
-        margin-bottom: 16px; border-bottom: 1px solid var(--sj-hairline); padding-bottom: 10px;
+        display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 12px;
+        margin-bottom: 14px;
       }
-      .subjap-modal-title { font-size: 17px; font-weight: 600; }
+      .subjap-modal-heading { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+      .subjap-modal-title { flex-shrink: 0; font-size: 17px; font-weight: 600; }
+      .subjap-modal-source {
+        min-width: 0; overflow: hidden; color: var(--sj-muted); font-size: 12px;
+        white-space: nowrap; text-overflow: ellipsis;
+      }
       .subjap-modal-close {
-        background: none; border: none; color: var(--sj-muted); font-size: 20px;
+        flex-shrink: 0; background: none; border: none; color: var(--sj-muted); font-size: 18px;
         cursor: pointer; padding: 4px 8px; border-radius: 6px;
       }
       .subjap-modal-close:hover { background: var(--sj-raised); color: var(--sj-text); }
       .subjap-modal-body {
-        flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 16px;
-        line-height: 1.6; font-size: 14px;
+        flex: 1 1 auto; min-height: 0; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 10px;
       }
-      .subjap-modal-body .subjap-sentence {
-        font-size: 24px; margin-bottom: 12px; padding: 12px; background: var(--sj-raised); border-radius: 8px;
-        user-select: text; cursor: text;
+      .subjap-sheet {
+        padding: 14px 18px; border: 1px solid var(--sj-hairline); border-radius: 10px;
+        background: var(--sj-surface);
       }
-      .subjap-modal-body .subjap-sentence .subjap-target { color: var(--sj-accent-hover); font-weight: 600; }
-      .subjap-modal-body .subjap-target-word { user-select: text; cursor: text; }
-      .subjap-modal-body .subjap-label { font-size: 12px; color: var(--sj-muted); font-weight: 500; }
-      .subjap-modal-body .subjap-input, .subjap-modal-body .subjap-textarea {
-        display: block; box-sizing: border-box; width: 100%; margin: 4px 0 12px; padding: 8px 10px;
+      .subjap-label { color: var(--sj-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.01em; }
+      .subjap-muted { color: var(--sj-muted); font-size: 13px; }
+
+      .subjap-editable {
+        border-radius: 4px; cursor: text; user-select: text; -webkit-user-select: text;
+        box-decoration-break: clone; -webkit-box-decoration-break: clone;
+        transition: background 120ms cubic-bezier(0.22,1,0.36,1);
+      }
+      .subjap-editable:hover { background: var(--sj-raised); }
+      .subjap-editable:focus {
+        outline: 1px solid var(--sj-accent); outline-offset: 2px; background: var(--sj-input);
+      }
+      .subjap-editable:empty::before { content: attr(data-placeholder); color: var(--sj-muted); }
+
+      .subjap-word-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+      .subjap-word { color: var(--sj-accent-hover); font-size: 36px; font-weight: 600; line-height: 1.25; }
+      .subjap-reading { color: var(--sj-muted); font-size: 17px; }
+      .subjap-definitions {
+        display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px;
+        border-top: 1px solid var(--sj-hairline);
+      }
+      .subjap-definition {
+        padding: 4px 10px; border: 1px solid var(--sj-hairline); border-radius: 6px;
+        background: var(--sj-raised); color: var(--sj-text); font: inherit; font-size: 14px;
+        line-height: 1.4; cursor: pointer; text-align: left;
+      }
+      .subjap-definition:hover { border-color: var(--sj-muted); }
+      .subjap-definition[aria-pressed="false"] {
+        background: transparent; border-style: dashed; color: var(--sj-muted); text-decoration: line-through;
+      }
+
+      .subjap-scene { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 16px; align-items: start; }
+      .subjap-scene-image img {
+        display: block; width: 100%; max-height: 140px; object-fit: contain;
+        border-radius: 6px; background: var(--sj-canvas);
+      }
+      .subjap-scene-placeholder {
+        display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9;
+        border: 1px dashed var(--sj-hairline); border-radius: 6px; color: var(--sj-muted); font-size: 12px;
+      }
+      .subjap-sentence { font-size: 22px; line-height: 1.6; white-space: pre-wrap; }
+      .subjap-sentence .subjap-target { color: var(--sj-accent-hover); font-weight: 600; }
+      .subjap-scene-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+      .subjap-translation { color: var(--sj-muted); font-size: 15px; line-height: 1.55; }
+
+      .subjap-audio-control {
+        display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 4px 9px 4px 7px;
+        border: 1px solid var(--sj-hairline); border-radius: 6px; background: var(--sj-raised);
+        color: var(--sj-text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+      }
+      .subjap-audio-control svg { width: 18px; height: 18px; }
+      .subjap-audio-control svg circle { fill: var(--sj-muted); }
+      .subjap-audio-control svg path { fill: var(--sj-raised); }
+      .subjap-audio-control:hover:not(:disabled) { border-color: var(--sj-accent); }
+      .subjap-audio-control:hover:not(:disabled) svg circle { fill: var(--sj-text); }
+      .subjap-audio-control:disabled { opacity: 0.6; cursor: default; }
+      .subjap-capture-note { color: var(--sj-muted); font-size: 12px; }
+
+      #${MODAL_ID} kbd {
+        padding: 1px 4px; border: 1px solid var(--sj-hairline); border-radius: 3px;
+        color: var(--sj-muted); font: inherit; font-size: 11px; font-weight: 500; line-height: 1.2;
+      }
+
+      .subjap-notes-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+      .subjap-ai { margin-top: 8px; }
+      .subjap-ai:empty { display: none; }
+      .subjap-ai-button {
+        display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px;
+        border: 1px solid var(--sj-hairline); border-radius: 6px; background: var(--sj-raised);
+        color: var(--sj-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+      }
+      .subjap-ai-button:hover:not(:disabled) { border-color: var(--sj-accent); }
+      .subjap-ai-button:disabled { opacity: 0.6; cursor: default; }
+      .subjap-ai-button--quiet { padding: 3px 8px; background: transparent; color: var(--sj-muted); font-weight: 500; }
+      .subjap-ai-button--quiet:hover:not(:disabled) { color: var(--sj-text); }
+      .subjap-ai-intro { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+      .subjap-ai-status { color: var(--sj-muted); font-size: 13px; }
+
+      .subjap-kanji-tiles {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-bottom: 10px;
+      }
+      .subjap-kanji-tiles:last-child { margin-bottom: 0; }
+      .subjap-kanji-tile, .subjap-note-paragraph { position: relative; }
+      .subjap-kanji-tile {
+        padding: 10px 28px 11px 12px; border: 1px solid var(--sj-hairline); border-radius: 8px;
+        background: var(--sj-raised); user-select: text; -webkit-user-select: text;
+      }
+      .subjap-kanji-tile-head { display: flex; align-items: baseline; gap: 8px; }
+      .subjap-kanji-char { font-size: 28px; font-weight: 600; line-height: 1.2; }
+      .subjap-kanji-meaning { font-size: 14px; font-weight: 600; line-height: 1.35; }
+      .subjap-kanji-examples {
+        margin: 6px 0 0; padding: 0; list-style: none; color: var(--sj-muted); font-size: 13px; line-height: 1.5;
+      }
+      .subjap-kanji-examples li { position: relative; padding-right: 22px; }
+      .subjap-kanji-tile .subjap-editable:hover { background: #252932; }
+      .subjap-note-paragraph { padding-right: 28px; color: var(--sj-muted); }
+      .subjap-note-paragraph + .subjap-note-paragraph { margin-top: 8px; }
+      .subjap-notes-term { color: var(--sj-text); font-weight: 600; }
+      .subjap-remove {
+        position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0;
+        border: none; border-radius: 4px; background: transparent; color: var(--sj-muted);
+        font-size: 15px; line-height: 22px; cursor: pointer; opacity: 0;
+      }
+      .subjap-kanji-examples .subjap-remove { top: 0; right: 0; width: 20px; height: 20px; line-height: 20px; font-size: 13px; }
+      .subjap-kanji-tile:hover > .subjap-remove, .subjap-note-paragraph:hover > .subjap-remove,
+      .subjap-kanji-examples li:hover > .subjap-remove, .subjap-remove:focus-visible { opacity: 1; }
+      .subjap-remove:hover { background: var(--sj-canvas); color: var(--sj-danger); }
+
+      .subjap-personal-notes { margin-top: 10px; }
+      .subjap-add-note {
+        padding: 2px 0; border: none; background: none; color: var(--sj-muted);
+        font: inherit; font-size: 13px; cursor: pointer;
+      }
+      .subjap-add-note:hover { color: var(--sj-text); }
+      .subjap-notes {
+        display: block; box-sizing: border-box; width: 100%; min-height: 72px; padding: 8px 10px; resize: vertical;
         background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
-        border-radius: 6px; font: inherit; line-height: 1.45;
+        border-radius: 6px; font: inherit; line-height: 1.5;
       }
-      .subjap-modal-body .subjap-input:focus, .subjap-modal-body .subjap-textarea:focus {
-        outline: 2px solid var(--sj-accent); outline-offset: 1px;
-      }
-      .subjap-modal-body .subjap-sentence-input { min-height: 78px; resize: vertical; font-size: 24px; }
-      .subjap-modal-body .subjap-translation { min-height: 58px; resize: vertical; }
-      .subjap-modal-body .subjap-definitions {
-        display: block; box-sizing: border-box; width: 100%; height: calc(2 * 1.45em + 16px);
-        margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
-        background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
-        border-radius: 6px; font: inherit; line-height: 1.45;
-      }
-      .subjap-modal-body .subjap-definitions:focus {
-        outline: 2px solid var(--sj-accent); outline-offset: 1px;
-      }
-      .subjap-modal-body .subjap-notes {
-        display: block; box-sizing: border-box; width: 100%; min-height: 120px;
-        margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
-        background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
-        border-radius: 6px; font: inherit; line-height: 1.45;
-      }
-      .subjap-modal-body .subjap-notes:focus, .subjap-modal-body .subjap-ai-notes:focus {
-        outline: 2px solid var(--sj-accent); outline-offset: 1px;
-      }
-      .subjap-modal-body .subjap-ai-controls {
-        display: flex; align-items: center; gap: 10px; margin: 0 0 10px;
-      }
-      .subjap-modal-body .subjap-modal-btn-ai {
-        flex: 0 0 auto; padding: 8px 12px; min-width: 170px;
-        background: var(--sj-raised); color: var(--sj-text); border: 1px solid var(--sj-hairline);
-      }
-      .subjap-modal-body .subjap-modal-btn-ai:hover:not(:disabled) { background: #252932; }
-      .subjap-modal-body .subjap-ai-status { font-size: 13px; color: var(--sj-muted); }
-      .subjap-modal-body .subjap-ai-notes {
-        display: block; box-sizing: border-box; width: 100%; min-height: 190px;
-        margin: 4px 0 12px; padding: 8px 10px; resize: vertical;
-        background: var(--sj-input); color: var(--sj-text); border: 1px solid var(--sj-hairline);
-        border-radius: 6px; font: inherit; line-height: 1.45;
-      }
-      .subjap-modal-body .subjap-audio-info, .subjap-modal-body .subjap-screenshot-info {
-        font-size: 13px; color: var(--sj-success); margin-top: 6px;
-      }
-      .subjap-modal-body .subjap-error { font-size: 13px; color: var(--sj-danger); margin-top: 6px; }
-      .subjap-modal-body .subjap-local-info { font-size: 13px; color: var(--sj-warning); margin-top: 8px; }
+      .subjap-notes:focus { outline: 1px solid var(--sj-accent); outline-offset: 1px; }
+
       .subjap-modal-footer {
-        display: flex; flex-shrink: 0; gap: 8px; flex-wrap: wrap;
-        border-top: 1px solid var(--sj-hairline); padding-top: 12px;
+        display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px;
+        margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sj-hairline);
       }
+      .subjap-modal-status { min-width: 0; font-size: 13px; }
+      .subjap-local-info { color: var(--sj-warning); }
+      .subjap-error { color: var(--sj-danger); }
       .subjap-modal-btn {
-        flex: 1; padding: 10px 14px; border: 1px solid var(--sj-hairline); border-radius: 6px;
-        font-size: 13px; font-weight: 600; cursor: pointer; transition: background 160ms cubic-bezier(0.22,1,0.36,1), transform 160ms cubic-bezier(0.22,1,0.36,1);
-        min-width: 100px;
+        display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0;
+        padding: 10px 16px; border: 1px solid var(--sj-hairline); border-radius: 6px;
+        font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        transition: background 160ms cubic-bezier(0.22,1,0.36,1), transform 160ms cubic-bezier(0.22,1,0.36,1);
       }
       .subjap-modal-btn:disabled { opacity: 0.6; cursor: default; }
-      .subjap-modal-btn-phrase-audio { background: var(--sj-raised); color: var(--sj-text); }
-      .subjap-modal-btn-phrase-audio:hover:not(:disabled) { background: #252932; }
       .subjap-modal-btn-send { background: var(--sj-accent); border-color: var(--sj-accent); color: var(--sj-canvas); }
       .subjap-modal-btn-send:hover:not(:disabled) { background: var(--sj-accent-hover); }
-      .subjap-modal-btn:focus-visible,
-      .subjap-modal-close:focus-visible { outline: 2px solid var(--sj-accent); outline-offset: 2px; }
+      #${MODAL_ID} .subjap-modal-btn-send kbd { border-color: rgba(12,13,16,0.35); color: var(--sj-canvas); }
       .subjap-modal-btn:active:not(:disabled) { transform: translateY(1px); }
+      #${MODAL_ID} button:focus-visible { outline: 2px solid var(--sj-accent); outline-offset: 2px; }
+
+      @media (max-width: 560px) {
+        .subjap-scene { grid-template-columns: minmax(0, 1fr); }
+        .subjap-scene-image { max-width: 240px; }
+      }
       @media (prefers-reduced-motion: reduce) {
-        .subjap-modal-btn { transition: none; }
+        .subjap-modal-btn, .subjap-editable { transition: none; }
       }
     `;
     document.head.appendChild(style);
@@ -322,121 +479,444 @@ export class MiningModal {
 
   // ── Rendering ───────────────────────────────────────────────────────────
 
-  private render(): void {
-    if (!this.state) return;
-    const body = this.container.querySelector(".subjap-modal-body");
-    if (!body) return;
+  private get body(): HTMLElement | null {
+    return this.container.querySelector<HTMLElement>(".subjap-modal-body");
+  }
 
-    const aiButtonLabel = this.state.aiGenerating
-      ? "Analyse en cours…"
-      : this.state.aiGeneratedOnce
-        ? "↻ Régénérer avec l’IA"
-        : "✨ Enrichir avec l’IA";
-    const aiNotesHtml = this.state.aiNotesText
-      ? `<div class="subjap-label">Enrichissement IA — modifiable</div>
-        <textarea class="subjap-ai-notes" data-testid="mining-ai-notes" aria-label="Enrichissement IA">${escapeHtml(this.state.aiNotesText)}</textarea>`
-      : "";
-    const aiStatusHtml = this.state.aiStatus
-      ? `<span class="subjap-ai-status">${escapeHtml(this.state.aiStatus)}</span>`
-      : "";
-    const aiErrorHtml = this.state.aiError
-      ? `<div class="subjap-error">IA distante : ${escapeHtml(this.state.aiError)}</div>`
-      : "";
-    const defListHtml = `<div class="subjap-label">Definitions</div>
-      <textarea class="subjap-definitions" data-testid="mining-definitions" aria-label="Definitions">${escapeHtml(this.state.definitionText)}</textarea>
-      <div class="subjap-label">Notes</div>
-      <textarea class="subjap-notes" data-testid="mining-notes" aria-label="Notes" placeholder="Ajouter une note personnelle pour Anki…">${escapeHtml(this.state.notesText)}</textarea>
-      <div class="subjap-ai-controls">
-        <button class="subjap-modal-btn subjap-modal-btn-ai" data-testid="mining-ai-enrich" ${this.state.aiGenerating || this.state.sending ? "disabled" : ""}>${aiButtonLabel}</button>
-        ${aiStatusHtml}
-      </div>
-      ${aiErrorHtml}
-      ${aiNotesHtml}`;
+  /** Build the card preview once per opening; later updates only touch their section. */
+  private renderShell(): void {
+    const state = this.state;
+    const body = this.body;
+    if (!state || !body) return;
 
-    const phraseAudioInfo = this.state.phraseAudioDataUrl
-      ? '<div class="subjap-audio-info">✓ Audio de la phrase prêt</div>'
-      : "";
-    const screenshotInfo = this.state.screenshotDataUrl
-      ? '<div class="subjap-screenshot-info">✓ Image capturée</div>'
-      : "";
-    const localInfo = this.state.localCardId
-      ? '<div class="subjap-local-info">✓ Carte sauvegardée localement</div>'
-      : "";
-    const ankiError = this.state.ankiError
-      ? `<div class="subjap-error">Erreur d’envoi : ${escapeHtml(this.state.ankiError)}</div>`
-      : "";
+    const source = this.container.querySelector(".subjap-modal-source");
+    if (source) source.textContent = state.episodeContext.title;
 
     body.innerHTML = `
-      <div class="subjap-label">Sentence — ${escapeHtml(this.state.episodeContext.title)}</div>
-      <textarea class="subjap-textarea subjap-sentence-input" data-testid="mining-sentence" aria-label="Sentence">${escapeHtml(this.state.sentenceText)}</textarea>
-      <div class="subjap-label">Target Word</div>
-      <input class="subjap-input" data-testid="mining-target-word" aria-label="Target Word" value="${escapeHtml(this.state.targetWordText)}" />
-      <div class="subjap-label">Reading</div>
-      <input class="subjap-input" data-testid="mining-reading" aria-label="Reading" value="${escapeHtml(this.state.readingText)}" />
-      <div class="subjap-label">Translation</div>
-      <textarea class="subjap-textarea subjap-translation" data-testid="mining-translation" aria-label="Translation">${escapeHtml(this.state.translationText)}</textarea>
-      ${defListHtml}
-      ${phraseAudioInfo}
-      ${screenshotInfo}
-      ${localInfo}
-      ${ankiError}
-    `;
+      <section class="subjap-sheet subjap-word-sheet">
+        <div class="subjap-word-line">
+          <span ${editableAttributes("word", "Mot", 'data-testid="mining-target-word"', "subjap-word subjap-target-word")}>${escapeHtml(state.targetWordText)}</span>
+          <span ${editableAttributes("reading", "Lecture", 'data-testid="mining-reading" data-placeholder="Lecture"', "subjap-reading")}>${escapeHtml(state.readingText)}</span>
+        </div>
+        <div class="subjap-definitions" data-testid="mining-definitions" role="group" aria-label="Définitions"></div>
+      </section>
+      <section class="subjap-sheet subjap-scene">
+        <div class="subjap-scene-image"></div>
+        <div class="subjap-scene-text">
+          <div ${editableAttributes("sentence", "Phrase", 'data-testid="mining-sentence"', "subjap-sentence")}></div>
+          <div class="subjap-scene-controls"></div>
+          <div ${editableAttributes("translation", "Traduction", 'data-testid="mining-translation" data-placeholder="Ajouter une traduction"', "subjap-translation")}>${escapeHtml(state.translationText)}</div>
+        </div>
+      </section>
+      <section class="subjap-sheet subjap-notes-sheet">
+        <div class="subjap-notes-head">
+          <span class="subjap-label">Notes</span>
+          <span class="subjap-ai-action"></span>
+        </div>
+        <div class="subjap-ai"></div>
+        <div class="subjap-personal-notes"></div>
+      </section>`;
 
-    const phraseAudioButton = this.container.querySelector<HTMLButtonElement>(
-      ".subjap-modal-btn-phrase-audio",
-    );
-    if (phraseAudioButton) {
-      phraseAudioButton.disabled = !this.state.phraseAudioDataUrl;
+    this.renderSentence();
+    this.renderDefinitions();
+    this.renderMedia();
+    this.renderAi();
+    this.renderPersonalNotes();
+    this.renderFooter();
+  }
+
+  private renderSentence(): void {
+    const state = this.state;
+    const sentence = this.body?.querySelector<HTMLElement>(".subjap-sentence");
+    if (!state || !sentence) return;
+    sentence.innerHTML = sentencePreviewHtml(state);
+  }
+
+  private renderDefinitions(): void {
+    const state = this.state;
+    const list = this.body?.querySelector<HTMLElement>(".subjap-definitions");
+    if (!state || !list) return;
+    list.innerHTML =
+      state.definitions.length > 0
+        ? state.definitions
+            .map((definition, index) => {
+              const selected = state.definitionSelected[index] === true;
+              return `<button type="button" class="subjap-definition" data-action="toggle-definition" data-index="${index}" aria-pressed="${selected}" title="${selected ? "Retirer de la carte" : "Ajouter à la carte"}">${escapeHtml(definition)}</button>`;
+            })
+            .join("")
+        : '<span class="subjap-muted">Aucune définition dans le dictionnaire.</span>';
+  }
+
+  /** Screenshot thumbnail and phrase audio control, both filled in by background captures. */
+  private renderMedia(): void {
+    const state = this.state;
+    const body = this.body;
+    if (!state || !body) return;
+
+    const image = body.querySelector<HTMLElement>(".subjap-scene-image");
+    if (image) {
+      image.innerHTML =
+        state.screenshotStatus === "ready" && state.screenshotDataUrl
+          ? `<img src="${escapeHtml(state.screenshotDataUrl)}" alt="Image de la scène" />`
+          : `<div class="subjap-scene-placeholder">${
+              state.screenshotStatus === "pending" ? "Capture de l’image…" : "Image indisponible"
+            }</div>`;
     }
 
-    const sentenceInput = body.querySelector<HTMLTextAreaElement>(".subjap-sentence-input");
-    sentenceInput?.addEventListener("input", () => {
-      if (this.state) this.state.sentenceText = sentenceInput.value;
-    });
+    const controls = body.querySelector<HTMLElement>(".subjap-scene-controls");
+    if (controls) {
+      const ready = state.phraseAudioStatus === "ready" && state.phraseAudioDataUrl !== null;
+      const note =
+        state.phraseAudioStatus === "pending"
+          ? '<span class="subjap-capture-note">Capture de l’audio…</span>'
+          : state.phraseAudioStatus === "unavailable"
+            ? '<span class="subjap-capture-note">Audio de la phrase indisponible</span>'
+            : "";
+      controls.innerHTML = `
+        <button type="button" class="subjap-audio-control" data-action="play-phrase" aria-keyshortcuts="Q" title="Écouter la phrase (Q)" ${ready ? "" : "disabled"}>
+          ${PLAY_ICON}<span>Phrase</span><kbd aria-hidden="true">Q</kbd>
+        </button>
+        ${note}`;
+    }
+  }
 
-    const targetWordInput = body.querySelector<HTMLInputElement>("[data-testid=\"mining-target-word\"]");
-    targetWordInput?.addEventListener("input", () => {
-      if (this.state) this.state.targetWordText = targetWordInput.value;
-    });
+  /** AI enrichment: a launch button until generated, then the editable tiles of the card. */
+  private renderAi(): void {
+    const state = this.state;
+    const body = this.body;
+    if (!state || !body) return;
+    const action = body.querySelector<HTMLElement>(".subjap-ai-action");
+    const section = body.querySelector<HTMLElement>(".subjap-ai");
+    if (!action || !section) return;
+    if (this.activeEdit && section.contains(this.activeEdit.element)) this.activeEdit = null;
 
-    const readingInput = body.querySelector<HTMLInputElement>("[data-testid=\"mining-reading\"]");
-    readingInput?.addEventListener("input", () => {
-      if (this.state) {
-        this.state.readingText = readingInput.value;
+    const disabled = state.aiGenerating || state.sending ? "disabled" : "";
+    const status = state.aiStatus
+      ? `<span class="subjap-ai-status">${escapeHtml(state.aiStatus)}</span>`
+      : "";
+    const error = state.aiError
+      ? `<div class="subjap-error">IA distante : ${escapeHtml(state.aiError)}</div>`
+      : "";
+
+    if (!state.aiGeneratedOnce) {
+      action.innerHTML = "";
+      section.innerHTML = `
+        <div class="subjap-ai-intro">
+          <button type="button" class="subjap-ai-button subjap-modal-btn-ai" data-action="ai" data-testid="mining-ai-enrich" aria-keyshortcuts="I" ${disabled}>
+            ${state.aiGenerating ? "Analyse en cours…" : "✨ Enrichir avec l’IA"}<kbd aria-hidden="true">I</kbd>
+          </button>
+          ${status || '<span class="subjap-ai-status">Kanjis, synonymes et association</span>'}
+        </div>
+        ${error}`;
+      return;
+    }
+
+    action.innerHTML = `
+      <button type="button" class="subjap-ai-button subjap-ai-button--quiet subjap-modal-btn-ai" data-action="ai" data-testid="mining-ai-enrich" aria-keyshortcuts="I" ${disabled}>
+        ${state.aiGenerating ? "Analyse en cours…" : "↻ Régénérer"}<kbd aria-hidden="true">I</kbd>
+      </button>`;
+
+    const tiles: string[] = [];
+    const texts: string[] = [];
+    state.aiParagraphs.forEach((paragraph, p) => {
+      if (paragraph.kind === "kanji") {
+        const examples = paragraph.examples
+          .map(
+            (example, i) => `<li>
+              <span ${editableAttributes("kanji-example", `Exemple pour ${paragraph.character}`, `data-paragraph="${p}" data-index="${i}"`)}>${escapeHtml(example)}</span>
+              <button type="button" class="subjap-remove" data-action="remove-example" data-paragraph="${p}" data-index="${i}" title="Supprimer l’exemple" aria-label="Supprimer l’exemple">×</button>
+            </li>`,
+          )
+          .join("");
+        tiles.push(`<div class="subjap-kanji-tile">
+          <div class="subjap-kanji-tile-head">
+            <span class="subjap-kanji-char">${escapeHtml(paragraph.character)}</span>
+            <span ${editableAttributes("kanji-meaning", `Sens de ${paragraph.character}`, `data-paragraph="${p}"`, "subjap-kanji-meaning")}>${escapeHtml(paragraph.meaning)}</span>
+          </div>
+          ${examples ? `<ul class="subjap-kanji-examples">${examples}</ul>` : ""}
+          <button type="button" class="subjap-remove" data-action="remove-paragraph" data-paragraph="${p}" title="Supprimer la tuile" aria-label="Supprimer la tuile ${escapeHtml(paragraph.character)}">×</button>
+        </div>`);
+        return;
       }
+      const lines = paragraph.lines
+        .map((line, i) => {
+          const [, term, text = line] = AI_NOTE_LABEL.exec(line) ?? [];
+          const termHtml = term ? `<span class="subjap-notes-term">${escapeHtml(term)}</span> ` : "";
+          const label = term ? term.replace(/ :$/u, "") : "Note";
+          return `<div>${termHtml}<span ${editableAttributes("note-line", label, `data-paragraph="${p}" data-index="${i}"`)}>${escapeHtml(text)}</span></div>`;
+        })
+        .join("");
+      texts.push(`<div class="subjap-note-paragraph">
+        ${lines}
+        <button type="button" class="subjap-remove" data-action="remove-paragraph" data-paragraph="${p}" title="Supprimer" aria-label="Supprimer ce paragraphe">×</button>
+      </div>`);
     });
 
-    const translationInput = body.querySelector<HTMLTextAreaElement>(".subjap-translation");
-    translationInput?.addEventListener("input", () => {
-      if (this.state) this.state.translationText = translationInput.value;
-    });
+    const empty =
+      state.aiParagraphs.length === 0 && !state.aiGenerating && !state.aiStatus
+        ? '<span class="subjap-ai-status">Enrichissement supprimé.</span>'
+        : "";
+    section.innerHTML = `
+      ${tiles.length > 0 ? `<div class="subjap-kanji-tiles">${tiles.join("")}</div>` : ""}
+      ${texts.join("")}
+      ${status || empty}
+      ${error}`;
+  }
 
-    const definitionsInput = body.querySelector<HTMLTextAreaElement>(".subjap-definitions");
-    definitionsInput?.addEventListener("input", () => {
-      if (this.state) this.state.definitionText = definitionsInput.value;
-    });
+  private renderPersonalNotes(): void {
+    const state = this.state;
+    const container = this.body?.querySelector<HTMLElement>(".subjap-personal-notes");
+    if (!state || !container) return;
+    container.innerHTML = state.notesOpen
+      ? `<textarea class="subjap-notes" data-testid="mining-notes" aria-label="Note personnelle" placeholder="Note personnelle pour Anki…">${escapeHtml(state.notesText)}</textarea>`
+      : '<button type="button" class="subjap-add-note" data-action="add-note">+ Ajouter une note</button>';
+  }
 
-    const notesInput = body.querySelector<HTMLTextAreaElement>(".subjap-notes");
-    notesInput?.addEventListener("input", () => {
-      if (this.state) this.state.notesText = notesInput.value;
-    });
+  private renderFooter(): void {
+    const state = this.state;
+    if (!state) return;
+    const status = this.container.querySelector<HTMLElement>(".subjap-modal-status");
+    if (status) {
+      const localInfo = state.localCardId
+        ? '<div class="subjap-local-info">✓ Carte sauvegardée localement</div>'
+        : "";
+      const ankiError = state.ankiError
+        ? `<div class="subjap-error">Erreur d’envoi : ${escapeHtml(state.ankiError)}</div>`
+        : "";
+      status.innerHTML = `${localInfo}${ankiError}`;
+    }
+    const send = this.container.querySelector<HTMLButtonElement>(".subjap-modal-btn-send");
+    if (send) {
+      const label = state.sending
+        ? "Envoi…"
+        : state.localCardId && state.ankiError
+          ? "↻ Réessayer Anki"
+          : "Créer dans Anki";
+      send.disabled = state.sending;
+      send.setAttribute("aria-keyshortcuts", "Control+Enter");
+      send.innerHTML = `${label}<kbd aria-hidden="true">Ctrl+Entrée</kbd>`;
+    }
+  }
 
-    const aiNotesInput = body.querySelector<HTMLTextAreaElement>(".subjap-ai-notes");
-    aiNotesInput?.addEventListener("input", () => {
-      if (this.state) this.state.aiNotesText = aiNotesInput.value;
-    });
+  // ── In-place editing ────────────────────────────────────────────────────
+
+  private fieldValue(element: HTMLElement): string {
+    const state = this.state;
+    if (!state) return "";
+    const paragraph = state.aiParagraphs[Number(element.dataset.paragraph)];
+    const index = Number(element.dataset.index);
+    switch (element.dataset.edit as EditableField) {
+      case "word":
+        return state.targetWordText;
+      case "reading":
+        return state.readingText;
+      case "sentence":
+        return state.sentenceText;
+      case "translation":
+        return state.translationText;
+      case "kanji-meaning":
+        return paragraph?.kind === "kanji" ? paragraph.meaning : "";
+      case "kanji-example":
+        return paragraph?.kind === "kanji" ? (paragraph.examples[index] ?? "") : "";
+      case "note-line": {
+        const line = paragraph?.kind === "text" ? (paragraph.lines[index] ?? "") : "";
+        return AI_NOTE_LABEL.exec(line)?.[2] ?? line;
+      }
+      default:
+        return "";
+    }
+  }
+
+  private setFieldValue(element: HTMLElement, value: string): void {
+    const state = this.state;
+    if (!state) return;
+    const paragraph = state.aiParagraphs[Number(element.dataset.paragraph)];
+    const index = Number(element.dataset.index);
+    switch (element.dataset.edit as EditableField) {
+      case "word":
+        state.targetWordText = value;
+        break;
+      case "reading":
+        state.readingText = value;
+        break;
+      case "sentence":
+        state.sentenceText = value;
+        break;
+      case "translation":
+        state.translationText = value;
+        break;
+      case "kanji-meaning":
+        if (paragraph?.kind === "kanji") paragraph.meaning = value;
+        break;
+      case "kanji-example":
+        if (paragraph?.kind === "kanji") paragraph.examples[index] = value;
+        break;
+      case "note-line":
+        if (paragraph?.kind === "text") {
+          const label = AI_NOTE_LABEL.exec(paragraph.lines[index] ?? "")?.[1];
+          paragraph.lines[index] = label ? `${label} ${value}` : value;
+        }
+        break;
+    }
+  }
+
+  /** Show a field's committed value again (the sentence with its highlight). */
+  private redrawField(element: HTMLElement): void {
+    if (element.dataset.edit === "sentence") {
+      this.renderSentence();
+    } else {
+      element.textContent = this.fieldValue(element);
+    }
+  }
+
+  /** Normalize an edited value; required fields fall back to their value before the edit. */
+  private commitEdit(edit: ActiveEdit): void {
+    const state = this.state;
+    if (!state) return;
+    const { element } = edit;
+    const field = element.dataset.edit as EditableField;
+    const raw = element.textContent ?? "";
+    const value = field === "sentence" ? normalizeCueText(raw) : raw.replace(/\s+/gu, " ").trim();
+
+    if (!value && (field === "word" || field === "sentence" || field === "kanji-meaning")) {
+      this.setFieldValue(element, edit.original);
+    } else if (!value && (field === "kanji-example" || field === "note-line")) {
+      this.removeAiItem(Number(element.dataset.paragraph), Number(element.dataset.index));
+      return;
+    } else {
+      this.setFieldValue(element, value);
+    }
+
+    if (field === "word") this.renderSentence();
+    this.redrawField(element);
+  }
+
+  private onFocusIn(event: FocusEvent): void {
+    const element = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-edit]");
+    if (!element) return;
+    this.activeEdit = { element, original: this.fieldValue(element), dirty: false };
+  }
+
+  private onInput(event: Event): void {
+    const target = event.target as HTMLElement | null;
+    const state = this.state;
+    if (!target || !state) return;
+    if (target.matches(".subjap-notes")) {
+      state.notesText = (target as HTMLTextAreaElement).value;
+      return;
+    }
+    const edit = this.activeEdit;
+    if (!edit || !edit.element.contains(target)) return;
+    edit.dirty = true;
+    this.setFieldValue(edit.element, edit.element.textContent ?? "");
+  }
+
+  private onFocusOut(event: FocusEvent): void {
+    const target = event.target as HTMLElement | null;
+    const state = this.state;
+    if (!target || !state) return;
+    if (target.matches(".subjap-notes")) {
+      if (!state.notesText.trim()) {
+        state.notesOpen = false;
+        this.renderPersonalNotes();
+      }
+      return;
+    }
+    const edit = this.activeEdit;
+    if (!edit || edit.element !== target) return;
+    this.activeEdit = null;
+    // A focus without typing keeps the cue tokens as the sentence source.
+    if (edit.dirty) this.commitEdit(edit);
+  }
+
+  private cancelEdit(): void {
+    const edit = this.activeEdit;
+    if (!edit) return;
+    edit.dirty = false;
+    this.setFieldValue(edit.element, edit.original);
+    this.redrawField(edit.element);
+    edit.element.blur();
+  }
+
+  /** Leave the current field so its value is committed before an action reads the state. */
+  private commitActiveEdit(): void {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && this.container.contains(active) && isTextInput(active)) {
+      active.blur();
+    }
+  }
+
+  private removeAiItem(paragraphIndex: number, itemIndex?: number): void {
+    const state = this.state;
+    const paragraph = state?.aiParagraphs[paragraphIndex];
+    if (!state || !paragraph) return;
+    if (itemIndex !== undefined && Number.isInteger(itemIndex)) {
+      if (paragraph.kind === "kanji") paragraph.examples.splice(itemIndex, 1);
+      else paragraph.lines.splice(itemIndex, 1);
+      if (paragraph.kind === "text" && paragraph.lines.length === 0) {
+        state.aiParagraphs.splice(paragraphIndex, 1);
+      }
+    } else {
+      state.aiParagraphs.splice(paragraphIndex, 1);
+    }
+    this.renderAi();
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────
 
+  private onClick(event: MouseEvent): void {
+    const state = this.state;
+    const button = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-action]");
+    if (!state || !button || (button as HTMLButtonElement).disabled) return;
+    const paragraph = Number(button.dataset.paragraph);
+    switch (button.dataset.action) {
+      case "close":
+        this.close();
+        break;
+      case "send":
+        void this.submit();
+        break;
+      case "ai":
+        void this.generateAiNotes();
+        break;
+      case "play-phrase":
+        this.playPhraseAudio();
+        break;
+      case "toggle-definition": {
+        const index = Number(button.dataset.index);
+        state.definitionSelected[index] = !state.definitionSelected[index];
+        button.setAttribute("aria-pressed", String(state.definitionSelected[index]));
+        button.title = state.definitionSelected[index] ? "Retirer de la carte" : "Ajouter à la carte";
+        break;
+      }
+      case "add-note":
+        state.notesOpen = true;
+        this.renderPersonalNotes();
+        this.body?.querySelector<HTMLTextAreaElement>(".subjap-notes")?.focus();
+        break;
+      case "remove-example":
+        this.removeAiItem(paragraph, Number(button.dataset.index));
+        break;
+      case "remove-paragraph":
+        this.removeAiItem(paragraph);
+        break;
+    }
+  }
+
+  private async submit(): Promise<void> {
+    this.commitActiveEdit();
+    await this.sendToAnki();
+  }
+
   private async generateAiNotes(): Promise<void> {
     const state = this.state;
-    if (!state || state.aiGenerating) return;
+    if (!state || state.aiGenerating || state.sending) return;
+    this.commitActiveEdit();
 
     state.aiGenerating = true;
     state.aiStatus = "Préparation de tes exemples familiers…";
     state.aiError = null;
-    this.render();
+    this.renderAi();
 
     const aiSessionRef: { current: AiSession | null } = { current: null };
     try {
@@ -448,7 +928,7 @@ export class MiningModal {
       const sessionPromise = createAiSession((message) => {
         if (this.state !== state) return;
         state.aiStatus = message;
-        this.render();
+        this.renderAi();
       }).then((session) => {
         aiSessionRef.current = session;
         return session;
@@ -460,7 +940,7 @@ export class MiningModal {
         targetWord: state.targetWordText.trim(),
         targetReading: state.readingText.trim(),
         sentence: state.sentenceText.trim(),
-        definitions: definitionLines(state.definitionText),
+        definitions: selectedDefinitions(state),
         kanjiCandidates: kanji,
       };
       const raw = await session.generate(input, state.aiGeneratedOnce);
@@ -468,10 +948,8 @@ export class MiningModal {
       if (this.state !== state) return;
 
       state.aiGeneratedOnce = true;
-      state.aiNotesText = formatted;
-      state.aiStatus = formatted
-        ? "Enrichissement ajouté aux Notes."
-        : "Aucun enrichissement suffisamment fiable trouvé.";
+      state.aiParagraphs = parseAiNotes(formatted);
+      state.aiStatus = formatted ? null : "Aucun enrichissement suffisamment fiable trouvé.";
     } catch (err) {
       if (this.state !== state) return;
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -484,7 +962,7 @@ export class MiningModal {
       aiSessionRef.current?.destroy();
       if (this.state === state) {
         state.aiGenerating = false;
-        this.render();
+        this.renderAi();
       }
     }
   }
@@ -526,11 +1004,17 @@ export class MiningModal {
       console.error("[SubJap] Screenshot capture failed:", err);
     } finally {
       restoreVideoChrome();
+      if (this.state === state) {
+        state.screenshotStatus = state.screenshotDataUrl ? "ready" : "unavailable";
+      }
       if (wasVisible && this.state === state && this.isOpen) {
         mountVideoSurface(this.container);
         this.show();
+        if (!this.container.contains(document.activeElement)) {
+          this.container.querySelector<HTMLElement>(".subjap-modal-panel")?.focus({ preventScroll: true });
+        }
       }
-      if (this.state === state && this.isOpen) this.render();
+      if (this.state === state && this.isOpen) this.renderMedia();
     }
   }
 
@@ -568,7 +1052,8 @@ export class MiningModal {
     );
     if (this.state === state) {
       state.phraseAudioDataUrl = dataUrl ?? null;
-      if (dataUrl) this.render();
+      state.phraseAudioStatus = dataUrl ? "ready" : "unavailable";
+      this.renderMedia();
     }
     return dataUrl;
   }
@@ -581,20 +1066,23 @@ export class MiningModal {
   private async sendToAnki(): Promise<void> {
     if (!this.state || this.state.sending) return;
     const state = this.state;
-    const { cue, targetToken, episodeContext } = state;
+    const { targetToken, episodeContext } = state;
 
     const sentence = state.sentenceText.trim() || state.targetWordText.trim() || targetToken.token.surface;
     const targetWord = state.targetWordText.trim() || tokenDictionaryForm(targetToken.token);
     const targetReading = state.readingText.trim();
-    const defaultSentence = normalizeCueText(cue.cue.text) || targetToken.token.surface;
-    const defaultTargetWord = tokenDictionaryForm(targetToken.token);
-    const phrase =
-      state.sentenceText === defaultSentence && state.targetWordText === defaultTargetWord
-        ? formatMigakuSentence(cue, targetToken)
-        : formatEditableSentence(sentence, targetWord);
-    const editedDefinitions = definitionLines(state.definitionText);
+    const phrase = usesCueSpans(state)
+      ? formatMigakuSentence(state.cue, targetToken)
+      : formatEditableSentence(sentence, targetWord);
+    const editedDefinitions = selectedDefinitions(state);
     const notes = combinedNotes(state);
-    let phraseAudioDataUrl: string | undefined = this.state.phraseAudioDataUrl ?? undefined;
+
+    state.sending = true;
+    state.ankiError = null;
+    this.renderFooter();
+    this.renderAi();
+
+    let phraseAudioDataUrl: string | undefined = state.phraseAudioDataUrl ?? undefined;
     if (!phraseAudioDataUrl && this.phraseAudioPromise) {
       phraseAudioDataUrl = await this.phraseAudioPromise;
     }
@@ -613,14 +1101,6 @@ export class MiningModal {
       );
     }
     state.phraseAudioDataUrl = phraseAudioDataUrl ?? null;
-
-    state.sending = true;
-    state.ankiError = null;
-    const sendBtn = this.container.querySelector<HTMLButtonElement>(".subjap-modal-btn-send");
-    if (sendBtn) {
-      sendBtn.disabled = true;
-      sendBtn.textContent = "Envoi…";
-    }
 
     try {
       if (!state.localCardId) {
@@ -661,7 +1141,7 @@ export class MiningModal {
             Mot: formatMigakuWord(targetWord, targetReading),
             Lecture: targetReading,
             Phrase: phrase,
-            Traduction: state.translationText,
+            Traduction: state.translationText.trim(),
             Définitions: formatMigakuDefinitions(editedDefinitions),
             Notes: formatMigakuNotes(notes),
             Image: "",
@@ -677,11 +1157,8 @@ export class MiningModal {
         if (this.state === state) {
           state.ankiError = err instanceof Error ? err.message : String(err);
           state.sending = false;
-          this.render();
-          if (sendBtn) {
-            sendBtn.disabled = false;
-            sendBtn.textContent = "↻ Réessayer Anki";
-          }
+          this.renderFooter();
+          this.renderAi();
         }
         return;
       }
@@ -691,11 +1168,8 @@ export class MiningModal {
       console.error("[SubJap] Failed to create card:", err);
       state.sending = false;
       state.ankiError = err instanceof Error ? err.message : String(err);
-      this.render();
-      if (sendBtn) {
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Créer dans Anki";
-      }
+      this.renderFooter();
+      this.renderAi();
     }
   }
 
@@ -712,19 +1186,52 @@ export class MiningModal {
   // ── Keyboard ────────────────────────────────────────────────────────────
 
   private registerKeyboard(): void {
+    this.unregisterKeyboard();
     this.keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // The mining form is intentionally modal: only the close button may
-        // dismiss it manually, so Escape must not discard an in-progress edit.
+      if (!this.isOpen) return;
+      // The dialog is modal: video and overlay shortcuts stay silent while it is
+      // open. Stopping propagation keeps default actions such as typing.
+      e.stopPropagation();
+
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
+        if (!e.repeat) void this.submit();
+        return;
+      }
+      if (this.activeEdit) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.activeEdit.element.blur();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          this.cancelEdit();
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        // Only the close button dismisses the dialog: Escape never discards the card.
+        e.preventDefault();
+        if (e.target instanceof HTMLTextAreaElement) e.target.blur();
+        return;
+      }
+      if (isTextInput(e.target) || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      switch (e.key.toLowerCase()) {
+        case "q":
+          e.preventDefault();
+          this.playPhraseAudio();
+          break;
+        case "i":
+          e.preventDefault();
+          void this.generateAiNotes();
+          break;
       }
     };
-    document.addEventListener("keydown", this.keyHandler);
+    window.addEventListener("keydown", this.keyHandler, true);
   }
 
   private unregisterKeyboard(): void {
     if (this.keyHandler) {
-      document.removeEventListener("keydown", this.keyHandler);
+      window.removeEventListener("keydown", this.keyHandler, true);
       this.keyHandler = null;
     }
   }

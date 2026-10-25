@@ -443,15 +443,17 @@ test.describe("SubJap UX fixture", () => {
     await page.getByTestId("mine-cue").click();
 
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
-    const definitions = page.getByTestId("mining-definitions");
-    await expect(definitions).toHaveCSS("height", "59.5px");
-    await expect(definitions).toHaveValue("fixture definition");
-    await definitions.fill("classroom, my personal definition");
-    await expect(definitions).toHaveValue("classroom, my personal definition");
-    await definitions.press("Enter");
+    const definition = page.getByTestId("mining-definitions").getByRole("button", {
+      name: "fixture definition",
+    });
+    await expect(definition).toHaveAttribute("aria-pressed", "true");
+    await definition.click();
+    await expect(definition).toHaveAttribute("aria-pressed", "false");
+    await definition.click();
+    await expect(definition).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "+ Ajouter une note" }).click();
     const notes = page.getByTestId("mining-notes");
-    await expect(notes).toHaveCSS("min-height", "260px");
-    await expect(notes).toHaveValue("");
+    await expect(notes).toBeFocused();
     await notes.fill("classroom\nmy personal note");
     await expect(notes).toHaveValue("classroom\nmy personal note");
     await notes.press("Enter");
@@ -459,7 +461,10 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
     await page.locator(".subjap-modal-backdrop").dispatchEvent("click");
     await expect(page.locator("#subjap-mining-modal")).toBeVisible();
-    await expect(page.locator(".subjap-screenshot-info")).toHaveText("✓ Screenshot captured");
+    await expect(page.locator(".subjap-scene-image img")).toHaveAttribute(
+      "src",
+      "data:image/jpeg;base64,fixture",
+    );
     await page.locator(".subjap-modal-close").click();
     await expect(page.locator("#subjap-mining-modal")).toBeHidden();
   });
@@ -504,6 +509,7 @@ test.describe("SubJap UX fixture", () => {
     await page.getByTestId("bilingual-cue").click();
     await expect(page.locator(".subjap-translation-line")).toHaveText("J’étudie le japonais.");
     await page.getByTestId("mine-cue").click();
+    await page.getByRole("button", { name: "+ Ajouter une note" }).click();
     await page.getByTestId("mining-notes").fill("context from my study session");
     await page.locator(".subjap-modal-btn-send").click();
     await expect(page.locator("#subjap-mining-modal")).toBeHidden();
