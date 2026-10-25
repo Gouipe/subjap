@@ -162,16 +162,18 @@ ruby rt {
   margin: 0;
 }
 
+/* Centered so the audio and translation controls share one inline row. */
 .back-card {
   max-width: 800px;
+  text-align: center;
 }
 
 .back-word {
   margin: 0 0 8px;
   color: var(--accent-strong);
-  font-size: 32px;
+  font-size: 44px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.25;
   text-align: center;
 }
 
@@ -186,12 +188,13 @@ ruby rt {
 }
 
 .back-audio-row {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   min-height: 38px;
-  margin: 6px 0 18px;
+  margin: 6px 4px 18px;
+  vertical-align: middle;
 }
 
 .audio-control {
@@ -258,6 +261,11 @@ ruby rt {
   border-color: var(--accent);
 }
 
+.audio-control:hover .audio-label,
+.translation-reveal > summary:hover {
+  color: var(--text);
+}
+
 .card .audio-control:hover .replay-button svg circle {
   fill: var(--text);
 }
@@ -267,7 +275,8 @@ ruby rt {
   outline-offset: 2px;
 }
 
-.audio-shortcut {
+.audio-shortcut,
+.translation-shortcut {
   padding: 2px 4px;
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -286,6 +295,7 @@ ruby rt {
 .definition-panel {
   max-width: 760px;
   margin: 0 auto 18px;
+  text-align: left;
   padding: 16px 20px 18px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -315,48 +325,53 @@ ruby rt {
 .back-notes {
   max-width: 760px;
   margin: 0 auto 12px;
+  text-align: left;
   padding: 14px 18px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-raised);
 }
 
+/* Closed, it sits beside the audio controls; open, the translation takes a full row. */
 .translation-reveal {
-  margin: 2px 0 18px;
+  display: inline-block;
+  margin: 6px 4px 18px;
+  vertical-align: middle;
   text-align: center;
+}
+
+.translation-reveal[open] {
+  display: block;
+  margin: 0 0 18px;
 }
 
 .translation-reveal > summary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   min-width: 0;
-  padding: 8px 14px;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 5px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: transparent;
-  color: var(--accent-strong);
+  background: var(--surface-raised);
+  color: var(--muted);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.01em;
-  transition: background 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: border-color 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .translation-reveal > summary::-webkit-details-marker {
   display: none;
 }
 
-/* The summary is a flex container, which drops the hint's leading space. */
-.translation-shortcut {
-  margin-left: 0.35em;
-  color: var(--muted);
-  font-weight: 500;
-}
-
 .translation-reveal > summary:hover {
   border-color: var(--accent);
-  background: var(--surface-raised);
 }
 
 .translation-content {
@@ -587,21 +602,21 @@ ruby rt {
   }
 
   .back-word {
-    margin-bottom: 4px;
-    font-size: 30px;
+    margin-bottom: 6px;
+    font-size: 44px;
     line-height: 1.2;
   }
 
   .back-sentence {
     padding: 4px 10px 2px;
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1.5;
   }
 
   .back-audio-row {
     gap: 7px;
     min-height: 36px;
-    margin: 5px 0 14px;
+    margin: 5px 4px 14px;
   }
 
   .audio-control {
@@ -614,11 +629,16 @@ ruby rt {
   }
 
   .translation-reveal {
+    margin: 5px 4px 14px;
+  }
+
+  .translation-reveal[open] {
     margin: 0 0 14px;
   }
 
   .translation-reveal > summary {
-    padding: 7px 13px;
+    min-height: 34px;
+    padding: 4px 9px;
     font-size: 12px;
   }
 
@@ -848,9 +868,9 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     translationSummary.setAttribute("aria-keyshortcuts", "W");
     translationSummary.setAttribute("title", "Afficher la traduction (W)");
     if (!translationSummary.querySelector(".translation-shortcut")) {
-      const hint = document.createElement("span");
+      const hint = document.createElement("kbd");
       hint.className = "translation-shortcut";
-      hint.textContent = " · W";
+      hint.textContent = "W";
       hint.setAttribute("aria-hidden", "true");
       translationSummary.appendChild(hint);
     }

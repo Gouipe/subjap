@@ -118,7 +118,7 @@ lors de leur synchronisation, sans remplacer leurs personnalisations.
 
 Sur les versos de compréhension et de production, `W` affiche la traduction
 de la phrase. Elle reste visible lors des appuis suivants, comme après un clic
-sur « Voir la traduction ». Le bouton affiche le rappel « · W », ajouté par le
+sur « Voir la traduction ». Le bouton affiche le rappel `W`, ajouté par le
 script géré `subjap-anki-audio-controls` pour actualiser aussi les templates
 existants sans remplacer leurs personnalisations. Le raccourci reste inactif
 au recto, sans traduction, pendant une saisie ou avec une touche modificatrice.
@@ -142,7 +142,10 @@ empilement vertical :
 
 - colonne de lecture unifiée, avec panneaux texte et image alignés sur la même
   largeur éditoriale ;
-- contrôles audio nommés `Mot` et `Phrase`, avec une cible tactile compacte ;
+- mot (44 px) nettement plus grand que la phrase (24 px) ;
+- contrôles audio nommés `Mot` et `Phrase` et bouton « Voir la traduction »
+  alignés sur une seule ligne, dans le même style secondaire neutre, chacun
+  avec son raccourci (`Q`, `W`) ; la traduction révélée occupe sa propre ligne ;
 - image affichée en entier avec `object-fit: contain` ;
 - image limitée à `min(360px, 36vh)` en hauteur afin de gagner en présence tout
   en laissant apparaître Notes ;

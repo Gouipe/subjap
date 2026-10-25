@@ -56,7 +56,7 @@ typography:
     lineHeight: 1.4
   word:
     fontFamily: "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif"
-    fontSize: "32px"
+    fontSize: "44px"
     fontWeight: 600
     lineHeight: 1.35
   body:
@@ -217,7 +217,7 @@ textes français et japonais humains et lisibles.
 - **Small label** (500, `11px`, `1.35`) : repères compacts des cartes Anki.
 - **Compact** (400, `13px`, `1.5`) : popover et contrôles très denses superposés à la vidéo.
 - **Display** (600, `64px`, `1.25`) : mot japonais principal sur le recto Anki ; la taille descend lorsque la longueur l'exige.
-- **Word** (600, `32px`, `1.35`) : mot cible sur les versos Anki et exercices de production.
+- **Word** (600, `44px`, `1.35`) : mot cible sur les versos Anki et exercices de production.
 - **Headline** (600, `24px`, `1.35`) : phrase ou titre principal d'une surface concentrée.
 - **Subheading** (600, `20px`, `1.4`) : accent intermédiaire dans les contenus de révision.
 - **Title** (600, `17px`, `1.4`) : titres de panneaux, de sections et de modales.
