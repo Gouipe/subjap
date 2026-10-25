@@ -1,5 +1,6 @@
 import type { GrammarAnnotation, Token } from "@/core/types";
 import { tokenCanonicalKey, tokenDictionaryForm, tokenLookupTerms } from "@/core/types";
+import { isNonLexicalToken } from "@/core/frequency";
 
 const isAuxiliary = (token: Token): boolean => token.partOfSpeech.includes("助動詞");
 const isExplanatoryN = (token: Token): boolean =>
@@ -407,6 +408,47 @@ function createGroup(tokens: Token[]): Token {
   };
 }
 
+/** UniDic leaves the cut-off of an exclamation (フン + ッ) as a symbol. */
+const isStandaloneSokuon = (token: Token | undefined): boolean =>
+  token !== undefined &&
+  /^[っッ]+$/u.test(token.surface) &&
+  (token.partOfSpeech.includes("補助記号") || token.partOfSpeech.includes("記号"));
+
+/**
+ * A word cut off by a sokuon is an exclamation. It gets its own identity so
+ * that its default ignored status never reaches the underlying word, and its
+ * interjection POS steers the reading lookup towards interjection entries.
+ */
+function createExclamationGroup(base: Token, sokuon: Token): Token {
+  const surface = `${base.surface}${sokuon.surface}`;
+  return {
+    surface,
+    dictionaryForm: surface,
+    canonicalKey: surface,
+    lookupTerms: [surface, ...tokenLookupTerms(base)],
+    lemma: surface,
+    reading: `${base.reading}${sokuon.reading}`,
+    dictionaryReading: base.dictionaryReading ?? base.reading,
+    partOfSpeech: ["感動詞"],
+    components: [...(base.components ?? [base]), sokuon],
+  };
+}
+
+function mergeExclamations(tokens: Token[]): Token[] {
+  const result: Token[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const base = tokens[index]!;
+    const next = tokens[index + 1];
+    if (isStandaloneSokuon(next) && !isNonLexicalToken(base)) {
+      result.push(createExclamationGroup(base, next!));
+      index += 1;
+    } else {
+      result.push(base);
+    }
+  }
+  return result;
+}
+
 /** Convert morphological tokens into conservative display/interaction units. */
 export function groupTokens(tokens: Token[]): Token[] {
   const result: Token[] = [];
@@ -438,5 +480,5 @@ export function groupTokens(tokens: Token[]): Token[] {
     }
   }
 
-  return result;
+  return mergeExclamations(result);
 }

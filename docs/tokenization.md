@@ -62,7 +62,11 @@ informations et la décomposition. Pour les formes fléchies, le statut connu et
 le mining restent attachés au mot de base ; pour les composés reconnus, ils
 utilisent la tête JMdict. Les expressions grammaticales sans tête lexicale
 unique conservent leur propre surface comme identité ; marquées `grammarOnly`,
-elles sont ignorées par défaut tant qu'aucun statut n'est enregistré. Toutes les graphies d'un
+elles sont ignorées par défaut tant qu'aucun statut n'est enregistré. Un mot
+suivi d'un `ッ`/`っ` isolé (symbole pour UniDic, ex. `フン` + `ッ`) forme une
+exclamation : une unité `感動詞` avec sa propre surface comme identité, ignorée
+par défaut sans affecter le mot de base ; la recherche passe par la lecture
+pour privilégier une entrée d'interjection. Toutes les graphies d'un
 même lexème (すごい, 凄い, スゴイ) partagent un statut : la recherche réunit
 leurs formes, si bien qu'un mot importé d'Anki sous l'une d'elles vaut pour
 toutes.
