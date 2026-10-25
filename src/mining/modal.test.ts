@@ -56,7 +56,7 @@ describe("MiningModal", () => {
       targetToken,
       lemmaReading: "やくそく",
       episodeContext,
-      definitions: ["promise"],
+      senses: [["promise"]],
     });
 
     await vi.waitFor(() => {
@@ -97,7 +97,7 @@ describe("MiningModal", () => {
         language: "ja",
         url: "https://example.test/episode",
       } as unknown as EpisodeContext,
-      definitions: ["promise", "a commitment"],
+      senses: [["promise", "a commitment"], ["vow"]],
     });
 
     await vi.waitFor(() => {
@@ -105,12 +105,16 @@ describe("MiningModal", () => {
     });
 
     const definitions = [...document.querySelectorAll<HTMLButtonElement>(".subjap-definition")];
+    expect(definitions.map((definition) => definition.textContent)).toEqual([
+      "promise · a commitment",
+      "vow",
+    ]);
     expect(definitions.map((definition) => definition.getAttribute("aria-pressed"))).toEqual([
       "true",
-      "true",
+      "false",
     ]);
     definitions[1]?.click();
-    expect(definitions[1]?.getAttribute("aria-pressed")).toBe("false");
+    expect(definitions[1]?.getAttribute("aria-pressed")).toBe("true");
     (document.querySelector(".subjap-add-note") as HTMLButtonElement).click();
     const notes = document.querySelector<HTMLTextAreaElement>(".subjap-notes");
     if (!notes) throw new Error("Notes textarea was not rendered");
@@ -126,14 +130,14 @@ describe("MiningModal", () => {
 
     expect(sendMessageMock).toHaveBeenCalledWith(
       "mine:create",
-      expect.objectContaining({ definitions: ["promise"] }),
+      expect.objectContaining({ definitions: ["promise · a commitment", "vow"] }),
     );
     const ankiAddNoteCall = (sendMessageMock.mock.calls as unknown[][]).find(
       ([type]) => type === "anki:addNote",
     );
     expect(ankiAddNoteCall?.[1]).toMatchObject({
       fields: {
-        Définitions: "promise",
+        Définitions: '<div class="sense">promise · a commitment</div><div class="sense">vow</div>',
         Notes: "personal note",
         Traduction: "I made a promise.",
       },
@@ -177,7 +181,7 @@ describe("MiningModal", () => {
         language: "ja",
         url: "https://example.test",
       } as unknown as EpisodeContext,
-      definitions: [],
+      senses: [],
     });
 
     await vi.waitFor(() => expect(captureFrameMock).toHaveBeenCalled());
@@ -244,7 +248,7 @@ describe("MiningModal", () => {
         language: "ja",
         url: "https://example.test",
       } as unknown as EpisodeContext,
-      definitions: [],
+      senses: [],
     });
 
     await vi.waitFor(() => expect(captureCueMock).toHaveBeenCalled());
@@ -302,7 +306,7 @@ describe("MiningModal", () => {
           language: "ja",
           url: "https://example.test",
         },
-        definitions: ["promise"],
+        senses: [["promise"]],
       });
       await vi.waitFor(() => expect(document.querySelector(".subjap-scene-image img")).not.toBeNull());
       await vi.waitFor(() => {

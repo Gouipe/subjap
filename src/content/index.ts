@@ -1203,7 +1203,7 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
     lemmaReading: dictionaryReadingForToken(targetSpan.token, entry),
     translation: normalizeCueText(selectTranslationCue(lastCues)?.text ?? ""),
     episodeContext: source,
-    definitions: entry?.senses.flatMap((sense) => sense.glosses) ?? [],
+    senses: entry?.senses.map((sense) => sense.glosses).filter((glosses) => glosses.length > 0) ?? [],
   });
 }
 

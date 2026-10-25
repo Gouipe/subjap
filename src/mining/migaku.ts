@@ -37,9 +37,9 @@ export function formatMigakuSentence(cue: RenderedCue, targetToken: SpanToken): 
     .join("");
 }
 
-/** Convert selected dictionary glosses to the comma-separated Migaku field. */
+/** One block per kept sense: the card leads with the first and keeps the others secondary. */
 export function formatMigakuDefinitions(definitions: string[]): string {
-  return definitions.map(escapeAnkiHtml).join(", ");
+  return definitions.map((definition) => `<div class="sense">${escapeAnkiHtml(definition)}</div>`).join("");
 }
 
 /** Convert multiline user text to safe HTML while preserving line breaks. */

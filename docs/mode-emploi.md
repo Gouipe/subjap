@@ -37,8 +37,9 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
 3. Survoler un mot du sous-titre et cliquer sur **Mine this**.
 4. La fenêtre « Créer une carte » présente un aperçu du verso Anki. Cliquer sur
    le mot, la lecture, la phrase ou la traduction pour les corriger sur place.
-   Chaque traduction du dictionnaire est une pastille : les trois premières sont
-   retenues, un clic en écarte ou en ajoute une.
+   Chaque sens du dictionnaire est une pastille qui montre au plus trois
+   traductions (`…` s’il en existe davantage, liste complète au survol). Seul le
+   premier sens est retenu : un clic coche le sens de la scène ou en écarte un.
 5. Facultatif : cliquer sur **Enrichir avec l’IA** (`I`) pour ajouter aux Notes
    la décomposition des kanjis en tuiles, les synonymes et une association.
    SubJap privilégie les exemples contenant des mots déjà connus, puis en

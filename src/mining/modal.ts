@@ -40,8 +40,8 @@ import type { VideoAudioCapture } from "./audio-capture";
 
 const MODAL_ID = "subjap-mining-modal";
 
-/** Dictionary glosses kept on the card unless the learner adds more. */
-const DEFAULT_SELECTED_DEFINITIONS = 3;
+/** Translations shown per dictionary sense: the card stays a reminder, not a dictionary page. */
+const MAX_SENSE_GLOSSES = 3;
 
 type CaptureStatus = "pending" | "ready" | "unavailable";
 
@@ -62,8 +62,9 @@ interface MiningState {
   readingText: string;
   translationText: string;
   episodeContext: EpisodeContext;
-  definitions: string[];
-  definitionSelected: boolean[];
+  /** Dictionary senses, each with its English translations. */
+  senses: string[][];
+  senseSelected: boolean[];
   notesText: string;
   notesOpen: boolean;
   aiParagraphs: AiNoteParagraph[];
@@ -97,8 +98,20 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** "a · b · c · …": the ellipsis tells the sense has more translations than shown. */
+function senseLabel(glosses: string[]): string {
+  const shown = glosses.slice(0, MAX_SENSE_GLOSSES);
+  if (glosses.length > MAX_SENSE_GLOSSES) shown.push("…");
+  return shown.join(" · ");
+}
+
+function selectedSenses(state: MiningState): string[][] {
+  return state.senses.filter((_, index) => state.senseSelected[index]);
+}
+
+/** One line per kept sense, as shown on the card. */
 function selectedDefinitions(state: MiningState): string[] {
-  return state.definitions.filter((_, index) => state.definitionSelected[index]);
+  return selectedSenses(state).map(senseLabel);
 }
 
 /** Personal notes come last, as in the dialog: the card keeps them after the AI association. */
@@ -194,7 +207,7 @@ export class MiningModal {
     lemmaReading: string;
     translation?: string;
     episodeContext: EpisodeContext;
-    definitions: string[];
+    senses: string[][];
   }): void {
     this.state = {
       cue: state.cue,
@@ -204,8 +217,9 @@ export class MiningModal {
       readingText: state.lemmaReading,
       translationText: state.translation ?? "",
       episodeContext: state.episodeContext,
-      definitions: state.definitions,
-      definitionSelected: state.definitions.map((_, index) => index < DEFAULT_SELECTED_DEFINITIONS),
+      senses: state.senses,
+      // One card tests one meaning: the most common sense until the learner picks the scene's.
+      senseSelected: state.senses.map((_, index) => index === 0),
       notesText: "",
       notesOpen: false,
       aiParagraphs: [],
@@ -545,11 +559,11 @@ export class MiningModal {
     const list = this.body?.querySelector<HTMLElement>(".subjap-definitions");
     if (!state || !list) return;
     list.innerHTML =
-      state.definitions.length > 0
-        ? state.definitions
-            .map((definition, index) => {
-              const selected = state.definitionSelected[index] === true;
-              return `<button type="button" class="subjap-definition" data-action="toggle-definition" data-index="${index}" aria-pressed="${selected}" title="${selected ? "Retirer de la carte" : "Ajouter à la carte"}">${escapeHtml(definition)}</button>`;
+      state.senses.length > 0
+        ? state.senses
+            .map((glosses, index) => {
+              const selected = state.senseSelected[index] === true;
+              return `<button type="button" class="subjap-definition" data-action="toggle-definition" data-index="${index}" aria-pressed="${selected}" title="${escapeHtml(glosses.join(" · "))}">${escapeHtml(senseLabel(glosses))}</button>`;
             })
             .join("")
         : '<span class="subjap-muted">Aucune définition dans le dictionnaire.</span>';
@@ -892,9 +906,8 @@ export class MiningModal {
         break;
       case "toggle-definition": {
         const index = Number(button.dataset.index);
-        state.definitionSelected[index] = !state.definitionSelected[index];
-        button.setAttribute("aria-pressed", String(state.definitionSelected[index]));
-        button.title = state.definitionSelected[index] ? "Retirer de la carte" : "Ajouter à la carte";
+        state.senseSelected[index] = !state.senseSelected[index];
+        button.setAttribute("aria-pressed", String(state.senseSelected[index]));
         break;
       }
       case "add-note":
@@ -948,7 +961,7 @@ export class MiningModal {
         targetWord: state.targetWordText.trim(),
         targetReading: state.readingText.trim(),
         sentence: state.sentenceText.trim(),
-        definitions: selectedDefinitions(state),
+        definitions: selectedSenses(state).map((glosses) => glosses.join(", ")),
         kanjiCandidates: kanji,
       };
       const raw = await session.generate(input, state.aiGeneratedOnce);

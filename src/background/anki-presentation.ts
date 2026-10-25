@@ -750,6 +750,32 @@ ruby rt {
   text-align: left;
 }
 
+/* The reading sits grouped under the word instead of furigana spread over it. */
+.back-word ruby {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.back-word rt {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+}
+
+/* One sense per block: the kept sense leads, further senses stay secondary. */
+.definitions .sense + .sense,
+.production-definitions .sense + .sense {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 400;
+}
+
 .word-sheet .definitions {
   margin-top: 12px;
   padding-top: 12px;

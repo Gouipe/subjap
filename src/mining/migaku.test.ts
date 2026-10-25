@@ -38,7 +38,9 @@ describe("Migaku Memory formatting", () => {
     );
   });
 
-  it("escapes and separates dictionary definitions with commas", () => {
-    expect(formatMigakuDefinitions(["to eat", "<unsafe>"])).toBe("to eat, &lt;unsafe&gt;");
+  it("escapes dictionary definitions into one block per sense", () => {
+    expect(formatMigakuDefinitions(["to eat", "<unsafe>"])).toBe(
+      '<div class="sense">to eat</div><div class="sense">&lt;unsafe&gt;</div>',
+    );
   });
 });

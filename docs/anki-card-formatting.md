@@ -51,7 +51,7 @@ champs :
 | `Lecture` | lecture en kana | champ texte séparé, utile comme source de prononciation HyperTTS |
 | `Phrase` | phrase japonaise | peut contenir des spans HTML, dont `.target` pour le mot cible |
 | `Traduction` | traduction de la phrase | affichée derrière le bouton « Voir la traduction » |
-| `Définitions` | définition(s) du mot | définitions séparées par `, ` |
+| `Définitions` | définition(s) du mot | un `<div class="sense">` par sens retenu (au plus trois traductions séparées par ` · `, puis `…` s’il en existe d’autres) ; les cartes plus anciennes ou importées gardent un texte séparé par `, ` |
 | `Notes` | explication ou remarque facultative | doit rester visible sur le verso, dans un bloc compact |
 | `Image` | capture ou image contextuelle | généralement un `<div><img ...></div>` |
 | `AudioMot` | audio du mot facultatif | balise Anki `[sound:...]` ou HTML audio fourni par HyperTTS |
@@ -158,7 +158,11 @@ pas concurrencer le contenu.
 
 Règles du verso :
 
-- mot (44 px) nettement plus grand que la phrase (28 px) ;
+- mot (44 px) nettement plus grand que la phrase (28 px) ; la lecture ruby de
+  `Mot` s’affiche groupée sous le mot (20 px, gris) plutôt qu’en furigana
+  étirés au-dessus ;
+- `Définitions` : le premier sens garde la taille de la fiche, les sens
+  suivants passent en dessous, plus petits et en gris ;
 - contrôles audio nommés `Mot` et `Phrase` et bouton « Voir la traduction »
   alignés sur une seule ligne, dans le même style secondaire neutre, chacun
   avec son raccourci (`Z`, `Q`, `W`) ; la traduction révélée occupe sa propre ligne ;

@@ -393,7 +393,8 @@ une API de dictionnaire distante.
 
 Le mining est déclenché depuis la popover et ouvre
 [`MiningModal`](../src/mining/modal.ts), un aperçu du verso Anki modifiable sur
-place : mot, lecture, glosses en pastilles (les trois premières retenues),
+place : mot, lecture, sens JMdict en pastilles (le premier retenu, trois
+glosses au plus par sens),
 vignette de l’image, phrase surlignée, audio et traduction, puis Notes. Le modal
 peut :
 
