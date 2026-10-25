@@ -12,6 +12,7 @@ const { captureCueMock } = vi.hoisted(() => ({
 }));
 vi.mock("./capture", () => ({
   captureFrame: captureFrameMock,
+  hideVideoChromeForCapture: () => () => undefined,
 }));
 
 vi.mock("@/core/messaging", () => ({

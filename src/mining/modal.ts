@@ -17,7 +17,7 @@ import {
 import { sendMessage } from "@/core/messaging";
 import { normalizeCueText } from "@/subtitles";
 import { forgetVideoSurface, mountVideoSurface } from "@/overlay/mount";
-import { captureFrame } from "./capture";
+import { captureFrame, hideVideoChromeForCapture } from "./capture";
 import {
   createAiSession,
   formatValidatedAiEnrichment,
@@ -510,9 +510,12 @@ export class MiningModal {
       // it. Restore the dialog as soon as the browser capture has completed.
       this.hide();
       this.container.remove();
-      await this.waitForCapturePaint();
     }
+    // The card keeps the sentence and translation as text, so the picture
+    // drops the player controls and every subtitle layer.
+    const restoreVideoChrome = hideVideoChromeForCapture();
     try {
+      await this.waitForCapturePaint();
       const tabVideo = await this.audioCapture?.getTabVideo();
       const screenshotDataUrl = await captureFrame(this.video, undefined, tabVideo);
       // Ignore a late capture if the modal was closed and reopened for a
@@ -522,6 +525,7 @@ export class MiningModal {
     } catch (err) {
       console.error("[SubJap] Screenshot capture failed:", err);
     } finally {
+      restoreVideoChrome();
       if (wasVisible && this.state === state && this.isOpen) {
         mountVideoSurface(this.container);
         this.show();

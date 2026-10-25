@@ -4,6 +4,36 @@
 
 import { sendMessage } from "@/core/messaging";
 
+const CAPTURE_CLASS = "subjap-capturing-frame";
+const CAPTURE_STYLE_ID = "subjap-capture-frame-style";
+
+/**
+ * Hide everything painted over the video (player controls, native and SubJap
+ * subtitles, popovers) so a rendered-tab capture only keeps the picture.
+ * `visibility` is inherited, so hiding every element and re-showing only
+ * `<video>` works whatever the player's DOM looks like. Returns a restore
+ * function; callers must let the page repaint before capturing.
+ */
+export function hideVideoChromeForCapture(): () => void {
+  if (!document.getElementById(CAPTURE_STYLE_ID)) {
+    const style = document.createElement("style");
+    style.id = CAPTURE_STYLE_ID;
+    style.textContent = `
+      html.${CAPTURE_CLASS} body *,
+      html.${CAPTURE_CLASS} body *::before,
+      html.${CAPTURE_CLASS} body *::after {
+        visibility: hidden !important;
+        transition: none !important;
+      }
+      html.${CAPTURE_CLASS} body video {
+        visibility: visible !important;
+      }`;
+    (document.head ?? document.documentElement).appendChild(style);
+  }
+  document.documentElement.classList.add(CAPTURE_CLASS);
+  return () => document.documentElement.classList.remove(CAPTURE_CLASS);
+}
+
 /**
  * Capture a frame from a video element and return it as a JPEG data URL.
  *
