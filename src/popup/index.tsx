@@ -53,9 +53,9 @@ const WORD_COLOR_GUIDE = [
   },
   {
     word: "難しい",
-    color: "#f4f1ea",
+    color: "#b2b6bf",
     underline: "2px dotted #b2b6bf",
-    label: "Blanc · pointillés gris",
+    label: "Gris · pointillés",
     detail: "Inconnu dans une phrase qui en contient d’autres, ou peu fréquent",
   },
   {

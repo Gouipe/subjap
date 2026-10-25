@@ -23,7 +23,8 @@ Les tests Vitest couvrent notamment :
   connus ou ignorés ;
 - les couleurs de fréquence : seul l’unique inconnu d’une phrase est coloré,
   en vert s’il est pertinent, en bleu dans la tranche suivante de 300 rangs ;
-  les autres inconnus, mots connus et mots éloignés restent blancs ;
+  les autres inconnus et les mots éloignés sont grisés, les mots connus restent
+  blancs ;
 - le positionnement au-dessus de la vidéo et de sa barre de contrôle.
 
 ## Fixture navigateur

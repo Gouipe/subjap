@@ -215,10 +215,11 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       border-bottom-color: transparent;
     }
     /* A coloured word is a word to mine now: the only unknown of an i+1
-       sentence. Every other unknown, however frequent, stays white with a
-       dotted underline, and words already in Anki only get an underline. */
+       sentence. Every other unknown, however frequent, is greyed with a
+       dotted underline, so white reads as understood; words already in Anki
+       stay white with an underline only. */
     #${CONTAINER_ID} .subjap-unknown {
-      color: var(--sj-text);
+      color: var(--sj-muted);
       border-bottom-color: var(--sj-muted);
       border-bottom-style: dotted;
     }
@@ -599,7 +600,9 @@ export class OverlayRenderer {
     if (this.runtimeUnavailable) {
       span.classList.add("subjap-token--unavailable");
     }
-    if (isNonWord || interactionUnavailable) {
+    // Parenthetical annotations (speaker names, sound cues) are not
+    // vocabulary: they carry no learning state, hence no underline.
+    if (isNonWord || interactionUnavailable || st.isParenthetical) {
       span.classList.add("subjap-neutral");
     } else {
       const highlight = getFrequencyHighlight(

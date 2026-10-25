@@ -84,7 +84,7 @@ au Worker que si l’utilisateur demande l’enrichissement IA.
 
 Dans les sous-titres, seul le mot à miner est coloré : l’unique inconnu de sa
 phrase, en vert s’il est très fréquent, en bleu s’il l’est un peu moins. Les
-autres inconnus restent blancs avec des pointillés gris. Un double trait violet
+autres inconnus sont grisés avec des pointillés : le blanc signifie « compris ». Un double trait violet
 indique un mot déjà présent dans Anki ou en cours d’apprentissage. La popover précise
 le nombre de cartes Anki existantes.
 

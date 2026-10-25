@@ -478,7 +478,7 @@ pas. Toutes les lectures Anki doivent réussir avant la réconciliation locale.
 un mot déjà présent dans Anki ou marqué `LEARNING` reste blanc avec un double
 soulignement violet. Un mot `UNKNOWN` sans carte existante n’est coloré (vert
 ou bleu selon sa fréquence) que s’il est le seul inconnu de sa phrase, c’est-à-dire
-le mot à miner ; tout autre inconnu reste blanc avec des pointillés gris. La
+le mot à miner ; tout autre inconnu est grisé avec des pointillés. La
 popover affiche le rang dès qu’il existe et précise `Déjà dans Anki · N cartes`.
 
 SubJap laisse `AudioMot` vide lors de l’envoi à Anki ; la prononciation du mot

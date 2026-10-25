@@ -187,7 +187,7 @@ test.describe("SubJap UX fixture", () => {
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
 
     // N = 1: an existing Anki card and LEARNING get a violet underline; with
-    // several unknowns, no word is coloured and KNOWN is white.
+    // several unknowns, every unknown is greyed and KNOWN is white.
     await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
@@ -195,8 +195,8 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(3)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
-    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(244, 241, 234)");
-    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(244, 241, 234)");
+    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(178, 182, 191)");
+    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(178, 182, 191)");
     await expect(tokens.nth(3)).toHaveCSS("color", "rgb(244, 241, 234)");
     await expect(tokens.nth(3)).toHaveCSS("border-bottom-color", "rgb(211, 160, 255)");
     await expect(tokens.locator(".subjap-token--mine-candidate")).toHaveCount(0);
