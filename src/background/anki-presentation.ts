@@ -26,7 +26,8 @@ export const MIGAKU_TEMPLATE_MARKER_V9 = 'data-subjap-template-version="9"';
 export const MIGAKU_TEMPLATE_MARKER_V10 = 'data-subjap-template-version="10"';
 export const MIGAKU_TEMPLATE_MARKER_V11 = 'data-subjap-template-version="11"';
 export const MIGAKU_TEMPLATE_MARKER_V12 = 'data-subjap-template-version="12"';
-export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="13"';
+export const MIGAKU_TEMPLATE_MARKER_V13 = 'data-subjap-template-version="13"';
+export const MIGAKU_TEMPLATE_MARKER = 'data-subjap-template-version="14"';
 export const MIGAKU_COMPREHENSION_TEMPLATE_NAME = "Compréhension";
 export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
 
@@ -472,7 +473,6 @@ ruby rt {
   line-height: 1.55;
 }
 
-.notes-heading,
 .notes-term {
   color: var(--text);
   font-weight: 600;
@@ -716,6 +716,166 @@ ruby rt {
   }
 
 }
+
+/* Back layout: study (word sheet, notes) and scene (image, sentence, controls).
+   Stacked as study → scene → notes, then side by side on wide windows. */
+.back-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "study" "scene" "notes";
+  gap: 16px;
+  max-width: 760px;
+  text-align: left;
+}
+
+.back-layout .study-column {
+  grid-area: study;
+  min-width: 0;
+}
+
+.back-layout .scene-column {
+  grid-area: scene;
+  min-width: 0;
+  text-align: center;
+}
+
+.word-sheet {
+  padding: 18px 22px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.back-layout .back-word {
+  margin: 0;
+  text-align: left;
+}
+
+.word-sheet .definitions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.back-layout .back-image {
+  max-width: none;
+  margin: 0 0 12px;
+}
+
+.back-layout .back-image img {
+  max-height: min(420px, 45vh);
+}
+
+.back-layout .back-sentence {
+  padding: 0 8px;
+}
+
+.scene-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Audio controls join the translation button as direct flex items. */
+.scene-controls .back-audio-row {
+  display: contents;
+}
+
+.scene-controls .translation-reveal,
+.scene-controls .translation-reveal[open] {
+  margin: 0;
+}
+
+.scene-controls .translation-reveal[open] {
+  flex-basis: 100%;
+}
+
+.back-layout .back-notes {
+  grid-area: notes;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  background: var(--surface);
+}
+
+/* Tiles use the panel width; only running text keeps a reading measure. */
+.back-layout .notes {
+  max-width: none;
+}
+
+.notes-text {
+  max-width: 70ch;
+}
+
+.kanji-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin: 2px 0 12px;
+}
+
+.kanji-tiles:last-child {
+  margin-bottom: 0;
+}
+
+.kanji-tile {
+  padding: 10px 12px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.kanji-tile-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kanji-tile-char {
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.kanji-tile-meaning {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.kanji-tile-examples {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (min-width: 1100px) {
+  .back-layout {
+    width: min(1240px, calc(100vw - 56px));
+    max-width: none;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "study scene" "notes scene";
+    align-items: start;
+    column-gap: 28px;
+  }
+
+  .back-layout .back-image img {
+    max-height: min(520px, 58vh);
+  }
+}
 `;
 
 export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
@@ -876,30 +1036,117 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     }
   }
 
-  // Notes are plain text lines: emphasize kanji headings and enrichment labels, including on older notes.
+  // Notes are plain text lines: kanji headings and their examples become tiles; the remaining
+  // lines stay as text with emphasized enrichment labels. Unrecognized lines are kept as they are.
   document.querySelectorAll(".back-card .notes").forEach((notes) => {
     if (notes.dataset.subjapFormatted) return;
     notes.dataset.subjapFormatted = "1";
+
+    const isBlock = (node) => node.nodeType === Node.ELEMENT_NODE && /^(?:DIV|P)$/u.test(node.nodeName);
+    const lines = [];
+    let current = [];
     Array.from(notes.childNodes).forEach((node) => {
-      if (node.nodeType !== Node.TEXT_NODE) return;
-      const previous = node.previousSibling;
-      if (previous && previous.nodeName !== "BR") return;
-      if (/^\\s*\\p{Script=Han}{1,2} — \\S/u.test(node.data)) {
-        const heading = document.createElement("span");
-        heading.className = "notes-heading";
-        node.replaceWith(heading);
-        heading.appendChild(node);
+      if (node.nodeName === "BR") {
+        lines.push(current);
+        current = [];
+      } else if (isBlock(node)) {
+        if (current.length > 0) lines.push(current);
+        lines.push([node]);
+        current = [];
+      } else {
+        current.push(node);
+      }
+    });
+    lines.push(current);
+    const lineText = (line) => line.map((node) => node.textContent).join("").trim();
+
+    const tiles = [];
+    const rest = [];
+    let tile = null;
+    lines.forEach((line) => {
+      const text = lineText(line);
+      const heading = /^(\\p{Script=Han}{1,2}) — (.+)$/u.exec(text);
+      if (heading) {
+        tile = { character: heading[1], meaning: heading[2], examples: [] };
+        tiles.push(tile);
         return;
       }
-      const label = /^(\\s*)((?:Synonyme|Nuance|Association) :)/u.exec(node.data);
-      if (!label) return;
-      const rest = node.splitText(label[0].length);
-      const term = document.createElement("span");
-      term.className = "notes-term";
-      term.textContent = label[2];
-      node.data = label[1];
-      rest.before(term);
+      if (tile && text.startsWith("・")) {
+        tile.examples.push(text.slice(1).trim());
+        return;
+      }
+      tile = null;
+      rest.push(line);
     });
+    if (tiles.length === 0 && !rest.some((line) => /^(?:Synonyme|Nuance|Association) :/u.test(lineText(line)))) return;
+
+    // Drop the blank lines left around extracted tiles.
+    const textLines = [];
+    rest.forEach((line) => {
+      const blank = lineText(line) === "";
+      if (blank && (textLines.length === 0 || textLines[textLines.length - 1] === null)) return;
+      textLines.push(blank ? null : line);
+    });
+    while (textLines.length > 0 && textLines[textLines.length - 1] === null) textLines.pop();
+
+    notes.replaceChildren();
+    if (tiles.length > 0) {
+      const grid = document.createElement("div");
+      grid.className = "kanji-tiles";
+      tiles.forEach((item) => {
+        const element = document.createElement("div");
+        element.className = "kanji-tile";
+        const head = document.createElement("div");
+        head.className = "kanji-tile-head";
+        const character = document.createElement("span");
+        character.className = "kanji-tile-char";
+        character.textContent = item.character;
+        const meaning = document.createElement("span");
+        meaning.className = "kanji-tile-meaning";
+        meaning.textContent = item.meaning;
+        head.append(character, meaning);
+        element.appendChild(head);
+        if (item.examples.length > 0) {
+          const list = document.createElement("ul");
+          list.className = "kanji-tile-examples";
+          item.examples.forEach((example) => {
+            const entry = document.createElement("li");
+            entry.textContent = example;
+            list.appendChild(entry);
+          });
+          element.appendChild(list);
+        }
+        grid.appendChild(element);
+      });
+      notes.appendChild(grid);
+    }
+    if (textLines.length === 0) return;
+
+    const text = document.createElement("div");
+    text.className = "notes-text";
+    textLines.forEach((line, index) => {
+      if (line) {
+        const [first, ...others] = line;
+        const label = first && first.nodeType === Node.TEXT_NODE
+          ? /^(\\s*)((?:Synonyme|Nuance|Association) :)/u.exec(first.data)
+          : null;
+        if (label) {
+          const remainder = first.splitText(label[0].length);
+          const term = document.createElement("span");
+          term.className = "notes-term";
+          term.textContent = label[2];
+          first.data = label[1];
+          text.append(first, term, remainder, ...others);
+        } else {
+          text.append(...line);
+        }
+      }
+      const last = line && line[line.length - 1];
+      if (index < textLines.length - 1 && !(last && isBlock(last))) {
+        text.appendChild(document.createElement("br"));
+      }
+    });
+    notes.appendChild(text);
   });
 
   // Anki reuses the document between cards: replace, rather than accumulate, listeners.
@@ -967,8 +1214,8 @@ export const MIGAKU_FRONT_TEMPLATE = `
 </div>
 `;
 
-const MIGAKU_SHARED_BACK_TEMPLATE = `
-<div class="card-shell back-card" ${MIGAKU_TEMPLATE_MARKER}>
+/** Single-column back body used up to template version 13, recognized to upgrade it in place. */
+export const MIGAKU_LEGACY_BACK_BODY = `
   <div class="back-word">{{Mot}}</div>
   {{#Phrase}}<div class="back-sentence">{{Phrase}}</div>{{/Phrase}}
   <div class="back-audio-row" aria-label="Écoute">
@@ -1003,7 +1250,46 @@ const MIGAKU_SHARED_BACK_TEMPLATE = `
     <div class="notes">{{Notes}}</div>
   </div>
   {{/Notes}}
-</div>
+`;
+
+export const MIGAKU_BACK_BODY = `<div class="card-shell back-card back-layout" ${MIGAKU_TEMPLATE_MARKER}>
+  <section class="study-column">
+    <div class="word-sheet">
+      <div class="back-word">{{Mot}}</div>
+      {{#Définitions}}<div class="definitions">{{Définitions}}</div>{{/Définitions}}
+    </div>
+  </section>
+
+  <section class="scene-column">
+    {{#Image}}<div class="back-image">{{Image}}</div>{{/Image}}
+    {{#Phrase}}<div class="back-sentence">{{Phrase}}</div>{{/Phrase}}
+    <div class="scene-controls">
+      <div class="back-audio-row" aria-label="Écoute">
+        {{#AudioMot}}<div class="audio-control audio-word"><span class="audio-label">Mot</span><div class="audio">{{AudioMot}}</div></div>{{/AudioMot}}
+        {{#AudioPhrase}}<div class="audio-control audio-phrase"><span class="audio-label">Phrase</span><div class="audio">{{AudioPhrase}}</div></div>{{/AudioPhrase}}
+      </div>
+      {{#Traduction}}
+      <details class="translation-reveal">
+        <summary>Voir la traduction</summary>
+        <div class="translation-content">
+          <div class="section-label">Traduction</div>
+          {{Traduction}}
+        </div>
+      </details>
+      {{/Traduction}}
+    </div>
+  </section>
+
+  {{#Notes}}
+  <section class="back-notes">
+    <div class="section-label">Notes</div>
+    <div class="notes">{{Notes}}</div>
+  </section>
+  {{/Notes}}
+</div>`;
+
+const MIGAKU_SHARED_BACK_TEMPLATE = `
+${MIGAKU_BACK_BODY}
 ${MIGAKU_REVIEW_SHORTCUTS_FRAGMENT}
 ${MIGAKU_AUDIO_CONTROLS_FRAGMENT}
 `;

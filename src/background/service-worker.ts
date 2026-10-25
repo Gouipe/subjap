@@ -29,11 +29,13 @@ import {
   ANKI_COMPREHENSION_DECK,
   ANKI_PRODUCTION_DECK,
   ANKI_VOCABULARY_PARENT_DECK,
+  MIGAKU_BACK_BODY,
   MIGAKU_BACK_TEMPLATE,
   MIGAKU_COMPREHENSION_TEMPLATE_NAME,
   MIGAKU_CSS,
   MIGAKU_FIELDS,
   MIGAKU_FRONT_TEMPLATE,
+  MIGAKU_LEGACY_BACK_BODY,
   MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT,
   MIGAKU_PRODUCTION_BACK_TEMPLATE,
   MIGAKU_PRODUCTION_FRONT_TEMPLATE,
@@ -52,6 +54,7 @@ import {
   MIGAKU_TEMPLATE_MARKER_V10,
   MIGAKU_TEMPLATE_MARKER_V11,
   MIGAKU_TEMPLATE_MARKER_V12,
+  MIGAKU_TEMPLATE_MARKER_V13,
 } from "./anki-presentation";
 import type { MineCard, SrsState, WordState } from "@/core/types";
 
@@ -739,7 +742,9 @@ function migrateManagedTemplatePart(
   replacement: string,
   appendActivation = false,
 ): string {
-  const migrated = migrateManagedTemplateStructure(current, replacement, appendActivation);
+  const migrated = upgradeLegacyBackLayout(
+    migrateManagedTemplateStructure(current, replacement, appendActivation),
+  );
   if (!migrated.includes("back-card")) return migrated;
 
   // Refresh our script even when a previous migration already advanced the marker.
@@ -749,6 +754,18 @@ function migrateManagedTemplatePart(
     return migrated.replace(audioScript, () => MIGAKU_AUDIO_CONTROLS_FRAGMENT.trim());
   }
   return `${migrated}\n${MIGAKU_AUDIO_CONTROLS_FRAGMENT}`;
+}
+
+/** Move an unmodified single-column back body to the two-column layout, keeping everything around it. */
+function upgradeLegacyBackLayout(template: string): string {
+  const legacyBack =
+    /<div class="card-shell back-card" data-subjap-template-version="\d+">([\s\S]*?\{\{\/Notes\}\}\s*)<\/div>/u;
+  const match = legacyBack.exec(template);
+  if (!match?.[1]) return template;
+  // A body customized from inside stays single-column rather than losing its changes.
+  const normalize = (value: string) => value.replace(/\s+/gu, " ").trim();
+  if (normalize(match[1]) !== normalize(MIGAKU_LEGACY_BACK_BODY)) return template;
+  return template.replace(match[0], () => MIGAKU_BACK_BODY);
 }
 
 function migrateManagedTemplateStructure(
@@ -786,6 +803,9 @@ function migrateManagedTemplateStructure(
   };
 
   if (current.includes(MIGAKU_TEMPLATE_MARKER)) return current;
+  if (current.includes(MIGAKU_TEMPLATE_MARKER_V13)) {
+    return ensureAudioControls(current.replace(MIGAKU_TEMPLATE_MARKER_V13, MIGAKU_TEMPLATE_MARKER));
+  }
   if (current.includes(MIGAKU_TEMPLATE_MARKER_V11)) {
     return ensureAudioControls(current.replace(MIGAKU_TEMPLATE_MARKER_V11, MIGAKU_TEMPLATE_MARKER));
   }
