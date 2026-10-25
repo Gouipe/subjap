@@ -41,36 +41,31 @@ const WORD_COLOR_GUIDE = [
     word: "大切",
     color: "#78d6a3",
     underline: "2px solid #78d6a3",
-    label: "Vert · trait continu",
-    detail: "Seul inconnu de la phrase, très fréquent : à miner",
+    label: "À miner, très fréquent",
   },
   {
     word: "便利",
     color: "#55b8ff",
     underline: "2px dashed #55b8ff",
-    label: "Bleu · tirets",
-    detail: "Seul inconnu de la phrase, fréquent : à miner",
+    label: "À miner, fréquent",
   },
   {
     word: "難しい",
     color: "#b2b6bf",
     underline: "2px dotted #b2b6bf",
-    label: "Gris · pointillés",
-    detail: "Inconnu dans une phrase qui en contient d’autres, ou peu fréquent",
+    label: "Inconnu",
   },
   {
     word: "学ぶ",
     color: "#f4f1ea",
     underline: "3px double #d3a0ff",
-    label: "Blanc · double trait violet",
-    detail: "Présent dans Anki ou en apprentissage",
+    label: "Dans Anki ou en apprentissage",
   },
   {
     word: "知る",
     color: "#f4f1ea",
     underline: "2px solid transparent",
-    label: "Blanc · sans trait",
-    detail: "Connu ou ignoré",
+    label: "Connu ou ignoré",
   },
 ] as const;
 
@@ -615,7 +610,7 @@ const Popup: React.FC = () => {
           <section style={styles.guideSection}>
             <h2 style={styles.guideHeading}>Couleurs des mots</h2>
             <p style={styles.guideHint}>
-              Seul le mot à miner est coloré : l’unique inconnu de sa phrase. Le soulignement complète la couleur.
+              Seul le mot à miner est coloré : l’unique inconnu de sa phrase.
             </p>
             <div style={styles.guideColorList}>
               {WORD_COLOR_GUIDE.map((item) => (
@@ -629,10 +624,7 @@ const Popup: React.FC = () => {
                   >
                     {item.word}
                   </span>
-                  <div style={styles.guideColorCopy}>
-                    <strong style={styles.guideColorLabel}>{item.label}</strong>
-                    <span style={styles.guideHint}>{item.detail}</span>
-                  </div>
+                  <span style={styles.guideColorLabel}>{item.label}</span>
                 </div>
               ))}
             </div>
@@ -1063,15 +1055,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     textAlign: "center",
   },
-  guideColorCopy: {
-    display: "grid",
-    gap: 1,
-  },
   guideColorLabel: {
     color: "#f4f1ea",
-    fontSize: 10,
-    fontWeight: 600,
-    lineHeight: 1.3,
+    fontSize: 12,
+    fontWeight: 500,
+    lineHeight: 1.35,
   },
   guideShortcutList: {
     display: "grid",
