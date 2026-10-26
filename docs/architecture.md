@@ -475,7 +475,9 @@ Une remise à zéro volontaire de la carte dans Anki, sa suppression ou sa sorti
 de `日本語` peut retirer ce signal d’acquisition ; un simple oubli ne le retire
 pas. Toutes les lectures Anki doivent réussir avant la réconciliation locale.
 `KNOWN` et `IGNORED` sont blancs ;
-un mot déjà présent dans Anki ou marqué `LEARNING` reste blanc avec un double
+un mot déjà présent dans Anki (les notes techniques `Migaku Vocabulary Status`
+ne comptent pas comme présence, seuls leurs tags fixent l’état) ou marqué
+`LEARNING` reste blanc avec un double
 soulignement violet. Un mot `UNKNOWN` sans carte existante n’est coloré (vert
 ou bleu selon sa fréquence) que s’il est le seul inconnu de sa phrase, c’est-à-dire
 le mot à miner ; tout autre inconnu est grisé avec des pointillés. La

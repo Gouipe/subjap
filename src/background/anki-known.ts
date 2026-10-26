@@ -3,9 +3,13 @@ import { canonicalizeLexicalKey } from "@/core/lexical-key";
 
 export interface AnkiNoteInfoForWordStates {
   noteId?: number;
+  modelName?: string;
   fields: Record<string, { value: string }>;
   tags?: string[];
 }
+
+/** Suspended technical notes that only carry imported Migaku word statuses. */
+const MIGAKU_STATUS_MODEL_NAME = "Migaku Vocabulary Status";
 
 export interface ImportedAnkiWordState {
   key: string;
@@ -74,12 +78,16 @@ export function extractAnkiWordStates(
   return [...byWord].map(([key, status]) => ({ key, status }));
 }
 
-/** Count every Anki vocabulary note by its normalized `Mot` field. */
+/** Count every Anki study note (status notes excluded) by its normalized `Mot` field. */
 export function extractAnkiWordPresences(
   notes: AnkiNoteInfoForWordStates[],
 ): AnkiWordPresence[] {
   const counts = new Map<string, number>();
   for (const note of notes) {
+    // Status notes feed word states through their tags, but they are not
+    // cards the user studies: counting them would mark UNKNOWN words as
+    // already mined.
+    if (note.modelName === MIGAKU_STATUS_MODEL_NAME) continue;
     const key = normalizeAnkiWord(note.fields.Mot?.value ?? "");
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);

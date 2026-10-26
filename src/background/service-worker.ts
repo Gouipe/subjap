@@ -637,6 +637,7 @@ onMessage("anki:status", async () => {
 
 interface AnkiNoteInfo {
   noteId: number;
+  modelName: string;
   fields: Record<string, { value: string }>;
   tags: string[];
 }
