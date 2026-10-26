@@ -477,10 +477,9 @@ pas. Toutes les lectures Anki doivent réussir avant la réconciliation locale.
 `KNOWN` et `IGNORED` sont blancs ;
 un mot déjà présent dans Anki (les notes techniques `Migaku Vocabulary Status`
 ne comptent pas comme présence, seuls leurs tags fixent l’état) ou marqué
-`LEARNING` reste blanc avec un double
-soulignement violet. Un mot `UNKNOWN` sans carte existante n’est coloré (vert
+`LEARNING` reste blanc avec un trait violet. Un mot `UNKNOWN` sans carte existante n’est coloré (vert
 ou bleu selon sa fréquence) que s’il est le seul inconnu de sa phrase, c’est-à-dire
-le mot à miner ; tout autre inconnu est grisé avec des pointillés. La
+le mot à miner ; tout autre inconnu est seulement grisé. La
 popover affiche le rang dès qu’il existe et précise `Déjà dans Anki · N cartes`.
 
 SubJap laisse `AudioMot` vide lors de l’envoi à Anki ; la prononciation du mot

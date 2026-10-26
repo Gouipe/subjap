@@ -200,7 +200,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       padding-inline: 0.02em;
       cursor: pointer;
       border-bottom: max(2px, 0.08em) solid transparent;
-      border-radius: 0.16em;
+      /* Square bottom corners keep vocabulary underlines straight. */
+      border-radius: 0.16em 0.16em 0 0;
       transition: color 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
     }
     #${CONTAINER_ID} .subjap-token:not(.subjap-token--parenthetical):hover {
@@ -216,30 +217,24 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       border-bottom-color: transparent;
     }
     /* A coloured word is a word to mine now: the only unknown of an i+1
-       sentence. Every other unknown, however frequent, is greyed with a
-       dotted underline, so white reads as understood; words already in Anki
-       stay white with an underline only. */
+       sentence. Every other unknown, however frequent, is only greyed, so
+       white reads as understood; words already in Anki stay white with an
+       underline only. */
     #${CONTAINER_ID} .subjap-unknown {
       color: var(--sj-unknown);
-      border-bottom-color: var(--sj-unknown);
-      border-bottom-style: dotted;
+      border-bottom-color: transparent;
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate.subjap-unknown--relevant {
       color: var(--sj-priority-high);
       border-bottom-color: currentColor;
-      border-bottom-style: solid;
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate.subjap-unknown--near {
       color: var(--sj-priority-mid);
       border-bottom-color: currentColor;
-      border-bottom-style: dashed;
     }
     #${CONTAINER_ID} .subjap-learning {
       color: var(--sj-text);
       border-bottom-color: var(--sj-learning);
-      border-bottom-style: double;
-      /* A double border needs 3px to draw two distinct lines. */
-      border-bottom-width: max(3px, 0.12em);
     }
     #${CONTAINER_ID} .subjap-neutral {
       color: var(--sj-text);

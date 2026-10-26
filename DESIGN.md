@@ -288,10 +288,11 @@ reste identique dans la popup, les options, la popover, le mining et Anki.
 
 Le token japonais est le composant signature. **The Mine-Now Rule.** Un mot
 écrit en couleur est un mot à miner maintenant : seul l'unique inconnu d'une
-phrase prend le vert ou le bleu. Les autres inconnus sont grisés et soulignés
-de pointillés, afin que le blanc se lise comme « compris ». Un mot déjà dans
-Anki reste blanc avec un double trait violet : une information, pas une
-invitation à miner. Survol, focus et
+phrase prend le vert ou le bleu, souligné d'un trait plein de sa couleur. Les
+autres inconnus sont seulement grisés, sans soulignement, afin que le blanc se
+lise comme « compris ». Un mot déjà dans Anki reste blanc avec un trait plein
+violet : une information, pas une invitation à miner. Chaque état porte un seul
+signal, et les soulignements restent droits jusqu'aux extrémités du mot. Survol, focus et
 sélection ajoutent un soulignement ou un fond local afin que la couleur ne soit
 jamais le seul signal. Le sous-titre global reste lisible sur toute image grâce
 à un fond sombre compact, sans large panneau opaque.

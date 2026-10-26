@@ -46,19 +46,19 @@ const WORD_COLOR_GUIDE = [
   {
     word: "便利",
     color: "#55b8ff",
-    underline: "2px dashed #55b8ff",
+    underline: "2px solid #55b8ff",
     label: "À miner, fréquent",
   },
   {
     word: "難しい",
     color: "#8e939c",
-    underline: "2px dotted #8e939c",
+    underline: "2px solid transparent",
     label: "Inconnu",
   },
   {
     word: "学ぶ",
     color: "#f4f1ea",
-    underline: "3px double #d3a0ff",
+    underline: "2px solid #d3a0ff",
     label: "Dans Anki ou en apprentissage",
   },
   {
