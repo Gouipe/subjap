@@ -167,8 +167,8 @@ et un vermillon franc inspiré d'un repère de montage plutôt que d'un néon.
 
 ### Secondary
 
-- **Violet d'apprentissage** (`learning-violet`) : mot déjà présent dans Anki,
-  état `LEARNING` et information pédagogique correspondante.
+- **Violet d'apprentissage** (`learning-violet`) : mention « Déjà dans Anki » de
+  la popover ; n'est plus employé dans le sous-titre.
 - **Vert de priorité** (`priority-green`) : mot à miner fortement pertinent.
 - **Bleu de progression** (`priority-blue`) : mot à miner de pertinence intermédiaire.
 - **Ambre de marge** (`priority-amber`) : avertissement non bloquant ; n'est plus
@@ -289,10 +289,11 @@ reste identique dans la popup, les options, la popover, le mining et Anki.
 Le token japonais est le composant signature. **The Mine-Now Rule.** Un mot
 écrit en couleur est un mot à miner maintenant : seul l'unique inconnu d'une
 phrase prend le vert ou le bleu, souligné d'un trait plein de sa couleur. Les
-autres inconnus sont seulement grisés, sans soulignement, afin que le blanc se
-lise comme « compris ». Un mot déjà dans Anki reste blanc avec un trait plein
-violet : une information, pas une invitation à miner. Chaque état porte un seul
-signal, et les soulignements restent droits jusqu'aux extrémités du mot. Survol, focus et
+autres mots encore illisibles, y compris ceux déjà dans Anki mais pas encore
+acquis, sont seulement grisés, sans soulignement, afin que le blanc se lise
+comme « compris ». La présence dans Anki n'est précisée que dans la popover.
+Chaque état porte un seul signal, et les soulignements restent droits jusqu'aux
+extrémités du mot. Survol, focus et
 sélection ajoutent un soulignement ou un fond local afin que la couleur ne soit
 jamais le seul signal. Le sous-titre global reste lisible sur toute image grâce
 à un fond sombre compact, sans large panneau opaque.

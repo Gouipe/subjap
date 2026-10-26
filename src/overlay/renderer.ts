@@ -43,7 +43,6 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       --sj-muted: #b2b6bf;
       --sj-unknown: #8e939c;
       --sj-accent: #ff624d;
-      --sj-learning: #d3a0ff;
       --sj-priority-high: #78d6a3;
       --sj-priority-mid: #55b8ff;
       --sj-priority-low: #f1b46d;
@@ -217,9 +216,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       border-bottom-color: transparent;
     }
     /* A coloured word is a word to mine now: the only unknown of an i+1
-       sentence. Every other unknown, however frequent, is only greyed, so
-       white reads as understood; words already in Anki stay white with an
-       underline only. */
+       sentence. Every other word that cannot be read yet, including words
+       already in Anki but not acquired, is only greyed, so white reads as
+       understood. */
     #${CONTAINER_ID} .subjap-unknown {
       color: var(--sj-unknown);
       border-bottom-color: transparent;
@@ -233,8 +232,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       border-bottom-color: currentColor;
     }
     #${CONTAINER_ID} .subjap-learning {
-      color: var(--sj-text);
-      border-bottom-color: var(--sj-learning);
+      color: var(--sj-unknown);
+      border-bottom-color: transparent;
     }
     #${CONTAINER_ID} .subjap-neutral {
       color: var(--sj-text);

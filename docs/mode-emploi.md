@@ -167,9 +167,9 @@ lorsqu’il est possible de répondre à voix haute.
 
 Couleurs : un mot n’est coloré que s’il est à miner, c’est-à-dire le seul
 inconnu de sa phrase — vert s’il est très fréquent, bleu s’il l’est un peu
-moins, souligné d’un trait continu de sa couleur. Les autres inconnus sont
-seulement grisés, si bien que le blanc se lit comme « compris » ; un mot
-`LEARNING` ou déjà présent dans Anki reste blanc avec un trait violet ; `KNOWN` et `IGNORED` sont blancs sans trait. La popover
+moins, souligné d’un trait continu de sa couleur. Les autres inconnus, y
+compris un mot `LEARNING` ou déjà présent dans Anki mais pas encore acquis, sont
+seulement grisés, si bien que le blanc se lit comme « compris » ; `KNOWN` et `IGNORED` sont blancs sans trait. La popover
 affiche toujours le rang disponible et le nombre de cartes Anki existantes.
 
 ## Reconstruire et importer l’export Migaku

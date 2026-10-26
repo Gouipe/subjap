@@ -53,13 +53,7 @@ const WORD_COLOR_GUIDE = [
     word: "難しい",
     color: "#8e939c",
     underline: "2px solid transparent",
-    label: "Inconnu",
-  },
-  {
-    word: "学ぶ",
-    color: "#f4f1ea",
-    underline: "2px solid #d3a0ff",
-    label: "Dans Anki ou en apprentissage",
+    label: "Inconnu ou en apprentissage",
   },
   {
     word: "知る",
