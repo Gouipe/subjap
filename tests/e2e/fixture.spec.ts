@@ -195,8 +195,8 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(3)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
-    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(178, 182, 191)");
-    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(178, 182, 191)");
+    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(142, 147, 156)");
+    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(142, 147, 156)");
     await expect(tokens.nth(3)).toHaveCSS("color", "rgb(244, 241, 234)");
     await expect(tokens.nth(3)).toHaveCSS("border-bottom-color", "rgb(211, 160, 255)");
     await expect(tokens.locator(".subjap-token--mine-candidate")).toHaveCount(0);

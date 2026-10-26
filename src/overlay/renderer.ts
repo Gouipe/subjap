@@ -41,6 +41,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       --sj-canvas: #0c0d10;
       --sj-text: #f4f1ea;
       --sj-muted: #b2b6bf;
+      --sj-unknown: #8e939c;
       --sj-accent: #ff624d;
       --sj-learning: #d3a0ff;
       --sj-priority-high: #78d6a3;
@@ -219,8 +220,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
        dotted underline, so white reads as understood; words already in Anki
        stay white with an underline only. */
     #${CONTAINER_ID} .subjap-unknown {
-      color: var(--sj-muted);
-      border-bottom-color: var(--sj-muted);
+      color: var(--sj-unknown);
+      border-bottom-color: var(--sj-unknown);
       border-bottom-style: dotted;
     }
     #${CONTAINER_ID} .subjap-token--mine-candidate.subjap-unknown--relevant {

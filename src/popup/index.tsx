@@ -51,8 +51,8 @@ const WORD_COLOR_GUIDE = [
   },
   {
     word: "難しい",
-    color: "#b2b6bf",
-    underline: "2px dotted #b2b6bf",
+    color: "#8e939c",
+    underline: "2px dotted #8e939c",
     label: "Inconnu",
   },
   {

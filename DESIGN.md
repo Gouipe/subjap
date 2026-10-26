@@ -9,6 +9,7 @@ colors:
   hairline: "#343842"
   subtitle-white: "#F4F1EA"
   text-muted: "#B2B6BF"
+  unknown-grey: "#8E939C"
   clap-vermilion: "#FF624D"
   clap-vermilion-hover: "#FF7966"
   learning-violet: "#D3A0FF"
@@ -187,6 +188,7 @@ et un vermillon franc inspiré d'un repère de montage plutôt que d'un néon.
 - **Trait de montage** (`hairline`) : séparateurs et contours utiles uniquement.
 - **Blanc de sous-titre** (`subtitle-white`) : texte principal et mots connus.
 - **Gris de régie** (`text-muted`) : texte secondaire qui reste lisible au niveau AA.
+- **Gris d'inconnu** (`unknown-grey`) : mots inconnus non prioritaires des sous-titres ; plus sombre que le gris de régie pour se détacher nettement du blanc, tout en restant au-dessus de 4,5:1 sur le fond du sous-titre.
 
 **The Ten Percent Rule.** Le vermillon occupe au plus 10 % d'une surface ; sa rareté fait la marque.
 
