@@ -52,7 +52,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
          on bright scenes, and a soft drop shadow lifts them off the image.
          Stacked text-shadow offsets were tried first and left ragged, doubled
          edges on small text. */
-      --sj-shadow: 0 0.06em 0.2em rgba(0, 0, 0, 0.75);
+      --sj-shadow: 0 0.03em 0.08em rgba(0, 0, 0, 0.6);
       position: fixed;
       pointer-events: none;
       z-index: 2147483646;
@@ -86,7 +86,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-text);
       white-space: normal;
       overflow-wrap: break-word;
-      -webkit-text-stroke: 0.08em rgba(0, 0, 0, 0.9);
+      -webkit-text-stroke: 0.08em #000;
       paint-order: stroke fill;
       text-shadow: var(--sj-shadow);
     }
@@ -165,7 +165,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       text-align: center;
       white-space: normal;
       overflow-wrap: break-word;
-      -webkit-text-stroke: 0.08em rgba(0, 0, 0, 0.9);
+      -webkit-text-stroke: 0.08em #000;
       paint-order: stroke fill;
       text-shadow: var(--sj-shadow);
     }
@@ -264,7 +264,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-muted);
       font-weight: 500;
       white-space: nowrap;
-      -webkit-text-stroke: 0.08em rgba(0, 0, 0, 0.9);
+      -webkit-text-stroke: 0.08em #000;
       paint-order: stroke fill;
       text-shadow: var(--sj-shadow);
     }
