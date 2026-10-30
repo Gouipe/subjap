@@ -377,10 +377,12 @@ function installTimedTextCapture(page: Window): void {
   let uiProbeAttempted = false;
   let uiProbeDiagnosticLogged = false;
   let uiNativeRestore: number | null = null;
-  const probedSessions = new WeakMap<object, SecondarySubtitleLanguage>();
-  const secondaryProbeAttempts = new WeakMap<object, number>();
-  const episodeMismatchLogged = new WeakSet<object>();
-  const loggedTrackLists = new WeakSet<object>();
+  // Netflix keeps the same player session when it chains episodes: probe
+  // state is per episode and is reset by syncProbeEpisode.
+  let probedSessions = new WeakMap<object, SecondarySubtitleLanguage>();
+  let secondaryProbeAttempts = new WeakMap<object, number>();
+  let episodeMismatchLogged = new WeakSet<object>();
+  let loggedTrackLists = new WeakSet<object>();
   let lastNativeSelection = "";
   // Probes briefly switch Netflix's visible subtitles: only probe for a
   // subscribed SubJap adapter. Metadata capture itself stays passive.
@@ -905,6 +907,7 @@ function installTimedTextCapture(page: Window): void {
   };
 
   const probeSecondaryTimedTextTrack = (): void => {
+    syncProbeEpisode();
     if (!subscribed || preferredSecondaryLanguage === "none") return;
     const session = resolveNetflixTimedTextSession(page);
     if (!session) {
@@ -1072,9 +1075,20 @@ function installTimedTextCapture(page: Window): void {
   let trackProbeTimer: number | null = null;
   let probeEpisodeId = readWatchEpisodeId(page);
   const setInterval = page.setInterval?.bind(page);
-  // Netflix chains episodes in the same document, and the new player session
-  // settles well after the adapter's single request: give every episode the
-  // same bounded retry window as a page load.
+  // Netflix chains episodes in the same document, and the player can settle
+  // after the adapter's single request: give every episode a fresh probe
+  // state and the same bounded retry window as a page load.
+  function syncProbeEpisode(): void {
+    const episodeId = readWatchEpisodeId(page);
+    if (episodeId === probeEpisodeId) return;
+    probeEpisodeId = episodeId;
+    probedSessions = new WeakMap();
+    secondaryProbeAttempts = new WeakMap();
+    episodeMismatchLogged = new WeakSet();
+    loggedTrackLists = new WeakSet();
+    uiProbeAttempted = false;
+    startTrackProbes();
+  }
   const startTrackProbes = (): void => {
     trackProbeCount = 0;
     if (!setInterval || trackProbeTimer !== null) return;
@@ -1091,12 +1105,7 @@ function installTimedTextCapture(page: Window): void {
     // Track selection can change long after the initial translation probe.
     // This cheap identity read stays active for the lifetime of the page.
     setInterval(() => {
-      const episodeId = readWatchEpisodeId(page);
-      if (episodeId !== probeEpisodeId) {
-        probeEpisodeId = episodeId;
-        uiProbeAttempted = false;
-        startTrackProbes();
-      }
+      syncProbeEpisode();
       observeNativeTrack();
     }, 500);
     startTrackProbes();
