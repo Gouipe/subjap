@@ -47,12 +47,14 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       --sj-priority-mid: #55b8ff;
       --sj-priority-low: #f1b46d;
       --sj-danger: #ff8490;
-      /* No backdrop behind subtitles, like the platform's own: a dark stroke
-         painted under the glyphs keeps white, grey and coloured words legible
-         on bright scenes, and a soft drop shadow lifts them off the image.
-         Stacked text-shadow offsets were tried first and left ragged, doubled
-         edges on small text. */
-      --sj-shadow: 0 0.03em 0.08em rgba(0, 0, 0, 0.6);
+      /* No backdrop behind subtitles, like the platform's own: a soft dark
+         glow, with no hard outline, keeps them legible on bright scenes. A
+         black stroke under the glyphs was tried and read as a cartoon
+         sticker, eating into thin glyphs. */
+      --sj-shadow:
+        0 0 0.1em rgba(0, 0, 0, 0.85),
+        0 0 0.25em rgba(0, 0, 0, 0.7),
+        0 0.04em 0.4em rgba(0, 0, 0, 0.5);
       position: fixed;
       pointer-events: none;
       z-index: 2147483646;
@@ -86,8 +88,6 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-text);
       white-space: normal;
       overflow-wrap: break-word;
-      -webkit-text-stroke: 0.08em #000;
-      paint-order: stroke fill;
       text-shadow: var(--sj-shadow);
     }
     #${CONTAINER_ID} .subjap-cue-line + .subjap-cue-line {
@@ -165,8 +165,6 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       text-align: center;
       white-space: normal;
       overflow-wrap: break-word;
-      -webkit-text-stroke: 0.08em #000;
-      paint-order: stroke fill;
       text-shadow: var(--sj-shadow);
     }
     #${CONTAINER_ID} .subjap-translation-line--hidden {
@@ -264,8 +262,6 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-muted);
       font-weight: 500;
       white-space: nowrap;
-      -webkit-text-stroke: 0.08em #000;
-      paint-order: stroke fill;
       text-shadow: var(--sj-shadow);
     }
     @media (prefers-reduced-motion: reduce) {
