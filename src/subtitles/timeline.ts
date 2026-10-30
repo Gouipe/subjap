@@ -1,4 +1,5 @@
 import type { SubtitleCue } from "@/core/types";
+import { detectCadenceRatio, rescaleCues } from "./cadence";
 import { normalizeCueText } from "./normalize";
 
 export function compactSubtitleText(text: string): string {
@@ -46,11 +47,14 @@ export class SubtitleTrackCatalog {
   private readonly selectedTracks = new Map<string, string>();
   private readonly selectedResources = new Map<string, string>();
   private readonly empty: SubtitleCue[] = [];
+  private aligned: { source: SubtitleCue[]; reference: SubtitleCue[]; cues: SubtitleCue[] } | null =
+    null;
 
   clear(): void {
     this.resources.clear();
     this.selectedTracks.clear();
     this.selectedResources.clear();
+    this.aligned = null;
   }
 
   selectTrack(language: string, trackId: string): void {
@@ -138,8 +142,32 @@ export class SubtitleTrackCatalog {
   }
 
   cues(language: string): SubtitleCue[] {
+    const cues = this.selectedCues(language);
+    return language === "ja" ? this.alignJapanese(cues) : cues;
+  }
+
+  private selectedCues(language: string): SubtitleCue[] {
     const url = this.selectedResources.get(language);
     return (url ? this.resources.get(url)?.cues : undefined) ?? this.empty;
+  }
+
+  /**
+   * Some Japanese files are timed for another frame rate than the video and
+   * drift linearly, while the official translation follows the audio. Align
+   * Japanese on the translation clock when a known ratio clearly fits. The
+   * stable instance lets consumers skip identical snapshots.
+   */
+  private alignJapanese(cues: SubtitleCue[]): SubtitleCue[] {
+    if (!cues.length) return cues;
+    const reference =
+      ["fr", "en"].map((language) => this.selectedCues(language)).find((c) => c.length) ??
+      this.empty;
+    if (this.aligned?.source === cues && this.aligned.reference === reference) {
+      return this.aligned.cues;
+    }
+    const aligned = rescaleCues(cues, detectCadenceRatio(cues, reference));
+    this.aligned = { source: cues, reference, cues: aligned };
+    return aligned;
   }
 
   private resolveSelection(language: string): void {

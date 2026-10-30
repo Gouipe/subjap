@@ -67,6 +67,16 @@ piste, fichier, identifiant du segment source et précision du début. Les
 instantanés publiés sont immuables. L’arrivée de meilleures données peut changer
 la source active, mais ne modifie pas une phrase déjà figée dans le mining.
 
+Certaines pistes japonaises officielles sont minutées pour une autre cadence
+que la vidéo (24 ↔ 23,976 ou 25 i/s) : elles dérivent linéairement, d’environ
+1 s toutes les 17 min pour le rapport 1,001, et Netflix les affiche lui-même en
+retard. La piste de traduction officielle (FR, sinon EN) sert alors de
+référence : lorsqu’un de ces rapports aligne nettement plus de débuts de
+segments que les horaires d’origine, les segments japonais sont recalés sur
+elle, sans indication visible. Sans traduction chargée (préférence **Aucun**),
+aucun recalage n’est possible. L’élection de piste par texte visible compare
+toujours les horaires d’origine, ceux que le lecteur affiche.
+
 Les fichiers locaux sont indépendants par rôle. La piste principale est
 étiquetée japonais et remplace la piste japonaise native lorsqu’elle est
 disponible ; son décalage est ajouté aux bornes de chaque cue. La piste
