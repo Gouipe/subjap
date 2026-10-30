@@ -186,7 +186,7 @@ et un vermillon franc inspiré d'un repère de montage plutôt que d'un néon.
 - **Encre relevée** (`surface-raised`) : contrôle, sélection ou surface secondaire.
 - **Encre de saisie** (`surface-input`) : champs et zones éditables.
 - **Trait de montage** (`hairline`) : séparateurs et contours utiles uniquement.
-- **Blanc de sous-titre** (`subtitle-white`) : texte principal et mots connus.
+- **Blanc de sous-titre** (`subtitle-white`) : texte principal de l'interface. Sur la vidéo, le sous-titre passe en blanc pur `#FFFFFF`, comme les sous-titres natifs.
 - **Gris de régie** (`text-muted`) : texte secondaire qui reste lisible au niveau AA.
 - **Gris d'inconnu** (`unknown-grey`) : mots inconnus non prioritaires des sous-titres ; plus sombre que le gris de régie pour se détacher nettement du blanc, tout en restant lisible sur une image claire grâce au halo des sous-titres.
 
@@ -302,7 +302,7 @@ autocollant et mange les glyphes fins.
 
 Le japonais s'affiche en texte continu, sans espace entre les tokens : les
 limites des mots ne se révèlent que par le survol, le focus et les soulignements
-de vocabulaire, collés à leur mot. Le sous-titre japonais est en graisse `600` ;
+de vocabulaire, collés à leur mot. Le sous-titre japonais est en graisse `700`, comme le rendu natif ;
 la traduction, en blanc avec le même halo, reste secondaire par sa taille
 réduite et sa graisse `400` ; un gris la rendrait terne sans fond.
 

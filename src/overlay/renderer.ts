@@ -40,6 +40,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} {
       --sj-canvas: #0c0d10;
       --sj-text: #f4f1ea;
+      /* Pure white and bold like native subtitles; the warmer --sj-text
+         stays for interface surfaces. */
+      --sj-subtitle: #ffffff;
       --sj-muted: #b2b6bf;
       --sj-unknown: #9ca1aa;
       --sj-accent: #ff624d;
@@ -83,9 +86,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       pointer-events: auto;
       font-size: ${opts.fontSize}px;
       font-family: ${opts.fontFamily};
-      font-weight: 600;
+      font-weight: 700;
       line-height: 1.2;
-      color: var(--sj-text);
+      color: var(--sj-subtitle);
       white-space: normal;
       overflow-wrap: break-word;
       text-shadow: var(--sj-shadow);
@@ -160,7 +163,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       /* White like the Japanese: without a backdrop a muted grey turns muddy
          against its outline. Smaller size and lighter weight keep it
          secondary. */
-      color: var(--sj-text);
+      color: var(--sj-subtitle);
       line-height: 1.3;
       text-align: center;
       white-space: normal;
@@ -211,7 +214,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       background-color: rgba(244, 241, 234, 0.14);
     }
     #${CONTAINER_ID} .subjap-known {
-      color: var(--sj-text);
+      color: var(--sj-subtitle);
       border-bottom-color: transparent;
     }
     /* A coloured word is a word to mine now: the only unknown of an i+1
@@ -235,7 +238,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       border-bottom-color: transparent;
     }
     #${CONTAINER_ID} .subjap-neutral {
-      color: var(--sj-text);
+      color: var(--sj-subtitle);
       border-bottom-color: transparent;
     }
     #${CONTAINER_ID} .subjap-token--unavailable {
