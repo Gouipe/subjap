@@ -9,7 +9,7 @@ colors:
   hairline: "#343842"
   subtitle-white: "#F4F1EA"
   text-muted: "#B2B6BF"
-  unknown-grey: "#8E939C"
+  unknown-grey: "#9CA1AA"
   clap-vermilion: "#FF624D"
   clap-vermilion-hover: "#FF7966"
   learning-violet: "#D3A0FF"
@@ -188,7 +188,7 @@ et un vermillon franc inspiré d'un repère de montage plutôt que d'un néon.
 - **Trait de montage** (`hairline`) : séparateurs et contours utiles uniquement.
 - **Blanc de sous-titre** (`subtitle-white`) : texte principal et mots connus.
 - **Gris de régie** (`text-muted`) : texte secondaire qui reste lisible au niveau AA.
-- **Gris d'inconnu** (`unknown-grey`) : mots inconnus non prioritaires des sous-titres ; plus sombre que le gris de régie pour se détacher nettement du blanc, tout en restant au-dessus de 4,5:1 sur le fond du sous-titre.
+- **Gris d'inconnu** (`unknown-grey`) : mots inconnus non prioritaires des sous-titres ; plus sombre que le gris de régie pour se détacher nettement du blanc, tout en restant lisible sur une image claire grâce au contour des sous-titres.
 
 **The Ten Percent Rule.** Le vermillon occupe au plus 10 % d'une surface ; sa rareté fait la marque.
 
@@ -295,14 +295,15 @@ comme « compris ». La présence dans Anki n'est précisée que dans la popover
 Chaque état porte un seul signal, et les soulignements restent droits jusqu'aux
 extrémités du mot. Survol, focus et
 sélection ajoutent un soulignement ou un fond local afin que la couleur ne soit
-jamais le seul signal. Le sous-titre global reste lisible sur toute image grâce
-à un fond sombre compact, sans large panneau opaque.
+jamais le seul signal. Comme les sous-titres natifs, le sous-titre n'a pas de fond : un contour
+sombre fin tracé sous les glyphes, doublé d'une ombre douce, le garde lisible
+sur toute image, y compris pour le gris et les couleurs de vocabulaire.
 
 Le japonais s'affiche en texte continu, sans espace entre les tokens : les
 limites des mots ne se révèlent que par le survol, le focus et les soulignements
 de vocabulaire, collés à leur mot. Le sous-titre japonais est en graisse `600` ;
-la traduction, sur le même fond compact, passe en gris de régie et en `400` pour
-rester secondaire.
+la traduction, en blanc avec le même contour, reste secondaire par sa taille
+réduite et sa graisse `400` ; un gris la rendrait terne contre le contour.
 
 ### Anki Review Card
 

@@ -41,12 +41,18 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       --sj-canvas: #0c0d10;
       --sj-text: #f4f1ea;
       --sj-muted: #b2b6bf;
-      --sj-unknown: #8e939c;
+      --sj-unknown: #9ca1aa;
       --sj-accent: #ff624d;
       --sj-priority-high: #78d6a3;
       --sj-priority-mid: #55b8ff;
       --sj-priority-low: #f1b46d;
       --sj-danger: #ff8490;
+      /* No backdrop behind subtitles, like the platform's own: a dark stroke
+         painted under the glyphs keeps white, grey and coloured words legible
+         on bright scenes, and a soft drop shadow lifts them off the image.
+         Stacked text-shadow offsets were tried first and left ragged, doubled
+         edges on small text. */
+      --sj-shadow: 0 0.06em 0.2em rgba(0, 0, 0, 0.75);
       position: fixed;
       pointer-events: none;
       z-index: 2147483646;
@@ -64,7 +70,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     }
     #${CONTAINER_ID} .subjap-cue-line {
       /* Inline layout, not a wrapping flexbox: a multi-line flex container
-         sizes itself to all its tokens laid end to end, so the backdrop would
+         sizes itself to all its tokens laid end to end, so the line box would
          span the width of every line combined instead of the longest one. */
       display: block;
       text-align: center;
@@ -78,14 +84,11 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       font-weight: 600;
       line-height: 1.2;
       color: var(--sj-text);
-      background-color: rgba(12, 13, 16, 0.82);
-      border-radius: 0.18em;
       white-space: normal;
       overflow-wrap: break-word;
-      text-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.95),
-        0 0 1px #000,
-        0 0 8px rgba(0, 0, 0, 0.55);
+      -webkit-text-stroke: 0.08em rgba(0, 0, 0, 0.9);
+      paint-order: stroke fill;
+      text-shadow: var(--sj-shadow);
     }
     #${CONTAINER_ID} .subjap-cue-line + .subjap-cue-line {
       margin-top: 4px;
@@ -154,19 +157,17 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
       font-family: ${opts.fontFamily};
       font-weight: 400;
-      /* Same compact backdrop as the Japanese line so it stays legible on
-         bright scenes, but muted so the Japanese remains the protagonist. */
-      color: var(--sj-muted);
-      background-color: rgba(12, 13, 16, 0.82);
-      border-radius: 0.18em;
+      /* White like the Japanese: without a backdrop a muted grey turns muddy
+         against its outline. Smaller size and lighter weight keep it
+         secondary. */
+      color: var(--sj-text);
       line-height: 1.3;
       text-align: center;
       white-space: normal;
       overflow-wrap: break-word;
-      text-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.95),
-        0 0 1px #000,
-        0 0 8px rgba(0, 0, 0, 0.55);
+      -webkit-text-stroke: 0.08em rgba(0, 0, 0, 0.9);
+      paint-order: stroke fill;
+      text-shadow: var(--sj-shadow);
     }
     #${CONTAINER_ID} .subjap-translation-line--hidden {
       opacity: 0;
@@ -263,7 +264,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-muted);
       font-weight: 500;
       white-space: nowrap;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 1px #000;
+      -webkit-text-stroke: 0.08em rgba(0, 0, 0, 0.9);
+      paint-order: stroke fill;
+      text-shadow: var(--sj-shadow);
     }
     @media (prefers-reduced-motion: reduce) {
       #${CONTAINER_ID} .subjap-token,

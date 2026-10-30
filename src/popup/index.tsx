@@ -51,7 +51,7 @@ const WORD_COLOR_GUIDE = [
   },
   {
     word: "難しい",
-    color: "#8e939c",
+    color: "#9ca1aa",
     underline: "2px solid transparent",
     label: "Inconnu ou en apprentissage",
   },
