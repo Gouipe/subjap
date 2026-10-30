@@ -1069,16 +1069,37 @@ function installTimedTextCapture(page: Window): void {
   };
 
   let trackProbeCount = 0;
+  let trackProbeTimer: number | null = null;
+  let probeEpisodeId = readWatchEpisodeId(page);
   const setInterval = page.setInterval?.bind(page);
+  // Netflix chains episodes in the same document, and the new player session
+  // settles well after the adapter's single request: give every episode the
+  // same bounded retry window as a page load.
+  const startTrackProbes = (): void => {
+    trackProbeCount = 0;
+    if (!setInterval || trackProbeTimer !== null) return;
+    trackProbeTimer = setInterval(() => {
+      probeSecondaryTimedTextTrack();
+      trackProbeCount += 1;
+      if (trackProbeCount >= 120 && trackProbeTimer !== null) {
+        page.clearInterval(trackProbeTimer);
+        trackProbeTimer = null;
+      }
+    }, 500);
+  };
   if (setInterval) {
     // Track selection can change long after the initial translation probe.
     // This cheap identity read stays active for the lifetime of the page.
-    setInterval(() => observeNativeTrack(), 500);
-    const trackProbeTimer = setInterval(() => {
-      probeSecondaryTimedTextTrack();
-      trackProbeCount += 1;
-      if (trackProbeCount >= 120) page.clearInterval(trackProbeTimer);
+    setInterval(() => {
+      const episodeId = readWatchEpisodeId(page);
+      if (episodeId !== probeEpisodeId) {
+        probeEpisodeId = episodeId;
+        uiProbeAttempted = false;
+        startTrackProbes();
+      }
+      observeNativeTrack();
     }, 500);
+    startTrackProbes();
   }
 
   page.addEventListener("message", (event) => {
