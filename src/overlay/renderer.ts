@@ -55,9 +55,10 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
          black stroke under the glyphs was tried and read as a cartoon
          sticker, eating into thin glyphs. */
       --sj-shadow:
-        0 0 0.1em rgba(0, 0, 0, 0.85),
-        0 0 0.25em rgba(0, 0, 0, 0.7),
-        0 0.04em 0.4em rgba(0, 0, 0, 0.5);
+        0 0 0.08em #000,
+        0 0 0.2em rgba(0, 0, 0, 0.85),
+        0 0 0.2em rgba(0, 0, 0, 0.6),
+        0 0.04em 0.45em rgba(0, 0, 0, 0.65);
       position: fixed;
       pointer-events: none;
       z-index: 2147483646;
