@@ -4,10 +4,21 @@
 #
 # Usage: powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1
 
+param(
+  [string]$OutDir = (Join-Path $PSScriptRoot "..\public\icons"),
+  # Share of the icon covered by the glyph's ink box.
+  [double]$GlyphRatio = 0.76
+)
+
 Add-Type -AssemblyName System.Drawing
 
-$outDir = Join-Path $PSScriptRoot "..\public\icons"
-New-Item -ItemType Directory -Force $outDir | Out-Null
+New-Item -ItemType Directory -Force $OutDir | Out-Null
+
+# Load the real Bold face: asking GDI+ for "Yu Gothic UI" + Bold falls back to
+# a lighter weight.
+$fonts = New-Object System.Drawing.Text.PrivateFontCollection
+$fonts.AddFontFile("$env:WINDIR\Fonts\YuGothB.ttc")
+$family = $fonts.Families | Where-Object { $_.Name -eq "Yu Gothic UI" } | Select-Object -First 1
 
 $background = [System.Drawing.ColorTranslator]::FromHtml("#FF624D")
 $foreground = [System.Drawing.ColorTranslator]::FromHtml("#F4F1EA")
@@ -32,18 +43,22 @@ foreach ($size in 16, 32, 48, 128) {
   $square.CloseFigure()
   $g.FillPath((New-Object System.Drawing.SolidBrush $background), $square)
 
-  # Glyph as a path, scaled so its ink box fills 72% of the icon, then centred.
-  $text = New-Object System.Drawing.Drawing2D.GraphicsPath
-  $family = New-Object System.Drawing.FontFamily "Yu Gothic UI"
-  $text.AddString($glyph, $family, [int][System.Drawing.FontStyle]::Bold, 100, (New-Object System.Drawing.PointF 0, 0), [System.Drawing.StringFormat]::GenericTypographic)
-  $bounds = $text.GetBounds()
-  $fit = ($big * 0.72) / [Math]::Max($bounds.Width, $bounds.Height)
-  $m = New-Object System.Drawing.Drawing2D.Matrix
-  $m.Translate(($big - $bounds.Width * $fit) / 2, ($big - $bounds.Height * $fit) / 2)
-  $m.Scale($fit, $fit)
-  $m.Translate(-$bounds.X, -$bounds.Y)
-  $text.Transform($m)
-  $g.FillPath((New-Object System.Drawing.SolidBrush $foreground), $text)
+  # Glyph as a path, scaled to the requested ink box, then centred. The 16 px
+  # icon draws its glyph later, hinted to the pixel grid, because a downscaled
+  # glyph turns its 1 px strokes into a pink blur.
+  $hinted = $size -le 16
+  if (-not $hinted) {
+    $text = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $text.AddString($glyph, $family, [int][System.Drawing.FontStyle]::Bold, 100, (New-Object System.Drawing.PointF 0, 0), [System.Drawing.StringFormat]::GenericTypographic)
+    $bounds = $text.GetBounds()
+    $fit = ($big * $GlyphRatio) / [Math]::Max($bounds.Width, $bounds.Height)
+    $m = New-Object System.Drawing.Drawing2D.Matrix
+    $m.Translate(($big - $bounds.Width * $fit) / 2, ($big - $bounds.Height * $fit) / 2)
+    $m.Scale($fit, $fit)
+    $m.Translate(-$bounds.X, -$bounds.Y)
+    $text.Transform($m)
+    $g.FillPath((New-Object System.Drawing.SolidBrush $foreground), $text)
+  }
   $g.Dispose()
 
   $icon = New-Object System.Drawing.Bitmap $size, $size
@@ -51,9 +66,18 @@ foreach ($size in 16, 32, 48, 128) {
   $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
   $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
   $g.DrawImage($canvas, 0, 0, $size, $size)
+  if ($hinted) {
+    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Default
+    $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+    $font = New-Object System.Drawing.Font $family, ($size * 13 / 16), ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
+    $format = New-Object System.Drawing.StringFormat
+    $format.Alignment = [System.Drawing.StringAlignment]::Center
+    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $g.DrawString($glyph, $font, (New-Object System.Drawing.SolidBrush $foreground), (New-Object System.Drawing.RectangleF 0, 0.5, $size, $size), $format)
+  }
   $g.Dispose()
 
-  $path = Join-Path $outDir "icon-$size.png"
+  $path = Join-Path $OutDir "icon-$size.png"
   $icon.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
   $icon.Dispose()
   $canvas.Dispose()
