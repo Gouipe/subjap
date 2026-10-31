@@ -89,7 +89,7 @@ test("the page-world bridge forwards an official timed-text URL", async ({
             resolve(event.data.payload as Record<string, unknown>);
           }
         },
-        { once: true },
+        // Not `once`: the fixture's own adapter also posts page messages.
       );
     });
 
@@ -152,7 +152,7 @@ test("the page-world bridge inspects JSON metadata returned by fetch", async ({
             resolve(event.data.payload as Record<string, unknown>);
           }
         },
-        { once: true },
+        // Not `once`: the fixture's own adapter also posts page messages.
       );
     });
     await fetch("https://cdn.example/metadata");
@@ -197,7 +197,7 @@ test("the page-world bridge classifies a neutral timed-text URL from its body", 
             resolve(event.data.payload as Record<string, unknown>);
           }
         },
-        { once: true },
+        // Not `once`: the fixture's own adapter also posts page messages.
       );
     });
     JSON.parse(

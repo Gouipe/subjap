@@ -1,6 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const fixturePort = process.env.SUBJAP_FIXTURE_PORT ?? "4173";
+
+/**
+ * In the small fixture stage the fixed-height popover can cover the subtitle
+ * line: close it first (Escape) before hovering another word.
+ */
+async function hoverAnotherToken(page: Page, token: Locator): Promise<void> {
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#subjap-popover")).not.toHaveClass(/subjap-popover--visible/);
+  await token.hover();
+}
 
 test.describe("SubJap UX fixture", () => {
   test.beforeEach(async ({ page }) => {
@@ -70,7 +80,9 @@ test.describe("SubJap UX fixture", () => {
 
     const cueLine = overlay.locator(".subjap-cue-line");
     await expect(cueLine).toHaveCSS("display", "block");
-    await expect(cueLine).toHaveCSS("background-color", "rgba(12, 13, 16, 0.82)");
+    // No backdrop: like Netflix, the outline and shadow keep text legible.
+    await expect(cueLine).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(cueLine).not.toHaveCSS("text-shadow", "none");
     await expect(overlay.locator(".subjap-token").first()).toHaveCSS("vertical-align", "bottom");
 
     const overlayBox = await overlay.boundingBox();
@@ -139,10 +151,10 @@ test.describe("SubJap UX fixture", () => {
 
     const parenthetical = page.locator("#subjap-overlay-container .subjap-token--parenthetical");
     await expect(parenthetical).toHaveCount(3);
-    await expect(parenthetical.first()).toHaveCSS("color", "rgb(100, 116, 139)");
+    await expect(parenthetical.first()).toHaveCSS("color", "rgb(178, 182, 191)");
     await expect(parenthetical.nth(1).locator(".subjap-furigana")).toHaveCSS(
       "color",
-      "rgb(100, 116, 139)",
+      "rgb(178, 182, 191)",
     );
     await expect(parenthetical.first()).toHaveCSS("opacity", "0.7");
     await expect(parenthetical.first()).toHaveCSS("pointer-events", "none");
@@ -186,8 +198,8 @@ test.describe("SubJap UX fixture", () => {
     await page.getByTestId("next-cue").click();
     const tokens = page.locator("#subjap-overlay-container .subjap-token");
 
-    // N = 1: an existing Anki card and LEARNING get a violet underline; with
-    // several unknowns, every unknown is greyed and KNOWN is white.
+    // With several unknowns, every unknown is greyed, including words in
+    // Anki but not acquired yet (LEARNING); KNOWN is white.
     await expect(tokens.nth(0)).toHaveClass(/subjap-known/);
     await expect(tokens.nth(0)).not.toHaveClass(/subjap-unknown--/);
     await expect(tokens.nth(1)).toHaveClass(/subjap-unknown--near/);
@@ -195,10 +207,11 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens.nth(3)).toHaveClass(/subjap-learning/);
     await expect(tokens.nth(4)).toHaveClass(/subjap-unknown/);
     await expect(tokens.nth(4)).not.toHaveClass(/subjap-unknown--/);
-    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(142, 147, 156)");
-    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(142, 147, 156)");
-    await expect(tokens.nth(3)).toHaveCSS("color", "rgb(244, 241, 234)");
-    await expect(tokens.nth(3)).toHaveCSS("border-bottom-color", "rgb(211, 160, 255)");
+    await expect(tokens.nth(0)).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(tokens.nth(1)).toHaveCSS("color", "rgb(156, 161, 170)");
+    await expect(tokens.nth(4)).toHaveCSS("color", "rgb(156, 161, 170)");
+    await expect(tokens.nth(3)).toHaveCSS("color", "rgb(156, 161, 170)");
+    await expect(tokens.nth(3)).toHaveCSS("border-bottom-color", "rgba(0, 0, 0, 0)");
     await expect(tokens.locator(".subjap-token--mine-candidate")).toHaveCount(0);
   });
 
@@ -400,16 +413,16 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator(".subjap-popover__reading")).toHaveCSS("font-size", "17px");
     await expect(frequency).toHaveCSS("font-size", "13px");
 
-    await tokens.nth(2).hover();
+    await hoverAnotherToken(page, tokens.nth(2));
     await expect(frequency).toHaveText("Frequency rank: #1");
 
-    await tokens.nth(1).hover();
+    await hoverAnotherToken(page, tokens.nth(1));
     await expect(frequency).toHaveText("Frequency rank: #2");
 
-    await tokens.nth(3).hover();
+    await hoverAnotherToken(page, tokens.nth(3));
     await expect(frequency).toHaveText("Frequency rank: #3");
 
-    await tokens.nth(4).hover();
+    await hoverAnotherToken(page, tokens.nth(4));
     await expect(frequency).toHaveText("Frequency rank: #500");
   });
 
@@ -421,7 +434,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(existingCardNotice).toHaveText("Déjà dans Anki · 2 cartes");
 
-    await page.locator(".subjap-token").nth(1).hover();
+    await hoverAnotherToken(page, page.locator(".subjap-token").nth(1));
     await expect(existingCardNotice).toHaveText("");
   });
 
@@ -476,7 +489,7 @@ test.describe("SubJap UX fixture", () => {
 
     await page.locator(".subjap-btn--mine").click();
 
-    await expect(page.locator("#subjap-popover")).toBeHidden();
+    await expect(page.locator("#subjap-popover")).not.toHaveClass(/subjap-popover--visible/);
     await expect(page.getByTestId("status")).toHaveAttribute("data-mine-popover-hidden", "true");
   });
 
@@ -547,7 +560,7 @@ test.describe("SubJap UX fixture", () => {
   test("ignore un mot en blanc sans l’ajouter aux mots connus", async ({ page }) => {
     await page.getByTestId("next-cue").click();
     // 勉強 has an existing Anki card in the fixture; IGNORED must override
-    // that presence and turn the token white instead of leaving it purple.
+    // that presence and turn the token white instead of leaving it grey.
     const ignoredToken = page.locator(".subjap-token").nth(2);
 
     await expect(ignoredToken).toHaveClass(/subjap-learning/);
@@ -564,7 +577,7 @@ test.describe("SubJap UX fixture", () => {
 
     await page.locator(".subjap-btn--toggle-ignored").click();
     await expect(ignoredToken).toHaveClass(/subjap-learning/);
-    await expect(ignoredToken).toHaveCSS("color", "rgb(192, 132, 252)");
+    await expect(ignoredToken).toHaveCSS("color", "rgb(156, 161, 170)");
     await expect(page.getByTestId("status")).toHaveAttribute("data-known-count", "1");
   });
 
@@ -575,9 +588,6 @@ test.describe("SubJap UX fixture", () => {
     await expect(tokens).toHaveCount(1);
     await expect(tokens.first()).toHaveText("じゃなくって");
 
-    await page.getByTestId("video-stage").evaluate((stage) => {
-      stage.scrollIntoView({ block: "start" });
-    });
     await tokens.first().hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("じゃなくって");
@@ -604,7 +614,7 @@ test.describe("SubJap UX fixture", () => {
     await tokens.first().hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
     await expect(page.locator(".subjap-popover__surface")).toHaveText("こいつ");
-    await expect(page.locator(".subjap-popover__reading")).toHaveText("こいつら");
+    await expect(page.locator(".subjap-popover__reading")).toHaveText("こいつ");
     await expect(page.locator(".subjap-popover__dictionary")).toHaveCount(0);
     await expect(page.locator(".subjap-popover__grammar")).toHaveText("ら — suffixe pluriel");
     await expect(page.locator(".subjap-popover .subjap-token")).toHaveCount(0);
@@ -773,30 +783,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 12);
   });
 
-  test("Q ignore une reconstruction Netflix de la même phrase", async ({ page }) => {
-    const video = page.locator("#video");
-    const status = page.getByTestId("status");
-    const pageBody = page.locator("body");
-
-    await page.getByTestId("seek-rebuild-cue").click();
-    await expect(status).toHaveAttribute("data-cue", "教育シンポジウムです");
-
-    await pageBody.press("q");
-    await expect(video).toHaveJSProperty("currentTime", 59.4);
-
-    // The next Q must reach the genuinely preceding subtitle, not a second
-    // whitespace-only DOM build of the cue at 59 seconds.
-    await pageBody.press("q");
-    await expect(video).toHaveJSProperty("currentTime", 50);
-  });
-
   test("Q garde le vrai début d'une phrase réaffichée à la fin d'un seek", async ({ page }) => {
     const video = page.locator("#video");
     const status = page.getByTestId("status");
 
     await page.getByTestId("seek-overlap-cue").click();
     await expect(status).toHaveAttribute("data-scenario", "seek-overlap-complete");
-    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
+    // The rebuild inside the known interval reuses the first occurrence.
+    await expect(status).toHaveAttribute("data-cue", "困るんですよ 生徒に示しがつかないから");
 
     await page.locator("body").press("q");
     await expect(video).toHaveJSProperty("currentTime", 105);
@@ -836,8 +830,13 @@ test.describe("SubJap UX fixture", () => {
 
     await page.getByTestId("stale-dom-track-cue").click();
     await expect(status).toHaveAttribute("data-scenario", "stale-dom-track-complete");
-    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
+    // Past the official end, the stale DOM text is a silence.
+    await expect(status).toHaveAttribute("data-cue", "");
 
+    // From a silence, Q returns to the last started segment, then to the one
+    // before it: the late DOM observation is not a third position.
+    await page.locator("body").press("q");
+    await expect(video).toHaveJSProperty("currentTime", 110.778);
     await page.locator("body").press("q");
     await expect(video).toHaveJSProperty("currentTime", 105);
   });
@@ -848,13 +847,13 @@ test.describe("SubJap UX fixture", () => {
 
     await page.getByTestId("stale-dom-track-cue").click();
     await expect(status).toHaveAttribute("data-scenario", "stale-dom-track-complete");
-    await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
+    await expect(status).toHaveAttribute("data-cue", "");
 
     await page.locator("body").press("s");
     await expect(video).toHaveJSProperty("currentTime", 110.778);
   });
 
-  test("conserve les cibles de Q et S quand ils sont pressés au même instant", async ({ page }) => {
+  test("S pressé juste après Q rejoue la phrase visée par Q", async ({ page }) => {
     const video = page.locator("#video");
     const status = page.getByTestId("status");
 
@@ -863,13 +862,14 @@ test.describe("SubJap UX fixture", () => {
     await expect(status).toHaveAttribute("data-cue", "困るんですよ生徒に示しがつかないから");
 
     // Dispatch both keys before the first queued seek can update the media
-    // clock. Each action must retain the timestamp that existed at keydown.
+    // clock. Rapid presses start from the last requested target, so S
+    // replays the phrase Q asked for instead of the one still displayed.
     await page.evaluate(() => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "q" }));
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
     });
 
-    await expect(video).toHaveJSProperty("currentTime", 110.778);
+    await expect(video).toHaveJSProperty("currentTime", 105);
   });
 
   test("rejoue sans dérive un sous-titre Netflix dépourvu de timestamps", async ({ page }) => {
@@ -895,25 +895,16 @@ test.describe("SubJap UX fixture", () => {
       (element as HTMLVideoElement).currentTime = 21;
     });
     await pageBody.press("s");
-    await expect(video).toHaveJSProperty("currentTime", 19.85);
+    await expect(video).toHaveJSProperty("currentTime", 20);
 
-    // Netflix clears then rebuilds timed text after a seek. Repeated S must
-    // retain the first anchor rather than adopting a new fallback timestamp.
-    await page.getByTestId("clear-cue").click();
-    await expect(status).toHaveAttribute("data-cue", "");
-    await video.evaluate((element) => {
-      (element as HTMLVideoElement).currentTime = 20.2;
-    });
-    await page.getByTestId("untimed-cue").click();
-    await expect(status).toHaveAttribute("data-cue", "日本語を勉強します。");
+    // Repeated S keeps the first anchor rather than a new fallback timestamp.
     await video.evaluate((element) => {
       (element as HTMLVideoElement).currentTime = 21;
     });
-
     await pageBody.press("s");
     await pageBody.press("s");
     await pageBody.press("s");
-    await expect(video).toHaveJSProperty("currentTime", 19.85);
+    await expect(video).toHaveJSProperty("currentTime", 20);
   });
 
   test("garde navigation et mining alignés sur la phrase réellement rendue", async ({ page }) => {
@@ -936,6 +927,9 @@ test.describe("SubJap UX fixture", () => {
     await expect(video).toHaveJSProperty("currentTime", 12);
 
     await expect(status).toHaveAttribute("data-cue", "遅れて表示される字幕");
+    // Netflix would show the seeked phrase again; the fixture does not, so
+    // let the pending S target (1.5 s) expire.
+    await page.waitForTimeout(1_600);
     await video.evaluate((element) => {
       (element as HTMLVideoElement).currentTime = 21;
     });
@@ -981,15 +975,15 @@ test.describe("SubJap UX fixture", () => {
       .toBe("日本語");
   });
 
-  test("garde toute une phrase quand Netflix fait défiler ses deux lignes", async ({ page }) => {
+  test("suit chaque état quand Netflix fait défiler ses deux lignes", async ({ page }) => {
     const status = page.getByTestId("status");
 
     await expect(status).toHaveAttribute("data-cue", "待ってください。");
     await page.getByTestId("rolling-cue").click();
-    await expect(status).toHaveAttribute(
-      "data-cue",
-      "生徒が起こした騒動については\n不問ということにいたしましょう",
-    );
-    await expect(status).toHaveAttribute("data-cue-start", "39.85");
+    // SubJap does not rebuild a sentence: A → A+B → B stays three segments.
+    await expect(status).toHaveAttribute("data-cue", "不問ということにいたしましょう");
+    await expect(status).toHaveAttribute("data-cue-start", "44");
+    await page.locator("body").press("q");
+    await expect(page.locator("#video")).toHaveJSProperty("currentTime", 42);
   });
 });

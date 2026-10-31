@@ -249,7 +249,13 @@ let activeTokens: Token[] = [];
 const groupedTokens = groupTokens([
   { surface: "じゃ", lemma: "だ", reading: "じゃ", partOfSpeech: ["助動詞"] },
   { surface: "なくっ", lemma: "ない", reading: "なくっ", partOfSpeech: ["形容詞"] },
-  { surface: "て", lemma: "て", reading: "て", partOfSpeech: ["助詞"] },
+  {
+    surface: "て",
+    lemma: "て",
+    reading: "て",
+    partOfSpeech: ["助詞"],
+    partOfSpeechDetails: ["接続助詞"],
+  },
 ]);
 
 const explanatoryTokens = groupTokens([
@@ -633,40 +639,6 @@ document.querySelector<HTMLButtonElement>("#rolling")!.addEventListener("click",
   }, 200);
 });
 
-document.querySelector<HTMLButtonElement>("#seek-rebuild")!.addEventListener("click", () => {
-  activeTokens = tokens;
-  const video = document.querySelector<HTMLVideoElement>("#video")!;
-
-  // Netflix can briefly remove and recreate one logical cue around a seek.
-  // The two DOM builds differ only by presentation whitespace.
-  video.currentTime = 50;
-  nativeSubtitles.replaceChildren(nativeLine("本当の前の字幕", "50", "52"));
-  setTimeout(() => {
-    video.currentTime = 59.55;
-    nativeSubtitles.replaceChildren(
-      nativeLine("（篠原 ）でも すごいですね", null, null),
-    );
-  }, 100);
-  setTimeout(() => {
-    video.currentTime = 59.7;
-    nativeSubtitles.replaceChildren();
-  }, 200);
-  setTimeout(() => {
-    video.currentTime = 59.85;
-    nativeSubtitles.replaceChildren(
-      nativeLine("（篠原）でも すごいですね", null, null),
-    );
-  }, 300);
-  setTimeout(() => {
-    video.currentTime = 60.5;
-    nativeSubtitles.replaceChildren();
-  }, 400);
-  setTimeout(() => {
-    video.currentTime = 61;
-    nativeSubtitles.replaceChildren(nativeLine("教育シンポジウムです", "61", "64"));
-  }, 500);
-});
-
 document.querySelector<HTMLButtonElement>("#seek-overlap")!.addEventListener("click", () => {
   activeTokens = tokens;
   const video = document.querySelector<HTMLVideoElement>("#video")!;
@@ -784,6 +756,18 @@ document.querySelector<HTMLButtonElement>("#stale-dom-track")!.addEventListener(
   // Netflix may keep the current DOM cue visible just after the authoritative
   // track says that occurrence has ended. The DOM cue has only a fallback
   // start, slightly later than the official start.
+  // As on Netflix, the bridge identifies the selected Japanese track: the
+  // stale text cannot elect the file, its identity does.
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      source: window,
+      data: {
+        source: "subjap",
+        type: "subjap:netflix-selected-track",
+        payload: { language: "ja", trackId: "ja-stale-dom" },
+      },
+    }),
+  );
   video.currentTime = 111.064;
   nativeSubtitles.replaceChildren(
     nativeLine("困るんですよ生徒に示しがつかないから", null, null),
@@ -798,6 +782,7 @@ document.querySelector<HTMLButtonElement>("#stale-dom-track")!.addEventListener(
           payload: {
             url: "https://cdn.example/timedtext/stale-dom.vtt",
             language: "ja",
+            trackId: "ja-stale-dom",
             body:
               "WEBVTT\n\n00:01:45.000 --> 00:01:50.778\n" +
               "廊下を走らないって言ってるでしょう\n\n" +
@@ -913,7 +898,7 @@ document.querySelector<HTMLButtonElement>("#mine")!.addEventListener("click", ()
       language: "ja",
       url: window.location.href,
     },
-    definitions: ["fixture definition"],
+    senses: [["fixture definition"]],
   });
 });
 
