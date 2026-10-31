@@ -53,6 +53,8 @@ type DisplayOptions = Pick<OverlayOptions, "subtitleScale" | "showFurigana">;
 const SUBTITLE_SCALE_STEP = 10;
 
 const LOCAL_SUBTITLE_ROLES: LocalSubtitleRole[] = ["primary", "secondary"];
+/** The offset menu reopens as the user last left it. */
+const OFFSET_MENU_OPEN_KEY = "subjap_popup_offset_open";
 const EMPTY_LOCAL_SUBTITLES: Record<LocalSubtitleRole, LocalSubtitleRecord | null> = {
   primary: null,
   secondary: null,
@@ -197,6 +199,21 @@ const Popup: React.FC = () => {
 
   useEffect(() => {
     void isSubJapEnabled().then(setEnabled, () => setEnabled(true));
+  }, []);
+
+  useEffect(() => {
+    void chrome.storage.local.get(OFFSET_MENU_OPEN_KEY).then((stored) => {
+      if (stored[OFFSET_MENU_OPEN_KEY] === true) setOffsetOpen(true);
+    }, () => {
+      // Unknown state: the menu stays folded.
+    });
+  }, []);
+
+  const toggleOffsetMenu = useCallback((open: boolean) => {
+    setOffsetOpen(open);
+    void chrome.storage.local.set({ [OFFSET_MENU_OPEN_KEY]: open }).catch(() => {
+      // Not remembered: the menu still opens and closes.
+    });
   }, []);
 
   const toggleEnabled = useCallback(async (next: boolean) => {
@@ -762,7 +779,7 @@ const Popup: React.FC = () => {
                 {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
               </div>
             </details>
-            <details onToggle={(event) => setOffsetOpen(event.currentTarget.open)}>
+            <details open={offsetOpen} onToggle={(event) => toggleOffsetMenu(event.currentTarget.open)}>
               <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
                 <span>Décalage</span>
                 <span
