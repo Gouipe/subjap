@@ -19,6 +19,7 @@ import type {
   SecondarySubtitleLanguage,
 } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
+import { jimakuSearchUrl } from "@/core/episode";
 import {
   getLocalSubtitle,
   localSubtitleVideoId,
@@ -112,6 +113,8 @@ const Popup: React.FC = () => {
   });
   const [localSubtitleBusy, setLocalSubtitleBusy] = useState(false);
   const [localSubtitleError, setLocalSubtitleError] = useState<string | null>(null);
+  /** Player of the video under the popup when it has no Japanese subtitles. */
+  const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
 
   const refresh = useCallback(async () => {
     const [statsResult, dictResult, onboardedResult, optionsResult] = await Promise.all([
@@ -191,6 +194,15 @@ const Popup: React.FC = () => {
       setHasVideo(hasVisibleVideo);
       setVideoId(currentVideoId);
       if (!currentVideoId) return;
+      // Only the frame playing a video without Japanese subtitles answers.
+      void chrome.tabs.sendMessage(tab.id, { type: "subtitles:status" }).then((answer: unknown) => {
+        const status = answer as { missing?: unknown; player?: unknown } | undefined;
+        if (status?.missing === true && typeof status.player === "string" && tab.id != null) {
+          setMissingJapanese({ tabId: tab.id, player: status.player });
+        }
+      }, () => {
+        // No frame answered: Japanese subtitles are available or still unknown.
+      });
       const [primary, secondary] = await Promise.all([
         getLocalSubtitle(currentVideoId, "primary"),
         getLocalSubtitle(currentVideoId, "secondary"),
@@ -222,6 +234,7 @@ const Popup: React.FC = () => {
           updatedAt: Date.now(),
         };
         await saveLocalSubtitle(videoId, record, role);
+        if (role === "primary") setMissingJapanese(null);
         setLocalSubtitles((current) => ({ ...current, [role]: record }));
         setOffsetInputs((current) => ({ ...current, [role]: "0.00" }));
       } catch (err: unknown) {
@@ -268,6 +281,13 @@ const Popup: React.FC = () => {
       setLocalSubtitleBusy(false);
     }
   }, [videoId]);
+
+  const searchJimaku = useCallback(async () => {
+    if (!missingJapanese) return;
+    const { episode } = await sendMessage("tab:episode", { tabId: missingJapanese.tabId })
+      .catch(() => ({ episode: null }));
+    await chrome.tabs.create({ url: jimakuSearchUrl(episode) });
+  }, [missingJapanese]);
 
   /** Display changes apply live to the video under the popup. */
   const updateDisplay = useCallback(
@@ -471,7 +491,38 @@ const Popup: React.FC = () => {
 
       <h2 style={styles.groupLabel}>Sous-titres</h2>
       <div style={styles.card}>
-        <label style={styles.cardRow}>
+        {missingJapanese && videoId && (
+          <div style={styles.missingJapanese}>
+            <p style={styles.missingJapaneseText}>Pas de sous-titres japonais pour cette vidéo.</p>
+            <div style={styles.missingJapaneseActions}>
+              {missingJapanese.player === "artplayer" && (
+                <button style={styles.missingJapanesePrimary} onClick={() => void searchJimaku()}>
+                  Chercher sur Jimaku
+                </button>
+              )}
+              <label style={styles.missingJapaneseButton}>
+                {localSubtitleBusy ? "Chargement…" : "Importer un fichier"}
+                <input
+                  type="file"
+                  accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                  hidden
+                  disabled={localSubtitleBusy}
+                  onChange={(event) => {
+                    void importLocalSubtitle("primary", event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            {localSubtitleError && !localSubtitlesOpen && (
+              <p style={styles.captureError}>{localSubtitleError}</p>
+            )}
+          </div>
+        )}
+        <label style={{
+          ...styles.cardRow,
+          ...(missingJapanese && videoId ? styles.cardRowDivided : {}),
+        }}>
           <span>Traduction</span>
           <select
             style={styles.languageSelect}
@@ -995,6 +1046,42 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#101216",
     color: "#f4f1ea",
     fontSize: 12,
+  },
+  missingJapanese: {
+    padding: "10px 12px",
+  },
+  missingJapaneseText: {
+    margin: 0,
+    color: "#f1b46d",
+    fontSize: 12,
+    lineHeight: 1.4,
+  },
+  missingJapaneseActions: {
+    display: "flex",
+    gap: 6,
+    marginTop: 8,
+  },
+  missingJapanesePrimary: {
+    flex: 1,
+    padding: "7px 8px",
+    border: "1px solid #ff624d",
+    borderRadius: 6,
+    background: "#ff624d",
+    color: "#0c0d10",
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  missingJapaneseButton: {
+    flex: 1,
+    padding: "7px 8px",
+    border: "1px solid #343842",
+    borderRadius: 6,
+    background: "#1b1e24",
+    color: "#f4f1ea",
+    fontSize: 11,
+    textAlign: "center",
+    cursor: "pointer",
   },
   fileButton: {
     display: "block",

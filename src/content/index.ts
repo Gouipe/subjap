@@ -31,7 +31,14 @@ import {
 } from "@/core/frequency";
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
-import { markParentheticalTokens, normalizeCueText } from "@/subtitles";
+import {
+  markParentheticalTokens,
+  normalizeCueText,
+  parseSubtitleFile,
+  saveLocalSubtitle,
+} from "@/subtitles";
+import { jimakuSearchUrl } from "@/core/episode";
+import { VideoNotice } from "@/overlay/video-notice";
 import { primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
@@ -133,6 +140,14 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
     return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
   });
   if (visible) sendResponse({ hasVideo: true });
+});
+
+// The popup asks which frame plays a video without Japanese subtitles. Only
+// that frame answers, so the popup never mixes up an ad frame's answer.
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if ((message as { type?: unknown } | null)?.type !== "subtitles:status" || !enabled) return;
+  const status = adapter.getJapaneseSubtitleStatus?.();
+  if (status?.availability === "missing") sendResponse({ missing: true, player: status.player });
 });
 
 onMessage("tabCapture:stream", async ({ streamId }) => {
@@ -1242,6 +1257,93 @@ function installShortcuts(): () => void {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Missing Japanese subtitles
+// ---------------------------------------------------------------------------
+
+const MISSING_JAPANESE_NOTICE_MS = 12_000;
+let missingJapaneseTimer: number | null = null;
+let missingJapaneseNotice: VideoNotice | null = null;
+/** Videos already told about, so the notice appears once per video. */
+const missingJapaneseNotified = new Set<string>();
+let missingJapanesePending = false;
+
+/** Anime players only: elsewhere a video without Japanese is usually not Japanese. */
+function checkMissingJapanese(): void {
+  const status = adapter.getJapaneseSubtitleStatus?.();
+  const video = adapter.getVideoElement();
+  if (!status || status.player !== "artplayer" || status.availability !== "missing" || !video) {
+    if (status?.availability === "available") missingJapaneseNotice?.close();
+    return;
+  }
+  const key = status.videoId ?? video.currentSrc;
+  if (!key || missingJapaneseNotified.has(key) || missingJapanesePending) return;
+  missingJapaneseNotified.add(key);
+  missingJapanesePending = true;
+  // The link needs the episode, read from the top page before the notice
+  // shows: a link opened after an await would lose the user's click.
+  void sendMessage("tab:episode", {})
+    .then(({ episode }) => episode, () => null)
+    .then((episode) => {
+      missingJapanesePending = false;
+      if (!enabled || adapter.getVideoElement() !== video) return;
+      if (adapter.getJapaneseSubtitleStatus?.()?.availability !== "missing") return;
+      showMissingJapaneseNotice(video, status.videoId, jimakuSearchUrl(episode));
+    });
+}
+
+function showMissingJapaneseNotice(
+  video: HTMLVideoElement,
+  videoId: string | null,
+  searchUrl: string,
+): void {
+  missingJapaneseNotice?.close();
+  const notice = new VideoNotice(video, {
+    text: "Pas de sous-titres japonais pour cette vidéo.",
+    autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+    actions: [
+      { label: "Chercher sur Jimaku", primary: true, href: searchUrl },
+      ...(videoId ? [{ label: "Importer", onClick: () => importJapaneseFile(videoId, notice) }] : []),
+    ],
+    onClose: () => {
+      if (missingJapaneseNotice === notice) missingJapaneseNotice = null;
+    },
+  });
+  missingJapaneseNotice = notice;
+  notice.show();
+}
+
+/** Same storage as the popup import: the adapter picks the file up by itself. */
+function importJapaneseFile(videoId: string, notice: VideoNotice): void {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".srt,.vtt,.webvtt,.ass,.ssa";
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    void (async () => {
+      try {
+        const content = await file.text();
+        if (parseSubtitleFile(file.name, content).length === 0) {
+          notice.setText("Fichier SRT, VTT ou ASS invalide ou vide.");
+          return;
+        }
+        await saveLocalSubtitle(videoId, {
+          fileName: file.name,
+          content,
+          offsetSeconds: 0,
+          updatedAt: Date.now(),
+        }, "primary");
+        notice.close();
+      } catch (err: unknown) {
+        handleRuntimeError(err);
+        notice.setText("Import impossible. Réessayez depuis la popup SubJap.");
+      }
+    })();
+  }, { once: true });
+  input.click();
+}
+
 /**
  * Frames start SubJap only once they contain a video, so ads, widgets and
  * comment frames stay untouched.
@@ -1287,6 +1389,7 @@ function enable(): void {
   adapter.subscribeCues((cues) => {
     enqueueCues(cues);
   });
+  missingJapaneseTimer = window.setInterval(checkMissingJapanese, 1_000);
 }
 
 /** Leave the page as if SubJap were not installed, without reloading it. */
@@ -1299,6 +1402,9 @@ function disable(): void {
   removeShortcuts = null;
   if (ankiSyncTimer !== null) window.clearInterval(ankiSyncTimer);
   ankiSyncTimer = null;
+  if (missingJapaneseTimer !== null) window.clearInterval(missingJapaneseTimer);
+  missingJapaneseTimer = null;
+  missingJapaneseNotice?.close();
   // Invalidate cue renders still in flight.
   cueRevision++;
   lastCues = [];

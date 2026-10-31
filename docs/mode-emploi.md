@@ -156,6 +156,17 @@ pistes : SubJap charge automatiquement le japonais (sans annotations pour
 malentendants si possible) et la traduction FR, sinon EN, sans import. Les
 raccourcis clavier fonctionnent après un clic dans le lecteur.
 
+### Vidéo sans sous-titres japonais
+
+Quand un lecteur Artplayer ne propose pas de piste japonaise, un bandeau
+s’affiche une fois par vidéo en bas du lecteur pendant quelques secondes :
+**Chercher sur Jimaku** ouvre la page Jimaku de l’anime (ou sa recherche) dans
+un nouvel onglet, **Importer** charge directement un fichier japonais comme
+piste principale. Sur Netflix et YouTube, rien ne s’affiche sur la vidéo : la
+popup indique « Pas de sous-titres japonais » dans **Sous-titres**, avec
+**Importer un fichier** ; sur un lecteur Artplayer, elle propose aussi la
+recherche Jimaku.
+
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
 production orale** au verso. Sa carte sœur rejoint les
 nouvelles cartes de `日本語::Vocabulaire::Production` dès qu’Anki n’affiche plus

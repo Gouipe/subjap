@@ -1,4 +1,4 @@
-import type { CueReplaySession, EpisodeContext, PlatformAdapter, SecondarySubtitleLanguage, SubtitleCue } from "@/core/types";
+import type { CueReplaySession, EpisodeContext, JapaneseSubtitleStatus, PlatformAdapter, SecondarySubtitleLanguage, SubtitleCue } from "@/core/types";
 import { youtubeVideoId, type YouTubeCaptionFile, type YouTubePlaybackInfo } from "@/core/youtube";
 import {
   getLocalSubtitle,
@@ -128,6 +128,16 @@ export class YouTubeAdapter implements PlatformAdapter {
   setNativeSubtitlesVisible(visible: boolean): void {
     this.hideNative = !visible;
     this.applyNativeVisibility();
+  }
+
+  getJapaneseSubtitleStatus(): JapaneseSubtitleStatus {
+    const videoId = this.videoId ? `youtube:${this.videoId}` : null;
+    const availability = !this.videoId
+      ? "unknown"
+      : this.localPrimaryCues.length || this.info?.tracks.some((track) => track.language === "ja")
+        ? "available"
+        : this.info ? "missing" : "unknown";
+    return { availability, player: "youtube", videoId };
   }
 
   getEpisodeContext(): EpisodeContext | null {

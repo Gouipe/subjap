@@ -4,6 +4,7 @@
 
 import type {
   EpisodeContext,
+  JapaneseSubtitleStatus,
   PlatformAdapter,
   PlatformId,
   SecondarySubtitleLanguage,
@@ -29,13 +30,20 @@ import { activeSubtitleCues, firstCueStartingIn } from "@/subtitles/timeline";
 const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
 const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
 const MAX_SUBTITLE_FILE_LENGTH = 8_000_000;
+/** A player answering with no usable file this long has no subtitle menu at all. */
+const ARTPLAYER_NO_TRACKS_AFTER_MS = 15_000;
 
 /** Subtitle files offered by an Artplayer instance for the current video source. */
 interface ArtplayerSubtitles {
   session: string;
   source: string;
+  startedAt: number;
+  /** True once the page bridge answered from a page that runs Artplayer. */
+  found: boolean;
   /** True once the page bridge listed at least one usable file. */
   listed: boolean;
+  /** Whether the listed files include a Japanese one. */
+  offersJapanese: boolean;
   japanese: SubtitleCue[];
   translations: Partial<Record<"fr" | "en", SubtitleCue[]>>;
 }
@@ -177,6 +185,21 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     // Only Artplayer's own subtitle layers are known; other players keep theirs.
     this.hideNative = !visible;
     this.applyNativeVisibility();
+  }
+
+  getJapaneseSubtitleStatus(): JapaneseSubtitleStatus {
+    const artplayer = this.artplayer;
+    const player = artplayer ? "artplayer" : "other";
+    const status = (availability: JapaneseSubtitleStatus["availability"]): JapaneseSubtitleStatus =>
+      ({ availability, player, videoId: this.videoId });
+    if (this.localPrimaryCues.length) return status("available");
+    if (!artplayer) return status("unknown");
+    if (artplayer.listed) return status(artplayer.offersJapanese ? "available" : "missing");
+    return status(
+      artplayer.found && Date.now() - artplayer.startedAt > ARTPLAYER_NO_TRACKS_AFTER_MS
+        ? "missing"
+        : "unknown",
+    );
   }
 
   getEpisodeContext(): EpisodeContext | null {
@@ -326,7 +349,10 @@ export class GenericHtml5Adapter implements PlatformAdapter {
       this.artplayer = {
         session: `artplayer:${crypto.randomUUID()}`,
         source,
+        startedAt: Date.now(),
+        found: false,
         listed: false,
+        offersJapanese: false,
         japanese: [],
         translations: {},
       };
@@ -351,6 +377,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     const artplayer = this.artplayer;
     if (!artplayer || artplayer.listed || payload?.session !== artplayer.session ||
       !Array.isArray(payload.candidates)) return;
+    if ((payload as { found?: unknown }).found === true) artplayer.found = true;
     const candidates = (payload.candidates as unknown[]).filter(
       (candidate): candidate is ArtplayerSubtitleCandidate => {
         const value = candidate as Partial<ArtplayerSubtitleCandidate> | null;
@@ -361,6 +388,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     // The subtitle menu can be built after the player: keep asking until it lists a file.
     if (!tracks.ja && !tracks.fr && !tracks.en) return;
     artplayer.listed = true;
+    artplayer.offersJapanese = !!tracks.ja;
     for (const track of Object.values(tracks)) void this.loadArtplayerTrack(artplayer, track);
   };
 

@@ -6,6 +6,7 @@ import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { onMessage } from "@/core/messaging";
+import { readPageEpisode } from "@/core/episode";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import { entrySpellings, selectDictionaryEntry } from "@/dictionary/match";
@@ -560,6 +561,22 @@ onMessage("tts:speak", ({ text }) => {
 });
 
 onMessage("tab:url", (_payload, sender) => ({ url: sender.tab?.url ?? null }));
+
+// Players embedded in a frame cannot read the page that names the episode.
+onMessage("tab:episode", async ({ tabId }, sender) => {
+  const target = tabId ?? sender.tab?.id;
+  if (target == null) return { episode: null };
+  try {
+    const [frame] = await chrome.scripting.executeScript({
+      target: { tabId: target, frameIds: [0] },
+      func: readPageEpisode,
+    });
+    return { episode: frame?.result ?? null };
+  } catch {
+    // Browser-restricted pages do not expose their DOM to extensions.
+    return { episode: null };
+  }
+});
 
 onMessage("screenshot:capture", async (_payload, sender) => {
   const windowId = sender.tab?.windowId;

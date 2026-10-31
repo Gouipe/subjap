@@ -2,6 +2,8 @@
 // SubJap — Types partagés (source unique de la spec §7.4, §8, §9)
 // ---------------------------------------------------------------------------
 
+import type { PageEpisode } from "@/core/episode";
+
 // ── Plateformes ───────────────────────────────────────────────────────────
 
 export type PlatformId =
@@ -55,6 +57,17 @@ export interface CueReplaySession {
   close(): void;
 }
 
+/** Whether the current video has Japanese subtitles, from the player or a local file. */
+export type JapaneseSubtitleAvailability = "available" | "missing" | "unknown";
+
+export interface JapaneseSubtitleStatus {
+  availability: JapaneseSubtitleAvailability;
+  /** Player whose track list was read; "other" players expose none. */
+  player: "artplayer" | "netflix" | "youtube" | "other";
+  /** Key of this video's local subtitle imports. */
+  videoId: string | null;
+}
+
 export interface PlatformAdapter {
   id: PlatformId;
   isActive(doc: Document, url: string): boolean;
@@ -73,6 +86,8 @@ export interface PlatformAdapter {
   beginCueReplay?(cue: SubtitleCue): CueReplaySession | null;
   /** Prefer this translation language, with the other supported language as fallback; "none" disables it. */
   setSecondarySubtitleLanguage?(language: SecondarySubtitleLanguage): void;
+  /** Japanese subtitles of the current video, once the player listed its tracks. */
+  getJapaneseSubtitleStatus?(): JapaneseSubtitleStatus;
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
   setNativeSubtitlesVisible(v: boolean): void;
   getEpisodeContext(): EpisodeContext | null;
@@ -306,6 +321,9 @@ export interface MessageMap {
   /** URL of the sender's tab, for players embedded in a frame. */
   "tab:url": Record<string, never>;
   "tab:urlResult": { url: string | null };
+  /** Anime episode named by the top page of the sender's tab (or of `tabId`). */
+  "tab:episode": { tabId?: number };
+  "tab:episodeResult": { episode: PageEpisode | null };
   "screenshot:capture": Record<string, never>;
   "screenshot:captureResult": { dataUrl: string };
 

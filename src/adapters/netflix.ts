@@ -2,6 +2,7 @@
 import type {
   CueReplaySession,
   EpisodeContext,
+  JapaneseSubtitleStatus,
   PlatformAdapter,
   PlatformId,
   SecondarySubtitleLanguage,
@@ -31,6 +32,7 @@ const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 const NETFLIX_RELEASE_EVENT = "subjap:netflix-release";
 const NETFLIX_SELECTED_TRACK_EVENT = "subjap:netflix-selected-track";
+const NETFLIX_TRACK_LANGUAGES_EVENT = "subjap:netflix-track-languages";
 const MAX_TIMED_TEXT_FETCH_RETRIES = 3;
 const TIMED_TEXT_FETCH_RETRY_MS = 2000;
 
@@ -218,6 +220,8 @@ export class NetflixAdapter implements PlatformAdapter {
   private readonly tracks = new SubtitleTrackCatalog();
   private domHistory: SubtitleCue[] = [];
   private nativeTrackId: string | null = null;
+  /** Subtitle languages Netflix offers, for the episode that announced them. */
+  private trackLanguages: { episodeId: string; languages: string[] } | null = null;
   private standardTrack: TextTrack | null = null;
   private standardTrackRevision = 0;
   private standardCues: SubtitleCue[] = [];
@@ -362,6 +366,15 @@ export class NetflixAdapter implements PlatformAdapter {
         }
         this.tracks.selectTrack(language, selection.trackId);
         this.emitCues();
+        return;
+      }
+      if (data.type === NETFLIX_TRACK_LANGUAGES_EVENT) {
+        const payload = data.payload as { episodeId?: unknown; languages?: unknown } | null;
+        if (typeof payload?.episodeId !== "string" || !Array.isArray(payload.languages)) return;
+        this.trackLanguages = {
+          episodeId: payload.episodeId,
+          languages: payload.languages.filter((language): language is string => typeof language === "string"),
+        };
         return;
       }
       if (data.type === NETFLIX_TIMED_TEXT_URL_EVENT) {
@@ -1142,6 +1155,18 @@ export class NetflixAdapter implements PlatformAdapter {
   // -----------------------------------------------------------------------
   // getEpisodeContext
   // -----------------------------------------------------------------------
+  getJapaneseSubtitleStatus(): JapaneseSubtitleStatus {
+    const watchId = this.currentWatchId();
+    const offered = this.trackLanguages?.episodeId === watchId ? this.trackLanguages.languages : null;
+    const availability = !watchId
+      ? "unknown"
+      : this.localPrimaryCues.length || this.nativeTrackId ||
+          offered?.some((language) => normalizeTrackLanguage(language) === "ja")
+        ? "available"
+        : offered ? "missing" : "unknown";
+    return { availability, player: "netflix", videoId: watchId };
+  }
+
   getEpisodeContext(): EpisodeContext | null {
     const doc = document;
 

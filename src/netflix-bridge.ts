@@ -4,6 +4,7 @@ export const NETFLIX_TIMED_TEXT_URL_EVENT = "subjap:netflix-timed-text-url";
 export const NETFLIX_TIMED_TEXT_REQUEST_EVENT = "subjap:netflix-timed-text-request";
 export const NETFLIX_RELEASE_EVENT = "subjap:netflix-release";
 export const NETFLIX_SELECTED_TRACK_EVENT = "subjap:netflix-selected-track";
+export const NETFLIX_TRACK_LANGUAGES_EVENT = "subjap:netflix-track-languages";
 
 type SecondarySubtitleLanguage = "fr" | "en" | "none";
 
@@ -34,6 +35,7 @@ interface NetflixTimedTextTrackOption {
   trackType?: unknown;
   rawTrackType?: unknown;
   isNoneTrack?: unknown;
+  isForcedNarrative?: unknown;
   id?: unknown;
   new_track_id?: unknown;
   newTrackId?: unknown;
@@ -384,6 +386,7 @@ function installTimedTextCapture(page: Window): void {
   let episodeMismatchLogged = new WeakSet<object>();
   let loggedTrackLists = new WeakSet<object>();
   let lastNativeSelection = "";
+  let lastTrackLanguages = "";
   // Probes briefly switch Netflix's visible subtitles: only probe for a
   // subscribed SubJap adapter. Metadata capture itself stays passive.
   let subscribed = false;
@@ -416,6 +419,30 @@ function installTimedTextCapture(page: Window): void {
     } catch {
       // A session may disappear while the player changes episode.
     }
+  };
+
+  /** Subtitle languages Netflix offers for the episode: tells whether Japanese is missing. */
+  const announceTrackLanguages = (): void => {
+    const session = resolveNetflixTimedTextSession(page);
+    if (!session) return;
+    let tracks: NetflixTimedTextTrackOption[] = [];
+    try {
+      tracks = session.getTimedTextTrackList?.() ?? [];
+    } catch {
+      return;
+    }
+    if (!Array.isArray(tracks) || tracks.length === 0) return;
+    const episodeId = readNetflixSessionEpisodeId(session, page);
+    if (!episodeId) return;
+    const languages = [...new Set(tracks
+      .filter((track) => track && track.isNoneTrack !== true && track.isForcedNarrative !== true &&
+        !/forced|強制/i.test(String(track.displayName ?? "")))
+      .map(readTimedTextLanguage)
+      .filter(Boolean))];
+    const key = `${episodeId}:${languages.join(",")}`;
+    if (key === lastTrackLanguages) return;
+    lastTrackLanguages = key;
+    emit(NETFLIX_TRACK_LANGUAGES_EVENT, { episodeId, languages });
   };
 
   const associateNextTrackRequest = (
@@ -1107,6 +1134,7 @@ function installTimedTextCapture(page: Window): void {
     setInterval(() => {
       syncProbeEpisode();
       observeNativeTrack();
+      announceTrackLanguages();
     }, 500);
     startTrackProbes();
   }
@@ -1129,6 +1157,8 @@ function installTimedTextCapture(page: Window): void {
     }
     if (data.type !== NETFLIX_TIMED_TEXT_REQUEST_EVENT) return;
     subscribed = true;
+    // A new subscriber has not seen the languages announced before it.
+    lastTrackLanguages = "";
     const episodeId =
       typeof data.payload?.episodeId === "string"
         ? data.payload.episodeId
