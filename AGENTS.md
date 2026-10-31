@@ -1,14 +1,5 @@
 # SubJap — instructions projet
 
-Quand je te demande de modifier/ajouter une fonctionnalité, brainstormons ensemble la spécification fonctionnelle. Une fois que c'est fait tu peux dev.
-
-Aborde une question à la fois. Sinon c'est trop compliqué pour moi. Donne une recommandation pour me faciliter la tâche.
-
-Tu as accès à Chrome via l'extension. Tu as aussi les droits de lancer des commandes. Ne me demande vraiment que ce tu ne peux pas savoir dans le code ou des questions fonctionnelles qui dépendent de la préférence de l'utilisateur de l'extension.
-
-Ne pas utiliser de workflow ou de skill spécialisé imposé par le projet pour
-les changements de ce projet.
-
 Utiliser git worktree pour les fonctionnalités longues, risquées ou susceptibles
 d’être travaillées en parallèle. Pour une modification courte et isolée,
 travailler directement dans le worktree courant est acceptable. Si une seconde
@@ -66,8 +57,6 @@ Ne pas créer de régression dans la fixture ou les scénarios E2E, même lorsqu
 comportement absent du harnais est découvert.
 
 Les commandes Node s’exécutent avec `npm.cmd` / `npx.cmd` sous Windows.
-
-Quand je mets un imprim ecran dans la conversation, c'est de l'existant, souvent que je veux modifier. Ce n'est pas la cible que je souhaite.
 
 ## Stratégie de vérification
 

@@ -9,6 +9,9 @@ node_modules/
 # Build output (rebuilt with `npm run build`)
 dist/
 
+# Personal agent preferences
+CLAUDE.local.md
+
 # Linked worktrees used for isolated agent work
 .worktrees/
 
