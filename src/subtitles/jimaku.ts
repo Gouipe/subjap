@@ -77,9 +77,11 @@ const JAPANESE_MARKER = /\b(?:jpn?|ja|japanese)\b|日本語/i;
 /** Episode number written in a file name, or null when it names none. */
 export function episodeNumberInName(name: string): number | null {
   const base = name.split("/").pop()?.replace(/\.[a-z0-9]{2,4}$/i, "") ?? "";
+  // 第965話 counts from the first episode, like AniList and anime sites; a
+  // season number such as S25E01 restarts at each season.
   const patterns = [
-    /S\d{1,2}[ ._-]?E(\d{1,4})(?!\d)/i,
     /第(\d{1,4})[話话]/,
+    /S\d{1,2}[ ._-]?E(\d{1,4})(?!\d)/i,
     /(?:^|[\s._\-[(])(?:E|EP|Ep|Episode)[ ._-]?(\d{1,4})(?!\d)/i,
     /\s-\s(\d{1,4})(?:v\d)?(?=$|[\s._\-[(])/,
     /\[(\d{1,4})(?:v\d)?\]/,
