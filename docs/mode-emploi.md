@@ -163,7 +163,7 @@ parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler le
 recalage** ; la popup le rappelle sous **Fichiers** et permet aussi de
 l’annuler. Le décalage réglé à la main s’ajoute à ce recalage. Un fichier dont
 le décalage a été réglé à la main avant tout recalage (y compris
-**Réinitialiser**) n’est jamais recalé.
+↺) n’est jamais recalé.
 
 Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
 HTML5 visible, y compris dans un lecteur intégré depuis un autre site. Il ne
