@@ -164,18 +164,28 @@ const Popup: React.FC = () => {
       if (tab?.id == null || !tab.url) return;
       let hasVisibleVideo = false;
       try {
-        // Players are often embedded in a frame; their imports stay keyed on the tab URL.
-        const videoProbes = await chrome.scripting.executeScript({
-          target: { tabId: tab.id, allFrames: true },
+        const [videoProbe] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
           func: () => Array.from(document.querySelectorAll("video")).some((video) => {
             const rect = video.getBoundingClientRect();
             const style = getComputedStyle(video);
             return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
           }),
         });
-        hasVisibleVideo = videoProbes.some((probe) => probe.result === true);
+        hasVisibleVideo = videoProbe?.result === true;
       } catch {
         // Browser-restricted pages do not expose their DOM to extensions.
+      }
+      if (!hasVisibleVideo) {
+        // Players are often embedded in a frame. Injecting into every frame
+        // fails as a whole on one inaccessible frame, so ask SubJap instead:
+        // only a frame showing a video answers. Imports stay keyed on the tab URL.
+        try {
+          const answer: unknown = await chrome.tabs.sendMessage(tab.id, { type: "video:probe" });
+          hasVisibleVideo = (answer as { hasVideo?: unknown } | undefined)?.hasVideo === true;
+        } catch {
+          // No frame answered: there is no visible video.
+        }
       }
       const currentVideoId = hasVisibleVideo ? localSubtitleVideoId(tab.url) : null;
       setHasVideo(hasVisibleVideo);

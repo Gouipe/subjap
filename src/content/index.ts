@@ -123,6 +123,18 @@ function handleRuntimeError(error: unknown): void {
 // The action popup prepares tab capture after the user invokes the extension.
 // Keeping the listener in the content script lets tab capture start from the
 // extension action without requiring the mining modal to be open first.
+// The popup asks every frame whether it shows a video. Only such a frame
+// answers, so the first answer is the right one.
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if ((message as { type?: unknown } | null)?.type !== "video:probe") return;
+  const visible = Array.from(document.querySelectorAll("video")).some((video) => {
+    const rect = video.getBoundingClientRect();
+    const style = getComputedStyle(video);
+    return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+  });
+  if (visible) sendResponse({ hasVideo: true });
+});
+
 onMessage("tabCapture:stream", async ({ streamId }) => {
   if (!enabled) return {};
   ensureOverlay();
