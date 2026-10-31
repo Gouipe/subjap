@@ -106,10 +106,10 @@ function OffsetRow(props: {
       <span style={styles.offsetRowLabel}>{props.label}</span>
       <input
         style={styles.offsetInput}
-        type="number"
-        step="0.01"
+        type="text"
+        inputMode="decimal"
         aria-label={`Décalage ${props.label.toLowerCase()} (s)`}
-        value={props.input}
+        value={props.input.replace(".", ",")}
         disabled={props.disabled}
         onChange={(event) => props.onInput(event.target.value)}
         onBlur={() => props.onCommit(Number(props.input.replace(",", ".")))}
@@ -1271,7 +1271,8 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
   },
   offsetInput: {
-    width: 58,
+    width: 64,
+    textAlign: "right",
     flex: "0 0 auto",
     minHeight: 28,
     padding: "4px 6px",
