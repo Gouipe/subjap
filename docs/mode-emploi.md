@@ -196,7 +196,10 @@ en préférant les sources web et en écartant les fichiers mêlant chinois et
 japonais, et ouvre si besoin les archives ZIP de saison. Le fichier devient la
 piste principale locale de la vidéo. Le bandeau propose alors **Autres sous-titres
 disponibles…** (autres fichiers de l’épisode) et **Retirer** : une piste retirée depuis le
-bandeau n’est plus jamais réinstallée pour cette vidéo. Supprimée depuis la
+bandeau n’est plus jamais réinstallée pour cette vidéo. Dans la popup, **Pistes**
+affiche « Jimaku · Autre version » sous le fichier japonais installé : la liste
+des fichiers de l’épisode s’y déplie, l’actuel encadré, et un clic installe
+celui choisi. Supprimée depuis la
 popup, elle est réinstallée au prochain chargement de la page. Sans clé,
 le bandeau propose **Installer automatiquement**, qui ouvre ce réglage.
 

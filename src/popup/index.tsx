@@ -36,6 +36,7 @@ import {
   type LocalSubtitleRecord,
   type LocalSubtitleRole,
 } from "@/subtitles";
+import type { JimakuChoice } from "@/subtitles/jimaku";
 
 interface Stats {
   knownWords: number;
@@ -176,6 +177,9 @@ const Popup: React.FC = () => {
   const [linkedOffsets, setLinkedOffsets] = useState(false);
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
+  const [tabId, setTabId] = useState<number | null>(null);
+  /** The other Jimaku files of the episode are listed under the Japanese track. */
+  const [jimakuListOpen, setJimakuListOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const [statsResult, dictResult, onboardedResult, optionsResult] = await Promise.all([
@@ -269,6 +273,7 @@ const Popup: React.FC = () => {
       const currentVideoId = hasVisibleVideo ? localSubtitleVideoId(tab.url) : null;
       setHasVideo(hasVisibleVideo);
       setVideoId(currentVideoId);
+      setTabId(tab.id);
       if (!currentVideoId) return;
       // Only the frame playing a video without Japanese subtitles answers.
       void chrome.tabs.sendMessage(tab.id, { type: "subtitles:status" }).then((answer: unknown) => {
@@ -419,6 +424,35 @@ const Popup: React.FC = () => {
       setLocalSubtitleBusy(false);
     }
   }, [playerOffsets, videoId]);
+
+  /** Installs another Jimaku file of the episode in place of the Japanese track. */
+  const chooseJimakuVersion = useCallback(async (choice: JimakuChoice) => {
+    if (!videoId) return;
+    setLocalSubtitleBusy(true);
+    setLocalSubtitleError(null);
+    try {
+      const result = await sendMessage("jimaku:install", { videoId, choice, tabId: tabId ?? undefined });
+      if (result.status !== "installed") {
+        throw new Error(
+          result.status === "error" ? result.message
+            : result.status === "no-key" ? "Clé Jimaku absente des options."
+            : result.status === "bad-key" ? "Clé Jimaku refusée."
+            : "Fichier introuvable sur Jimaku.",
+        );
+      }
+      const primary = await getLocalSubtitle(videoId, "primary");
+      setLocalSubtitles((current) => ({ ...current, primary }));
+      setOffsetInputs((current) => ({
+        ...current,
+        primary: (primary?.offsetSeconds ?? playerOffsets.primary).toFixed(2),
+      }));
+      setJimakuListOpen(false);
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLocalSubtitleBusy(false);
+    }
+  }, [playerOffsets, tabId, videoId]);
 
   const searchJimaku = useCallback(async () => {
     if (!missingJapanese) return;
@@ -733,6 +767,37 @@ const Popup: React.FC = () => {
                         </span>
                       </div>
                       <div style={styles.fileDetails}>
+                        {role === "primary" && localSubtitle?.jimakuChoices && localSubtitle.jimakuChoices.length > 1 ? (
+                          <p style={styles.localSubtitleHint}>
+                            Jimaku{" · "}
+                            <button
+                              style={styles.inlineLink}
+                              disabled={localSubtitleBusy}
+                              aria-expanded={jimakuListOpen}
+                              onClick={() => setJimakuListOpen((open) => !open)}
+                            >
+                              Autre version ({localSubtitle.jimakuChoices.length - 1})
+                            </button>
+                          </p>
+                        ) : null}
+                        {role === "primary" && jimakuListOpen && localSubtitle?.jimakuChoices ? (
+                          <div style={styles.jimakuChoices}>
+                            {localSubtitle.jimakuChoices.slice(0, 8).map((choice) => {
+                              const current = choice.name === localSubtitle.fileName;
+                              return (
+                                <button
+                                  key={`${choice.url}|${choice.inner ?? ""}`}
+                                  style={current ? { ...styles.jimakuChoice, ...styles.jimakuChoiceCurrent } : styles.jimakuChoice}
+                                  title={choice.name}
+                                  disabled={localSubtitleBusy || current}
+                                  onClick={() => void chooseJimakuVersion(choice)}
+                                >
+                                  {choice.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                         {localSubtitle?.syncSegments?.length ? (
                           <p style={styles.localSubtitleHint}>
                             Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
@@ -1351,6 +1416,31 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     textDecoration: "underline",
     cursor: "pointer",
+  },
+  jimakuChoices: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    marginTop: 6,
+  },
+  jimakuChoice: {
+    padding: "5px 8px",
+    border: "1px solid #343842",
+    borderRadius: 6,
+    background: "#1b1e24",
+    color: "#f4f1ea",
+    fontFamily: "inherit",
+    fontSize: 11,
+    textAlign: "left",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    cursor: "pointer",
+  },
+  /** Added to `jimakuChoice` for the installed file. */
+  jimakuChoiceCurrent: {
+    borderColor: "#ff624d",
+    cursor: "default",
   },
   deleteButton: {
     flex: "0 0 auto",

@@ -1,6 +1,7 @@
 import { youtubeVideoId } from "@/core/youtube";
 import type { SubtitleCue } from "@/core/types";
 import { parseSubtitleFile } from "@/subtitles/parse";
+import type { JimakuChoice } from "@/subtitles/jimaku";
 
 export type LocalSubtitleRole = "primary" | "secondary";
 
@@ -25,6 +26,8 @@ export interface LocalSubtitleRecord {
    * `offsetSeconds` (which stays the user's own adjustment).
    */
   syncSegments?: SyncSegment[];
+  /** Installed from Jimaku: every file of the episode, to pick another one. */
+  jimakuChoices?: JimakuChoice[];
 }
 
 /** Shift of a line starting at `start` in the file, from the automatic alignment. */

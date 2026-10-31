@@ -138,6 +138,7 @@ export async function installFromJimaku(
         content,
         offsetSeconds: 0,
         updatedAt: Date.now(),
+        jimakuChoices: choices,
       }, "primary");
       return { status: "installed", fileName: candidate.name, entryUrl, choices };
     }

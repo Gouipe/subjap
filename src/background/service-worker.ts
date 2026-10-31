@@ -599,8 +599,8 @@ async function jimakuUrl(episode: PageEpisode | null): Promise<string> {
   return jimakuSearchUrl(episode);
 }
 
-onMessage("jimaku:install", async ({ videoId, choice }, sender) => {
-  const tabId = sender.tab?.id;
+onMessage("jimaku:install", async ({ videoId, choice, tabId: popupTabId }, sender) => {
+  const tabId = popupTabId ?? sender.tab?.id;
   return installFromJimaku(videoId, tabId == null ? null : await readTabEpisode(tabId), choice);
 });
 

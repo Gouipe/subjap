@@ -325,7 +325,8 @@ export interface MessageMap {
   "tab:url": Record<string, never>;
   "tab:urlResult": { url: string | null };
   /** Install the episode's Japanese subtitles from Jimaku as the video's local primary track. */
-  "jimaku:install": { videoId: string; choice?: JimakuChoice };
+  /** `tabId` when the popup asks: it is not the video's tab itself. */
+  "jimaku:install": { videoId: string; choice?: JimakuChoice; tabId?: number };
   "jimaku:installResult": JimakuInstallResult;
   "jimaku:check": { key: string };
   "jimaku:checkResult": { valid: boolean };
