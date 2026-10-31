@@ -464,8 +464,14 @@ const Popup: React.FC = () => {
           <details onToggle={(event) => setLocalSubtitlesOpen(event.currentTarget.open)}>
             <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
               <span>Sous-titres locaux</span>
-              <span aria-hidden="true" style={styles.chevron}>
-                {localSubtitlesOpen ? "⌄" : "›"}
+              <span
+                aria-hidden="true"
+                style={{
+                  ...styles.chevron,
+                  transform: localSubtitlesOpen ? "rotate(90deg)" : "none",
+                }}
+              >
+                ›
               </span>
             </summary>
             <div style={styles.localSubtitleContent}>
@@ -812,11 +818,13 @@ const styles: Record<string, React.CSSProperties> = {
     listStyle: "none",
   },
   chevron: {
-    width: 150,
+    display: "inline-block",
+    width: 12,
     color: "#b2b6bf",
     fontSize: 16,
     lineHeight: 1,
-    textAlign: "right",
+    textAlign: "center",
+    transition: "transform 160ms cubic-bezier(0.22, 1, 0.36, 1)",
   },
   localSubtitleTrack: {
     marginTop: 8,
