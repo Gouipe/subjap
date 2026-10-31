@@ -25,6 +25,8 @@ import { forgetVideoSurface, mountVideoSurface } from "./mount";
 
 const CONTAINER_ID = "subjap-overlay-container";
 const STYLE_ID = "subjap-overlay-styles";
+const SUBTITLE_FONT =
+  "'IBM Plex Sans JP', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif";
 type MiningCandidateHighlight = "relevant" | "near";
 
 // ── CSS ───────────────────────────────────────────────────────────────────
@@ -86,7 +88,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       padding: 0 0.24em 0.16em;
       pointer-events: auto;
       font-size: ${opts.fontSize}px;
-      font-family: ${opts.fontFamily};
+      font-family: ${SUBTITLE_FONT};
       font-weight: 700;
       line-height: 1.2;
       color: var(--sj-subtitle);
@@ -159,7 +161,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       padding: 0.08em 0.3em 0.12em;
       pointer-events: none;
       font-size: ${Math.round(opts.fontSize * 0.72)}px;
-      font-family: ${opts.fontFamily};
+      font-family: ${SUBTITLE_FONT};
       font-weight: 400;
       /* White like the Japanese: without a backdrop a muted grey turns muddy
          against its outline. Smaller size and lighter weight keep it

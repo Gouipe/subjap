@@ -496,7 +496,7 @@ carte demeure valide.
   rappel de l’onboarding et réglage rapide du masquage des traductions FR/EN
   quand la phrase est entièrement connue.
 - **Options** : installation ou réinstallation du pack JMdict, configuration
-  du deck Anki, taille/police/furigana de l’overlay, masquage des
+  du deck Anki, taille de police et furigana de l’overlay, masquage des
   sous-titres natifs, masquage conditionnel des traductions FR/EN, remise à
   zéro des données et relance de l’onboarding.
 

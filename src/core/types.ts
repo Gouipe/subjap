@@ -389,7 +389,6 @@ export interface RenderedCue {
 
 export interface OverlayOptions {
   fontSize: number;
-  fontFamily: string;
   showFurigana: boolean;
   /** Hide the platform's native subtitle tracks (the overlay replaces them). */
   hideNativeSubtitles: boolean;

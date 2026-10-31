@@ -43,62 +43,6 @@ interface AnkiStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Subtitle font presets
-// ---------------------------------------------------------------------------
-
-interface FontPreset {
-  label: string;
-  value: string;
-  /** Family probed to hide presets whose font is not installed. */
-  probe?: string;
-}
-
-const FONT_PRESETS: FontPreset[] = [
-  { label: "Par défaut (IBM Plex Sans JP)", value: DEFAULT_OPTIONS.fontFamily },
-  { label: "Yu Gothic", value: "'Yu Gothic UI', 'Yu Gothic', sans-serif", probe: "Yu Gothic" },
-  { label: "Meiryo", value: "Meiryo, sans-serif", probe: "Meiryo" },
-  {
-    label: "BIZ UDPGothic",
-    value: "'BIZ UDPGothic', 'BIZ UDGothic', sans-serif",
-    probe: "BIZ UDPGothic",
-  },
-  {
-    label: "Hiragino Kaku Gothic",
-    value: "'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif",
-    probe: "Hiragino Kaku Gothic ProN",
-  },
-  { label: "Noto Sans JP", value: "'Noto Sans JP', sans-serif", probe: "Noto Sans JP" },
-  { label: "Police système", value: "system-ui, sans-serif" },
-];
-
-/**
- * Local fonts cannot be listed, so compare the rendered width of a sample
- * against generic fallbacks: an installed font changes it for at least one.
- */
-function isFontInstalled(family: string): boolean {
-  const ctx = document.createElement("canvas").getContext("2d");
-  if (!ctx) return true;
-  const sample = "日本語の字幕をあアmmmwwwiiil SubJap 123";
-  return ["monospace", "serif"].some((base) => {
-    ctx.font = `72px ${base}`;
-    const fallbackWidth = ctx.measureText(sample).width;
-    ctx.font = `72px "${family}", ${base}`;
-    return ctx.measureText(sample).width !== fallbackWidth;
-  });
-}
-
-/**
- * Installed presets, plus the stored font when it is not among them (an
- * uninstalled preset or a free-form value saved by an older version) so the
- * select always reflects the current setting.
- */
-function fontChoices(installed: FontPreset[], current: string): FontPreset[] {
-  if (installed.some((preset) => preset.value === current)) return installed;
-  const preset = FONT_PRESETS.find((p) => p.value === current);
-  return [...installed, preset ?? { label: `Personnalisée : ${current}`, value: current }];
-}
-
-// ---------------------------------------------------------------------------
 // Small presentational helpers
 // ---------------------------------------------------------------------------
 
@@ -584,9 +528,6 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [installedFontPresets] = useState(() =>
-    FONT_PRESETS.filter((preset) => !preset.probe || isFontInstalled(preset.probe)),
-  );
 
   const refresh = useCallback(async () => {
     try {
@@ -849,19 +790,6 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 />
                 <span style={s.inputSuffix}>{options.fontSize} px</span>
               </div>
-            </Row>
-            <Row label="Police" hint="seules les polices installées sont proposées">
-              <select
-                value={options.fontFamily}
-                style={{ ...s.select, fontFamily: options.fontFamily }}
-                onChange={(e) => void updateOptions({ fontFamily: e.target.value })}
-              >
-                {fontChoices(installedFontPresets, options.fontFamily).map((preset) => (
-                  <option key={preset.value} value={preset.value}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
             </Row>
             <Row label="Furigana">
               <Toggle

@@ -13,8 +13,6 @@ export const OPTIONS_STORAGE_KEY = "subjap_options";
 
 export const DEFAULT_OPTIONS: OverlayOptions = {
   fontSize: 28,
-  fontFamily:
-    "'IBM Plex Sans JP', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
   showFurigana: true,
   hideNativeSubtitles: true,
   secondarySubtitleLanguage: "fr",
@@ -45,12 +43,6 @@ export function sanitizeOptions(
 
   if (typeof raw.fontSize === "number" && Number.isFinite(raw.fontSize)) {
     out.fontSize = Math.min(64, Math.max(12, raw.fontSize));
-  }
-  if (
-    typeof raw.fontFamily === "string" &&
-    raw.fontFamily.trim().length > 0
-  ) {
-    out.fontFamily = raw.fontFamily.trim();
   }
   if (typeof raw.showFurigana === "boolean") {
     out.showFurigana = raw.showFurigana;

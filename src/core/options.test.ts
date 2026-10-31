@@ -72,12 +72,4 @@ describe("sanitizeOptions", () => {
     expect(sanitizeOptions({ fontSize: 2 }).fontSize).toBe(12);
     expect(sanitizeOptions({ fontSize: 28 }).fontSize).toBe(28);
   });
-
-  it("trims font families", () => {
-    expect(
-      sanitizeOptions({ fontFamily: "  'Noto Sans JP', sans-serif  " })
-        .fontFamily,
-    ).toBe("'Noto Sans JP', sans-serif");
-    expect(sanitizeOptions({ fontFamily: "   " }).fontFamily).toBeUndefined();
-  });
 });
