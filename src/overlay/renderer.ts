@@ -10,7 +10,7 @@ import type {
   SubtitleCue,
   SubtitleTranslation,
 } from "@/core/types";
-import { DEFAULT_OPTIONS } from "@/core/options";
+import { DEFAULT_OPTIONS, subtitleFontSize } from "@/core/options";
 import { containsKanjiOrKatakana, toHiragana } from "@/core/kana";
 import {
   getFrequencyHighlight,
@@ -87,7 +87,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       margin: 0;
       padding: 0 0.24em 0.16em;
       pointer-events: auto;
-      font-size: ${opts.fontSize}px;
+      font-size: var(--sj-font-size, 28px);
       font-family: ${SUBTITLE_FONT};
       font-weight: 700;
       line-height: 1.2;
@@ -160,7 +160,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       margin-top: 0.16em;
       padding: 0.08em 0.3em 0.12em;
       pointer-events: none;
-      font-size: ${Math.round(opts.fontSize * 0.72)}px;
+      font-size: calc(var(--sj-font-size, 28px) * 0.72);
       font-family: ${SUBTITLE_FONT};
       font-weight: 400;
       /* White like the Japanese: without a backdrop a muted grey turns muddy
@@ -262,7 +262,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       display: ${opts.showFurigana ? "block" : "none"};
       /* Furigana sits above its word, not below it. */
       order: -1;
-      font-size: ${Math.round(opts.fontSize * 0.45)}px;
+      font-size: calc(var(--sj-font-size, 28px) * 0.45);
       line-height: 1;
       margin-bottom: 0.08em;
       color: var(--sj-muted);
@@ -412,6 +412,7 @@ export class OverlayRenderer {
   setOptions(opts: Partial<OverlayOptions>): void {
     this.options = { ...this.options, ...opts };
     this.styleEl = injectStyles(this.options);
+    this.syncPosition();
     this.render();
   }
 
@@ -766,6 +767,11 @@ export class OverlayRenderer {
     this.container.style.left = `${rect.left}px`;
     this.container.style.top = `${rect.top}px`;
     this.container.style.width = `${rect.width}px`;
+    // Subtitles scale with the player, like native ones.
+    this.container.style.setProperty(
+      "--sj-font-size",
+      `${subtitleFontSize(this.options.subtitleScale, rect.height).toFixed(1)}px`,
+    );
 
     // Cover the video exactly and bottom-anchor the cue lines (the container is
     // display:flex + justify-content:flex-end). The padding-bottom inset keeps

@@ -12,7 +12,14 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
-import { getOptions, saveOptions, DEFAULT_OPTIONS } from "@/core/options";
+import {
+  getOptions,
+  saveOptions,
+  DEFAULT_OPTIONS,
+  SUBTITLE_HEIGHT_RATIO,
+  SUBTITLE_SCALE_MAX,
+  SUBTITLE_SCALE_MIN,
+} from "@/core/options";
 import {
   DEFAULT_ENRICHMENT_PROMPT,
   getAiSettings,
@@ -70,6 +77,55 @@ const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
   ["C", "copier le japonais"],
   ["X", "révéler la traduction masquée"],
 ];
+
+/** Sample subtitle of the size preview: an unknown name, a word to mine. */
+const PREVIEW_TOKENS: ReadonlyArray<{
+  text: string;
+  reading?: string;
+  color?: string;
+  underline?: boolean;
+}> = [
+  { text: "小雪", reading: "こゆき", color: C.unknownGrey },
+  { text: "ちゃん" },
+  { text: "、" },
+  { text: "何", reading: "なに" },
+  { text: "が" },
+  { text: "怖い", reading: "こわい", color: C.green, underline: true },
+  { text: "の" },
+  { text: "？" },
+];
+
+/**
+ * A miniature 16:9 player with one subtitle, sized like the overlay:
+ * container query units keep the subtitle proportional to the frame.
+ */
+function SubtitlePreview(props: { scale: number; showFurigana: boolean }): JSX.Element {
+  const fontSize = `${(SUBTITLE_HEIGHT_RATIO * props.scale).toFixed(2)}cqh`;
+  return (
+    <div style={s.preview} aria-label="Aperçu de la taille des sous-titres" role="img">
+      <div style={{ ...s.previewSubtitles, fontSize }}>
+        <div style={s.previewJapanese}>
+          {PREVIEW_TOKENS.map((token, index) => (
+            <span
+              key={index}
+              style={{
+                ...s.previewToken,
+                color: token.color ?? "#ffffff",
+                borderBottomColor: token.underline ? "currentColor" : "transparent",
+              }}
+            >
+              {props.showFurigana && token.reading && (
+                <span style={s.previewFurigana}>{token.reading}</span>
+              )}
+              {token.text}
+            </span>
+          ))}
+        </div>
+        <div style={s.previewTranslation}>Koyuki, de quoi as-tu peur ?</div>
+      </div>
+    </div>
+  );
+}
 
 function Section(props: { title: string; children: React.ReactNode }): JSX.Element {
   return (
@@ -512,25 +568,27 @@ function OnboardingWizard(props: {
           <p style={s.muted}>Ces réglages sont modifiables à tout moment.</p>
           <div style={s.row}>
             <div style={s.rowLabel}>
-              <span>Taille de police</span>
-              <span style={s.rowHint}>px</span>
+              <span>Taille des sous-titres</span>
+              <span style={s.rowHint}>suit la taille du lecteur</span>
             </div>
             <div style={s.rowControl}>
-              <input
-                type="number"
-                min={12}
-                max={64}
-                value={options.fontSize}
-                style={s.input}
-                onChange={(e) =>
-                  setOptions({
-                    ...options,
-                    fontSize: Number(e.target.value) || options.fontSize,
-                  })
-                }
-              />
+              <div style={s.inputGroup}>
+                <input
+                  type="range"
+                  min={SUBTITLE_SCALE_MIN}
+                  max={SUBTITLE_SCALE_MAX}
+                  step={10}
+                  value={options.subtitleScale}
+                  style={s.range}
+                  onChange={(e) =>
+                    setOptions({ ...options, subtitleScale: Number(e.target.value) })
+                  }
+                />
+                <span style={s.inputSuffix}>{options.subtitleScale} %</span>
+              </div>
             </div>
           </div>
+          <SubtitlePreview scale={options.subtitleScale} showFurigana={options.showFurigana} />
           <div style={s.row}>
             <div style={s.rowLabel}>
               <span>Furigana</span>
@@ -822,19 +880,21 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
       <Section title="Affichage des sous-titres">
         {options && (
           <>
-            <Row label="Taille de police">
+            <Row label="Taille des sous-titres" hint="suit la taille du lecteur">
               <div style={s.inputGroup}>
                 <input
                   type="range"
-                  min={12}
-                  max={64}
-                  value={options.fontSize}
+                  min={SUBTITLE_SCALE_MIN}
+                  max={SUBTITLE_SCALE_MAX}
+                  step={10}
+                  value={options.subtitleScale}
                   style={s.range}
-                  onChange={(e) => void updateOptions({ fontSize: Number(e.target.value) })}
+                  onChange={(e) => void updateOptions({ subtitleScale: Number(e.target.value) })}
                 />
-                <span style={s.inputSuffix}>{options.fontSize} px</span>
+                <span style={s.inputSuffix}>{options.subtitleScale} %</span>
               </div>
             </Row>
+            <SubtitlePreview scale={options.subtitleScale} showFurigana={options.showFurigana} />
             <Row label="Furigana">
               <Toggle
                 checked={options.showFurigana}
@@ -1107,6 +1167,64 @@ const s: Record<string, React.CSSProperties> = {
   range: {
     width: 180,
     accentColor: C.accent,
+  },
+  preview: {
+    position: "relative",
+    width: "100%",
+    aspectRatio: "16 / 9",
+    // Lets the subtitle use cqh units, like the overlay uses the player height.
+    containerType: "size",
+    margin: "8px 0 16px",
+    overflow: "hidden",
+    borderRadius: 8,
+    border: `1px solid ${C.panelBorder}`,
+    background:
+      "radial-gradient(ellipse at 30% 25%, #4b5d73 0%, transparent 55%), linear-gradient(165deg, #2a3442 0%, #151a21 60%, #0b0d10 100%)",
+  } as React.CSSProperties,
+  previewSubtitles: {
+    position: "absolute",
+    inset: 0,
+    // Same bottom inset share as the overlay above the player's control bar.
+    paddingBottom: "13cqh",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    fontFamily: "'IBM Plex Sans JP', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+    textShadow:
+      "0 0 0.08em #000, 0 0 0.2em rgba(0, 0, 0, 0.85), 0 0 0.2em rgba(0, 0, 0, 0.6), 0 0.04em 0.45em rgba(0, 0, 0, 0.65)",
+  },
+  previewJapanese: {
+    fontWeight: 700,
+    lineHeight: 1.2,
+    textAlign: "center",
+    padding: "0 0.24em 0.16em",
+  },
+  previewToken: {
+    display: "inline-flex",
+    flexDirection: "column",
+    alignItems: "center",
+    verticalAlign: "bottom",
+    marginTop: "0.24em",
+    paddingInline: "0.02em",
+    borderBottom: "max(2px, 0.08em) solid transparent",
+    whiteSpace: "nowrap",
+  },
+  previewFurigana: {
+    fontSize: "0.45em",
+    lineHeight: 1,
+    marginBottom: "0.08em",
+    color: C.muted,
+    fontWeight: 500,
+  },
+  previewTranslation: {
+    marginTop: "0.16em",
+    padding: "0.08em 0.3em 0.12em",
+    fontSize: "0.72em",
+    fontWeight: 400,
+    lineHeight: 1.3,
+    color: "#ffffff",
+    textAlign: "center",
   },
   toggleWrap: {
     display: "inline-flex",

@@ -11,8 +11,22 @@ import type { OverlayOptions } from "@/core/types";
 
 export const OPTIONS_STORAGE_KEY = "subjap_options";
 
+export const SUBTITLE_SCALE_MIN = 50;
+export const SUBTITLE_SCALE_MAX = 200;
+/** Japanese line height at 100 %, as a share of the player height. */
+export const SUBTITLE_HEIGHT_RATIO = 0.05;
+/** Tiny embedded players still get readable subtitles. */
+export const SUBTITLE_MIN_FONT_PX = 14;
+
+/** Japanese subtitle font size for a player of the given height. */
+export function subtitleFontSize(scale: number, playerHeight: number): number {
+  return Math.max(SUBTITLE_MIN_FONT_PX, playerHeight * SUBTITLE_HEIGHT_RATIO * (scale / 100));
+}
+
 export const DEFAULT_OPTIONS: OverlayOptions = {
-  fontSize: 28,
+  // The former fixed `fontSize` (px) has no player-independent equivalent and
+  // is dropped by sanitizeOptions, so existing installs start at 100 %.
+  subtitleScale: 100,
   showFurigana: true,
   secondarySubtitleLanguage: "fr",
   knownSentenceSubtitles: "show",
@@ -39,8 +53,11 @@ export function sanitizeOptions(
   if (!raw || typeof raw !== "object") return {};
   const out: Partial<OverlayOptions> = {};
 
-  if (typeof raw.fontSize === "number" && Number.isFinite(raw.fontSize)) {
-    out.fontSize = Math.min(64, Math.max(12, raw.fontSize));
+  if (typeof raw.subtitleScale === "number" && Number.isFinite(raw.subtitleScale)) {
+    out.subtitleScale = Math.min(
+      SUBTITLE_SCALE_MAX,
+      Math.max(SUBTITLE_SCALE_MIN, Math.round(raw.subtitleScale)),
+    );
   }
   if (typeof raw.showFurigana === "boolean") {
     out.showFurigana = raw.showFurigana;

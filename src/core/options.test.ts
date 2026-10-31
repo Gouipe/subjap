@@ -12,16 +12,16 @@ describe("mergeOptions", () => {
   });
 
   it("overrides only the provided fields", () => {
-    const merged = mergeOptions(DEFAULT_OPTIONS, { fontSize: 40 });
-    expect(merged.fontSize).toBe(40);
+    const merged = mergeOptions(DEFAULT_OPTIONS, { subtitleScale: 150 });
+    expect(merged.subtitleScale).toBe(150);
     expect(merged.showFurigana).toBe(true);
   });
 
   it("applies the partial over a custom base", () => {
     const base = { ...DEFAULT_OPTIONS, showFurigana: false };
-    const merged = mergeOptions(base, { fontSize: 40 });
+    const merged = mergeOptions(base, { subtitleScale: 150 });
     expect(merged.showFurigana).toBe(false);
-    expect(merged.fontSize).toBe(40);
+    expect(merged.subtitleScale).toBe(150);
   });
 });
 
@@ -33,11 +33,11 @@ describe("sanitizeOptions", () => {
 
   it("drops malformed field values", () => {
     const raw = {
-      fontSize: "big",
+      subtitleScale: "big",
       showFurigana: "yes",
     } as unknown as Partial<typeof DEFAULT_OPTIONS>;
     const out = sanitizeOptions(raw);
-    expect(out.fontSize).toBeUndefined();
+    expect(out.subtitleScale).toBeUndefined();
     expect(out.showFurigana).toBeUndefined();
   });
 
@@ -56,9 +56,9 @@ describe("sanitizeOptions", () => {
     ).toEqual({ knownSentenceSubtitles: "hide-all" });
   });
 
-  it("clamps fontSize to the [12, 64] range", () => {
-    expect(sanitizeOptions({ fontSize: 200 }).fontSize).toBe(64);
-    expect(sanitizeOptions({ fontSize: 2 }).fontSize).toBe(12);
-    expect(sanitizeOptions({ fontSize: 28 }).fontSize).toBe(28);
+  it("clamps subtitleScale to the [50, 200] range", () => {
+    expect(sanitizeOptions({ subtitleScale: 300 }).subtitleScale).toBe(200);
+    expect(sanitizeOptions({ subtitleScale: 10 }).subtitleScale).toBe(50);
+    expect(sanitizeOptions({ subtitleScale: 120 }).subtitleScale).toBe(120);
   });
 });
