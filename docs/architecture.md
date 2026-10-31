@@ -189,10 +189,32 @@ reste à vérifier sur le lecteur après rechargement de l’extension.
 [`GenericHtml5Adapter`](../src/core/adapters/registry.ts) suit l’horloge d’un
 élément `<video>` HTML5 visible et publie les fichiers locaux importés dans les
 rôles principal et secondaire. Il choisit une vidéo en lecture, puis la plus
-grande vidéo visible en pause. Le contenu des sous-titres natifs et les lecteurs
-qui ne rendent pas de `<video>` accessible ne sont pas pris en charge par cet
-adaptateur. Les bridges spécialisés Netflix et YouTube restent distincts ; sur
-les autres pages, le content script utilise cet adaptateur générique.
+grande vidéo visible en pause. Les lecteurs qui ne rendent pas de `<video>`
+accessible ne sont pas pris en charge. Les bridges spécialisés Netflix et
+YouTube restent distincts ; sur les autres pages et dans toutes les frames, le
+content script utilise cet adaptateur générique.
+
+Le content script est injecté dans toutes les frames, car les sites de
+streaming intègrent souvent leur lecteur dans une iframe d’un autre domaine.
+Une frame secondaire ne démarre SubJap qu’à l’apparition d’un `<video>`. Elle
+demande l’URL de l’onglet au service worker (`tab:url`) pour indexer les
+imports locaux comme la popup, qui sonde toutes les frames. La capture d’image
+d’une frame hors plein écran passe par le canvas, car le recadrage de
+`captureVisibleTab` serait relatif à la frame.
+
+Pour les lecteurs [Artplayer](https://artplayer.org), le script MAIN
+[`artplayer-bridge-entry.ts`](../src/artplayer-bridge-entry.ts) liste, à la
+demande de l’adaptateur de sa frame, les fichiers SRT/VTT/ASS présents dans les
+réglages des instances `Artplayer.instances`. L’adaptateur choisit
+([`core/artplayer.ts`](../src/core/artplayer.ts)) une piste japonaise sans
+SDH, puis SDH en repli, et des pistes FR/EN selon la préférence habituelle ;
+les pistes partielles (Forced, signes, chansons, doublage IA) sont écartées. Il
+télécharge lui-même les fichiers et redemande la liste tant qu’elle est vide ou
+que la source vidéo change. Le japonais est nettoyé par
+[`japanese-cleanup.ts`](../src/subtitles/japanese-cleanup.ts) : furigana
+aplatis `漢字(かな)`, marques de direction et, pour SDH, noms et bruitages
+entre parenthèses ou crochets. Les imports locaux restent prioritaires rôle par
+rôle. Le masquage natif cible `.art-subtitle` et le canvas libass.
 
 ## Pipeline de rendu
 

@@ -57,11 +57,23 @@ const manifest: ManifestV3Export = {
       world: "MAIN",
     },
     {
+      // Artplayer keeps its subtitle list in page JavaScript. The bridge only
+      // answers requests from the generic adapter of its own frame.
+      matches: ["*://*/*"],
+      exclude_matches: ["*://*.netflix.com/*", "*://*.youtube.com/*"],
+      js: ["src/artplayer-bridge-entry.ts"],
+      run_at: "document_idle",
+      all_frames: true,
+      world: "MAIN",
+    },
+    {
       // Generic HTML5 playback can use imported local subtitle tracks on any
       // regular website; Netflix and YouTube still select their own adapters.
+      // Players are often embedded in a frame from another site.
       matches: ["*://*/*"],
       js: ["src/content/index.ts"],
       run_at: "document_end",
+      all_frames: true,
     },
   ],
   action: {

@@ -68,11 +68,13 @@ import type {
 // 1. Platform adapters
 // ---------------------------------------------------------------------------
 
-// Keep platform bridges scoped to their site. Other sites use the generic
-// HTML5 adapter, which can render imported local subtitle tracks.
-if (/(^|\.)youtube\.com$/i.test(location.hostname)) {
+// Keep platform bridges scoped to their site. Other sites and embedded frames
+// use the generic HTML5 adapter, which renders imported local subtitle tracks
+// and the tracks offered by Artplayer.
+const isTopFrame = window.top === window;
+if (isTopFrame && /(^|\.)youtube\.com$/i.test(location.hostname)) {
   adapterRegistry.register(new YouTubeAdapter());
-} else if (/(^|\.)netflix\.com$/i.test(location.hostname)) {
+} else if (isTopFrame && /(^|\.)netflix\.com$/i.test(location.hostname)) {
   adapterRegistry.register(new NetflixAdapter());
 } else {
   adapterRegistry.register(GENERIC_HTML5_ADAPTER);
@@ -1231,8 +1233,31 @@ function installShortcuts(): () => void {
   };
 }
 
+/**
+ * Frames start SubJap only once they contain a video, so ads, widgets and
+ * comment frames stay untouched.
+ */
+let frameHasVideo = isTopFrame;
+let enableRequested = false;
+
+function waitForFrameVideo(): void {
+  if (frameHasVideo) return;
+  const observer = new MutationObserver(() => {
+    check();
+  });
+  const check = (): boolean => {
+    if (!document.querySelector("video")) return false;
+    observer.disconnect();
+    frameHasVideo = true;
+    if (enableRequested) enable();
+    return true;
+  };
+  if (!check()) observer.observe(document.documentElement, { childList: true, subtree: true });
+}
+
 function enable(): void {
-  if (enabled) return;
+  enableRequested = true;
+  if (enabled || !frameHasVideo) return;
   enabled = true;
   console.log("[SubJap] enabled");
   // Warm UniDic while the player is mounting so ordinary cues can become
@@ -1257,6 +1282,7 @@ function enable(): void {
 
 /** Leave the page as if SubJap were not installed, without reloading it. */
 function disable(): void {
+  enableRequested = false;
   if (!enabled) return;
   enabled = false;
   console.log("[SubJap] disabled");
@@ -1292,6 +1318,7 @@ void Promise.all([getOptions(), isSubJapEnabled()]).then(([opts, on]) => {
   console.log("[SubJap] options:", opts);
   if (on) enable();
 });
+waitForFrameVideo();
 
 document.addEventListener("visibilitychange", () => {
   if (enabled && document.visibilityState === "visible") void syncKnownWordsFromAnki();

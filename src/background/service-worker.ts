@@ -559,6 +559,8 @@ onMessage("tts:speak", ({ text }) => {
   console.log("[SubJap] TTS requested for:", text, "(foreground-only; no-op in SW)");
 });
 
+onMessage("tab:url", (_payload, sender) => ({ url: sender.tab?.url ?? null }));
+
 onMessage("screenshot:capture", async (_payload, sender) => {
   const windowId = sender.tab?.windowId;
   if (windowId == null) throw new Error("No browser window associated with the tab");

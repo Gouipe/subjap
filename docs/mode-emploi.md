@@ -147,8 +147,14 @@ secondaire. Sur Netflix et YouTube, une piste locale remplace la piste native de
 son rôle ; le choix **Aucun** masque la piste secondaire locale comme native.
 
 Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
-HTML5 visible. Il ne lit pas les sous-titres natifs de ces sites et ne peut pas
-prendre en charge un lecteur qui n’expose pas d’élément `<video>` accessible.
+HTML5 visible, y compris dans un lecteur intégré depuis un autre site. Il ne
+peut pas prendre en charge un lecteur qui n’expose pas d’élément `<video>`
+accessible.
+
+Les lecteurs Artplayer (par exemple sur reanime.to) fournissent leurs propres
+pistes : SubJap charge automatiquement le japonais (sans annotations pour
+malentendants si possible) et la traduction FR, sinon EN, sans import. Les
+raccourcis clavier fonctionnent après un clic dans le lecteur.
 
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
 production orale** au verso. Sa carte sœur rejoint les

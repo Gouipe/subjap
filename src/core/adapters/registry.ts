@@ -10,12 +10,35 @@ import type {
   SubtitleCue,
 } from "@/core/types";
 import {
+  artplayerSubtitleFileName,
+  selectArtplayerSubtitleTracks,
+  type ArtplayerSubtitleCandidate,
+  type ArtplayerSubtitleTrack,
+} from "@/core/artplayer";
+import { sendMessage } from "@/core/messaging";
+import { cleanJapaneseSubtitleCues } from "@/subtitles/japanese-cleanup";
+import {
   getLocalSubtitle,
   localSubtitleStorageKey,
   localSubtitleVideoId,
   parseLocalSubtitleCues,
 } from "@/subtitles/local-storage";
+import { parseSubtitleFile } from "@/subtitles/parse";
 import { activeSubtitleCues, firstCueStartingIn } from "@/subtitles/timeline";
+
+const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
+const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
+const MAX_SUBTITLE_FILE_LENGTH = 8_000_000;
+
+/** Subtitle files offered by an Artplayer instance for the current video source. */
+interface ArtplayerSubtitles {
+  session: string;
+  source: string;
+  /** True once the page bridge listed at least one usable file. */
+  listed: boolean;
+  japanese: SubtitleCue[];
+  translations: Partial<Record<"fr" | "en", SubtitleCue[]>>;
+}
 
 // ---------------------------------------------------------------------------
 // Built-in generic HTML5 fallback adapter
@@ -33,6 +56,13 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private lastSignature = "";
   private observer: MutationObserver | null = null;
   private readonly watchedVideos = new Set<HTMLVideoElement>();
+  /** Tab URL for players embedded in a frame: local imports are keyed on it. */
+  private topUrl: string | null = null;
+  private artplayer: ArtplayerSubtitles | null = null;
+  private lastArtplayerRequestAt = 0;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private hideNative = false;
+  private style: HTMLStyleElement | null = null;
 
   private readonly onVideoEvent = () => this.publish();
   private readonly onAnyVideoPlay = () => this.refreshVideo();
@@ -74,7 +104,24 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.observer.observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener("popstate", this.onPageNavigation);
     window.addEventListener("hashchange", this.onPageNavigation);
+    window.addEventListener("message", this.onArtplayerMessage);
     chrome.storage.onChanged.addListener(this.onStorageChange);
+    this.style = document.createElement("style");
+    this.style.textContent = `html.${ARTPLAYER_HIDE_CLASS} .art-subtitle,
+      html.${ARTPLAYER_HIDE_CLASS} .libassjs-canvas-parent,
+      html.${ARTPLAYER_HIDE_CLASS} .libassjs-canvas { visibility: hidden !important; }`;
+    (document.head ?? document.documentElement).appendChild(this.style);
+    this.timer = setInterval(this.tick, 1_000);
+    if (window.top !== window) {
+      void sendMessage("tab:url", {}).then(({ url }) => {
+        if (!this.callback || !url) return;
+        this.topUrl = url;
+        this.updateVideoId();
+      }).catch(() => {
+        // Without the tab URL, local imports stay keyed on the frame URL.
+      });
+    }
+    this.tick();
     this.publish();
     return () => this.destroy();
   }
@@ -92,17 +139,19 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   }
 
   getNavigationCues(): SubtitleCue[] {
-    return this.localPrimaryCues;
+    return this.japaneseCues();
   }
 
   getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {
     const video = this.getVideoElement();
-    if (!video || video.readyState < 1 || this.preferredSecondaryLanguage === "none") return null;
-    return firstCueStartingIn(this.localSecondaryCues, after, until);
+    if (!video || video.readyState < 1) return null;
+    return firstCueStartingIn(this.translationCues(), after, until);
   }
 
   getNavigationSessionId(): string {
-    return this.localPrimaryCues[0]?.source?.sessionId ?? `${this.videoId ?? "page"}:local-primary`;
+    return this.localPrimaryCues[0]?.source?.sessionId ??
+      this.artplayer?.japanese[0]?.source?.sessionId ??
+      `${this.videoId ?? "page"}:local-primary`;
   }
 
   setSecondarySubtitleLanguage(language: SecondarySubtitleLanguage): void {
@@ -124,8 +173,10 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     return Promise.resolve(true);
   }
 
-  setNativeSubtitlesVisible(_visible: boolean): void {
-    // Native subtitle controls are player-specific.
+  setNativeSubtitlesVisible(visible: boolean): void {
+    // Only Artplayer's own subtitle layers are known; other players keep theirs.
+    this.hideNative = !visible;
+    this.applyNativeVisibility();
   }
 
   getEpisodeContext(): EpisodeContext | null {
@@ -143,7 +194,17 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.observer = null;
     window.removeEventListener("popstate", this.onPageNavigation);
     window.removeEventListener("hashchange", this.onPageNavigation);
+    window.removeEventListener("message", this.onArtplayerMessage);
     chrome.storage.onChanged.removeListener(this.onStorageChange);
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.artplayer = null;
+    this.lastArtplayerRequestAt = 0;
+    this.hideNative = false;
+    document.documentElement.classList.remove(ARTPLAYER_HIDE_CLASS);
+    this.style?.remove();
+    this.style = null;
+    this.topUrl = null;
     this.detachVideo();
     for (const video of this.watchedVideos) video.removeEventListener("play", this.onAnyVideoPlay);
     this.watchedVideos.clear();
@@ -206,7 +267,9 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   }
 
   private updateVideoId(): void {
-    const next = localSubtitleVideoId(window.location.href);
+    const next = localSubtitleVideoId(
+      window.top === window ? window.location.href : this.topUrl ?? window.location.href,
+    );
     if (next === this.videoId) return;
     this.videoId = next;
     this.localPrimaryCues = [];
@@ -241,17 +304,121 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     }
   }
 
+  /** Imported files win over the player's own tracks, role by role. */
+  private japaneseCues(): SubtitleCue[] {
+    return this.localPrimaryCues.length ? this.localPrimaryCues : this.artplayer?.japanese ?? [];
+  }
+
+  private translationCues(): SubtitleCue[] {
+    if (this.preferredSecondaryLanguage === "none") return [];
+    if (this.localSecondaryCues.length) return this.localSecondaryCues;
+    const translations = this.artplayer?.translations ?? {};
+    const fallback = this.preferredSecondaryLanguage === "fr" ? "en" : "fr";
+    return translations[this.preferredSecondaryLanguage] ?? translations[fallback] ?? [];
+  }
+
+  private readonly tick = (): void => {
+    const video = this.getVideoElement();
+    if (!video || !document.querySelector(".art-video-player")) return;
+    const source = video.currentSrc || video.src;
+    if (!source) return;
+    if (this.artplayer?.source !== source) {
+      this.artplayer = {
+        session: `artplayer:${crypto.randomUUID()}`,
+        source,
+        listed: false,
+        japanese: [],
+        translations: {},
+      };
+      this.lastArtplayerRequestAt = 0;
+      this.lastSignature = "";
+      this.publish();
+    }
+    if (this.artplayer.listed || Date.now() - this.lastArtplayerRequestAt < ARTPLAYER_REQUEST_INTERVAL_MS) return;
+    this.lastArtplayerRequestAt = Date.now();
+    window.postMessage({
+      source: "subjap",
+      type: "subjap:artplayer-request",
+      payload: { session: this.artplayer.session },
+    }, location.origin);
+  };
+
+  private readonly onArtplayerMessage = (event: MessageEvent<unknown>): void => {
+    if (event.source !== window || event.origin !== location.origin) return;
+    const data = event.data as { source?: unknown; type?: unknown; payload?: unknown } | null;
+    if (data?.source !== "subjap-artplayer" || data.type !== "tracks") return;
+    const payload = data.payload as { session?: unknown; candidates?: unknown } | null;
+    const artplayer = this.artplayer;
+    if (!artplayer || artplayer.listed || payload?.session !== artplayer.session ||
+      !Array.isArray(payload.candidates)) return;
+    const candidates = (payload.candidates as unknown[]).filter(
+      (candidate): candidate is ArtplayerSubtitleCandidate => {
+        const value = candidate as Partial<ArtplayerSubtitleCandidate> | null;
+        return typeof value?.label === "string" && typeof value.url === "string";
+      },
+    );
+    const tracks = selectArtplayerSubtitleTracks(candidates);
+    // The subtitle menu can be built after the player: keep asking until it lists a file.
+    if (!tracks.ja && !tracks.fr && !tracks.en) return;
+    artplayer.listed = true;
+    for (const track of Object.values(tracks)) void this.loadArtplayerTrack(artplayer, track);
+  };
+
+  private async loadArtplayerTrack(
+    artplayer: ArtplayerSubtitles,
+    track: ArtplayerSubtitleTrack,
+  ): Promise<void> {
+    try {
+      const response = await fetch(track.url, { credentials: "omit" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const body = await response.text();
+      if (body.length > MAX_SUBTITLE_FILE_LENGTH) throw new Error("fichier trop volumineux");
+      if (this.artplayer !== artplayer) return;
+      const sessionId = `${artplayer.session}:${track.language}`;
+      const parsed = parseSubtitleFile(artplayerSubtitleFileName(track.url), body);
+      const cues = (track.language === "ja" ? cleanJapaneseSubtitleCues(parsed, track.sdh) : parsed)
+        .map((cue, index): SubtitleCue => ({
+          ...cue,
+          id: `${sessionId}:${index}:${cue.id}`,
+          language: track.language,
+          source: {
+            kind: "track",
+            sessionId,
+            trackId: `artplayer-${track.language}`,
+            resourceId: track.url,
+            segmentId: cue.id,
+            startPrecision: "exact",
+          },
+        }));
+      if (track.language === "ja") artplayer.japanese = cues;
+      else artplayer.translations[track.language] = cues;
+      this.lastSignature = "";
+      this.publish();
+    } catch (error) {
+      console.warn(`[SubJap] Sous-titres Artplayer (${track.language}) indisponibles:`, error);
+    }
+  }
+
+  private applyNativeVisibility(): void {
+    document.documentElement.classList.toggle(
+      ARTPLAYER_HIDE_CLASS,
+      this.hideNative &&
+        this.japaneseCues().length > 0 &&
+        !!document.querySelector(".art-video-player"),
+    );
+  }
+
   private publish(): void {
     if (!this.callback) return;
+    this.applyNativeVisibility();
     const video = this.getVideoElement();
     const time = video?.currentTime ?? 0;
     const usable = !!video && video.readyState >= 1;
-    const japanese = usable ? activeSubtitleCues(this.localPrimaryCues, time) : [];
-    const secondary = usable && this.preferredSecondaryLanguage !== "none"
-      ? activeSubtitleCues(this.localSecondaryCues, time)
-      : [];
+    const japaneseCues = this.japaneseCues();
+    const japanese = usable ? activeSubtitleCues(japaneseCues, time) : [];
+    const secondary = usable ? activeSubtitleCues(this.translationCues(), time) : [];
     const cues = [...japanese, ...secondary];
-    const signature = `${this.videoId ?? ""}:${cues.map((cue) => cue.id).join("|")}`;
+    const signature = `${this.videoId ?? ""}:${this.getNavigationSessionId()}:${japaneseCues.length}:${cues.map((cue) => cue.id).join("|")}`;
     if (signature === this.lastSignature) return;
     this.lastSignature = signature;
     this.callback(cues);

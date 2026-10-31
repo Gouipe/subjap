@@ -50,6 +50,10 @@ export function captureFrame(
   tabVideo?: HTMLVideoElement | null,
 ): Promise<string> {
   if (time === undefined) {
+    // Viewport crops are relative to this frame, not to the captured tab.
+    if (window.top !== window && !document.fullscreenElement) {
+      return captureCanvasFrame(video);
+    }
     if (tabVideo) return captureTabVideo(video, tabVideo);
     return captureVisibleVideo(video).catch((error: unknown) => {
       console.warn("[SubJap] Visible-tab screenshot unavailable; using canvas fallback:", error);

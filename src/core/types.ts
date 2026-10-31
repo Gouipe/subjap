@@ -303,6 +303,9 @@ export interface MessageMap {
     responseSchema: Record<string, unknown>;
   };
   "ai:generateEnrichmentResult": { text: string; model: string };
+  /** URL of the sender's tab, for players embedded in a frame. */
+  "tab:url": Record<string, never>;
+  "tab:urlResult": { url: string | null };
   "screenshot:capture": Record<string, never>;
   "screenshot:captureResult": { dataUrl: string };
 

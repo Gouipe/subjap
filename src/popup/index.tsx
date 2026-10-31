@@ -143,15 +143,16 @@ const Popup: React.FC = () => {
       if (tab?.id == null || !tab.url) return;
       let hasVisibleVideo = false;
       try {
-        const [videoProbe] = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
+        // Players are often embedded in a frame; their imports stay keyed on the tab URL.
+        const videoProbes = await chrome.scripting.executeScript({
+          target: { tabId: tab.id, allFrames: true },
           func: () => Array.from(document.querySelectorAll("video")).some((video) => {
             const rect = video.getBoundingClientRect();
             const style = getComputedStyle(video);
             return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
           }),
         });
-        hasVisibleVideo = videoProbe?.result === true;
+        hasVisibleVideo = videoProbes.some((probe) => probe.result === true);
       } catch {
         // Browser-restricted pages do not expose their DOM to extensions.
       }
