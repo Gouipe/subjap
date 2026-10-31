@@ -11,6 +11,19 @@ export function activeSubtitleCues(cues: SubtitleCue[], time: number): SubtitleC
   return cues.filter((cue) => cue.start <= time && time < cue.end);
 }
 
+/** Earliest segment starting after `after`, up to `until` included. */
+export function firstCueStartingIn(
+  cues: SubtitleCue[],
+  after: number,
+  until: number,
+): SubtitleCue | null {
+  return cues.reduce<SubtitleCue | null>(
+    (first, cue) =>
+      cue.start > after && cue.start <= until && (!first || cue.start < first.start) ? cue : first,
+    null,
+  );
+}
+
 /** A newly started segment owns S; equal-start speakers share a seek position. */
 export function primarySubtitleCue(cues: SubtitleCue[]): SubtitleCue | null {
   return cues.reduce<SubtitleCue | null>(

@@ -8,7 +8,12 @@ import type {
   SubtitleCue,
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
-import { activeSubtitleCues, compactSubtitleText, SubtitleTrackCatalog } from "@/subtitles/timeline";
+import {
+  activeSubtitleCues,
+  compactSubtitleText,
+  firstCueStartingIn,
+  SubtitleTrackCatalog,
+} from "@/subtitles/timeline";
 import {
   getLocalSubtitle,
   localSubtitleStorageKey,
@@ -786,6 +791,21 @@ export class NetflixAdapter implements PlatformAdapter {
     }
     this.seekHold = null;
     return currentTime;
+  }
+
+  getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {
+    this.ensurePlaybackSession();
+    if (this.preferredSecondaryLanguage === "none") return null;
+    if (this.localTranslationCues.length > 0) {
+      return firstCueStartingIn(this.localTranslationCues, after, until);
+    }
+    const languagePriority: SecondarySubtitleLanguage[] =
+      this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
+    for (const language of languagePriority) {
+      const cue = firstCueStartingIn(this.tracks.cues(language), after, until);
+      if (cue) return cueSnapshot(cue);
+    }
+    return null;
   }
 
   private getActiveTranslationCue(currentTime: number): SubtitleCue | null {

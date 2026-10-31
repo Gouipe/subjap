@@ -15,7 +15,7 @@ import {
   localSubtitleVideoId,
   parseLocalSubtitleCues,
 } from "@/subtitles/local-storage";
-import { activeSubtitleCues } from "@/subtitles/timeline";
+import { activeSubtitleCues, firstCueStartingIn } from "@/subtitles/timeline";
 
 // ---------------------------------------------------------------------------
 // Built-in generic HTML5 fallback adapter
@@ -93,6 +93,12 @@ export class GenericHtml5Adapter implements PlatformAdapter {
 
   getNavigationCues(): SubtitleCue[] {
     return this.localPrimaryCues;
+  }
+
+  getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {
+    const video = this.getVideoElement();
+    if (!video || video.readyState < 1 || this.preferredSecondaryLanguage === "none") return null;
+    return firstCueStartingIn(this.localSecondaryCues, after, until);
   }
 
   getNavigationSessionId(): string {

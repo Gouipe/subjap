@@ -32,7 +32,7 @@ import {
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
 import { markParentheticalTokens, normalizeCueText } from "@/subtitles";
-import { subtitleCueKey } from "@/subtitles/timeline";
+import { primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
 import { tokenizeCue } from "@/tokenizer/cue";
@@ -184,6 +184,8 @@ let pairedTranslation: {
 } | null = null;
 /** Share of a translation covered by its Japanese cues that makes it their counterpart. */
 const TRANSLATION_COUNTERPART_COVERAGE = 0.5;
+/** How long after its Japanese line a translation may start and still appear with it. */
+const TRANSLATION_ANTICIPATION_SECONDS = 0.5;
 /** Wait before showing a translation alone when only DOM history is known. */
 const TRANSLATION_ALONE_DOM_DELAY_MS = 300;
 
@@ -719,7 +721,10 @@ function isJapaneseTrack(language: string | undefined): boolean {
  *   line does not drop into its place and jump back up with the next pair;
  * - when the Japanese line ends first, or starts after its translation, that
  *   part of the translation is not shown alone: it would flash, in
- *   particular when hidden because every word is known.
+ *   particular when hidden because every word is known;
+ * - when the translation starts shortly after a Japanese line shown without
+ *   one, it appears with that line, so its arrival does not push the
+ *   Japanese line up.
  * A translation only briefly overlapping Japanese cues (a burned-in sign) is
  * not their counterpart and is still shown alone outside them.
  */
@@ -750,14 +755,38 @@ function pairTranslationWithJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
   }
 
   if (
-    !paired ||
-    !japaneseCues.some((cue) => paired.japaneseCues.has(subtitleCueKey(cue))) ||
-    !selectTranslationCue([paired.cue])
+    paired &&
+    japaneseCues.some((cue) => paired.japaneseCues.has(subtitleCueKey(cue))) &&
+    selectTranslationCue([paired.cue])
   ) {
-    pairedTranslation = null;
-    return cues;
+    return [...cues, paired.cue];
   }
-  return [...cues, paired.cue];
+  pairedTranslation = null;
+  return withUpcomingTranslation(cues, japaneseCues);
+}
+
+/** Adds the translation starting just after Japanese cues shown without one. */
+function withUpcomingTranslation(cues: SubtitleCue[], japaneseCues: SubtitleCue[]): SubtitleCue[] {
+  const latest = primarySubtitleCue(japaneseCues);
+  if (!latest) return cues;
+  const now = adapter.getCurrentTime();
+  const upcoming = adapter.getTranslationCueStartingIn?.(
+    now,
+    latest.start + TRANSLATION_ANTICIPATION_SECONDS,
+  );
+  if (!upcoming || !selectTranslationCue([upcoming])) return cues;
+  // A provisional DOM end only means the line is still shown: it may well
+  // last through a translation starting this soon.
+  const coverage = new Map(japaneseCues.map((cue) => [
+    subtitleCueKey(cue),
+    { cue, lastSeen: cue.endConfirmed === false ? upcoming.end : now },
+  ]));
+  if (!isCounterpartOf(upcoming, coverage)) return cues;
+  pairedTranslation = {
+    cue: upcoming,
+    japaneseCues: new Map(japaneseCues.map((cue) => [subtitleCueKey(cue), { cue, lastSeen: now }])),
+  };
+  return [...cues, upcoming];
 }
 
 /**

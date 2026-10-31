@@ -6,7 +6,7 @@ import {
   parseLocalSubtitleCues,
 } from "@/subtitles/local-storage";
 import { parseYouTubeCaptions } from "@/subtitles/youtube";
-import { activeSubtitleCues, SubtitleTrackCatalog } from "@/subtitles/timeline";
+import { activeSubtitleCues, firstCueStartingIn, SubtitleTrackCatalog } from "@/subtitles/timeline";
 
 const HIDE_CLASS = "subjap-youtube-hide-native";
 
@@ -259,19 +259,24 @@ export class YouTubeAdapter implements PlatformAdapter {
     const time = this.getCurrentTime();
     const nativeJapanese = this.info?.tracks.some((track) => track.language === "ja") ? this.catalog.cues("ja") : [];
     const japanese = this.localPrimaryCues.length ? this.localPrimaryCues : nativeJapanese;
-    const secondary = this.info?.tracks.find((track) => track.language !== "ja");
-    const translation = this.preferredLanguage === "none"
-      ? []
-      : this.localSecondaryCues.length
-        ? this.localSecondaryCues
-        : secondary
-          ? this.catalog.cues(secondary.language)
-          : [];
+    const translation = this.translationCues();
     const cues = usable ? [...activeSubtitleCues(japanese, time), ...activeSubtitleCues(translation, time)] : [];
     const signature = `${this.getNavigationSessionId()}:${japanese.length}:${cues.map((cue) => cue.id).join("|")}`;
     if (signature === this.lastSignature) return;
     this.lastSignature = signature;
     this.callback(cues);
+  }
+
+  getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {
+    if (!this.canUsePlayback()) return null;
+    return firstCueStartingIn(this.translationCues(), after, until);
+  }
+
+  private translationCues(): SubtitleCue[] {
+    if (this.preferredLanguage === "none") return [];
+    if (this.localSecondaryCues.length) return this.localSecondaryCues;
+    const secondary = this.info?.tracks.find((track) => track.language !== "ja");
+    return secondary ? this.catalog.cues(secondary.language) : [];
   }
 
   private applyNativeVisibility(): void {
