@@ -740,7 +740,15 @@ ruby rt {
   text-align: center;
 }
 
+/* The word heads the sheet with its word-level action beside it; the definitions span below. */
 .word-sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "word action"
+    "definitions definitions";
+  column-gap: 16px;
+  align-items: start;
   padding: 18px 22px 20px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -748,6 +756,7 @@ ruby rt {
 }
 
 .back-layout .back-word {
+  grid-area: word;
   margin: 0;
   text-align: left;
 }
@@ -779,6 +788,7 @@ ruby rt {
 }
 
 .word-sheet .definitions {
+  grid-area: definitions;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
@@ -838,11 +848,12 @@ ruby rt {
   display: none;
 }
 
-/* Activating production is a decision about the word: a discreet action closing the word sheet. */
+/* Activating production is a decision about the word: a discreet action beside it, top right. */
 .word-sheet .production-activation {
+  grid-area: action;
   align-items: flex-end;
-  max-width: none;
-  margin: 14px 0 0;
+  max-width: 260px;
+  margin: 8px 0 0;
   padding: 0;
   text-align: right;
 }
@@ -1204,7 +1215,8 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     notes.appendChild(text);
   });
 
-  // The production block follows the card in the template: place it at the end of the word sheet.
+  // The production block follows the card in the template: move it into the word sheet,
+  // whose grid shows it beside the word.
   // Deferred because Anki runs the card's scripts in document order while this one executes;
   // moving the block (and its script) earlier now would make Anki skip that script.
   setTimeout(() => {

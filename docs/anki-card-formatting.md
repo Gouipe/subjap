@@ -93,10 +93,11 @@ l’œil et laissait un grand vide en plein écran. Les Notes peuvent demander u
 défilement, ce qui est acceptable pour des informations consultées au besoin.
 
 Activer la production est une décision sur le mot : le bloc d’activation, placé
-après la carte dans le template, est déplacé par le script géré à la fin de la
-fiche du mot, une fois les scripts de la carte exécutés. Le bouton y est
-secondaire et aligné à droite ; son explication reste dans l’infobulle et pour
-les lecteurs d’écran.
+après la carte dans le template, est déplacé par le script géré dans la fiche
+du mot, une fois les scripts de la carte exécutés. La grille de la fiche
+l’affiche en haut à droite, sur la ligne du mot, plutôt que sur une ligne à part
+sous les définitions. Le bouton y est secondaire ; son explication reste dans
+l’infobulle et pour les lecteurs d’écran.
 
 Lors de la synchronisation, un verso v13 ou antérieur dont le corps est inchangé
 reçoit cette structure ; ce qui l’entoure (balises HyperTTS, scripts) est
