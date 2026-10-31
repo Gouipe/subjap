@@ -403,7 +403,7 @@ export interface RenderedCue {
 }
 
 export interface OverlayOptions {
-  /** Subtitle size in percent; 100 % makes Japanese 5 % of the player height. */
+  /** Subtitle size in percent; 100 % makes Japanese 4.2 % of the player height. */
   subtitleScale: number;
   showFurigana: boolean;
   /** Preferred translation language; the other supported language is the fallback, or "none" to disable it. */

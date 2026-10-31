@@ -524,7 +524,7 @@ carte demeure valide.
   rappel de l’onboarding et réglage rapide du masquage des traductions FR/EN
   quand la phrase est entièrement connue.
 - **Options** : installation ou réinstallation du pack JMdict, configuration
-  du deck Anki, taille des sous-titres (en % : 100 % donne au japonais 5 % de
+  du deck Anki, taille des sous-titres (en % : 100 % donne au japonais 4,2 % de
   la hauteur du lecteur, 14 px minimum, avec un aperçu 16:9) et furigana de
   l’overlay, masquage des
   sous-titres natifs, masquage conditionnel des traductions FR/EN, remise à

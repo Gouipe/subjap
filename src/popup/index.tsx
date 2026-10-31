@@ -88,6 +88,8 @@ const Popup: React.FC = () => {
     useState<KnownSentenceSubtitles>("show");
   const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
   const [videoId, setVideoId] = useState<string | null>(null);
+  const [hasVideo, setHasVideo] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [localSubtitles, setLocalSubtitles] = useState(EMPTY_LOCAL_SUBTITLES);
   const [offsetInputs, setOffsetInputs] = useState<Record<LocalSubtitleRole, string>>({
     primary: "0.00",
@@ -157,6 +159,7 @@ const Popup: React.FC = () => {
         // Browser-restricted pages do not expose their DOM to extensions.
       }
       const currentVideoId = hasVisibleVideo ? localSubtitleVideoId(tab.url) : null;
+      setHasVideo(hasVisibleVideo);
       setVideoId(currentVideoId);
       if (!currentVideoId) return;
       const [primary, secondary] = await Promise.all([
@@ -389,85 +392,100 @@ const Popup: React.FC = () => {
       {error && <p style={styles.error}>{error}</p>}
 
       {enabled !== false && (<>
-      <div style={styles.captureBox}>
-        <button
-          style={styles.captureButton}
-          onClick={() => void activateCapture()}
-          disabled={captureStatus !== "idle"}
-        >
-          {captureStatus === "activating"
-            ? "Activation…"
-            : captureStatus === "active"
-              ? "✓ Audio de l’onglet actif"
-              : "Activer l’audio de l’onglet"}
-        </button>
-        {captureError && <p style={styles.captureError}>{captureError}</p>}
-        <p style={styles.captureHint}>À faire une seule fois par onglet vidéo.</p>
-      </div>
+      {!onboarded ? (
+        <div style={styles.onboardingBox}>
+          <p style={styles.onboardingText}>
+            Configuration non terminée : le dictionnaire est nécessaire aux définitions.
+          </p>
+          <button style={styles.button} onClick={() => void chrome.runtime.openOptionsPage()}>
+            Terminer la configuration →
+          </button>
+        </div>
+      ) : dict !== null && !dict.installed && (
+        <div style={styles.onboardingBox}>
+          <button
+            style={styles.button}
+            onClick={() => void installDictionary()}
+            disabled={downloading}
+          >
+            {downloading ? "Téléchargement…" : "Installer le dictionnaire (~22k mots)"}
+          </button>
+        </div>
+      )}
+
+      {hasVideo && (
+        <div style={styles.captureBox}>
+          <button
+            style={styles.captureButton}
+            onClick={() => void activateCapture()}
+            disabled={captureStatus !== "idle"}
+          >
+            {captureStatus === "activating"
+              ? "Activation…"
+              : captureStatus === "active"
+                ? "✓ Audio de l’onglet actif"
+                : "Activer l’audio de l’onglet"}
+          </button>
+          {captureError && <p style={styles.captureError}>{captureError}</p>}
+          <p style={styles.captureHint}>À faire une seule fois par onglet vidéo.</p>
+        </div>
+      )}
 
       <div style={styles.subtitleBox}>
+        <h2 style={styles.sectionLabel}>Sous-titres</h2>
         {videoId?.startsWith("youtube:") && (
           <p style={styles.captureHint}>
             YouTube : sous-titres japonais du créateur en priorité, automatiques en repli.
           </p>
         )}
-
-        <div style={styles.languageSection}>
-          <div style={styles.languageRow}>
-            <span>Principal</span>
-            <strong>Japonais</strong>
-          </div>
-          <label style={styles.languageRow}>
-            <span>Secondaire</span>
-            <select
-              style={styles.languageSelect}
-              value={secondarySubtitleLanguage}
-              disabled={savingSubtitlePreference}
-              onChange={(event) =>
-                void chooseSecondarySubtitleLanguage(
-                  event.target.value as SecondarySubtitleLanguage,
-                )
-              }
-            >
-              <option value="none">Aucun</option>
-              <option value="fr">Français</option>
-              <option value="en">Anglais</option>
-            </select>
-          </label>
-          <p style={styles.languageHint}>
-            L’autre langue est utilisée automatiquement si nécessaire, sauf avec « Aucun ».
-          </p>
-        </div>
-        <div>
-          <label style={styles.languageRow}>
-            <span>Phrases connues</span>
-            <select
-              style={styles.languageSelect}
-              value={knownSentenceSubtitles}
-              disabled={savingSubtitlePreference}
-              onChange={(event) =>
-                void chooseKnownSentenceSubtitles(
-                  event.target.value as KnownSentenceSubtitles,
-                )
-              }
-            >
-              <option value="show">Tout afficher</option>
-              <option value="hide-translation">Masquer la traduction</option>
-              <option value="hide-all">Masquer tout (écoute)</option>
-            </select>
-          </label>
-          <p style={styles.languageHint}>
-            Phrase dont tous les mots sont connus ou ignorés. Survol ou X pour
-            révéler : le japonais d’abord, puis la traduction.
-          </p>
-        </div>
+        <label style={styles.languageRow}>
+          <span>Traduction</span>
+          <select
+            style={styles.languageSelect}
+            value={secondarySubtitleLanguage}
+            disabled={savingSubtitlePreference}
+            onChange={(event) =>
+              void chooseSecondarySubtitleLanguage(
+                event.target.value as SecondarySubtitleLanguage,
+              )
+            }
+          >
+            <option value="none">Aucune</option>
+            <option value="fr">Français</option>
+            <option value="en">Anglais</option>
+          </select>
+        </label>
+        <p style={styles.languageHint}>
+          L’autre langue sert de repli, sauf avec « Aucune ».
+        </p>
+        <label style={styles.languageRow}>
+          <span>Phrases connues</span>
+          <select
+            style={styles.languageSelect}
+            value={knownSentenceSubtitles}
+            disabled={savingSubtitlePreference}
+            onChange={(event) =>
+              void chooseKnownSentenceSubtitles(
+                event.target.value as KnownSentenceSubtitles,
+              )
+            }
+          >
+            <option value="show">Tout afficher</option>
+            <option value="hide-translation">Masquer la traduction</option>
+            <option value="hide-all">Masquer tout (écoute)</option>
+          </select>
+        </label>
+        <p style={styles.languageHint}>
+          Phrase dont tous les mots sont connus ou ignorés. Survol ou X pour
+          révéler : le japonais d’abord, puis la traduction.
+        </p>
       </div>
 
-      <details style={styles.disclosureSection}>
-        <summary style={styles.localSubtitleSummary}>Sous-titres locaux</summary>
-        <div style={styles.localSubtitleContent}>
-          {videoId ? (
-            LOCAL_SUBTITLE_ROLES.map((role) => {
+      {videoId && (
+        <details style={styles.disclosureSection}>
+          <summary style={styles.localSubtitleSummary}>Sous-titres locaux</summary>
+          <div style={styles.localSubtitleContent}>
+            {LOCAL_SUBTITLE_ROLES.map((role) => {
               const localSubtitle = localSubtitles[role];
               const roleTitle = role === "primary"
                 ? "Piste principale · japonais"
@@ -558,17 +576,33 @@ const Popup: React.FC = () => {
                 </div>
               );
             })
-          ) : (
-            <p style={styles.localSubtitleHint}>
-              Ouvre une page avec un lecteur vidéo HTML5 visible. Les fichiers sont associés à son adresse.
-            </p>
-          )}
-          {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
-        </div>
-      </details>
+            }
+            {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
+          </div>
+        </details>
+      )}
+      </>)}
 
-      <details style={styles.disclosureSection}>
-        <summary style={styles.guideSummary}>Comprendre les couleurs et les raccourcis</summary>
+      <div style={styles.footer}>
+        <span style={styles.footerStat}>
+          {stats ? `${stats.knownWords.toLocaleString("fr-FR")} mots connus` : ""}
+        </span>
+        <span style={styles.footerLinks}>
+          <button
+            style={styles.footerLink}
+            aria-expanded={showHelp}
+            onClick={() => setShowHelp((visible) => !visible)}
+          >
+            Aide
+          </button>
+          <span aria-hidden="true">·</span>
+          <button style={styles.footerLink} onClick={() => void chrome.runtime.openOptionsPage()}>
+            Réglages
+          </button>
+        </span>
+      </div>
+
+      {showHelp && (
         <div style={styles.guideContent}>
           <section style={styles.guideSection}>
             <h2 style={styles.guideHeading}>Couleurs des mots</h2>
@@ -606,50 +640,7 @@ const Popup: React.FC = () => {
             </div>
           </section>
         </div>
-      </details>
-
-      {!onboarded && (
-        <div style={styles.onboardingBox}>
-          <p style={styles.onboardingText}>
-            Configuration non terminée — quelques étapes rapides pour activer le
-            dictionnaire.
-          </p>
-          <button
-            style={styles.button}
-            onClick={() => void chrome.runtime.openOptionsPage()}
-          >
-            Commencer la configuration
-          </button>
-        </div>
       )}
-
-      {stats && (
-        <div style={styles.statsBox}>
-          <div style={styles.statRow}>
-            <span style={styles.statLabel}>Mots connus</span>
-            <span style={styles.statValue}>{stats.knownWords}</span>
-          </div>
-        </div>
-      )}
-
-      {!dict?.installed && dict !== null && (
-        <div style={styles.dictBox}>
-          <button
-            style={styles.button}
-            onClick={() => void installDictionary()}
-            disabled={downloading}
-          >
-            {downloading
-              ? "Téléchargement…"
-              : "Installer le dictionnaire (~22k mots)"}
-          </button>
-        </div>
-      )}
-
-      <button style={styles.linkButton} onClick={() => void chrome.runtime.openOptionsPage()}>
-        Options
-      </button>
-      </>)}
     </div>
   );
 };
@@ -719,26 +710,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "50%",
     display: "inline-block",
     flexShrink: 0,
-  },
-  statsBox: {
-    marginTop: 6,
-  },
-  statRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "4px 0",
-    fontSize: 13,
-  },
-  statLabel: {
-    color: "#b2b6bf",
-  },
-  statValue: {
-    fontWeight: 600,
-  },
-  dictBox: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTop: "1px solid #343842",
   },
   enabledBox: {
     marginBottom: 10,
@@ -834,11 +805,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontWeight: 600,
   },
-  languageSection: {
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottom: "1px solid #343842",
-  },
   languageRow: {
     display: "flex",
     alignItems: "center",
@@ -933,13 +899,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 10,
     cursor: "pointer",
   },
-  guideSummary: {
-    color: "#f4f1ea",
-    fontSize: 12,
-    fontWeight: 600,
-    lineHeight: 1.4,
-    cursor: "pointer",
-  },
   guideContent: {
     paddingTop: 12,
   },
@@ -1027,17 +986,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     cursor: "pointer",
   },
-  linkButton: {
-    marginTop: 12,
-    width: "100%",
-    padding: "6px 12px",
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "transparent",
-    color: "#f4f1ea",
-    fontSize: 12,
-    cursor: "pointer",
-  },
   error: {
     marginTop: 8,
     fontSize: 11,
@@ -1050,6 +998,30 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     backgroundColor: "#14161b",
     border: "1px solid #343842",
+  },
+  footer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+    fontSize: 12,
+  },
+  footerStat: {
+    color: "#b2b6bf",
+  },
+  footerLinks: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    color: "#b2b6bf",
+  },
+  footerLink: {
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    color: "#f4f1ea",
+    fontSize: 12,
+    cursor: "pointer",
   },
   onboardingText: {
     margin: "0 0 8px",

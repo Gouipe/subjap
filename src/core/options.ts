@@ -14,7 +14,7 @@ export const OPTIONS_STORAGE_KEY = "subjap_options";
 export const SUBTITLE_SCALE_MIN = 50;
 export const SUBTITLE_SCALE_MAX = 200;
 /** Japanese line height at 100 %, as a share of the player height. */
-export const SUBTITLE_HEIGHT_RATIO = 0.05;
+export const SUBTITLE_HEIGHT_RATIO = 0.042;
 /** Tiny embedded players still get readable subtitles. */
 export const SUBTITLE_MIN_FONT_PX = 14;
 

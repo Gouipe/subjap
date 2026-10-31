@@ -601,6 +601,33 @@ function OnboardingWizard(props: {
               />
             </div>
           </div>
+          <div style={s.row}>
+            <div style={s.rowLabel}>
+              <span>Phrases connues</span>
+              <span style={s.rowHint}>
+                tous les mots connus ou ignorés · survol ou X : japonais d'abord, puis traduction
+              </span>
+            </div>
+            <div style={s.rowControl}>
+              <select
+                value={options.knownSentenceSubtitles}
+                style={s.select}
+                onChange={(e) =>
+                  setOptions({
+                    ...options,
+                    knownSentenceSubtitles:
+                      e.target.value === "hide-translation" || e.target.value === "hide-all"
+                        ? e.target.value
+                        : "show",
+                  })
+                }
+              >
+                <option value="show">Tout afficher</option>
+                <option value="hide-translation">Masquer la traduction</option>
+                <option value="hide-all">Masquer japonais et traduction (écoute)</option>
+              </select>
+            </div>
+          </div>
           <div style={s.btnRow}>
             <Btn onClick={() => void finish()}>Terminer ✓</Btn>
           </div>
