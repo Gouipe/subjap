@@ -6,9 +6,18 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
-import { getOptions, saveOptions } from "@/core/options";
+import {
+  getOptions,
+  saveOptions,
+  SUBTITLE_SCALE_MAX,
+  SUBTITLE_SCALE_MIN,
+} from "@/core/options";
 import { isSubJapEnabled, setSubJapEnabled } from "@/core/enabled";
-import type { KnownSentenceSubtitles, SecondarySubtitleLanguage } from "@/core/types";
+import type {
+  KnownSentenceSubtitles,
+  OverlayOptions,
+  SecondarySubtitleLanguage,
+} from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
 import {
   getLocalSubtitle,
@@ -30,6 +39,10 @@ interface DictStatus {
   count: number;
   installed: boolean;
 }
+
+type DisplayOptions = Pick<OverlayOptions, "subtitleScale" | "showFurigana">;
+
+const SUBTITLE_SCALE_STEP = 10;
 
 const LOCAL_SUBTITLE_ROLES: LocalSubtitleRole[] = ["primary", "secondary"];
 const EMPTY_LOCAL_SUBTITLES: Record<LocalSubtitleRole, LocalSubtitleRecord | null> = {
@@ -91,6 +104,7 @@ const Popup: React.FC = () => {
   const [hasVideo, setHasVideo] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [localSubtitlesOpen, setLocalSubtitlesOpen] = useState(false);
+  const [display, setDisplay] = useState<DisplayOptions | null>(null);
   const [localSubtitles, setLocalSubtitles] = useState(EMPTY_LOCAL_SUBTITLES);
   const [offsetInputs, setOffsetInputs] = useState<Record<LocalSubtitleRole, string>>({
     primary: "0.00",
@@ -111,6 +125,10 @@ const Popup: React.FC = () => {
     setOnboarded(onboardedResult);
     setKnownSentenceSubtitles(optionsResult.knownSentenceSubtitles);
     setSecondarySubtitleLanguage(optionsResult.secondarySubtitleLanguage);
+    setDisplay({
+      subtitleScale: optionsResult.subtitleScale,
+      showFurigana: optionsResult.showFurigana,
+    });
     setConnected(true);
     setError(null);
   }, []);
@@ -240,6 +258,23 @@ const Popup: React.FC = () => {
       setLocalSubtitleBusy(false);
     }
   }, [videoId]);
+
+  /** Display changes apply live to the video under the popup. */
+  const updateDisplay = useCallback(
+    async (next: Partial<DisplayOptions>) => {
+      if (!display) return;
+      const previous = display;
+      setDisplay({ ...display, ...next });
+      setError(null);
+      try {
+        await saveOptions(next);
+      } catch (err: unknown) {
+        setDisplay(previous);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [display],
+  );
 
   const chooseKnownSentenceSubtitles = useCallback(
     async (mode: KnownSentenceSubtitles) => {
@@ -571,6 +606,75 @@ const Popup: React.FC = () => {
           </details>
         )}
       </div>
+
+      {display && (
+        <>
+          <h2 style={styles.groupLabel}>Affichage</h2>
+          <div style={styles.card}>
+            <div style={styles.cardRow}>
+              <span>Taille</span>
+              <div style={styles.stepper}>
+                <button
+                  type="button"
+                  style={styles.stepperButton}
+                  aria-label="Réduire les sous-titres"
+                  disabled={display.subtitleScale <= SUBTITLE_SCALE_MIN}
+                  onClick={() =>
+                    void updateDisplay({
+                      subtitleScale: Math.max(
+                        SUBTITLE_SCALE_MIN,
+                        display.subtitleScale - SUBTITLE_SCALE_STEP,
+                      ),
+                    })
+                  }
+                >
+                  −
+                </button>
+                <span style={styles.stepperValue}>{display.subtitleScale} %</span>
+                <button
+                  type="button"
+                  style={styles.stepperButton}
+                  aria-label="Agrandir les sous-titres"
+                  disabled={display.subtitleScale >= SUBTITLE_SCALE_MAX}
+                  onClick={() =>
+                    void updateDisplay({
+                      subtitleScale: Math.min(
+                        SUBTITLE_SCALE_MAX,
+                        display.subtitleScale + SUBTITLE_SCALE_STEP,
+                      ),
+                    })
+                  }
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={display.showFurigana}
+              style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSwitchRow }}
+              onClick={() => void updateDisplay({ showFurigana: !display.showFurigana })}
+            >
+              <span>Furigana</span>
+              <span
+                aria-hidden="true"
+                style={{
+                  ...styles.switchTrack,
+                  background: display.showFurigana ? "#ff624d" : "#343842",
+                }}
+              >
+                <span
+                  style={{
+                    ...styles.switchKnob,
+                    transform: display.showFurigana ? "translateX(14px)" : "none",
+                  }}
+                />
+              </span>
+            </button>
+          </div>
+        </>
+      )}
       </>)}
 
       <div style={styles.footer}>
@@ -816,6 +920,42 @@ const styles: Record<string, React.CSSProperties> = {
   cardSummary: {
     cursor: "pointer",
     listStyle: "none",
+  },
+  cardSwitchRow: {
+    width: "100%",
+    // Longhands only: a `border` shorthand would erase the row divider.
+    borderRight: "none",
+    borderBottom: "none",
+    borderLeft: "none",
+    background: "transparent",
+    fontFamily: "inherit",
+    textAlign: "left",
+    cursor: "pointer",
+  },
+  stepper: {
+    display: "flex",
+    alignItems: "center",
+    width: 150,
+    border: "1px solid #343842",
+    borderRadius: 6,
+    background: "#101216",
+    overflow: "hidden",
+  },
+  stepperButton: {
+    width: 36,
+    height: 28,
+    border: "none",
+    background: "transparent",
+    color: "#f4f1ea",
+    fontFamily: "inherit",
+    fontSize: 15,
+    cursor: "pointer",
+  },
+  stepperValue: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 12,
+    fontVariantNumeric: "tabular-nums",
   },
   chevron: {
     display: "inline-block",
