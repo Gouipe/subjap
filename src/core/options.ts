@@ -14,7 +14,6 @@ export const OPTIONS_STORAGE_KEY = "subjap_options";
 export const DEFAULT_OPTIONS: OverlayOptions = {
   fontSize: 28,
   showFurigana: true,
-  hideNativeSubtitles: true,
   secondarySubtitleLanguage: "fr",
   knownSentenceSubtitles: "show",
 };
@@ -45,9 +44,6 @@ export function sanitizeOptions(
   }
   if (typeof raw.showFurigana === "boolean") {
     out.showFurigana = raw.showFurigana;
-  }
-  if (typeof raw.hideNativeSubtitles === "boolean") {
-    out.hideNativeSubtitles = raw.hideNativeSubtitles;
   }
   if (
     raw.secondarySubtitleLanguage === "fr" ||

@@ -543,18 +543,6 @@ function OnboardingWizard(props: {
               />
             </div>
           </div>
-          <div style={s.row}>
-            <div style={s.rowLabel}>
-              <span>Masquer les sous-titres natifs</span>
-              <span style={s.rowHint}>l'overlay remplace les pistes de sous-titres du lecteur</span>
-            </div>
-            <div style={s.rowControl}>
-              <Toggle
-                checked={options.hideNativeSubtitles}
-                onChange={(v) => setOptions({ ...options, hideNativeSubtitles: v })}
-              />
-            </div>
-          </div>
           <div style={s.btnRow}>
             <Btn onClick={() => void finish()}>Terminer ✓</Btn>
           </div>
@@ -851,15 +839,6 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
               <Toggle
                 checked={options.showFurigana}
                 onChange={(v) => void updateOptions({ showFurigana: v })}
-              />
-            </Row>
-            <Row
-              label="Masquer les sous-titres natifs"
-              hint="l'overlay remplace les pistes de sous-titres du lecteur"
-            >
-              <Toggle
-                checked={options.hideNativeSubtitles}
-                onChange={(v) => void updateOptions({ hideNativeSubtitles: v })}
               />
             </Row>
             <Row

@@ -136,8 +136,8 @@ disponibles dans l’emplacement secondaire.
 
 Le masquage des sous-titres natifs est piloté par une classe sur `<html>` et
 une règle CSS document-level. Cette approche résiste à la recréation du DOM
-Netflix et aux styles `visibility` inline de ses descendants. La préférence
-est `hideNativeSubtitles`, activée par défaut.
+Netflix et aux styles `visibility` inline de ses descendants. Les pistes
+natives sont toujours masquées dès que l’overlay les remplace.
 
 ### YouTube
 

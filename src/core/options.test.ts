@@ -15,14 +15,13 @@ describe("mergeOptions", () => {
     const merged = mergeOptions(DEFAULT_OPTIONS, { fontSize: 40 });
     expect(merged.fontSize).toBe(40);
     expect(merged.showFurigana).toBe(true);
-    expect(merged.hideNativeSubtitles).toBe(DEFAULT_OPTIONS.hideNativeSubtitles);
   });
 
   it("applies the partial over a custom base", () => {
     const base = { ...DEFAULT_OPTIONS, showFurigana: false };
-    const merged = mergeOptions(base, { hideNativeSubtitles: false });
+    const merged = mergeOptions(base, { fontSize: 40 });
     expect(merged.showFurigana).toBe(false);
-    expect(merged.hideNativeSubtitles).toBe(false);
+    expect(merged.fontSize).toBe(40);
   });
 });
 
@@ -36,25 +35,15 @@ describe("sanitizeOptions", () => {
     const raw = {
       fontSize: "big",
       showFurigana: "yes",
-      hideNativeSubtitles: 1,
     } as unknown as Partial<typeof DEFAULT_OPTIONS>;
     const out = sanitizeOptions(raw);
     expect(out.fontSize).toBeUndefined();
     expect(out.showFurigana).toBeUndefined();
-    expect(out.hideNativeSubtitles).toBeUndefined();
   });
 
   it("keeps valid boolean toggles", () => {
-    const out = sanitizeOptions({
-      showFurigana: false,
-      hideNativeSubtitles: false,
-    });
+    const out = sanitizeOptions({ showFurigana: false });
     expect(out.showFurigana).toBe(false);
-    expect(out.hideNativeSubtitles).toBe(false);
-  });
-
-  it("defaults hide the native subtitle track", () => {
-    expect(DEFAULT_OPTIONS.hideNativeSubtitles).toBe(true);
   });
 
   it("defaults known-sentence hiding to off", () => {

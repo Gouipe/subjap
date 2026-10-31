@@ -405,8 +405,6 @@ export interface RenderedCue {
 export interface OverlayOptions {
   fontSize: number;
   showFurigana: boolean;
-  /** Hide the platform's native subtitle tracks (the overlay replaces them). */
-  hideNativeSubtitles: boolean;
   /** Preferred translation language; the other supported language is the fallback, or "none" to disable it. */
   secondarySubtitleLanguage: SecondarySubtitleLanguage;
   /** What to hide when every lexical word of the displayed sentence is known/ignored. */

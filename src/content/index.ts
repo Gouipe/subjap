@@ -144,14 +144,11 @@ document.addEventListener("keydown", resumeTabAudio, true);
 let overlayOptions: OverlayOptions = DEFAULT_OPTIONS;
 
 /**
- * Apply the user's native-subtitles preference to the platform adapter.
- * Hides the native tracks when `hideNativeSubtitles` is on (the overlay
- * replaces them), restores them otherwise. Idempotent.
+ * Hide the platform's native subtitle tracks while the overlay replaces them,
+ * restore them otherwise. Idempotent.
  */
 function applyNativeSubtitleVisibility(): void {
-  const shouldHideNative =
-    overlayOptions.hideNativeSubtitles && nativeSubtitleReplacementReady;
-  if (!shouldHideNative) {
+  if (!nativeSubtitleReplacementReady) {
     if (nativeSubtitlesHidden) {
       try {
         adapter.setNativeSubtitlesVisible(true);
