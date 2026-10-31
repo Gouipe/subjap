@@ -28,6 +28,7 @@ import { prepareAiEnrichmentCandidates } from "./ai-enrichment";
 import {
   ANKI_COMPREHENSION_DECK,
   ANKI_PRODUCTION_DECK,
+  ANKI_PRODUCTION_REQUEST_TAG,
   ANKI_VOCABULARY_PARENT_DECK,
   MIGAKU_BACK_BODY,
   MIGAKU_BACK_TEMPLATE,
@@ -75,7 +76,7 @@ chrome.runtime.onStartup.addListener(() => {
   void isSubJapEnabled().then(updateEnabledBadge);
   void ensureFrequencyRanks();
   void scheduleProductionReleaseAlarm();
-  void releaseDueProductionCards().catch((err) => {
+  void maintainProductionCards().catch((err) => {
     console.info("[SubJap] Pending production release unavailable:", err);
   });
 });
@@ -667,7 +668,7 @@ interface AnkiNoteInfo {
 
 /** Combine global status tags with acquired comprehension vocabulary in 日本語. */
 onMessage("anki:syncKnown", async () => {
-  await releaseDueProductionCards();
+  await maintainProductionCards();
   // Anki's is:review includes relearning after a lapse, plus suspended/buried
   // reviews. Production progress must never qualify its comprehension sibling.
   const [noteIds, learnedNoteIds] = await Promise.all([
@@ -766,8 +767,10 @@ function migrateManagedTemplatePart(
   replacement: string,
   appendActivation = false,
 ): string {
-  const migrated = upgradeLegacyBackLayout(
-    migrateManagedTemplateStructure(current, replacement, appendActivation),
+  const migrated = refreshProductionActivation(
+    upgradeLegacyBackLayout(
+      migrateManagedTemplateStructure(current, replacement, appendActivation),
+    ),
   );
   if (!migrated.includes("back-card")) return migrated;
 
@@ -778,6 +781,13 @@ function migrateManagedTemplatePart(
     return migrated.replace(audioScript, () => MIGAKU_AUDIO_CONTROLS_FRAGMENT.trim());
   }
   return `${migrated}\n${MIGAKU_AUDIO_CONTROLS_FRAGMENT}`;
+}
+
+/** Replace an earlier activation block (button, script and activated state) with the current one. */
+function refreshProductionActivation(template: string): string {
+  const activation =
+    /\{\{\^Production\}\}\s*<div class="production-activation">[\s\S]*?\{\{\/Production\}\}\s*\{\{#Production\}\}\s*<div class="production-activation">[\s\S]*?\{\{\/Production\}\}/u;
+  return template.replace(activation, () => MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT.trim());
 }
 
 /** Move an unmodified single-column back body to the two-column layout, keeping everything around it. */
@@ -1201,7 +1211,50 @@ async function findProductionCardInfos(): Promise<AnkiProductionCardInfo[]> {
   return ankiInvoke<AnkiProductionCardInfo[]>("cardsInfo", { cards: cardIds });
 }
 
-/** Release pending production cards as new cards after two full days. */
+/** Whether Anki is showing a card: any card change now could replace it with another one. */
+async function isAnkiReviewing(): Promise<boolean> {
+  try {
+    return await ankiInvoke<boolean>("guiReviewActive");
+  } catch {
+    // AnkiConnect reports a missing reviewer as an error; an unreachable Anki fails the next call.
+    return false;
+  }
+}
+
+/** Generate the production cards requested from Anki, suspended for two full days. */
+async function createRequestedProductionCards(): Promise<void> {
+  const noteIds = await ankiInvoke<number[]>("findNotes", {
+    query: `tag:${ANKI_PRODUCTION_REQUEST_TAG}`,
+  });
+  if (noteIds.length === 0) return;
+  const notes = await ankiInvoke<AnkiNoteInfo[]>("notesInfo", { notes: noteIds });
+  const releaseAt = String(Date.now() + 2 * 24 * 60 * 60 * 1000);
+  const toActivate = notes.filter(
+    (note) => PRODUCTION_FIELD in note.fields && !note.fields[PRODUCTION_FIELD]?.value.trim(),
+  );
+  if (toActivate.length > 0) {
+    // Filling the field generates the card; the release pass then moves and suspends it.
+    await ankiInvoke("multi", {
+      actions: toActivate.map((note) => ({
+        action: "updateNoteFields",
+        version: 6,
+        params: { note: { id: note.noteId, fields: { [PRODUCTION_FIELD]: releaseAt } } },
+      })),
+    });
+  }
+  await ankiInvoke("removeTags", { notes: noteIds, tags: ANKI_PRODUCTION_REQUEST_TAG });
+}
+
+/**
+ * Create requested production cards, then release those due as new cards after
+ * two full days. Skipped while Anki shows a card, retried by the hourly alarm.
+ */
+async function maintainProductionCards(): Promise<void> {
+  if (await isAnkiReviewing()) return;
+  await createRequestedProductionCards();
+  await releaseDueProductionCards();
+}
+
 async function releaseDueProductionCards(): Promise<number> {
   const infos = await findProductionCardInfos();
   const now = Date.now();
@@ -1247,7 +1300,7 @@ async function releaseDueProductionCards(): Promise<number> {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== PRODUCTION_RELEASE_ALARM_NAME) return;
-  void releaseDueProductionCards().catch((err) => {
+  void maintainProductionCards().catch((err) => {
     console.info("[SubJap] Pending production release unavailable:", err);
   });
 });
@@ -1327,7 +1380,7 @@ onMessage("anki:setup", async () => {
   if (modelNames.includes(MIGAKU_IMPORT_MODEL_NAME)) {
     await moveModelCardsIntoStudyDecks(MIGAKU_IMPORT_MODEL_NAME);
   }
-  await releaseDueProductionCards();
+  await maintainProductionCards();
 
   console.log("[SubJap] Anki setup ensured:", { deckName, modelName });
   return { deckName, modelName };

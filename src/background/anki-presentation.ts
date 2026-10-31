@@ -34,6 +34,8 @@ export const MIGAKU_PRODUCTION_TEMPLATE_NAME = "Production";
 export const ANKI_VOCABULARY_PARENT_DECK = "日本語::Vocabulaire";
 export const ANKI_COMPREHENSION_DECK = `${ANKI_VOCABULARY_PARENT_DECK}::Compréhension`;
 export const ANKI_PRODUCTION_DECK = `${ANKI_VOCABULARY_PARENT_DECK}::Production`;
+/** Marks a note whose production card the extension must create outside reviews. */
+export const ANKI_PRODUCTION_REQUEST_TAG = "subjap::production-demandee";
 
 export const MIGAKU_CSS = `
 .card {
@@ -935,6 +937,7 @@ ruby rt {
 export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
 {{^Production}}
 <div class="production-activation">
+  <span class="production-activation-tags" hidden>{{Tags}}</span>
   <button class="production-activation-button" id="subjap-activate-production" type="button"
     aria-describedby="subjap-production-hint" title="Première révision dans deux jours · à réserver aux mots utiles à l’oral">
     Activer la production orale
@@ -947,6 +950,21 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
   const button = document.getElementById("subjap-activate-production");
   const status = document.getElementById("subjap-production-status");
   if (!button || !status) return;
+  const block = button.closest(".production-activation");
+  const tags = block && block.querySelector(".production-activation-tags");
+
+  const showActivated = () => {
+    const done = document.createElement("div");
+    done.className = "production-activation-status";
+    done.textContent = "Production orale activée";
+    block.replaceChildren(done);
+  };
+
+  // The sister card is created by the extension outside reviews: until then the tag marks the request.
+  if (tags && tags.textContent.trim().split(" ").includes("${ANKI_PRODUCTION_REQUEST_TAG}")) {
+    showActivated();
+    return;
+  }
 
   const invoke = async (action, params) => {
     const response = await fetch("http://127.0.0.1:8765", {
@@ -959,8 +977,6 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
     if (payload.error) throw new Error(payload.error);
     return payload.result;
   };
-
-  const wait = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
   button.addEventListener("click", async () => {
     button.disabled = true;
@@ -978,30 +994,10 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
       const currentInfo = cards && cards[0];
       if (!currentInfo || !currentInfo.note) throw new Error("note courante introuvable");
 
-      const releaseAt = String(Date.now() + 2 * 24 * 60 * 60 * 1000);
-      await invoke("updateNoteFields", {
-        note: { id: currentInfo.note, fields: { Production: releaseAt } },
-      });
-
-      let productionCards = [];
-      for (let attempt = 0; attempt < 10 && productionCards.length === 0; attempt += 1) {
-        productionCards = await invoke("findCards", {
-          query: "nid:" + currentInfo.note + " card:Production",
-        });
-        if (productionCards.length === 0) await wait(100);
-      }
-      if (productionCards.length === 0) throw new Error("carte de production non générée");
-
-      await invoke("changeDeck", {
-        cards: productionCards,
-        deck: "${ANKI_PRODUCTION_DECK}",
-      });
-      await invoke("suspend", { cards: productionCards });
-
-      button.textContent = "Production activée";
-      button.dataset.state = "success";
-      status.textContent = "";
-      await invoke("guiShowAnswer").catch(() => {});
+      // Only tag the note: creating, moving or suspending a card now would make Anki
+      // rebuild its queue and possibly replace the card under review with another one.
+      await invoke("addTags", { notes: [currentInfo.note], tags: "${ANKI_PRODUCTION_REQUEST_TAG}" });
+      showActivated();
     } catch (error) {
       button.disabled = false;
       status.dataset.state = "error";

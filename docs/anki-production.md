@@ -37,14 +37,24 @@ nouvelles cartes à cinq par jour et utilise un seuil de sangsue plus tolérant.
 ## Activation et première révision
 
 Le verso de la carte de compréhension propose **Activer la production orale**.
-Cette action :
+Le clic ajoute seulement le tag `subjap::production-demandee` à la note et
+affiche aussitôt « Production orale activée ». Il ne modifie aucune carte : Anki
+reconstruirait sinon sa file et pourrait remplacer la carte en cours par une
+autre.
 
-1. renseigne le champ technique `Production` avec la date d’activation ;
-2. génère la carte sœur conditionnelle ;
+L’extension termine l’activation dès qu’Anki n’affiche plus de carte (au
+démarrage, toutes les heures, à la synchronisation et via **Configurer les
+decks Anki**). Elle :
+
+1. renseigne le champ technique `Production` avec la date de libération ;
+2. génère ainsi la carte sœur conditionnelle et retire le tag ;
 3. la place dans `日本語::Vocabulaire::Production` ;
 4. la suspend pendant deux jours complets ;
 5. la libère ensuite comme nouvelle carte, sans court-circuiter ses étapes
    d’apprentissage.
+
+Ces opérations, comme la libération, sont reportées tant qu’une révision est
+affichée dans Anki.
 
 La carte de compréhension reste active et conserve sa propre planification.
 Une fois la production libérée, le champ `Production` prend la valeur `active`.
