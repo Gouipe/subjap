@@ -140,6 +140,11 @@ dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
    piste possède son propre décalage au centième de seconde ; une valeur positive
    l’affiche plus tard et les boutons ajustent de 0,1 s.
 
+Sans fichier de traduction importé, la piste secondaire affiche **Traduction
+du lecteur** avec son propre décalage, mémorisé par vidéo : il décale la
+traduction fournie par Re:ANIME, Netflix ou YouTube, indépendamment du
+japonais.
+
 Les fichiers SRT, VTT et ASS sont acceptés et mémorisés séparément pour chaque
 vidéo : par identifiant de lecture Netflix ou YouTube, ou par adresse de page
 sur les autres sites. Les anciennes traductions locales restent dans la piste

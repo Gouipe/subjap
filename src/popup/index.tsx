@@ -19,6 +19,7 @@ import type {
   SecondarySubtitleLanguage,
 } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
+import { getTranslationOffset, saveTranslationOffset } from "@/subtitles/translation-offset";
 import {
   getLocalSubtitle,
   localSubtitleVideoId,
@@ -84,6 +85,49 @@ const SHORTCUT_GUIDE = [
   { key: "X", action: "Révéler le sous-titre masqué" },
 ] as const;
 
+/** Offset of one subtitle track: typed value, ±0.1 s steps and reset. */
+function OffsetControls(props: {
+  input: string;
+  value: number;
+  disabled: boolean;
+  onInput: (value: string) => void;
+  onCommit: (seconds: number) => void;
+}): JSX.Element {
+  return (
+    <>
+      <label style={styles.offsetLabel}>
+        <span>Décalage (s)</span>
+        <input
+          style={styles.offsetInput}
+          type="number"
+          step="0.01"
+          value={props.input}
+          disabled={props.disabled}
+          onChange={(event) => props.onInput(event.target.value)}
+          onBlur={() => props.onCommit(Number(props.input.replace(",", ".")))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+        />
+      </label>
+      <p style={styles.localSubtitleHint}>
+        Une valeur positive affiche le texte plus tard.
+      </p>
+      <div style={styles.offsetActions}>
+        <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(props.value - 0.1)}>
+          − 0,1 s
+        </button>
+        <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(props.value + 0.1)}>
+          + 0,1 s
+        </button>
+        <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(0)}>
+          Réinitialiser
+        </button>
+      </div>
+    </>
+  );
+}
+
 const Popup: React.FC = () => {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [savingEnabled, setSavingEnabled] = useState(false);
@@ -112,6 +156,9 @@ const Popup: React.FC = () => {
   });
   const [localSubtitleBusy, setLocalSubtitleBusy] = useState(false);
   const [localSubtitleError, setLocalSubtitleError] = useState<string | null>(null);
+  /** Offset of the translation the player provides, when no file replaces it. */
+  const [playerTranslationOffset, setPlayerTranslationOffset] = useState(0);
+  const [playerOffsetInput, setPlayerOffsetInput] = useState("0.00");
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
 
@@ -202,11 +249,14 @@ const Popup: React.FC = () => {
       }, () => {
         // No frame answered: Japanese subtitles are available or still unknown.
       });
-      const [primary, secondary] = await Promise.all([
+      const [primary, secondary, playerOffset] = await Promise.all([
         getLocalSubtitle(currentVideoId, "primary"),
         getLocalSubtitle(currentVideoId, "secondary"),
+        getTranslationOffset(currentVideoId),
       ]);
       setLocalSubtitles({ primary, secondary });
+      setPlayerTranslationOffset(playerOffset);
+      setPlayerOffsetInput(playerOffset.toFixed(2));
       setOffsetInputs({
         primary: (primary?.offsetSeconds ?? 0).toFixed(2),
         secondary: (secondary?.offsetSeconds ?? 0).toFixed(2),
@@ -266,6 +316,19 @@ const Popup: React.FC = () => {
     },
     [localSubtitles, videoId],
   );
+
+  const persistPlayerTranslationOffset = useCallback(async (value: number) => {
+    if (!videoId || !Number.isFinite(value)) return;
+    const rounded = Math.round(value * 100) / 100;
+    setPlayerTranslationOffset(rounded);
+    setPlayerOffsetInput(rounded.toFixed(2));
+    setLocalSubtitleError(null);
+    try {
+      await saveTranslationOffset(videoId, rounded);
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    }
+  }, [videoId]);
 
   const deleteLocalSubtitle = useCallback(async (role: LocalSubtitleRole) => {
     if (!videoId) return;
@@ -602,56 +665,28 @@ const Popup: React.FC = () => {
                       />
                     </label>
                     <p style={styles.localSubtitleHint}>{roleHint}</p>
+                    {role === "secondary" && !localSubtitle && secondarySubtitleLanguage !== "none" && (
+                      <>
+                        <p style={styles.fileName}>Traduction du lecteur</p>
+                        <OffsetControls
+                          input={playerOffsetInput}
+                          value={playerTranslationOffset}
+                          disabled={localSubtitleBusy}
+                          onInput={setPlayerOffsetInput}
+                          onCommit={(value) => void persistPlayerTranslationOffset(value)}
+                        />
+                      </>
+                    )}
                     {localSubtitle && (
                       <>
                         <p style={styles.fileName}>{localSubtitle.fileName}</p>
-                        <label style={styles.offsetLabel}>
-                          <span>Décalage (s)</span>
-                          <input
-                            style={styles.offsetInput}
-                            type="number"
-                            step="0.01"
-                            value={offsetInputs[role]}
-                            disabled={localSubtitleBusy}
-                            onChange={(event) => setOffsetInputs((current) => ({
-                              ...current,
-                              [role]: event.target.value,
-                            }))}
-                            onBlur={() => void persistOffset(
-                              role,
-                              Number(offsetInputs[role].replace(",", ".")),
-                            )}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") event.currentTarget.blur();
-                            }}
-                          />
-                        </label>
-                        <p style={styles.localSubtitleHint}>
-                          Une valeur positive affiche le texte plus tard.
-                        </p>
-                        <div style={styles.offsetActions}>
-                          <button
-                            style={styles.smallButton}
-                            disabled={localSubtitleBusy}
-                            onClick={() => void persistOffset(role, localSubtitle.offsetSeconds - 0.1)}
-                          >
-                            − 0,1 s
-                          </button>
-                          <button
-                            style={styles.smallButton}
-                            disabled={localSubtitleBusy}
-                            onClick={() => void persistOffset(role, localSubtitle.offsetSeconds + 0.1)}
-                          >
-                            + 0,1 s
-                          </button>
-                          <button
-                            style={styles.smallButton}
-                            disabled={localSubtitleBusy}
-                            onClick={() => void persistOffset(role, 0)}
-                          >
-                            Réinitialiser
-                          </button>
-                        </div>
+                        <OffsetControls
+                          input={offsetInputs[role]}
+                          value={localSubtitle.offsetSeconds}
+                          disabled={localSubtitleBusy}
+                          onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
+                          onCommit={(value) => void persistOffset(role, value)}
+                        />
                         <button
                           style={styles.deleteButton}
                           disabled={localSubtitleBusy}

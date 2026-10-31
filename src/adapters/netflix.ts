@@ -10,6 +10,7 @@ import type {
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
+import { TranslationOffsetWatcher } from "@/subtitles/translation-offset";
 import {
   activeSubtitleCues,
   compactSubtitleText,
@@ -225,6 +226,7 @@ export class NetflixAdapter implements PlatformAdapter {
   /** Subtitle languages Netflix offers, for the episode that announced them. */
   private trackLanguages: { episodeId: string; languages: string[] } | null = null;
   private readonly autoSync = new LocalSubtitleAutoSync();
+  private readonly translationOffset = new TranslationOffsetWatcher(() => this.emitCues());
   private standardTrack: TextTrack | null = null;
   private standardTrackRevision = 0;
   private standardCues: SubtitleCue[] = [];
@@ -814,6 +816,12 @@ export class NetflixAdapter implements PlatformAdapter {
     return currentTime;
   }
 
+  /** Netflix's own translation, shifted by the offset set for this video. */
+  private nativeTranslationCues(language: SecondarySubtitleLanguage): SubtitleCue[] {
+    this.translationOffset.setVideo(this.currentWatchId());
+    return this.translationOffset.apply(this.tracks.cues(language));
+  }
+
   getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {
     this.ensurePlaybackSession();
     if (this.preferredSecondaryLanguage === "none") return null;
@@ -823,7 +831,7 @@ export class NetflixAdapter implements PlatformAdapter {
     const languagePriority: SecondarySubtitleLanguage[] =
       this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
     for (const language of languagePriority) {
-      const cue = firstCueStartingIn(this.tracks.cues(language), after, until);
+      const cue = firstCueStartingIn(this.nativeTranslationCues(language), after, until);
       if (cue) return cueSnapshot(cue);
     }
     return null;
@@ -838,7 +846,7 @@ export class NetflixAdapter implements PlatformAdapter {
     const languagePriority: SecondarySubtitleLanguage[] =
       this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
     for (const language of languagePriority) {
-      const cues = cuesOverlapping(this.tracks.cues(language), start, end);
+      const cues = cuesOverlapping(this.nativeTranslationCues(language), start, end);
       if (cues.length) return cues.map(cueSnapshot);
     }
     return [];
@@ -852,7 +860,7 @@ export class NetflixAdapter implements PlatformAdapter {
     const languagePriority: SecondarySubtitleLanguage[] =
       this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
     for (const language of languagePriority) {
-      const cues = this.tracks.cues(language);
+      const cues = this.nativeTranslationCues(language);
       const active = cues.find(
         (cue) => cue.start <= currentTime && currentTime < cue.end,
       );
@@ -954,7 +962,7 @@ export class NetflixAdapter implements PlatformAdapter {
     const time = video.currentTime;
     let next = Infinity;
     for (const cues of [this.tracks.cues("ja"), this.standardCues,
-      this.tracks.cues("fr"), this.tracks.cues("en")]) {
+      this.nativeTranslationCues("fr"), this.nativeTranslationCues("en")]) {
       for (const cue of cues) {
         if (cue.start > time) next = Math.min(next, cue.start);
         if (cue.end > time) next = Math.min(next, cue.end);
@@ -1222,6 +1230,7 @@ export class NetflixAdapter implements PlatformAdapter {
   // destroy
   // -----------------------------------------------------------------------
   destroy(): void {
+    this.translationOffset.destroy();
     const subscribed = this.cueCallback !== null;
     this.trackUnsubscriber?.();
     this.trackUnsubscriber = null;

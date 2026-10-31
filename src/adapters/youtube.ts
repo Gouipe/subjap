@@ -8,6 +8,7 @@ import {
 import { parseYouTubeCaptions } from "@/subtitles/youtube";
 import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn, SubtitleTrackCatalog } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
+import { TranslationOffsetWatcher } from "@/subtitles/translation-offset";
 
 const HIDE_CLASS = "subjap-youtube-hide-native";
 
@@ -32,6 +33,10 @@ export class YouTubeAdapter implements PlatformAdapter {
   private lastRequestAt = 0;
   private navigating = false;
   private readonly autoSync = new LocalSubtitleAutoSync();
+  private readonly translationOffset = new TranslationOffsetWatcher(() => {
+    this.lastSignature = "";
+    this.publish();
+  });
 
   isActive(_doc: Document, url: string): boolean {
     try { return /(^|\.)youtube\.com$/i.test(new URL(url).hostname); }
@@ -151,6 +156,7 @@ export class YouTubeAdapter implements PlatformAdapter {
   }
 
   destroy(): void {
+    this.translationOffset.destroy();
     // Without a subscriber, the page bridge must stop driving the player.
     if (this.callback) {
       window.postMessage({ source: "subjap", type: "subjap:youtube-release" }, location.origin);
@@ -297,7 +303,8 @@ export class YouTubeAdapter implements PlatformAdapter {
     if (this.preferredLanguage === "none") return [];
     if (this.localSecondaryCues.length) return this.localSecondaryCues;
     const secondary = this.info?.tracks.find((track) => track.language !== "ja");
-    return secondary ? this.catalog.cues(secondary.language) : [];
+    this.translationOffset.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
+    return secondary ? this.translationOffset.apply(this.catalog.cues(secondary.language)) : [];
   }
 
   private applyNativeVisibility(): void {

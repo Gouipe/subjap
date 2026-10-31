@@ -27,6 +27,7 @@ import {
 import { parseSubtitleFile } from "@/subtitles/parse";
 import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
+import { TranslationOffsetWatcher } from "@/subtitles/translation-offset";
 
 const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
 const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
@@ -77,6 +78,10 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private hideNative = false;
   private style: HTMLStyleElement | null = null;
   private readonly autoSync = new LocalSubtitleAutoSync();
+  private readonly translationOffset = new TranslationOffsetWatcher(() => {
+    this.lastSignature = "";
+    this.publish();
+  });
 
   private readonly onVideoEvent = () => this.publish();
   private readonly onAnyVideoPlay = () => this.refreshVideo();
@@ -215,6 +220,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   }
 
   destroy(): void {
+    this.translationOffset.destroy();
     this.observer?.disconnect();
     this.observer = null;
     window.removeEventListener("popstate", this.onPageNavigation);
@@ -340,7 +346,10 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     if (this.localSecondaryCues.length) return this.localSecondaryCues;
     const translations = this.artplayer?.translations ?? {};
     const fallback = this.preferredSecondaryLanguage === "fr" ? "en" : "fr";
-    return translations[this.preferredSecondaryLanguage] ?? translations[fallback] ?? [];
+    this.translationOffset.setVideo(this.videoId);
+    return this.translationOffset.apply(
+      translations[this.preferredSecondaryLanguage] ?? translations[fallback] ?? [],
+    );
   }
 
   /** Local imports of an embedded player are keyed on the tab URL, which can change under it. */
