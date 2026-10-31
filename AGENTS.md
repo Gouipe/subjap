@@ -11,9 +11,7 @@ Références du projet :
 
 - [`PRODUCT.md`](PRODUCT.md) et [`DESIGN.md`](DESIGN.md) — identité stratégique
   et système visuel de SubJap ; les consulter avant toute modification de
-  l'interface, de l'overlay, du mining ou des cartes Anki. Le skill
-  `impeccable` peut être utilisé lorsqu'il est disponible ou explicitement
-  demandé, mais ces documents restent les références durables du projet ;
+  l'interface, de l'overlay, du mining ou des cartes Anki ;
 - [`docs/`](docs/) — documentation du projet ; commencer par parcourir ce dossier
   avant toute modification et consulter les documents dont le nom correspond au
   sujet traité ;
