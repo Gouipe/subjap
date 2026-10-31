@@ -1177,9 +1177,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   deleteButton: {
     width: "100%",
-    marginTop: 7,
-    padding: "5px 8px",
-    border: "none",
+    marginTop: 8,
+    padding: "6px 8px",
+    // Outlined in the danger colour, like the options' danger buttons:
+    // recognisable as a button without competing with the main actions.
+    border: "1px solid #ff8490",
+    borderRadius: 6,
     background: "transparent",
     color: "#ff8490",
     fontSize: 10,
