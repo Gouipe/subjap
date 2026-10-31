@@ -246,13 +246,16 @@ Le chemin principal est le suivant :
    blancs, les inconnus jusqu’au rang connu sont verts et les 300 rangs suivants
    sont bleus.
 
-L’affichage suit un pipeline à deux temps avec priorité à la cue la plus
-récente. Le texte brut est peint immédiatement, puis UniDic le remplace par des
-tokens interactifs blancs. Si la cue contient des suites nominales candidates,
-le content script demande leurs entrées exactes en un seul lot et peut regrouper
-les composants reconnus avant le chargement des états de vocabulaire, de la
-présence Anki et des rangs de fréquence. Ces métadonnées appliquent ensuite les
-couleurs. Chaque arrivée incrémente une révision : un traitement plus ancien
+L’affichage donne la priorité à la cue la plus récente. Si la cue contient des
+suites nominales candidates, le content script demande leurs entrées exactes en
+un seul lot et peut regrouper les composants reconnus avant le chargement des
+états de vocabulaire, de la présence Anki et des rangs de fréquence. La phrase
+est peinte directement avec ses couleurs finales dès que ces métadonnées
+répondent, sans passer par un blanc provisoire qui virerait au gris. Si elles
+tardent plus de 150 ms (cache froid, UniDic en chargement), le texte brut puis
+des tokens interactifs blancs sont peints en attendant. Pour que ce cas reste
+rare, les métadonnées des cinq lignes suivantes d’une piste connue d’avance
+(timed text Netflix) sont préchargées après chaque rendu. Chaque arrivée incrémente une révision : un traitement plus ancien
 peut terminer ses lectures, mais ne peut plus remplacer la phrase courante. Les
 lectures de mots d’une phrase sont groupées dans un seul message MV3 et les
 résultats récurrents restent en cache. Au premier chargement, le sous-titre natif

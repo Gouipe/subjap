@@ -188,6 +188,10 @@ const TRANSLATION_COUNTERPART_COVERAGE = 0.5;
 const TRANSLATION_ANTICIPATION_SECONDS = 1;
 /** Wait before showing a translation alone when only DOM history is known. */
 const TRANSLATION_ALONE_DOM_DELAY_MS = 300;
+/** Longest wait for vocabulary metadata before a neutral (white) first paint. */
+const FIRST_PAINT_WAIT_MS = 150;
+/** Upcoming Japanese lines whose vocabulary is loaded before they are shown. */
+const PREFETCH_CUE_COUNT = 5;
 
 /** Last tokenized cues — used by interactions and the mining modal. */
 let lastRenderedCues: RenderedCue[] = [];
@@ -583,31 +587,14 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
     return;
   }
 
-  // First paint is independent of WASM and IndexedDB. This replaces the old
-  // subtitle immediately, then becomes interactive as soon as UniDic is ready.
   spanRegistry.clear();
   lastRenderedCues = [];
-  overlayInstance.updatePendingContent(
-    japaneseCues.map((cue) => normalizeCueText(cue.text)),
-    translation,
-    knownWordCount,
-  );
-  overlayInstance.show();
   cueNavigator.observe(japaneseCues);
-  nativeSubtitleReplacementReady = true;
-  applyNativeSubtitleVisibility();
 
-  const readyTokenizer = await ensureTokenizerReady();
-  if (!readyTokenizer || revision !== cueRevision) return;
-
-  let tokenizedCues: Array<{ cue: SubtitleCue; tokens: Token[] }> = [];
-
-  for (const cue of japaneseCues) {
-    const cueTokens = tokenizeCue(normalizeCueText(cue.text), readyTokenizer);
-    tokenizedCues.push({ cue, tokens: cueTokens });
-  }
+  let tokenizedCues: Array<{ cue: SubtitleCue; tokens: Token[] }> | null = null;
 
   const buildRenderedCues = (
+    cues: Array<{ cue: SubtitleCue; tokens: Token[] }>,
     pending: boolean,
     frequencyRanks: Record<string, number> = {},
   ): {
@@ -618,7 +605,7 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
     const rendered: RenderedCue[] = [];
     let globalIndex = 0;
 
-    for (const { cue, tokens } of tokenizedCues) {
+    for (const { cue, tokens } of cues) {
       const parentheticalFlags = markParentheticalTokens(tokens);
       const spans: SpanToken[] = tokens.map((token, tokenIndex) => {
         const index = globalIndex++;
@@ -660,25 +647,81 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
     overlayInstance.show();
   };
 
-  // UniDic is synchronous once warm, so interactive white tokens replace the
-  // plain first paint without waiting for vocabulary metadata.
-  const provisional = buildRenderedCues(true);
-  commitRenderedCues(provisional.rendered, provisional.registry, knownWordCount);
+  // Final colours are painted directly whenever vocabulary metadata answers
+  // quickly, which is always the case once cached: a word painted white, then
+  // grey a moment later, reads as a flicker. Only a slow lookup (cold cache,
+  // UniDic still loading) gets a neutral first paint after a short wait.
+  let painted = false;
+  const markPainted = (): void => {
+    painted = true;
+    nativeSubtitleReplacementReady = true;
+    applyNativeSubtitleVisibility();
+  };
+  const paintProvisional = (): void => {
+    if (!tokenizedCues) return;
+    // UniDic is synchronous once warm: interactive white tokens replace the
+    // plain text without waiting for vocabulary metadata.
+    const provisional = buildRenderedCues(tokenizedCues, true);
+    commitRenderedCues(provisional.rendered, provisional.registry, knownWordCount);
+  };
+  const firstPaintTimer = setTimeout(() => {
+    if (painted || revision !== cueRevision) return;
+    if (tokenizedCues) {
+      paintProvisional();
+    } else {
+      overlayInstance.updatePendingContent(
+        japaneseCues.map((cue) => normalizeCueText(cue.text)),
+        translation,
+        knownWordCount,
+      );
+      overlayInstance.show();
+    }
+    markPainted();
+  }, FIRST_PAINT_WAIT_MS);
+
+  const readyTokenizer = await ensureTokenizerReady();
+  if (!readyTokenizer || revision !== cueRevision) return;
+
+  tokenizedCues = japaneseCues.map((cue) => ({
+    cue,
+    tokens: tokenizeCue(normalizeCueText(cue.text), readyTokenizer),
+  }));
+  if (painted) paintProvisional();
 
   tokenizedCues = await resolveDictionaryCompounds(tokenizedCues);
   if (revision !== cueRevision) return;
-  const allTokens = tokenizedCues.flatMap(({ tokens }) => tokens);
+  const [frequencyRanks, resolvedKnownWordCount] = await loadVocabularyMetadata(
+    tokenizedCues.flatMap(({ tokens }) => tokens),
+    revision,
+  );
 
+  // Skip stale renders: a newer emission (e.g. an empty cue set that hid the
+  // overlay) may have superseded this one while metadata was loading.
+  if (revision !== cueRevision) return;
+
+  clearTimeout(firstPaintTimer);
+  const enriched = buildRenderedCues(tokenizedCues, false, frequencyRanks);
+  commitRenderedCues(enriched.rendered, enriched.registry, resolvedKnownWordCount);
+  markPainted();
+  console.log(`[SubJap] render: shown ${enriched.rendered.length} cue(s)`);
+  prefetchUpcomingCues(japaneseCues, readyTokenizer, revision);
+}
+
+/** Fill the frequency, known-count and word-state caches for these tokens. */
+async function loadVocabularyMetadata(
+  tokens: Token[],
+  revision: number,
+): Promise<[Record<string, number>, number]> {
   const frequencyTerms = [
     ...new Set(
-      allTokens.flatMap((token) => [
+      tokens.flatMap((token) => [
         tokenCanonicalKey(token),
         tokenDictionaryForm(token),
         token.surface,
       ]),
     ),
   ];
-  const wordLookups = allTokens.map((token) => ({
+  const wordLookups = tokens.map((token) => ({
     key: tokenCanonicalKey(token),
     aliases: tokenStateLookupTerms(token),
   }));
@@ -687,14 +730,40 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
     getKnownWordCount(),
     getWordStates(wordLookups, revision),
   ]);
+  return [frequencyRanks, resolvedKnownWordCount];
+}
 
-  // Skip stale renders: a newer emission (e.g. an empty cue set that hid the
-  // overlay) may have superseded this one while metadata was loading.
-  if (revision !== cueRevision) return;
+/**
+ * Warm the caches with the next lines of a known track (Netflix timed text),
+ * so they are painted in their final colours as soon as they appear.
+ */
+function prefetchUpcomingCues(
+  current: SubtitleCue[],
+  readyTokenizer: Tokenizer,
+  revision: number,
+): void {
+  const after = Math.max(...current.map((cue) => cue.start));
+  const upcoming = (adapter.getNavigationCues?.() ?? [])
+    .filter((cue) => cue.start > after)
+    .sort((a, b) => a.start - b.start)
+    .slice(0, PREFETCH_CUE_COUNT);
+  if (upcoming.length === 0) return;
 
-  const enriched = buildRenderedCues(false, frequencyRanks);
-  commitRenderedCues(enriched.rendered, enriched.registry, resolvedKnownWordCount);
-  console.log(`[SubJap] render: shown ${enriched.rendered.length} cue(s)`);
+  void (async () => {
+    const tokenized = await resolveDictionaryCompounds(
+      upcoming.map((cue) => ({
+        cue,
+        tokens: tokenizeCue(normalizeCueText(cue.text), readyTokenizer),
+      })),
+    );
+    if (revision !== cueRevision) return;
+    await loadVocabularyMetadata(
+      tokenized.flatMap(({ tokens }) => tokens),
+      revision,
+    );
+  })().catch((err: unknown) => {
+    console.warn("[SubJap] Upcoming cue prefetch failed:", err);
+  });
 }
 
 function rememberNavigationCues(): boolean {
