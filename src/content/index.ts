@@ -1396,7 +1396,7 @@ async function installFromJimaku(notice: VideoNotice, videoId: string, choice?: 
       const { choices, fileName } = result;
       const actions = [
         ...(choices.length > 1
-          ? [{ label: "Changer", onClick: () => chooseJimakuFile(notice, videoId, choices, fileName) }]
+          ? [{ label: "Autres sous-titres disponibles…", onClick: () => chooseJimakuFile(notice, videoId, choices, fileName) }]
           : []),
         { label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) },
       ];
