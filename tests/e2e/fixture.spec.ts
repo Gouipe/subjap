@@ -487,21 +487,20 @@ test.describe("SubJap UX fixture", () => {
         configurable: true,
         value: messages,
       });
-      (window as unknown as { chrome: unknown }).chrome = {
-        runtime: {
-          sendMessage: async (message: Record<string, unknown>) => {
-            messages.push(message);
-            switch (message.type) {
-              case "mine:create":
-                return { id: "fixture-card" };
-              case "anki:setup":
-                return { deckName: "SubJap", modelName: "Migaku Memory" };
-              case "anki:addNote":
-                return { noteId: 42, modelName: "Migaku Memory", deckName: "SubJap" };
-              default:
-                return undefined;
-            }
-          },
+      // Keep the fixture's storage stub; only the service worker is replaced.
+      (window as unknown as { chrome: { runtime: unknown } }).chrome.runtime = {
+        sendMessage: async (message: Record<string, unknown>) => {
+          messages.push(message);
+          switch (message.type) {
+            case "mine:create":
+              return { id: "fixture-card" };
+            case "anki:setup":
+              return { deckName: "SubJap", modelName: "Migaku Memory" };
+            case "anki:addNote":
+              return { noteId: 42, modelName: "Migaku Memory", deckName: "SubJap" };
+            default:
+              return undefined;
+          }
         },
       };
     });

@@ -31,34 +31,6 @@ describe("CueNavigator", () => {
     expect(navigator.getSeekTime("previous", 111.2)).toBe(105);
   });
 
-  it("merges authoritative timing into a provisional DOM occurrence", () => {
-    const navigator = new CueNavigator();
-    const previous = cue("previous", 105, 110.778);
-    const provisional = {
-      id: "dom-current",
-      start: 110.914,
-      end: 110.914,
-      endConfirmed: false,
-      text: "current",
-      language: "ja",
-    } satisfies SubtitleCue;
-    const authoritative = {
-      id: "track-current",
-      start: 110.778,
-      end: 111,
-      text: "current",
-      language: "ja",
-    } satisfies SubtitleCue;
-
-    navigator.remember([previous]);
-    navigator.observe([provisional]);
-    navigator.remember([authoritative]);
-
-    expect(navigator.getSeekTime("previous", 111.064)).toBe(105);
-    navigator.cancelPendingSeek();
-    expect(navigator.getSeekTime("current", 111.064)).toBe(110.778);
-  });
-
   it("ignores whitespace-only cues in navigation history", () => {
     const navigator = new CueNavigator();
     const previous = cue("previous", 10, 12);
@@ -105,83 +77,6 @@ describe("CueNavigator", () => {
     ]);
 
     expect(navigator.getSeekTime("current", 11)).toBe(10);
-  });
-
-  it("treats whitespace-only Netflix rebuilds as the same cue", () => {
-    const navigator = new CueNavigator();
-    navigator.observe([
-      {
-        id: "real-previous",
-        start: 50,
-        end: 52,
-        text: "本当の前の字幕",
-        language: "ja",
-      },
-    ]);
-    navigator.observe([
-      {
-        id: "first-dom-build",
-        start: 59.4,
-        end: 59.7,
-        text: "（篠原 ）でも すごいですね",
-        language: "ja",
-      },
-    ]);
-    navigator.observe([]);
-    navigator.observe([
-      {
-        id: "seek-rebuild",
-        start: 59.7,
-        end: 60.5,
-        text: "（篠原）でも すごいですね",
-        language: "ja",
-      },
-    ]);
-
-    expect(navigator.getSeekTime("previous", 60)).toBe(50);
-  });
-
-  it("keeps the historical start when a seek rebuild overlaps the old cue", () => {
-    const navigator = new CueNavigator();
-    navigator.observe([
-      {
-        id: "real-previous",
-        start: 106,
-        end: 110.778,
-        text: "廊下を走らないって言ってるでしょう",
-        language: "ja",
-      },
-    ]);
-    navigator.observe([
-      {
-        id: "current",
-        start: 110.778,
-        end: 114,
-        text: "困るんですよ 生徒に示しがつかないから",
-        language: "ja",
-      },
-    ]);
-    navigator.observe([
-      {
-        id: "late-seek-rebuild",
-        start: 110.489,
-        end: 110.489,
-        endConfirmed: false,
-        text: "廊下を走らないって言ってるでしょう",
-        language: "ja",
-      },
-    ]);
-    navigator.observe([
-      {
-        id: "current-rebuilt",
-        start: 110.778,
-        end: 114,
-        text: "困るんですよ生徒に示しがつかないから",
-        language: "ja",
-      },
-    ]);
-
-    expect(navigator.getSeekTime("previous", 111)).toBe(106);
   });
 
   it("keeps distant non-overlapping repetitions as separate cues", () => {

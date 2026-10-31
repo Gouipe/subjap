@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NetflixAdapter } from "@/adapters/netflix";
 import type { SubtitleCue } from "@/core/types";
 
@@ -58,13 +58,30 @@ function addRubyLine(
   return line;
 }
 
+function stubChrome(sendMessage = vi.fn().mockResolvedValue(undefined)): void {
+  vi.stubGlobal("chrome", {
+    runtime: { sendMessage },
+    storage: {
+      local: { get: vi.fn().mockResolvedValue({}) },
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
+  });
+}
+
+function historyCue(adapter: NetflixAdapter, id: string | undefined): SubtitleCue | undefined {
+  return adapter.getNavigationCues().find((cue) => cue.id === id);
+}
+
 async function flushCueDebounce(): Promise<void> {
   await Promise.resolve();
   await new Promise<void>((resolve) => setTimeout(resolve, 70));
 }
 
 describe("NetflixAdapter", () => {
+  beforeEach(() => stubChrome());
+
   afterEach(() => {
+    vi.unstubAllGlobals();
     document.body.innerHTML = "";
     document.documentElement.className = "";
     vi.useRealTimers();
@@ -134,7 +151,7 @@ describe("NetflixAdapter", () => {
     const track = {
       language: "ja",
       mode: "showing",
-      activeCues: [blankCue, meaningfulCue],
+      cues: [blankCue, meaningfulCue],
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     } as unknown as TextTrack;
@@ -143,10 +160,15 @@ describe("NetflixAdapter", () => {
       value: [track],
     });
 
+    video.currentTime = 4.5;
     const adapter = new NetflixAdapter();
     const received: SubtitleCue[][] = [];
     const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
 
+    video.dispatchEvent(new Event("cuechange"));
+    expect(received.at(-1)).toEqual([]);
+
+    video.currentTime = 6;
     video.dispatchEvent(new Event("cuechange"));
 
     expect(received.at(-1)).toEqual([
@@ -188,12 +210,12 @@ describe("NetflixAdapter", () => {
     addLine(timedtext, "字幕 sans timestamps", null, null);
 
     // Playback keeps moving while DOM mutations are debounced. The cue must
-    // retain the transition time (with a small preroll), not this later time.
+    // retain the transition time, not this later time.
     await Promise.resolve();
     video.currentTime = 20.5;
     await flushCueDebounce();
 
-    expect(received.at(-1)).toEqual({ start: 19.85, end: 19.85 });
+    expect(received.at(-1)).toEqual({ start: 20, end: 20 });
 
     unsubscribe();
     adapter.destroy();
@@ -214,7 +236,7 @@ describe("NetflixAdapter", () => {
 
     await flushCueDebounce();
     const domCue = received.at(-1)?.[0];
-    expect(domCue?.start).toBeCloseTo(110.65, 5);
+    expect(domCue?.start).toBeCloseTo(110.8, 5);
 
     window.dispatchEvent(
       new MessageEvent("message", {
@@ -233,20 +255,26 @@ describe("NetflixAdapter", () => {
       }),
     );
 
-    expect(received.at(-1)?.[0]).toBe(domCue);
-    expect(domCue).toMatchObject({
+    await flushCueDebounce();
+
+    // The official segment becomes the active source; the snapshot already
+    // handed out (possibly frozen in mining) is left untouched.
+    expect(received.at(-1)?.[0]).toMatchObject({
+      text: "廊下を走らないって言ってるでしょう",
       start: 105,
       end: 111,
       endConfirmed: true,
+      source: expect.objectContaining({ kind: "track" }),
     });
+    expect(domCue).toMatchObject({ start: 110.8, endConfirmed: false });
 
     unsubscribe();
     adapter.destroy();
   });
 
-  it("corrige une cue DOM encore visible après la fin officielle", async () => {
+  it("n'affiche plus une cue DOM encore visible après la fin officielle", async () => {
     const { video, timedtext } = installNetflixPlayer();
-    video.currentTime = 111.064;
+    video.currentTime = 110.9;
     addLine(timedtext, "困るんですよ生徒に示しがつかないから", null, null);
     const adapter = new NetflixAdapter();
     const received: SubtitleCue[][] = [];
@@ -254,7 +282,7 @@ describe("NetflixAdapter", () => {
 
     await flushCueDebounce();
     const domCue = received.at(-1)?.[0];
-    expect(domCue?.start).toBeCloseTo(110.914, 5);
+    expect(domCue?.start).toBeCloseTo(110.9, 5);
 
     window.dispatchEvent(
       new MessageEvent("message", {
@@ -275,12 +303,21 @@ describe("NetflixAdapter", () => {
       }),
     );
 
-    expect(domCue).toMatchObject({
+    await flushCueDebounce();
+    expect(received.at(-1)?.[0]).toMatchObject({ start: 110.778, end: 111 });
+
+    // The official track is authoritative: past its end, the stale DOM text
+    // is a silence, and navigation uses the official segment bounds.
+    video.currentTime = 111.064;
+    video.dispatchEvent(new Event("timeupdate"));
+    await flushCueDebounce();
+    expect(received.at(-1)).toEqual([]);
+    expect(adapter.getNavigationCues().at(-1)).toMatchObject({
+      text: "困るんですよ生徒に示しがつかないから",
       start: 110.778,
       end: 111,
       endConfirmed: true,
     });
-    expect(received.at(-1)?.[0]).toBe(domCue);
 
     unsubscribe();
     adapter.destroy();
@@ -308,7 +345,7 @@ describe("NetflixAdapter", () => {
     adapter.destroy();
   });
 
-  it("conserve une phrase longue quand Netflix fait défiler ses deux lignes", async () => {
+  it("distingue chaque état DOM quand Netflix fait défiler ses deux lignes", async () => {
     const { video, timedtext } = installNetflixPlayer();
     video.currentTime = 40;
     const adapter = new NetflixAdapter();
@@ -317,7 +354,6 @@ describe("NetflixAdapter", () => {
 
     addLine(timedtext, "生徒が起こした騒動については", null, null);
     await flushCueDebounce();
-    const phrase = received.at(-1)?.[0];
 
     video.currentTime = 42;
     timedtext.replaceChildren();
@@ -330,17 +366,20 @@ describe("NetflixAdapter", () => {
     addLine(timedtext, "不問ということにいたしましょう", null, null);
     await flushCueDebounce();
 
-    expect(received.at(-1)?.[0]).toBe(phrase);
-    expect(phrase).toMatchObject({
-      start: 39.85,
-      endConfirmed: false,
-      text: "生徒が起こした騒動については\n不問ということにいたしましょう",
-    });
-
     video.currentTime = 46;
     timedtext.replaceChildren();
     await flushCueDebounce();
-    expect(phrase).toMatchObject({ end: 46, endConfirmed: true });
+
+    // A → A+B → B stays three observations, never a permanent A+B.
+    expect(adapter.getNavigationCues().map(({ text, start, end, endConfirmed }) =>
+      ({ text, start, end, endConfirmed }))).toEqual([
+      { text: "生徒が起こした騒動については", start: 40, end: 42, endConfirmed: true },
+      {
+        text: "生徒が起こした騒動については\n不問ということにいたしましょう",
+        start: 42, end: 44, endConfirmed: true,
+      },
+      { text: "不問ということにいたしましょう", start: 44, end: 46, endConfirmed: true },
+    ]);
 
     unsubscribe();
     adapter.destroy();
@@ -358,8 +397,8 @@ describe("NetflixAdapter", () => {
 
     const activeCue = received.at(-1)?.[0];
     expect(activeCue).toMatchObject({
-      start: 29.85,
-      end: 29.85,
+      start: 30,
+      end: 30,
       endConfirmed: false,
     });
 
@@ -367,7 +406,8 @@ describe("NetflixAdapter", () => {
     timedtext.replaceChildren();
     await flushCueDebounce();
 
-    expect(activeCue).toMatchObject({ end: 36.4, endConfirmed: true });
+    expect(historyCue(adapter, activeCue?.id)).toMatchObject({ end: 36.4, endConfirmed: true });
+    expect(activeCue).toMatchObject({ end: 30, endConfirmed: false });
     expect(received.at(-1)).toEqual([]);
 
     unsubscribe();
@@ -414,11 +454,13 @@ describe("NetflixAdapter", () => {
     await flushCueDebounce();
     const cue = received.at(-1)?.[0];
 
-    await adapter.seekTo(9.85, true);
-    video.currentTime = 9.85;
+    // Replay from later in the subtitle, as the Q/S shortcuts do.
+    video.currentTime = 11;
+    await adapter.seekTo(10, true);
+    video.currentTime = 10;
     timedtext.replaceChildren();
     await flushCueDebounce();
-    expect(cue?.endConfirmed).toBe(false);
+    expect(historyCue(adapter, cue?.id)?.endConfirmed).toBe(false);
 
     video.currentTime = 10;
     addLine(timedtext, "Phrase rejouée", null, null);
@@ -427,7 +469,7 @@ describe("NetflixAdapter", () => {
     timedtext.replaceChildren();
     await flushCueDebounce();
 
-    expect(cue).toMatchObject({ end: 12, endConfirmed: true });
+    expect(historyCue(adapter, cue?.id)).toMatchObject({ end: 12, endConfirmed: true });
 
     unsubscribe();
     adapter.destroy();
@@ -444,16 +486,20 @@ describe("NetflixAdapter", () => {
     addLine(timedtext, "Phrase minée", null, null);
     await flushCueDebounce();
     const cue = received.at(-1)?.[0];
-    expect(cue?.start).toBe(9.85);
+    expect(cue?.start).toBe(10);
 
-    await adapter.seekTo(9.85, false);
-    video.currentTime = 9.85;
+    // Replay from later in the subtitle, as the Q/S shortcuts do.
+    video.currentTime = 11;
+    await adapter.seekTo(10, false);
+    video.currentTime = 10;
     timedtext.replaceChildren();
     addLine(timedtext, "Phrase précédente", null, null);
     await flushCueDebounce();
 
-    expect(received.at(-1)?.[0]).toBe(cue);
-    expect(cue?.endConfirmed).toBe(false);
+    // The remembered start is a seek target: nothing is published until
+    // Netflix shows its text again.
+    expect(received.at(-1)).toEqual([]);
+    expect(historyCue(adapter, cue?.id)?.endConfirmed).toBe(false);
 
     video.currentTime = 10;
     timedtext.replaceChildren();
@@ -463,7 +509,7 @@ describe("NetflixAdapter", () => {
     timedtext.replaceChildren();
     await flushCueDebounce();
 
-    expect(cue).toMatchObject({ end: 12, endConfirmed: true });
+    expect(historyCue(adapter, cue?.id)).toMatchObject({ end: 12, endConfirmed: true });
 
     unsubscribe();
     adapter.destroy();
@@ -493,7 +539,10 @@ describe("NetflixAdapter", () => {
   });
 
   it("combine la piste japonaise et la traduction française capturées", async () => {
-    installNetflixPlayer();
+    const { timedtext } = installNetflixPlayer();
+    // Without the player's track identity, the visible text elects the
+    // Japanese file.
+    addLine(timedtext, "日本語の字幕", null, null);
     const adapter = new NetflixAdapter();
     const received: SubtitleCue[][] = [];
     const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
@@ -536,7 +585,7 @@ describe("NetflixAdapter", () => {
       language: "fr-FR",
       body: "WEBVTT\n\n00:00:00.000 --> 00:00:10.000\nSous-titre français",
     });
-    vi.stubGlobal("chrome", { runtime: { sendMessage: sendMessageMock } });
+    stubChrome(sendMessageMock);
     const adapter = new NetflixAdapter();
     const received: SubtitleCue[][] = [];
     const unsubscribe = adapter.subscribeCues((cues) => received.push(cues));
@@ -567,7 +616,6 @@ describe("NetflixAdapter", () => {
 
     unsubscribe();
     adapter.destroy();
-    vi.unstubAllGlobals();
   });
 
   it("délègue le seek au transport sans écrire currentTime", async () => {

@@ -1,3 +1,4 @@
+import "./chrome-stub";
 import { NetflixAdapter } from "../../src/adapters/netflix";
 import { OverlayRenderer } from "../../src/overlay/renderer";
 import { getPopover, hidePopover, showPopover } from "../../src/overlay/popover";

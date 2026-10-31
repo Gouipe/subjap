@@ -34,7 +34,7 @@ describe("token dictionary lookup", () => {
     await expect(
       lookupTokenDictionaryEntry(token, localLookup, remoteLookup),
     ).resolves.toBe(entry);
-    expect(remoteLookup).toHaveBeenCalledWith("ケンカ");
-    expect(remoteLookup).toHaveBeenCalledWith("けんか");
+    expect(remoteLookup).toHaveBeenCalledWith("ケンカ", { mode: "orthography" });
+    expect(remoteLookup).toHaveBeenCalledWith("けんか", { mode: "reading" });
   });
 });

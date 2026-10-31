@@ -1260,7 +1260,13 @@ function looksLikeSubtitleBody(body: string): boolean {
 export function inferSubtitleBodyLanguage(body: string): string {
   const declared = body.match(/(?:xml:lang|\blang|\blanguage)\s*=\s*["']([^"']+)["']/i)?.[1];
   if (declared) return declared;
-  const visibleText = body.replace(/<[^>]*>/g, " ");
+  // Ignore the WEBVTT header and timing/settings lines: in short Japanese
+  // files their Latin characters could outnumber the subtitle text.
+  const visibleText = body
+    .replace(/<[^>]*>/g, " ")
+    .split(/\r?\n/)
+    .filter((line) => !/^WEBVTT\b/.test(line) && !line.includes("-->"))
+    .join(" ");
   const japaneseCharacters = visibleText.match(/[\u3040-\u30ff\u3400-\u9fff]/gu)?.length ?? 0;
   const latinCharacters = visibleText.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/gu)?.length ?? 0;
   if (japaneseCharacters >= 4 && japaneseCharacters >= latinCharacters) return "ja";

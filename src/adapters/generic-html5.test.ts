@@ -3,10 +3,8 @@ import { GENERIC_HTML5_ADAPTER } from "@/core/adapters/registry";
 
 function installVideo(): HTMLVideoElement {
   const video = document.createElement("video");
-  Object.defineProperties(video, {
-    offsetWidth: { value: 640 },
-    offsetHeight: { value: 360 },
-  });
+  // The adapter only follows a rendered video.
+  video.getBoundingClientRect = () => new DOMRect(0, 0, 640, 360);
   document.body.appendChild(video);
   return video;
 }

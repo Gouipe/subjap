@@ -191,6 +191,8 @@ describe("MiningModal", () => {
     await vi.waitFor(() => {
       expect(captureCueMock).toHaveBeenCalledWith(
         expect.objectContaining({ id: "fixture", start: 1, end: 2 }),
+        0.3,
+        expect.any(Function),
       );
       expect(document.querySelector<HTMLButtonElement>(".subjap-audio-control")?.disabled).toBe(
         false,

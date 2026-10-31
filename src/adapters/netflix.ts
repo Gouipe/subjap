@@ -745,11 +745,11 @@ export class NetflixAdapter implements PlatformAdapter {
     const official = this.tracks.cues("ja");
     const timed = official.length ? official : this.standardCues;
     const time = this.subtitleTime();
-    const japaneseCues = this.localPrimaryCues.length
+    const japaneseCues = (this.localPrimaryCues.length
       ? activeSubtitleCues(this.localPrimaryCues, time)
       : timed.length
         ? activeSubtitleCues(timed, time)
-        : japanese.filter((cue) => hasMeaningfulCueText(cue.text));
+        : japanese).filter((cue) => hasMeaningfulCueText(cue.text));
     // A translation published alone asserts that no Japanese is shown there.
     // While a seek is landing, the Japanese state at the destination is not
     // known yet: keep the translation for when Japanese is present again.

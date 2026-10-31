@@ -30,6 +30,11 @@ function suffixVerb(surface: string, lemma: string): Token {
   });
 }
 
+/** UniDic always tags the te-form particle as 接続助詞. */
+function teParticle(): Token {
+  return token("て", "て", ["助詞"], { partOfSpeechDetails: ["接続助詞"] });
+}
+
 function auxiliary(surface: string, lemma: string, type: string): Token {
   return token(surface, lemma, ["助動詞"], { conjugationType: type });
 }
@@ -39,7 +44,7 @@ describe("groupTokens", () => {
     const input = [
       token("じゃ", "だ", ["助動詞"]),
       token("なく", "ない", ["形容詞"]),
-      token("て", "て", ["助詞"]),
+      teParticle(),
     ];
 
     const result = groupTokens(input);
@@ -57,7 +62,7 @@ describe("groupTokens", () => {
     const result = groupTokens([
       token("では", "だ", ["助動詞"]),
       token("なく", "ない", ["形容詞"]),
-      token("て", "て", ["助詞"]),
+      teParticle(),
     ]);
 
     expect(result.map((item) => item.surface)).toEqual(["ではなくて"]);
@@ -67,7 +72,7 @@ describe("groupTokens", () => {
     const result = groupTokens([
       token("じゃ", "だ", ["助動詞"]),
       token("なくっ", "ない", ["形容詞"]),
-      token("て", "て", ["助詞"]),
+      teParticle(),
     ]);
 
     expect(result.map((item) => item.surface)).toEqual(["じゃなくって"]);
@@ -164,6 +169,9 @@ describe("groupTokens", () => {
         partOfSpeech: ["動詞"],
         partOfSpeechDetails: ["自立"],
         components: input,
+        grammar: expect.arrayContaining([
+          expect.objectContaining({ kind: "inflection", label: "politesse" }),
+        ]),
       });
     },
   );
@@ -262,14 +270,16 @@ describe("groupTokens", () => {
     });
   });
 
-  it("s'arrête devant une particule et un nouveau verbe", () => {
-    const input = [
+  it("s'arrête devant un nouveau verbe lexical après la forme en て", () => {
+    const sleep = independentVerb("寝る", "寝る");
+    const result = groupTokens([
       independentVerb("読ん", "読む"),
       token("で", "で", ["助詞"], { partOfSpeechDetails: ["接続助詞"] }),
-      token("いる", "いる", ["動詞"], { partOfSpeechDetails: ["非自立"] }),
-    ];
+      sleep,
+    ]);
 
-    expect(groupTokens(input)).toEqual(input);
+    expect(result.map((item) => item.surface)).toEqual(["読んで", "寝る"]);
+    expect(result[1]).toBe(sleep);
   });
 
   it("ne traite pas un verbe suffixe isolé comme une tête lexicale", () => {

@@ -268,7 +268,9 @@ describe("OverlayRenderer", () => {
       0,
     );
 
-    expect(document.querySelector(".subjap-translation-line")).toBeNull();
+    // Hidden, not removed, so it can be revealed on hover.
+    expect(document.querySelector(".subjap-translation-line")?.classList)
+      .toContain("subjap-translation-line--hidden");
     overlay.destroy();
   });
 

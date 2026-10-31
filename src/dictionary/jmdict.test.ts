@@ -59,6 +59,8 @@ describe("convertJmdictWord", () => {
     expect(entry).toEqual({
       headword: "猫",
       reading: "ねこ",
+      spellings: ["猫"],
+      readings: ["ねこ"],
       partOfSpeech: ["n"],
       senses: [{ glosses: ["cat", "kitten"], tags: [] }],
       common: true,

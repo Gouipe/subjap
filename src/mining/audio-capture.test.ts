@@ -65,25 +65,38 @@ describe("VideoAudioCapture", () => {
       text: "長い字幕",
       language: "ja",
     };
+    // Recording starts 300 ms before the cue.
+    const from = 0.7;
+    let resolveEnd: (end: number) => void = () => undefined;
+    const replay = {
+      startObserving: vi.fn(),
+      waitForEnd: vi.fn(() => new Promise<number>((resolve) => {
+        resolveEnd = resolve;
+      })),
+      close: vi.fn(),
+    };
     const seekTo = vi.fn((time: number, resume: boolean) => {
       currentTime = time;
       paused = !resume;
-      if (resume && time === cue.start) {
+      if (resume && time === from) {
         setTimeout(() => {
-          cue.end = 5;
-          cue.endConfirmed = true;
           currentTime = 5.4;
+          resolveEnd(5);
         }, 10);
       }
       return Promise.resolve(true);
     });
-    const capture = new VideoAudioCapture(video, seekTo);
+    const resolvedBounds = vi.fn();
+    const capture = new VideoAudioCapture(video, seekTo, () => replay);
 
-    await expect(capture.captureCue(cue)).resolves.toBe(
+    await expect(capture.captureCue(cue, 0.3, resolvedBounds)).resolves.toBe(
       "data:audio/webm;base64,phrase",
     );
-    expect(seekTo).toHaveBeenNthCalledWith(1, 1, false);
-    expect(seekTo).toHaveBeenNthCalledWith(2, 1, true);
+    expect(replay.startObserving).toHaveBeenCalled();
+    expect(replay.close).toHaveBeenCalled();
+    expect(resolvedBounds).toHaveBeenCalledWith(1, 5);
+    expect(seekTo).toHaveBeenNthCalledWith(1, from, false);
+    expect(seekTo).toHaveBeenNthCalledWith(2, from, true);
     expect(seekTo).toHaveBeenLastCalledWith(10, false);
     expect(currentTime).toBe(10);
     expect(paused).toBe(true);
@@ -118,14 +131,14 @@ describe("VideoAudioCapture", () => {
     });
 
     const seekTo = vi.fn((time: number, resume: boolean) => {
-      if (time === 1 && !resume) {
+      if (time === 0.7 && !resume) {
         // The bridge acknowledges immediately, but Netflix applies the seek
         // asynchronously while currentTime is still in the second half.
         setTimeout(() => {
-          currentTime = 1;
+          currentTime = 0.7;
           paused = true;
         }, 30);
-      } else if (time === 1 && resume) {
+      } else if (time === 0.7 && resume) {
         paused = false;
         setTimeout(() => {
           currentTime = 4.4;
@@ -143,7 +156,7 @@ describe("VideoAudioCapture", () => {
     );
 
     expect(messageTimes.find(({ type }) => type === "tabCapture:phraseStart")?.time)
-      .toBeCloseTo(1, 1);
+      .toBeCloseTo(0.7, 1);
     expect(messageTimes.find(({ type }) => type === "tabCapture:phraseStop")?.time)
       .toBeGreaterThanOrEqual(4.3);
     expect(seekTo).toHaveBeenLastCalledWith(8, false);
@@ -182,7 +195,7 @@ describe("VideoAudioCapture", () => {
       paused = !resume;
       if (resume) {
         setTimeout(() => {
-          currentTime = time + 2.4;
+          currentTime = time + 3;
         }, 10);
       }
       return Promise.resolve(true);
