@@ -58,7 +58,18 @@ const C = {
   green: "#78d6a3",
   red: "#ff8490",
   amber: "#f1b46d",
+  priorityBlue: "#55b8ff",
+  unknownGrey: "#9ca1aa",
 };
+
+/** Video-tab shortcuts shown at the end of onboarding (see README). */
+const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
+  ["Q", "sous-titre précédent"],
+  ["S", "rejouer le sous-titre"],
+  ["D", "sous-titre suivant"],
+  ["C", "copier le japonais"],
+  ["X", "révéler la traduction masquée"],
+];
 
 function Section(props: { title: string; children: React.ReactNode }): JSX.Element {
   return (
@@ -308,11 +319,49 @@ function OnboardingWizard(props: {
       <Page maxWidth={560}>
         <Header />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>Configuration terminée 🎉</h2>
+          <h2 style={s.cardTitle}>SubJap est prêt</h2>
           <p style={s.muted}>
-            SubJap est prêt. Ouvrez une série avec des sous-titres japonais pour voir l'overlay
-            interactif.
+            Ouvrez une vidéo Netflix ou YouTube qui a des sous-titres japonais.
           </p>
+
+          <h3 style={s.guideTitle}>Miner un mot</h3>
+          <p style={s.muted}>
+            Survolez un mot du sous-titre pour voir sa définition, puis cliquez sur{" "}
+            <strong style={{ color: C.text }}>Mine this</strong> pour créer la carte Anki.
+          </p>
+
+          <h3 style={s.guideTitle}>Couleurs</h3>
+          <div style={s.legend}>
+            <span style={{ ...s.legendWord, color: C.green, borderBottomColor: C.green }}>
+              単語
+            </span>
+            <span style={s.legendText}>à miner, très fréquent</span>
+            <span
+              style={{ ...s.legendWord, color: C.priorityBlue, borderBottomColor: C.priorityBlue }}
+            >
+              単語
+            </span>
+            <span style={s.legendText}>à miner, un peu moins fréquent</span>
+            <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
+            <span style={s.legendText}>inconnu, pas encore prioritaire</span>
+            <span style={{ ...s.legendWord, color: C.text }}>単語</span>
+            <span style={s.legendText}>compris</span>
+          </div>
+
+          <h3 style={s.guideTitle}>Raccourcis</h3>
+          <div style={s.legend}>
+            {SHORTCUTS.map(([key, label]) => (
+              <React.Fragment key={key}>
+                <kbd style={s.kbd}>{key}</kbd>
+                <span style={s.legendText}>{label}</span>
+              </React.Fragment>
+            ))}
+          </div>
+          <p style={s.mutedSmall}>
+            Sur YouTube, cliquez sur « Activer l'audio de l'onglet » dans la popup avant de miner
+            pour capturer l'audio de la phrase.
+          </p>
+
           <div style={s.btnRow}>
             <Btn
               onClick={() => {
@@ -320,6 +369,14 @@ function OnboardingWizard(props: {
               }}
             >
               Ouvrir Netflix
+            </Btn>
+            <Btn
+              variant="ghost"
+              onClick={() => {
+                void chrome.tabs.create({ url: "https://www.youtube.com/" });
+              }}
+            >
+              Ouvrir YouTube
             </Btn>
             <Btn variant="ghost" onClick={props.onFinished}>
               Voir les réglages
@@ -1128,6 +1185,43 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.4,
     marginTop: 8,
+  },
+  guideTitle: {
+    margin: "20px 0 8px",
+    fontSize: 14,
+    fontWeight: 600,
+    color: C.text,
+  },
+  legend: {
+    display: "grid",
+    gridTemplateColumns: "auto 1fr",
+    alignItems: "center",
+    columnGap: 12,
+    rowGap: 6,
+  },
+  legendWord: {
+    justifySelf: "start",
+    fontSize: 16,
+    fontWeight: 700,
+    lineHeight: 1.3,
+    borderBottom: "2px solid transparent",
+  },
+  legendText: {
+    color: C.muted,
+    fontSize: 13,
+  },
+  kbd: {
+    justifySelf: "start",
+    minWidth: 22,
+    padding: "1px 6px",
+    textAlign: "center",
+    fontFamily: "inherit",
+    fontSize: 12,
+    fontWeight: 600,
+    color: C.text,
+    backgroundColor: C.panelRaised,
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 4,
   },
   errorBox: {
     backgroundColor: "rgba(255,132,144,0.10)",
