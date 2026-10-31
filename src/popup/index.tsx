@@ -718,7 +718,7 @@ const Popup: React.FC = () => {
                 )}
               </div>
               <p style={styles.offsetHint}>
-                En secondes ; valeur positive : le sous-titre s’affiche plus tard.
+                Valeur positive : le sous-titre s’affiche plus tard.
               </p>
 
               <div style={styles.subsectionDivider} />
@@ -748,12 +748,8 @@ const Popup: React.FC = () => {
                     <div style={styles.fileDetails}>
                       {localSubtitle?.syncSegments?.length ? (
                         <p style={styles.localSubtitleHint}>
-                          Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
-                          {" ("}
-                          {localSubtitle.syncSegments
-                            .map((segment) => `${segment.offset > 0 ? "+" : ""}${segment.offset.toFixed(1).replace(".", ",")} s`)
-                            .join(", ")}
-                          {") · "}
+                          Recalé automatiquement{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                          {" · "}
                           <button
                             style={styles.inlineLink}
                             disabled={localSubtitleBusy}
