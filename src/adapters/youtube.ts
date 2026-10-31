@@ -7,6 +7,7 @@ import {
 } from "@/subtitles/local-storage";
 import { parseYouTubeCaptions } from "@/subtitles/youtube";
 import { activeSubtitleCues, firstCueStartingIn, SubtitleTrackCatalog } from "@/subtitles/timeline";
+import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 
 const HIDE_CLASS = "subjap-youtube-hide-native";
 
@@ -30,6 +31,7 @@ export class YouTubeAdapter implements PlatformAdapter {
   private style: HTMLStyleElement | null = null;
   private lastRequestAt = 0;
   private navigating = false;
+  private readonly autoSync = new LocalSubtitleAutoSync();
 
   isActive(_doc: Document, url: string): boolean {
     try { return /(^|\.)youtube\.com$/i.test(new URL(url).hostname); }
@@ -262,6 +264,11 @@ export class YouTubeAdapter implements PlatformAdapter {
 
   private publish(): void {
     if (!this.callback) return;
+    this.autoSync.run(
+      this.videoId ? `youtube:${this.videoId}` : null,
+      this.localPrimaryCues[0]?.source?.sessionId,
+      [this.catalog.cues("fr"), this.catalog.cues("en")],
+    );
     const usable = this.canUsePlayback();
     this.applyNativeVisibility();
     if (this.replay && usable) return;

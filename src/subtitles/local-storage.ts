@@ -9,6 +9,11 @@ export interface LocalSubtitleRecord {
   content: string;
   offsetSeconds: number;
   updatedAt: number;
+  /**
+   * The offset was set by the user, or already aligned automatically on the
+   * player's translation: never shift it automatically again.
+   */
+  syncChecked?: boolean;
 }
 
 const STORAGE_PREFIX = "subjap_local_subtitle_watch_";

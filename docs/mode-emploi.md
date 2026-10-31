@@ -146,6 +146,13 @@ sur les autres sites. Les anciennes traductions locales restent dans la piste
 secondaire. Sur Netflix et YouTube, une piste locale remplace la piste native de
 son rôle ; le choix **Aucun** masque la piste secondaire locale comme native.
 
+Un fichier japonais local (importé ou installé depuis Jimaku) est recalé une
+fois automatiquement sur la traduction native du lecteur (FR, sinon EN) : SubJap
+compare les débuts de répliques et applique le décalage trouvé, seulement s’il
+dépasse 1 s et ne fait aucun doute. Un bandeau l’indique, avec **Annuler le
+recalage**. Un fichier dont le décalage a été réglé à la main (y compris
+**Réinitialiser**) n’est jamais recalé.
+
 Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
 HTML5 visible, y compris dans un lecteur intégré depuis un autre site. Il ne
 peut pas prendre en charge un lecteur qui n’expose pas d’élément `<video>`

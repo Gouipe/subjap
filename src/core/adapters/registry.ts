@@ -26,6 +26,7 @@ import {
 } from "@/subtitles/local-storage";
 import { parseSubtitleFile } from "@/subtitles/parse";
 import { activeSubtitleCues, firstCueStartingIn } from "@/subtitles/timeline";
+import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 
 const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
 const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
@@ -74,6 +75,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private timer: ReturnType<typeof setInterval> | null = null;
   private hideNative = false;
   private style: HTMLStyleElement | null = null;
+  private readonly autoSync = new LocalSubtitleAutoSync();
 
   private readonly onVideoEvent = () => this.publish();
   private readonly onAnyVideoPlay = () => this.refreshVideo();
@@ -449,6 +451,12 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private publish(): void {
     if (!this.callback) return;
     this.applyNativeVisibility();
+    const translations = this.artplayer?.translations ?? {};
+    this.autoSync.run(
+      this.videoId,
+      this.localPrimaryCues[0]?.source?.sessionId,
+      [translations.fr ?? [], translations.en ?? []],
+    );
     const video = this.getVideoElement();
     const time = video?.currentTime ?? 0;
     const usable = !!video && video.readyState >= 1;

@@ -250,7 +250,8 @@ const Popup: React.FC = () => {
       const localSubtitle = localSubtitles[role];
       if (!videoId || !localSubtitle || !Number.isFinite(value)) return;
       const rounded = Math.round(value * 100) / 100;
-      const next = { ...localSubtitle, offsetSeconds: rounded };
+      // An offset the user set is never replaced by the automatic alignment.
+      const next = { ...localSubtitle, offsetSeconds: rounded, syncChecked: true };
       setLocalSubtitles((current) => ({ ...current, [role]: next }));
       setOffsetInputs((current) => ({ ...current, [role]: rounded.toFixed(2) }));
       setLocalSubtitleBusy(true);

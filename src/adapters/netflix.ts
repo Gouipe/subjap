@@ -9,6 +9,7 @@ import type {
   SubtitleCue,
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
+import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 import {
   activeSubtitleCues,
   compactSubtitleText,
@@ -222,6 +223,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private nativeTrackId: string | null = null;
   /** Subtitle languages Netflix offers, for the episode that announced them. */
   private trackLanguages: { episodeId: string; languages: string[] } | null = null;
+  private readonly autoSync = new LocalSubtitleAutoSync();
   private standardTrack: TextTrack | null = null;
   private standardTrackRevision = 0;
   private standardCues: SubtitleCue[] = [];
@@ -624,6 +626,11 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private emitCues(capturedObservationTime: number | null = null): void {
+    this.autoSync.run(
+      this.currentWatchId(),
+      this.localPrimaryCues[0]?.source?.sessionId,
+      [this.tracks.cues("fr"), this.tracks.cues("en")],
+    );
     if (this.ensurePlaybackSession()) {
       // Do not attach a mutation timestamp captured for the previous title to
       // the new episode. The next DOM/track emission will use its own clock.

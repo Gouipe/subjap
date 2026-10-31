@@ -34,6 +34,7 @@ import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay
 import {
   markParentheticalTokens,
   normalizeCueText,
+  getLocalSubtitle,
   parseSubtitleFile,
   removeLocalSubtitle,
   saveLocalSubtitle,
@@ -46,7 +47,8 @@ import {
   type JimakuChoice,
   type JimakuInstallResult,
 } from "@/subtitles/jimaku";
-import { VideoNotice } from "@/overlay/video-notice";
+import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
+import { onLocalSubtitleAutoSync, type AutoSyncEvent } from "@/subtitles/auto-sync";
 import { primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
@@ -1274,6 +1276,8 @@ let missingJapaneseTimer: number | null = null;
 let missingJapaneseNotice: VideoNotice | null = null;
 /** The notice reports missing subtitles: it goes away once some appear. */
 let missingJapaneseNoticeReportsMissing = false;
+/** Actions of the "installed from Jimaku" notice, kept when the file is then aligned. */
+let jimakuInstalledActions: { videoId: string; actions: VideoNoticeAction[] } | null = null;
 /** Videos already handled, so the notice appears once per video. */
 const missingJapaneseNotified = new Set<string>();
 
@@ -1309,6 +1313,7 @@ async function handleMissingJapanese(video: HTMLVideoElement, videoId: string | 
 
 function openMissingJapaneseNotice(video: HTMLVideoElement): VideoNotice {
   missingJapaneseNotice?.close();
+  jimakuInstalledActions = null;
   const notice = new VideoNotice(video, {
     text: "",
     actions: [],
@@ -1317,6 +1322,7 @@ function openMissingJapaneseNotice(video: HTMLVideoElement): VideoNotice {
       if (missingJapaneseNotice !== notice) return;
       missingJapaneseNotice = null;
       missingJapaneseNoticeReportsMissing = false;
+      jimakuInstalledActions = null;
     },
   });
   missingJapaneseNotice = notice;
@@ -1362,15 +1368,17 @@ async function installFromJimaku(notice: VideoNotice, videoId: string, choice?: 
   switch (result.status) {
     case "installed": {
       const { choices, fileName } = result;
+      const actions = [
+        ...(choices.length > 1
+          ? [{ label: "Changer", onClick: () => chooseJimakuFile(notice, videoId, choices, fileName) }]
+          : []),
+        { label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) },
+      ];
+      jimakuInstalledActions = { videoId, actions };
       notice.update({
         text: "Sous-titres japonais installés depuis Jimaku.",
         autoHideMs: MISSING_JAPANESE_NOTICE_MS,
-        actions: [
-          ...(choices.length > 1
-            ? [{ label: "Changer", onClick: () => chooseJimakuFile(notice, videoId, choices, fileName) }]
-            : []),
-          { label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) },
-        ],
+        actions,
       });
       return;
     }
@@ -1426,6 +1434,45 @@ async function removeJimakuFile(notice: VideoNotice, videoId: string): Promise<v
     notice.setText("Retrait impossible. Supprimez la piste depuis la popup SubJap.");
   }
 }
+
+// ---------------------------------------------------------------------------
+// Automatic alignment of a local Japanese file
+// ---------------------------------------------------------------------------
+
+function formatOffset(seconds: number): string {
+  return `${seconds > 0 ? "+" : "−"}${Math.abs(seconds).toFixed(1).replace(".", ",")} s`;
+}
+
+/** Say it once, with a way back: the file keeps the offset it had, flagged as chosen. */
+function showAutoSyncNotice({ videoId, offsetSeconds }: AutoSyncEvent): void {
+  const video = adapter.getVideoElement();
+  if (!enabled || !video) return;
+  const installed = jimakuInstalledActions?.videoId === videoId && missingJapaneseNotice
+    ? jimakuInstalledActions
+    : null;
+  const notice = installed && missingJapaneseNotice ? missingJapaneseNotice : openMissingJapaneseNotice(video);
+  const undo = (): void => {
+    void (async () => {
+      const record = await getLocalSubtitle(videoId, "primary");
+      if (record) await saveLocalSubtitle(videoId, { ...record, offsetSeconds: 0, syncChecked: true }, "primary");
+      notice.update({
+        text: "Recalage annulé. Le décalage reste réglable depuis la popup SubJap.",
+        autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+        actions: [],
+      });
+    })().catch(handleRuntimeError);
+  };
+  missingJapaneseNoticeReportsMissing = false;
+  notice.update({
+    text: installed
+      ? `Sous-titres japonais installés depuis Jimaku et recalés de ${formatOffset(offsetSeconds)} sur la traduction.`
+      : `Sous-titres japonais recalés de ${formatOffset(offsetSeconds)} sur la traduction.`,
+    autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+    actions: [...(installed?.actions ?? []), { label: "Annuler le recalage", onClick: undo }],
+  });
+}
+
+onLocalSubtitleAutoSync(showAutoSyncNotice);
 
 /** The extension opens the tab: sandboxed player frames cannot open one. */
 function searchJimaku(notice: VideoNotice): void {
