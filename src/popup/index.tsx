@@ -748,7 +748,7 @@ const Popup: React.FC = () => {
                     <div style={styles.fileDetails}>
                       {localSubtitle?.syncSegments?.length ? (
                         <p style={styles.localSubtitleHint}>
-                          Recalé automatiquement{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                          Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
                           {" · "}
                           <button
                             style={styles.inlineLink}
@@ -1252,7 +1252,7 @@ const styles: Record<string, React.CSSProperties> = {
   fileName: {
     flex: 1,
     minWidth: 0,
-    color: "#78d6a3",
+    color: "#f4f1ea",
     fontSize: 12,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -1315,7 +1315,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 0,
     border: "none",
     background: "transparent",
-    color: "#ff624d",
+    color: "#f4f1ea",
+    fontFamily: "inherit",
     fontSize: 11,
     textDecoration: "underline",
     cursor: "pointer",
