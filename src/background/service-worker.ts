@@ -77,7 +77,7 @@ chrome.runtime.onStartup.addListener(() => {
   void ensureFrequencyRanks();
   void scheduleProductionReleaseAlarm();
   void maintainProductionCards().catch((err) => {
-    console.info("[SubJap] Pending production release unavailable:", err);
+    console.info("[SubJap] Production card maintenance unavailable:", err);
   });
 });
 
@@ -1240,24 +1240,23 @@ async function isAnkiReviewing(): Promise<boolean> {
   }
 }
 
-/** Generate the production cards requested from Anki, suspended for two full days. */
+/** Generate the production cards requested from Anki, directly as new cards. */
 async function createRequestedProductionCards(): Promise<void> {
   const noteIds = await ankiInvoke<number[]>("findNotes", {
     query: `tag:${ANKI_PRODUCTION_REQUEST_TAG}`,
   });
   if (noteIds.length === 0) return;
   const notes = await ankiInvoke<AnkiNoteInfo[]>("notesInfo", { notes: noteIds });
-  const releaseAt = String(Date.now() + 2 * 24 * 60 * 60 * 1000);
   const toActivate = notes.filter(
     (note) => PRODUCTION_FIELD in note.fields && !note.fields[PRODUCTION_FIELD]?.value.trim(),
   );
   if (toActivate.length > 0) {
-    // Filling the field generates the card; the release pass then moves and suspends it.
+    // Filling the field generates the card; the next pass moves it into the Production deck.
     await ankiInvoke("multi", {
       actions: toActivate.map((note) => ({
         action: "updateNoteFields",
         version: 6,
-        params: { note: { id: note.noteId, fields: { [PRODUCTION_FIELD]: releaseAt } } },
+        params: { note: { id: note.noteId, fields: { [PRODUCTION_FIELD]: "active" } } },
       })),
     });
   }
@@ -1265,47 +1264,34 @@ async function createRequestedProductionCards(): Promise<void> {
 }
 
 /**
- * Create requested production cards, then release those due as new cards after
- * two full days. Skipped while Anki shows a card, retried by the hourly alarm.
+ * Create requested production cards and file them in the Production deck.
+ * Skipped while Anki shows a card, retried by the hourly alarm.
  */
 async function maintainProductionCards(): Promise<void> {
   if (await isAnkiReviewing()) return;
   await createRequestedProductionCards();
-  await releaseDueProductionCards();
+  await settleProductionCards();
 }
 
-async function releaseDueProductionCards(): Promise<number> {
+/** Move production cards into their deck and release those still waiting under the former two-day delay. */
+async function settleProductionCards(): Promise<void> {
   const infos = await findProductionCardInfos();
-  const now = Date.now();
-  const due: AnkiProductionCardInfo[] = [];
-  const futureToSuspend: number[] = [];
-  const wrongDeck: number[] = [];
-
-  for (const info of infos) {
-    if (info.deckName !== ANKI_PRODUCTION_DECK) wrongDeck.push(info.cardId);
-    const raw = info.fields[PRODUCTION_FIELD]?.value.trim() ?? "";
-    const releaseAt = Number(raw);
-    if (!raw || raw === "active" || !Number.isFinite(releaseAt)) continue;
-    if (releaseAt <= now) {
-      due.push(info);
-    } else if (info.queue !== -1) {
-      futureToSuspend.push(info.cardId);
-    }
-  }
+  const wrongDeck = infos
+    .filter((info) => info.deckName !== ANKI_PRODUCTION_DECK)
+    .map((info) => info.cardId);
+  // A timestamp marks a card suspended by the former delay; other suspensions stay the user's.
+  const delayed = infos.filter((info) => /^\d+$/u.test(info.fields[PRODUCTION_FIELD]?.value.trim() ?? ""));
 
   if (wrongDeck.length > 0) {
     await ankiInvoke("changeDeck", { cards: wrongDeck, deck: ANKI_PRODUCTION_DECK });
   }
-  if (futureToSuspend.length > 0) {
-    await ankiInvoke("suspend", { cards: futureToSuspend });
-  }
-  if (due.length > 0) {
-    const suspendedDue = due.filter((info) => info.queue === -1).map((info) => info.cardId);
-    if (suspendedDue.length > 0) {
-      await ankiInvoke("unsuspend", { cards: suspendedDue });
+  if (delayed.length > 0) {
+    const suspended = delayed.filter((info) => info.queue === -1).map((info) => info.cardId);
+    if (suspended.length > 0) {
+      await ankiInvoke("unsuspend", { cards: suspended });
     }
     await ankiInvoke("multi", {
-      actions: due.map((info) => ({
+      actions: delayed.map((info) => ({
         action: "updateNoteFields",
         version: 6,
         params: {
@@ -1314,13 +1300,12 @@ async function releaseDueProductionCards(): Promise<number> {
       })),
     });
   }
-  return due.length;
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== PRODUCTION_RELEASE_ALARM_NAME) return;
   void maintainProductionCards().catch((err) => {
-    console.info("[SubJap] Pending production release unavailable:", err);
+    console.info("[SubJap] Production card maintenance unavailable:", err);
   });
 });
 

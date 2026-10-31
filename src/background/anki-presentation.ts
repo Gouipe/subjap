@@ -939,10 +939,10 @@ export const MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT = `
 <div class="production-activation">
   <span class="production-activation-tags" hidden>{{Tags}}</span>
   <button class="production-activation-button" id="subjap-activate-production" type="button"
-    aria-describedby="subjap-production-hint" title="Première révision dans deux jours · à réserver aux mots utiles à l’oral">
+    aria-describedby="subjap-production-hint" title="À réserver aux mots utiles à l’oral">
     Activer la production orale
   </button>
-  <div class="production-activation-hint" id="subjap-production-hint">Crée une carte sœur disponible dans deux jours.</div>
+  <div class="production-activation-hint" id="subjap-production-hint">Crée une carte sœur de production orale.</div>
   <div class="production-activation-status" id="subjap-production-status" role="status" aria-live="polite"></div>
 </div>
 <script>

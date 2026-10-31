@@ -151,8 +151,9 @@ HTML5 visible. Il ne lit pas les sous-titres natifs de ces sites et ne peut pas
 prendre en charge un lecteur qui n’expose pas d’élément `<video>` accessible.
 
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
-production orale** au verso. Sa carte sœur apparaît dans
-`日本語::Vocabulaire::Production` deux jours plus tard. Cliquer sur le parent
+production orale** au verso. Sa carte sœur rejoint les
+nouvelles cartes de `日本語::Vocabulaire::Production` dès qu’Anki n’affiche plus
+de révision (Chrome doit être ouvert avec l’extension). Cliquer sur le parent
 `日本語::Vocabulaire` pour une session commune, ou sur `Production` seule
 lorsqu’il est possible de répondre à voix haute.
 

@@ -53,7 +53,7 @@ champs :
 | `Image` | capture ou image contextuelle | généralement un `<div><img ...></div>` |
 | `AudioMot` | audio du mot facultatif | balise Anki `[sound:...]` ou HTML audio fourni par HyperTTS |
 | `AudioPhrase` | audio de la phrase facultatif | balise Anki `[sound:...]` |
-| `Production` | état technique de la carte sœur | vide avant activation, timestamp pendant le délai de deux jours, puis `active` |
+| `Production` | état technique de la carte sœur | vide avant activation, puis `active` (timestamp hérité de l’ancien délai de deux jours, libéré au passage suivant) |
 
 Ne pas renommer `Définitions` en `Definition`, ni `Lecture` en `Reading`, sans
 mettre à jour simultanément le contrat dans le code SubJap et dans l’export.

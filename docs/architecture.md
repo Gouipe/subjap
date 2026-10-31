@@ -451,9 +451,10 @@ par Anki tout en permettant la synchronisation globale des statuts.
 Les deux modèles actifs génèrent une carte `Compréhension` et, lorsque le champ
 `Production` est renseigné, une carte sœur `Production`. SubJap range ces cartes
 dans `日本語::Vocabulaire::Compréhension` et
-`日本語::Vocabulaire::Production`. Une activation depuis le verso crée la sœur
-en état suspendu ; le service worker la libère comme nouvelle carte après deux
-jours, sans modifier la planification de la compréhension.
+`日本語::Vocabulaire::Production`. Une activation depuis le verso ne fait que
+marquer la note du tag `subjap::production-demandee` ; le service worker crée la
+sœur comme nouvelle carte dès qu’Anki n’affiche plus de révision, sans modifier
+la planification de la compréhension.
 
 Toutes les notes Anki dont le champ `Mot` est renseigné sont recherchées dans
 tous les decks au démarrage, au retour sur l’onglet et périodiquement. Le champ

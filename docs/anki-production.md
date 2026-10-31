@@ -46,18 +46,20 @@ L’extension termine l’activation dès qu’Anki n’affiche plus de carte (a
 démarrage, toutes les heures, à la synchronisation et via **Configurer les
 decks Anki**). Elle :
 
-1. renseigne le champ technique `Production` avec la date de libération ;
+1. renseigne le champ technique `Production` avec la valeur `active` ;
 2. génère ainsi la carte sœur conditionnelle et retire le tag ;
-3. la place dans `日本語::Vocabulaire::Production` ;
-4. la suspend pendant deux jours complets ;
-5. la libère ensuite comme nouvelle carte, sans court-circuiter ses étapes
-   d’apprentissage.
+3. la place dans `日本語::Vocabulaire::Production` comme nouvelle carte, sans
+   court-circuiter ses étapes d’apprentissage.
 
-Ces opérations, comme la libération, sont reportées tant qu’une révision est
-affichée dans Anki.
+Ces opérations sont reportées tant qu’une révision est affichée dans Anki.
+
+Aucun délai n’est imposé avant la première révision : le report hors révision,
+l’ordre des nouvelles cartes et la limite de cinq nouvelles cartes par jour
+suffisent à ce que le premier rappel ne profite pas de l’écho du verso. Les
+cartes encore suspendues par l’ancien délai de deux jours (champ `Production`
+contenant un timestamp) sont libérées au passage suivant.
 
 La carte de compréhension reste active et conserve sa propre planification.
-Une fois la production libérée, le champ `Production` prend la valeur `active`.
 SubJap ne réactive pas automatiquement une production suspendue plus tard comme
 sangsue ou par choix de l’utilisateur.
 
