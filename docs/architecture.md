@@ -520,8 +520,9 @@ bus de messages et les modules partagés pour lire ou modifier l’état.
   de changer ; les sélecteurs sont regroupés dans l’adaptateur.
 - L’overlay ne doit pas être remonté dans le stacking context du player : cela
   rendrait le texte visible mais pourrait empêcher hover et clic.
-- Il faut conserver le loader Kuromoji basé sur `fetch` et
-  `DecompressionStream` avec timeout.
+- Le chargement du WASM UniDic est borné par un timeout
+  ([`src/tokenizer/index.ts`](../src/tokenizer/index.ts)) : un échec ne doit
+  pas bloquer le content script.
 - Les options d’overlay doivent rester définies dans `src/core/options.ts`.
 - Les données binaires doivent rester en data URLs sur le bus, puis être
   converties en `Blob` côté service worker.
@@ -529,24 +530,3 @@ bus de messages et les modules partagés pour lire ou modifier l’état.
   peut lire la phrase.
 - Le push Anki est volontairement best effort ; la carte locale est créée
   avant toute tentative réseau.
-
-## État actuel et extensions prévues
-
-Le MVP couvre le squelette MV3, Netflix, les vidéos classiques YouTube et
-l’import de sous-titres locaux sur les pages exposant une vidéo HTML5, le
-pipeline de rendu, JMdict, l’interaction hover/clic, le marquage
-connu/inconnu, le mining local, le push Anki, le popup, les options et
-l’onboarding.
-
-Les évolutions naturelles sont :
-
-- alimenter l’accent tonal et étendre les raccourcis clavier aux autres surfaces ;
-- compléter les statistiques et l’historique ;
-- ajouter un sélecteur de deck dans les Options ;
-- brancher Crunchyroll et Prime ;
-- ajouter l’export/import JSON et l’i18n FR/EN.
-
-Les parseurs SRT/VTT/ASS sont isolés dans `src/subtitles/`. L’import local
-principal/secondaire est disponible depuis la popup sur les pages web ordinaires
-avec une vidéo HTML5 visible. L’intégration des pistes natives de Crunchyroll,
-Prime et Disney+ reste à brancher.
