@@ -76,11 +76,22 @@ export function readPageEpisode(): PageEpisode {
   return result;
 }
 
-/** Jimaku page listing the subtitles of this anime, or its search when unknown. */
+export const JIMAKU_HOME_URL = "https://jimaku.cc/";
+
+/** Jimaku search for the anime's name (its search does not understand AniList links). */
 export function jimakuSearchUrl(episode: PageEpisode | null): string {
-  const query = episode?.anilistId
-    ? `https://anilist.co/anime/${episode.anilistId}`
-    : episode?.series ?? "";
-  if (!query) return "https://jimaku.cc/";
+  const query = episode?.series ?? "";
+  if (!query) return JIMAKU_HOME_URL;
   return `https://jimaku.cc/opensearch/redirect?anime=true&query=${encodeURIComponent(query)}`;
+}
+
+/**
+ * Jimaku's home page lists every entry with its AniList id, followed by its
+ * link: the exact entry of this anime, or null when Jimaku has none.
+ */
+export function findJimakuEntryUrl(homeHtml: string, anilistId: number): string | null {
+  const entry = new RegExp(
+    `anilist_id&#34;:${anilistId}[,}][^>]*>\\s*<a href="(/entry/\\d+)"`,
+  ).exec(homeHtml);
+  return entry ? new URL(entry[1] ?? "", JIMAKU_HOME_URL).href : null;
 }

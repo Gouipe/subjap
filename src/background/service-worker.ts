@@ -6,7 +6,13 @@ import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { onMessage } from "@/core/messaging";
-import { jimakuSearchUrl, readPageEpisode, type PageEpisode } from "@/core/episode";
+import {
+  findJimakuEntryUrl,
+  JIMAKU_HOME_URL,
+  jimakuSearchUrl,
+  readPageEpisode,
+  type PageEpisode,
+} from "@/core/episode";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import { entrySpellings, selectDictionaryEntry } from "@/dictionary/match";
@@ -576,6 +582,22 @@ async function readTabEpisode(tabId: number): Promise<PageEpisode | null> {
   }
 }
 
+/** The anime's own Jimaku entry when the page names its AniList id, else a search by name. */
+async function jimakuUrl(episode: PageEpisode | null): Promise<string> {
+  if (episode?.anilistId) {
+    try {
+      const response = await fetch(JIMAKU_HOME_URL, { credentials: "omit" });
+      if (response.ok) {
+        const entry = findJimakuEntryUrl(await response.text(), episode.anilistId);
+        if (entry) return entry;
+      }
+    } catch {
+      // Jimaku unreachable: its search page will say so.
+    }
+  }
+  return jimakuSearchUrl(episode);
+}
+
 // Embedded players are often sandboxed without popups: a link in the frame
 // would silently do nothing, so the extension opens the tab itself.
 onMessage("jimaku:search", async ({ tabId }, sender) => {
@@ -583,7 +605,7 @@ onMessage("jimaku:search", async ({ tabId }, sender) => {
   if (target == null) throw new Error("Aucun onglet associé");
   const tab = await chrome.tabs.get(target);
   await chrome.tabs.create({
-    url: jimakuSearchUrl(await readTabEpisode(target)),
+    url: await jimakuUrl(await readTabEpisode(target)),
     index: tab.index + 1,
     openerTabId: target,
     windowId: tab.windowId,
