@@ -27,7 +27,7 @@ import {
 import { parseSubtitleFile } from "@/subtitles/parse";
 import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
-import { TranslationOffsetWatcher } from "@/subtitles/translation-offset";
+import { VideoOffsetWatcher } from "@/subtitles/video-offset";
 
 const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
 const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
@@ -78,7 +78,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private hideNative = false;
   private style: HTMLStyleElement | null = null;
   private readonly autoSync = new LocalSubtitleAutoSync();
-  private readonly translationOffset = new TranslationOffsetWatcher(() => {
+  private readonly offsets = new VideoOffsetWatcher(() => {
     this.lastSignature = "";
     this.publish();
   });
@@ -220,7 +220,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   }
 
   destroy(): void {
-    this.translationOffset.destroy();
+    this.offsets.destroy();
     this.observer?.disconnect();
     this.observer = null;
     window.removeEventListener("popstate", this.onPageNavigation);
@@ -338,16 +338,19 @@ export class GenericHtml5Adapter implements PlatformAdapter {
 
   /** Imported files win over the player's own tracks, role by role. */
   private japaneseCues(): SubtitleCue[] {
-    return this.localPrimaryCues.length ? this.localPrimaryCues : this.artplayer?.japanese ?? [];
+    this.offsets.setVideo(this.videoId);
+    return this.offsets.shiftCommon(
+      this.localPrimaryCues.length ? this.localPrimaryCues : this.artplayer?.japanese ?? [],
+    );
   }
 
   private translationCues(): SubtitleCue[] {
     if (this.preferredSecondaryLanguage === "none") return [];
-    if (this.localSecondaryCues.length) return this.localSecondaryCues;
+    this.offsets.setVideo(this.videoId);
+    if (this.localSecondaryCues.length) return this.offsets.shiftCommon(this.localSecondaryCues);
     const translations = this.artplayer?.translations ?? {};
     const fallback = this.preferredSecondaryLanguage === "fr" ? "en" : "fr";
-    this.translationOffset.setVideo(this.videoId);
-    return this.translationOffset.apply(
+    return this.offsets.shiftPlayerTranslation(
       translations[this.preferredSecondaryLanguage] ?? translations[fallback] ?? [],
     );
   }

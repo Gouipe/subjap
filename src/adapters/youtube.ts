@@ -8,7 +8,7 @@ import {
 import { parseYouTubeCaptions } from "@/subtitles/youtube";
 import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn, SubtitleTrackCatalog } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
-import { TranslationOffsetWatcher } from "@/subtitles/translation-offset";
+import { VideoOffsetWatcher } from "@/subtitles/video-offset";
 
 const HIDE_CLASS = "subjap-youtube-hide-native";
 
@@ -33,7 +33,7 @@ export class YouTubeAdapter implements PlatformAdapter {
   private lastRequestAt = 0;
   private navigating = false;
   private readonly autoSync = new LocalSubtitleAutoSync();
-  private readonly translationOffset = new TranslationOffsetWatcher(() => {
+  private readonly offsets = new VideoOffsetWatcher(() => {
     this.lastSignature = "";
     this.publish();
   });
@@ -73,7 +73,13 @@ export class YouTubeAdapter implements PlatformAdapter {
 
   getNavigationCues(): SubtitleCue[] {
     if (!this.canUsePlayback()) return [];
-    return this.localPrimaryCues.length ? this.localPrimaryCues : this.catalog.cues("ja");
+    return this.japaneseCues(this.catalog.cues("ja"));
+  }
+
+  /** Imported Japanese wins over the player's track, shifted by the common offset. */
+  private japaneseCues(native: SubtitleCue[]): SubtitleCue[] {
+    this.offsets.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
+    return this.offsets.shiftCommon(this.localPrimaryCues.length ? this.localPrimaryCues : native);
   }
 
   getNavigationSessionId(): string {
@@ -156,7 +162,7 @@ export class YouTubeAdapter implements PlatformAdapter {
   }
 
   destroy(): void {
-    this.translationOffset.destroy();
+    this.offsets.destroy();
     // Without a subscriber, the page bridge must stop driving the player.
     if (this.callback) {
       window.postMessage({ source: "subjap", type: "subjap:youtube-release" }, location.origin);
@@ -281,7 +287,7 @@ export class YouTubeAdapter implements PlatformAdapter {
     if (!usable) this.replay = null;
     const time = this.getCurrentTime();
     const nativeJapanese = this.info?.tracks.some((track) => track.language === "ja") ? this.catalog.cues("ja") : [];
-    const japanese = this.localPrimaryCues.length ? this.localPrimaryCues : nativeJapanese;
+    const japanese = this.japaneseCues(nativeJapanese);
     const translation = this.translationCues();
     const cues = usable ? [...activeSubtitleCues(japanese, time), ...activeSubtitleCues(translation, time)] : [];
     const signature = `${this.getNavigationSessionId()}:${japanese.length}:${cues.map((cue) => cue.id).join("|")}`;
@@ -301,10 +307,10 @@ export class YouTubeAdapter implements PlatformAdapter {
 
   private translationCues(): SubtitleCue[] {
     if (this.preferredLanguage === "none") return [];
-    if (this.localSecondaryCues.length) return this.localSecondaryCues;
+    this.offsets.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
+    if (this.localSecondaryCues.length) return this.offsets.shiftCommon(this.localSecondaryCues);
     const secondary = this.info?.tracks.find((track) => track.language !== "ja");
-    this.translationOffset.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
-    return secondary ? this.translationOffset.apply(this.catalog.cues(secondary.language)) : [];
+    return secondary ? this.offsets.shiftPlayerTranslation(this.catalog.cues(secondary.language)) : [];
   }
 
   private applyNativeVisibility(): void {

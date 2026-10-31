@@ -19,7 +19,12 @@ import type {
   SecondarySubtitleLanguage,
 } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
-import { getTranslationOffset, saveTranslationOffset } from "@/subtitles/translation-offset";
+import {
+  getCommonOffset,
+  getTranslationOffset,
+  saveCommonOffset,
+  saveTranslationOffset,
+} from "@/subtitles/video-offset";
 import {
   getLocalSubtitle,
   localSubtitleVideoId,
@@ -159,6 +164,9 @@ const Popup: React.FC = () => {
   /** Offset of the translation the player provides, when no file replaces it. */
   const [playerTranslationOffset, setPlayerTranslationOffset] = useState(0);
   const [playerOffsetInput, setPlayerOffsetInput] = useState("0.00");
+  /** Offset of both tracks together, added to each track's own offset. */
+  const [commonOffset, setCommonOffset] = useState(0);
+  const [commonOffsetInput, setCommonOffsetInput] = useState("0.00");
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
 
@@ -249,14 +257,17 @@ const Popup: React.FC = () => {
       }, () => {
         // No frame answered: Japanese subtitles are available or still unknown.
       });
-      const [primary, secondary, playerOffset] = await Promise.all([
+      const [primary, secondary, playerOffset, bothOffset] = await Promise.all([
         getLocalSubtitle(currentVideoId, "primary"),
         getLocalSubtitle(currentVideoId, "secondary"),
         getTranslationOffset(currentVideoId),
+        getCommonOffset(currentVideoId),
       ]);
       setLocalSubtitles({ primary, secondary });
       setPlayerTranslationOffset(playerOffset);
       setPlayerOffsetInput(playerOffset.toFixed(2));
+      setCommonOffset(bothOffset);
+      setCommonOffsetInput(bothOffset.toFixed(2));
       setOffsetInputs({
         primary: (primary?.offsetSeconds ?? 0).toFixed(2),
         secondary: (secondary?.offsetSeconds ?? 0).toFixed(2),
@@ -339,6 +350,19 @@ const Popup: React.FC = () => {
     setLocalSubtitleError(null);
     try {
       await saveTranslationOffset(videoId, rounded);
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    }
+  }, [videoId]);
+
+  const persistCommonOffset = useCallback(async (value: number) => {
+    if (!videoId || !Number.isFinite(value)) return;
+    const rounded = Math.round(value * 100) / 100;
+    setCommonOffset(rounded);
+    setCommonOffsetInput(rounded.toFixed(2));
+    setLocalSubtitleError(null);
+    try {
+      await saveCommonOffset(videoId, rounded);
     } catch (err: unknown) {
       setLocalSubtitleError(err instanceof Error ? err.message : String(err));
     }
@@ -638,7 +662,7 @@ const Popup: React.FC = () => {
         {videoId && (
           <details onToggle={(event) => setLocalSubtitlesOpen(event.currentTarget.open)}>
             <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
-              <span>Sous-titres locaux</span>
+              <span>Pistes et décalage</span>
               <span
                 aria-hidden="true"
                 style={{
@@ -650,6 +674,19 @@ const Popup: React.FC = () => {
               </span>
             </summary>
             <div style={styles.localSubtitleContent}>
+              <div style={styles.localSubtitleTrack}>
+                <span style={styles.localSubtitleRole}>Les deux pistes · japonais et traduction</span>
+                <p style={styles.localSubtitleHint}>
+                  Décale le japonais et la traduction ensemble, en plus du décalage propre à chaque piste.
+                </p>
+                <OffsetControls
+                  input={commonOffsetInput}
+                  value={commonOffset}
+                  disabled={localSubtitleBusy}
+                  onInput={setCommonOffsetInput}
+                  onCommit={(value) => void persistCommonOffset(value)}
+                />
+              </div>
               {LOCAL_SUBTITLE_ROLES.map((role) => {
                 const localSubtitle = localSubtitles[role];
                 const roleTitle = role === "primary"

@@ -10,7 +10,7 @@ import type {
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
-import { TranslationOffsetWatcher } from "@/subtitles/translation-offset";
+import { VideoOffsetWatcher } from "@/subtitles/video-offset";
 import {
   activeSubtitleCues,
   compactSubtitleText,
@@ -226,7 +226,7 @@ export class NetflixAdapter implements PlatformAdapter {
   /** Subtitle languages Netflix offers, for the episode that announced them. */
   private trackLanguages: { episodeId: string; languages: string[] } | null = null;
   private readonly autoSync = new LocalSubtitleAutoSync();
-  private readonly translationOffset = new TranslationOffsetWatcher(() => this.emitCues());
+  private readonly offsets = new VideoOffsetWatcher(() => this.emitCues());
   private standardTrack: TextTrack | null = null;
   private standardTrackRevision = 0;
   private standardCues: SubtitleCue[] = [];
@@ -770,11 +770,11 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private composeCues(japanese: SubtitleCue[]): SubtitleCue[] {
-    const official = this.tracks.cues("ja");
-    const timed = official.length ? official : this.standardCues;
+    const official = this.common(this.tracks.cues("ja"));
+    const timed = official.length ? official : this.common(this.standardCues);
     const time = this.subtitleTime();
     const japaneseCues = (this.localPrimaryCues.length
-      ? activeSubtitleCues(this.localPrimaryCues, time)
+      ? activeSubtitleCues(this.common(this.localPrimaryCues), time)
       : timed.length
         ? activeSubtitleCues(timed, time)
         : japanese).filter((cue) => hasMeaningfulCueText(cue.text));
@@ -816,17 +816,26 @@ export class NetflixAdapter implements PlatformAdapter {
     return currentTime;
   }
 
-  /** Netflix's own translation, shifted by the offset set for this video. */
+  /**
+   * Timed cues shifted by the common offset of this video. Japanese read
+   * from the DOM alone keeps Netflix's timing: it cannot be shifted.
+   */
+  private common(cues: SubtitleCue[]): SubtitleCue[] {
+    this.offsets.setVideo(this.currentWatchId());
+    return this.offsets.shiftCommon(cues);
+  }
+
+  /** Netflix's own translation, shifted by the offsets set for this video. */
   private nativeTranslationCues(language: SecondarySubtitleLanguage): SubtitleCue[] {
-    this.translationOffset.setVideo(this.currentWatchId());
-    return this.translationOffset.apply(this.tracks.cues(language));
+    this.offsets.setVideo(this.currentWatchId());
+    return this.offsets.shiftPlayerTranslation(this.tracks.cues(language));
   }
 
   getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {
     this.ensurePlaybackSession();
     if (this.preferredSecondaryLanguage === "none") return null;
     if (this.localTranslationCues.length > 0) {
-      return firstCueStartingIn(this.localTranslationCues, after, until);
+      return firstCueStartingIn(this.common(this.localTranslationCues), after, until);
     }
     const languagePriority: SecondarySubtitleLanguage[] =
       this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
@@ -841,7 +850,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.ensurePlaybackSession();
     if (this.preferredSecondaryLanguage === "none") return [];
     if (this.localTranslationCues.length > 0) {
-      return cuesOverlapping(this.localTranslationCues, start, end);
+      return cuesOverlapping(this.common(this.localTranslationCues), start, end);
     }
     const languagePriority: SecondarySubtitleLanguage[] =
       this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
@@ -855,7 +864,7 @@ export class NetflixAdapter implements PlatformAdapter {
   private getActiveTranslationCue(currentTime: number): SubtitleCue | null {
     if (this.preferredSecondaryLanguage === "none") return null;
     if (this.localTranslationCues.length > 0) {
-      return activeSubtitleCues(this.localTranslationCues, currentTime)[0] ?? null;
+      return activeSubtitleCues(this.common(this.localTranslationCues), currentTime)[0] ?? null;
     }
     const languagePriority: SecondarySubtitleLanguage[] =
       this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
@@ -938,7 +947,7 @@ export class NetflixAdapter implements PlatformAdapter {
     this.pendingSeekTarget = null;
     this.clearSeekLandingTimer();
     this.activeDomCue = null;
-    const timed = this.tracks.cues("ja");
+    const timed = this.common(this.tracks.cues("ja"));
     if (timed.length) return activeSubtitleCues(timed, observationTime)[0] ?? null;
     // Reuse only an explicitly requested historical start, never a nearby cue.
     const destination = this.domHistory.find((cue) => cue.start === observationTime);
@@ -961,7 +970,7 @@ export class NetflixAdapter implements PlatformAdapter {
     if (!video || video.paused || video.seeking || this.cueReplaySession) return;
     const time = video.currentTime;
     let next = Infinity;
-    for (const cues of [this.tracks.cues("ja"), this.standardCues,
+    for (const cues of [this.common(this.tracks.cues("ja")), this.common(this.standardCues),
       this.nativeTranslationCues("fr"), this.nativeTranslationCues("en")]) {
       for (const cue of cues) {
         if (cue.start > time) next = Math.min(next, cue.start);
@@ -1084,11 +1093,12 @@ export class NetflixAdapter implements PlatformAdapter {
 
   getNavigationCues(): SubtitleCue[] {
     this.ensurePlaybackSession();
-    if (this.localPrimaryCues.length > 0) return this.localPrimaryCues;
+    if (this.localPrimaryCues.length > 0) return this.common(this.localPrimaryCues);
     // The track array is replaced when timed text is stored. Returning the
     // stable instance lets CueNavigator skip identical timeupdate snapshots.
-    const official = this.tracks.cues("ja");
-    return official.length ? official : this.standardCues.length ? this.standardCues : this.domHistory;
+    const official = this.common(this.tracks.cues("ja"));
+    return official.length ? official
+      : this.standardCues.length ? this.common(this.standardCues) : this.domHistory;
   }
 
   getNavigationSessionId(): string {
@@ -1230,7 +1240,7 @@ export class NetflixAdapter implements PlatformAdapter {
   // destroy
   // -----------------------------------------------------------------------
   destroy(): void {
-    this.translationOffset.destroy();
+    this.offsets.destroy();
     const subscribed = this.cueCallback !== null;
     this.trackUnsubscriber?.();
     this.trackUnsubscriber = null;

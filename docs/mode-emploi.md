@@ -133,7 +133,7 @@ dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
 ### Importer des sous-titres locaux
 
 1. Ouvrir une page web avec un lecteur vidéo HTML5 visible, puis la popup SubJap.
-2. Dans **Sous-titres locaux**, importer le fichier japonais sous **Piste
+2. Dans **Pistes et décalage**, importer le fichier japonais sous **Piste
    principale**. SubJap le traite comme du japonais pour l’overlay, la navigation
    et le mining.
 3. Facultativement, importer une traduction sous **Piste secondaire**. Chaque
@@ -144,6 +144,12 @@ Sans fichier de traduction importé, la piste secondaire affiche **Traduction
 du lecteur** avec son propre décalage, mémorisé par vidéo : il décale la
 traduction fournie par Re:ANIME, Netflix ou YouTube, indépendamment du
 japonais.
+
+En haut de la section, **Les deux pistes** décale le japonais et la traduction
+ensemble, qu’ils viennent du lecteur ou d’un fichier, par exemple quand toute la
+vidéo est en avance sur ses sous-titres. Ce décalage commun est mémorisé par
+vidéo et s’ajoute au décalage propre à chaque piste. Sur Netflix, le japonais
+lu seulement à l’écran (sans piste chargée) ne peut pas être décalé.
 
 Les fichiers SRT, VTT et ASS sont acceptés et mémorisés séparément pour chaque
 vidéo : par identifiant de lecture Netflix ou YouTube, ou par adresse de page
