@@ -5,10 +5,12 @@
     <title>SubJap</title>
     <style>
       /* The popup window takes its height from the document: a 100 % minimum
-         would pin it at its tallest and keep it from shrinking. */
-      html,
-      body,
-      #root {
+         would pin it at its tallest and keep it from shrinking. The shared
+         theme stylesheet is linked after this block, hence the stronger
+         selectors. */
+      :root,
+      :root body,
+      :root #root {
         min-height: 0;
       }
     </style>
