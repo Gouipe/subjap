@@ -776,7 +776,8 @@ const Popup: React.FC = () => {
                               aria-expanded={jimakuListOpen}
                               onClick={() => setJimakuListOpen((open) => !open)}
                             >
-                              Autre version ({localSubtitle.jimakuChoices.length - 1})
+                              {localSubtitle.jimakuChoices.length - 1}{" "}
+                              {localSubtitle.jimakuChoices.length > 2 ? "autres fichiers" : "autre fichier"}
                             </button>
                           </p>
                         ) : null}
