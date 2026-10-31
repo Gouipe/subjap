@@ -404,8 +404,12 @@ export interface OverlayOptions {
   hideNativeSubtitles: boolean;
   /** Preferred translation language; the other supported language is the fallback, or "none" to disable it. */
   secondarySubtitleLanguage: SecondarySubtitleLanguage;
-  /** Hide the rendered FR/EN subtitle when every lexical word is known/ignored. */
-  hideSecondarySubtitlesWhenAllKnown: boolean;
-  /** Offer an audio-first exercise for structurally interesting all-known phrases. */
-  activeListeningMode: boolean;
+  /** What to hide when every lexical word of the displayed sentence is known/ignored. */
+  knownSentenceSubtitles: KnownSentenceSubtitles;
 }
+
+/**
+ * Subtitles of a sentence whose words are all known/ignored: shown, translation
+ * hidden, or Japanese and translation hidden (listen first).
+ */
+export type KnownSentenceSubtitles = "show" | "hide-translation" | "hide-all";

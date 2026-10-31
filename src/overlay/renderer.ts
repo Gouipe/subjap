@@ -182,13 +182,13 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-translation-line--hidden:hover {
       opacity: 1;
     }
-    #${CONTAINER_ID} .subjap-translation-line--exercise-hidden,
-    #${CONTAINER_ID} .subjap-translation-line--exercise-hidden:hover {
+    /* Listen first: a known sentence stays readable on hover, or with X. */
+    #${CONTAINER_ID} .subjap-cue-line--hidden {
       opacity: 0;
-      pointer-events: none;
+      transition: opacity 0.12s ease;
     }
-    #${CONTAINER_ID} .subjap-subtitles--hidden {
-      visibility: hidden;
+    #${CONTAINER_ID} .subjap-cue-line--hidden:hover {
+      opacity: 1;
     }
     #${CONTAINER_ID} .subjap-token {
       display: inline-flex;
@@ -273,6 +273,7 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     @media (prefers-reduced-motion: reduce) {
       #${CONTAINER_ID} .subjap-token,
       #${CONTAINER_ID} .subjap-translation-line--hidden,
+      #${CONTAINER_ID} .subjap-cue-line--hidden,
       #${CONTAINER_ID} .subjap-runtime-notice__button {
         transition: none;
       }
@@ -296,15 +297,13 @@ export class OverlayRenderer {
   private styleEl: HTMLStyleElement;
   private rafId: number | null = null;
   private visible = false;
-  /** Cue identity for the last translation revealed with X. */
-  private revealedSecondarySubtitleKey: string | null = null;
+  /**
+   * Cue identity for the last X reveal, and how many hidden layers it has
+   * revealed so far (Japanese first, then the translation).
+   */
+  private revealedSubtitle: { key: string; layers: number } | null = null;
   /** Last all-known decision, reused while the same Japanese text re-renders. */
-  private resolvedTranslationVisibility: { textKey: string; show: boolean } | null = null;
-  private subtitleVisibilityOverride: {
-    japanese: boolean;
-    /** null keeps the normal translation mode (including hover-to-reveal). */
-    translation: boolean | null;
-  } | null = null;
+  private resolvedKnownSentence: { textKey: string; known: boolean } | null = null;
 
   constructor(video: HTMLVideoElement, options?: Partial<OverlayOptions>) {
     this.video = video;
@@ -346,7 +345,7 @@ export class OverlayRenderer {
   ): void {
     const previousKey = this.currentSubtitleKey();
     const previousTextKey = this.currentSubtitleTextKey();
-    const revealedPreviousCue = this.revealedSecondarySubtitleKey === previousKey;
+    const revealedPreviousCue = this.revealedSubtitle?.key === previousKey;
     this.cues = cues;
     this.pendingCueTexts = null;
     this.translation = translation;
@@ -367,7 +366,7 @@ export class OverlayRenderer {
   ): void {
     const previousKey = this.currentSubtitleKey();
     const previousTextKey = this.currentSubtitleTextKey();
-    const revealedPreviousCue = this.revealedSecondarySubtitleKey === previousKey;
+    const revealedPreviousCue = this.revealedSubtitle?.key === previousKey;
     this.cues = [];
     this.pendingCueTexts = cueTexts;
     this.translation = translation;
@@ -395,22 +394,15 @@ export class OverlayRenderer {
     this.render();
   }
 
-  /** Reveal the current secondary subtitle until the displayed cue changes. */
-  revealSecondarySubtitle(): void {
-    if (!this.translation) return;
-    this.revealedSecondarySubtitleKey = this.currentSubtitleKey();
-    this.render();
-  }
-
-  /** Temporarily hide/reveal the two subtitle layers without changing options. */
-  setSubtitleVisibility(japanese: boolean, translation: boolean | null): void {
-    this.subtitleVisibilityOverride = { japanese, translation };
-    this.render();
-  }
-
-  /** Restore the normal visibility rules after an exercise ends. */
-  clearSubtitleVisibilityOverride(): void {
-    this.subtitleVisibilityOverride = null;
+  /**
+   * Reveal the next hidden layer of the current sentence (Japanese, then the
+   * translation) until the displayed cue changes.
+   */
+  revealHiddenSubtitle(): void {
+    const key = this.currentSubtitleKey();
+    const revealed = this.revealedSubtitle?.key === key ? this.revealedSubtitle.layers : 0;
+    if (revealed >= this.hiddenLayerCount()) return;
+    this.revealedSubtitle = { key, layers: revealed + 1 };
     this.render();
   }
 
@@ -460,37 +452,26 @@ export class OverlayRenderer {
       !this.translation
     ) return;
 
+    const { hideJapanese, hideTranslation } = this.hiddenLayers();
     if (this.pendingCueTexts?.length) {
       for (const text of this.pendingCueTexts) {
         const line = document.createElement("div");
         line.className = "subjap-cue-line subjap-cue-line--pending";
         line.textContent = text;
-        if (this.subtitleVisibilityOverride?.japanese === false) {
-          line.classList.add("subjap-subtitles--hidden");
-        }
+        if (hideJapanese) line.classList.add("subjap-cue-line--hidden");
         this.container.appendChild(line);
       }
     } else {
       for (const rc of this.cues) {
         const line = this.buildCueLine(rc);
-        if (this.subtitleVisibilityOverride?.japanese === false) {
-          line.classList.add("subjap-subtitles--hidden");
-        }
+        if (hideJapanese) line.classList.add("subjap-cue-line--hidden");
         this.container.appendChild(line);
       }
     }
     if (this.translation) {
       const line = document.createElement("div");
       line.className = "subjap-translation-line";
-      if (this.subtitleVisibilityOverride?.translation === false) {
-        line.classList.add("subjap-translation-line--exercise-hidden");
-      } else if (
-        this.subtitleVisibilityOverride?.translation !== true &&
-        this.revealedSecondarySubtitleKey !== this.currentSubtitleKey() &&
-        !this.shouldShowTranslation()
-      ) {
-        line.classList.add("subjap-translation-line--hidden");
-      }
+      if (hideTranslation) line.classList.add("subjap-translation-line--hidden");
       line.lang = this.translation.language;
       line.dataset.language = this.translation.language;
       // A timed-text track may split one translated sentence over several
@@ -676,35 +657,55 @@ export class OverlayRenderer {
     return isNonLexicalToken(st.token);
   }
 
+  /** Layers hidden by the known-sentence setting, minus those revealed with X. */
+  private hiddenLayers(): { hideJapanese: boolean; hideTranslation: boolean } {
+    const mode = this.options.knownSentenceSubtitles;
+    if (mode === "show" || !this.isKnownSentence()) {
+      return { hideJapanese: false, hideTranslation: false };
+    }
+    const key = this.currentSubtitleKey();
+    const revealed = this.revealedSubtitle?.key === key ? this.revealedSubtitle.layers : 0;
+    if (mode === "hide-translation") {
+      return { hideJapanese: false, hideTranslation: revealed < 1 };
+    }
+    return { hideJapanese: revealed < 1, hideTranslation: revealed < 2 };
+  }
+
+  /** Number of layers X can reveal on the current sentence. */
+  private hiddenLayerCount(): number {
+    const mode = this.options.knownSentenceSubtitles;
+    if (mode === "show" || !this.isKnownSentence()) return 0;
+    const translation = this.translation ? 1 : 0;
+    return mode === "hide-all" ? 1 + translation : translation;
+  }
+
   /**
-   * When enabled, keep the secondary translation visible until every lexical
-   * word in all currently displayed Japanese cues is explicitly known or
-   * ignored. Punctuation, whitespace and parenthetical annotations do not
-   * participate in the decision.
+   * True when every lexical word in all currently displayed Japanese cues is
+   * explicitly known or ignored. Punctuation, whitespace and parenthetical
+   * annotations do not participate in the decision.
    */
-  private shouldShowTranslation(): boolean {
-    if (!this.options.hideSecondarySubtitlesWhenAllKnown) return true;
-    if (this.runtimeUnavailable) return true;
-    if (this.cues.length === 0 && !this.pendingCueTexts?.length) return true;
+  private isKnownSentence(): boolean {
+    if (this.runtimeUnavailable) return false;
+    if (this.cues.length === 0 && !this.pendingCueTexts?.length) return false;
 
     // Re-rendering the same Japanese text (a seek with S, a new translation
-    // line) keeps its known decision instead of flashing the translation
+    // line) keeps its known decision instead of flashing hidden subtitles
     // while vocabulary metadata is reloaded.
     const textKey = this.currentSubtitleTextKey();
-    const resolved = this.resolvedTranslationVisibility?.textKey === textKey
-      ? this.resolvedTranslationVisibility.show
+    const resolved = this.resolvedKnownSentence?.textKey === textKey
+      ? this.resolvedKnownSentence.known
       : null;
     // Untokenized text only lasts while the tokenizer warms up (or failed):
-    // keep the translation available. Tokenized text awaiting metadata is
+    // keep the subtitles available. Tokenized text awaiting metadata is
     // resolved within moments, so do not show what may be hidden right after.
-    if (this.pendingCueTexts?.length) return resolved ?? true;
+    if (this.pendingCueTexts?.length) return resolved ?? false;
     if (this.cues.some((cue) => cue.spans.some((span) => span.isPending))) {
-      return resolved ?? false;
+      return resolved ?? true;
     }
 
-    const show = !isAllKnownOrIgnored(this.cues.flatMap((cue) => cue.spans));
-    this.resolvedTranslationVisibility = { textKey, show };
-    return show;
+    const known = isAllKnownOrIgnored(this.cues.flatMap((cue) => cue.spans));
+    this.resolvedKnownSentence = { textKey, known };
+    return known;
   }
 
   private currentSubtitleKey(): string {
@@ -739,8 +740,8 @@ export class OverlayRenderer {
     previousTextKey: string,
     nextTextKey: string,
   ): void {
-    if (revealedPreviousCue && previousTextKey === nextTextKey) {
-      this.revealedSecondarySubtitleKey = this.currentSubtitleKey();
+    if (revealedPreviousCue && this.revealedSubtitle && previousTextKey === nextTextKey) {
+      this.revealedSubtitle = { ...this.revealedSubtitle, key: this.currentSubtitleKey() };
     }
   }
 

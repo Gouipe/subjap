@@ -260,7 +260,7 @@ describe("OverlayRenderer", () => {
       ],
     };
     const overlay = new OverlayRenderer(video, {
-      hideSecondarySubtitlesWhenAllKnown: true,
+      knownSentenceSubtitles: "hide-translation",
     });
     overlay.updateContent(
       [cue, parentheticalCue],
@@ -279,7 +279,7 @@ describe("OverlayRenderer", () => {
     const video = document.createElement("video");
     document.body.appendChild(video);
     const overlay = new OverlayRenderer(video, {
-      hideSecondarySubtitlesWhenAllKnown: true,
+      knownSentenceSubtitles: "hide-translation",
     });
     overlay.updateContent(
       [renderedCue()],
@@ -306,10 +306,10 @@ describe("OverlayRenderer", () => {
       source: "manual",
     };
     const overlay = new OverlayRenderer(video, {
-      hideSecondarySubtitlesWhenAllKnown: true,
+      knownSentenceSubtitles: "hide-translation",
     });
     overlay.updateContent([cue], { text: "Sentence", language: "fr" }, 0);
-    overlay.setOptions({ hideSecondarySubtitlesWhenAllKnown: false });
+    overlay.setOptions({ knownSentenceSubtitles: "show" });
 
     expect(document.querySelector(".subjap-translation-line")?.textContent).toBe(
       "Sentence",

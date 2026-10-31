@@ -74,7 +74,7 @@ sous-titres natifs.
 
 [`NetflixAdapter`](../src/adapters/netflix.ts) publie les segments de la piste
 japonaise identifiée dans le lecteur, depuis un seul fichier de sous-titres.
-L’affichage, la navigation, l’écoute et le mining utilisent ces mêmes segments
+L’affichage, la navigation et le mining utilisent ces mêmes segments
 et leurs horaires ; plusieurs segments simultanés restent distincts. Une phrase
 longue peut donc apparaître dans plusieurs sous-titres successifs.
 
@@ -168,7 +168,7 @@ SRV3, XML historique et VTT. Les événements d’ajout à une même fenêtre so
 rattachés au segment source ; les fenêtres automatiques successives ne doublent
 pas les phrases en conservant leurs anciennes lignes à l’écran. Le catalogue
 commun conserve un fichier par piste avec des instantanés et des horaires
-partagés entre overlay, Q/S/D, écoute active et mining.
+partagés entre overlay, Q/S/D et mining.
 
 Chaque navigation reçoit une génération distincte, même pour un retour à la
 même vidéo. L’adaptateur rejette les réponses d’anciennes sessions, vide les
@@ -294,7 +294,7 @@ ses bornes sont donc figées pour toute la durée du minage.
 pour éviter de faire passer le rendu de chaque token par React. Le conteneur :
 
 - est monté sur `document.body` en mode normal, puis dans l’élément plein écran
-  lorsque le lecteur utilise l’API Fullscreen ; popover, mining et écoute active
+  lorsque le lecteur utilise l’API Fullscreen ; popover et mining
   suivent la même règle via `src/overlay/mount.ts` ;
 - est en `position: fixed`, avec un z-index très élevé ;
 - reprend les coordonnées de `video.getBoundingClientRect()` ;
