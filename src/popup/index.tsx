@@ -522,10 +522,7 @@ const Popup: React.FC = () => {
       <div style={styles.header}>
         <div style={styles.brandLockup}>
           <span style={styles.brandMark} aria-hidden="true">字</span>
-          <div>
-            <h1 style={styles.title}>SubJap</h1>
-            <p style={styles.brandLine}>L’Après-séance</p>
-          </div>
+          <h1 style={styles.title}>SubJap</h1>
         </div>
         {/* Only a problem is worth a status: a ready extension stays quiet. */}
         {connected === false && (
@@ -986,12 +983,6 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.1,
     fontWeight: 600,
     color: "#f4f1ea",
-  },
-  brandLine: {
-    margin: "3px 0 0",
-    color: "#b2b6bf",
-    fontSize: 10,
-    lineHeight: 1.2,
   },
   connectionStatus: {
     display: "inline-flex",
