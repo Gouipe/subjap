@@ -90,6 +90,7 @@ const Popup: React.FC = () => {
   const [videoId, setVideoId] = useState<string | null>(null);
   const [hasVideo, setHasVideo] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [localSubtitlesOpen, setLocalSubtitlesOpen] = useState(false);
   const [localSubtitles, setLocalSubtitles] = useState(EMPTY_LOCAL_SUBTITLES);
   const [offsetInputs, setOffsetInputs] = useState<Record<LocalSubtitleRole, string>>({
     primary: "0.00",
@@ -339,20 +340,13 @@ const Popup: React.FC = () => {
             <p style={styles.brandLine}>L’Après-séance</p>
           </div>
         </div>
-        <span style={styles.connectionStatus}>
-          <span
-            style={{
-              ...styles.dot,
-              backgroundColor:
-                connected === null
-                  ? "#f1b46d"
-                  : connected
-                    ? "#78d6a3"
-                    : "#ff8490",
-            }}
-          />
-          {connected === null ? "Connexion" : connected ? "Prêt" : "Hors ligne"}
-        </span>
+        {/* Only a problem is worth a status: a ready extension stays quiet. */}
+        {connected === false && (
+          <span style={styles.connectionStatus}>
+            <span style={{ ...styles.dot, backgroundColor: "#ff8490" }} />
+            Hors ligne
+          </span>
+        )}
       </div>
 
       {enabled !== null && (
@@ -427,18 +421,12 @@ const Popup: React.FC = () => {
                 : "Activer l’audio de l’onglet"}
           </button>
           {captureError && <p style={styles.captureError}>{captureError}</p>}
-          <p style={styles.captureHint}>À faire une seule fois par onglet vidéo.</p>
         </div>
       )}
 
-      <div style={styles.subtitleBox}>
-        <h2 style={styles.sectionLabel}>Sous-titres</h2>
-        {videoId?.startsWith("youtube:") && (
-          <p style={styles.captureHint}>
-            YouTube : sous-titres japonais du créateur en priorité, automatiques en repli.
-          </p>
-        )}
-        <label style={styles.languageRow}>
+      <h2 style={styles.groupLabel}>Sous-titres</h2>
+      <div style={styles.card}>
+        <label style={styles.cardRow}>
           <span>Traduction</span>
           <select
             style={styles.languageSelect}
@@ -455,10 +443,7 @@ const Popup: React.FC = () => {
             <option value="en">Anglais</option>
           </select>
         </label>
-        <p style={styles.languageHint}>
-          L’autre langue sert de repli, sauf avec « Aucune ».
-        </p>
-        <label style={styles.languageRow}>
+        <label style={{ ...styles.cardRow, ...styles.cardRowDivided }}>
           <span>Phrases connues</span>
           <select
             style={styles.languageSelect}
@@ -475,112 +460,111 @@ const Popup: React.FC = () => {
             <option value="hide-all">Masquer tout (écoute)</option>
           </select>
         </label>
-        <p style={styles.languageHint}>
-          Phrase dont tous les mots sont connus ou ignorés. Survol ou X pour
-          révéler : le japonais d’abord, puis la traduction.
-        </p>
-      </div>
-
-      {videoId && (
-        <details style={styles.disclosureSection}>
-          <summary style={styles.localSubtitleSummary}>Sous-titres locaux</summary>
-          <div style={styles.localSubtitleContent}>
-            {LOCAL_SUBTITLE_ROLES.map((role) => {
-              const localSubtitle = localSubtitles[role];
-              const roleTitle = role === "primary"
-                ? "Piste principale · japonais"
-                : "Piste secondaire · traduction";
-              const roleHint = role === "primary"
-                ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
-                : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native.";
-              return (
-                <div key={role} style={styles.localSubtitleTrack}>
-                  <span style={styles.localSubtitleRole}>{roleTitle}</span>
-                  <label style={styles.fileButton}>
-                    {localSubtitleBusy
-                      ? "Chargement…"
-                      : localSubtitle
-                        ? "Remplacer le fichier"
-                        : "Choisir un fichier"}
-                    <input
-                      type="file"
-                      accept=".srt,.vtt,.webvtt,.ass,.ssa"
-                      hidden
-                      disabled={localSubtitleBusy}
-                      onChange={(event) => {
-                        void importLocalSubtitle(role, event.target.files?.[0]);
-                        event.target.value = "";
-                      }}
-                    />
-                  </label>
-                  <p style={styles.localSubtitleHint}>{roleHint}</p>
-                  {localSubtitle && (
-                    <>
-                      <p style={styles.fileName}>{localSubtitle.fileName}</p>
-                      <label style={styles.offsetLabel}>
-                        <span>Décalage (s)</span>
-                        <input
-                          style={styles.offsetInput}
-                          type="number"
-                          step="0.01"
-                          value={offsetInputs[role]}
-                          disabled={localSubtitleBusy}
-                          onChange={(event) => setOffsetInputs((current) => ({
-                            ...current,
-                            [role]: event.target.value,
-                          }))}
-                          onBlur={() => void persistOffset(
-                            role,
-                            Number(offsetInputs[role].replace(",", ".")),
-                          )}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") event.currentTarget.blur();
-                          }}
-                        />
-                      </label>
-                      <p style={styles.localSubtitleHint}>
-                        Une valeur positive affiche le texte plus tard.
-                      </p>
-                      <div style={styles.offsetActions}>
-                        <button
-                          style={styles.smallButton}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void persistOffset(role, localSubtitle.offsetSeconds - 0.1)}
-                        >
-                          − 0,1 s
-                        </button>
-                        <button
-                          style={styles.smallButton}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void persistOffset(role, localSubtitle.offsetSeconds + 0.1)}
-                        >
-                          + 0,1 s
-                        </button>
-                        <button
-                          style={styles.smallButton}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void persistOffset(role, 0)}
-                        >
-                          Réinitialiser
-                        </button>
-                      </div>
-                      <button
-                        style={styles.deleteButton}
+        {videoId && (
+          <details onToggle={(event) => setLocalSubtitlesOpen(event.currentTarget.open)}>
+            <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
+              <span>Sous-titres locaux</span>
+              <span aria-hidden="true" style={styles.chevron}>
+                {localSubtitlesOpen ? "⌄" : "›"}
+              </span>
+            </summary>
+            <div style={styles.localSubtitleContent}>
+              {LOCAL_SUBTITLE_ROLES.map((role) => {
+                const localSubtitle = localSubtitles[role];
+                const roleTitle = role === "primary"
+                  ? "Piste principale · japonais"
+                  : "Piste secondaire · traduction";
+                const roleHint = role === "primary"
+                  ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
+                  : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native.";
+                return (
+                  <div key={role} style={styles.localSubtitleTrack}>
+                    <span style={styles.localSubtitleRole}>{roleTitle}</span>
+                    <label style={styles.fileButton}>
+                      {localSubtitleBusy
+                        ? "Chargement…"
+                        : localSubtitle
+                          ? "Remplacer le fichier"
+                          : "Choisir un fichier"}
+                      <input
+                        type="file"
+                        accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                        hidden
                         disabled={localSubtitleBusy}
-                        onClick={() => void deleteLocalSubtitle(role)}
-                      >
-                        Supprimer la piste
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })
-            }
-            {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
-          </div>
-        </details>
-      )}
+                        onChange={(event) => {
+                          void importLocalSubtitle(role, event.target.files?.[0]);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                    <p style={styles.localSubtitleHint}>{roleHint}</p>
+                    {localSubtitle && (
+                      <>
+                        <p style={styles.fileName}>{localSubtitle.fileName}</p>
+                        <label style={styles.offsetLabel}>
+                          <span>Décalage (s)</span>
+                          <input
+                            style={styles.offsetInput}
+                            type="number"
+                            step="0.01"
+                            value={offsetInputs[role]}
+                            disabled={localSubtitleBusy}
+                            onChange={(event) => setOffsetInputs((current) => ({
+                              ...current,
+                              [role]: event.target.value,
+                            }))}
+                            onBlur={() => void persistOffset(
+                              role,
+                              Number(offsetInputs[role].replace(",", ".")),
+                            )}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") event.currentTarget.blur();
+                            }}
+                          />
+                        </label>
+                        <p style={styles.localSubtitleHint}>
+                          Une valeur positive affiche le texte plus tard.
+                        </p>
+                        <div style={styles.offsetActions}>
+                          <button
+                            style={styles.smallButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void persistOffset(role, localSubtitle.offsetSeconds - 0.1)}
+                          >
+                            − 0,1 s
+                          </button>
+                          <button
+                            style={styles.smallButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void persistOffset(role, localSubtitle.offsetSeconds + 0.1)}
+                          >
+                            + 0,1 s
+                          </button>
+                          <button
+                            style={styles.smallButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void persistOffset(role, 0)}
+                          >
+                            Réinitialiser
+                          </button>
+                        </div>
+                        <button
+                          style={styles.deleteButton}
+                          disabled={localSubtitleBusy}
+                          onClick={() => void deleteLocalSubtitle(role)}
+                        >
+                          Supprimer la piste
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
+            </div>
+          </details>
+        )}
+      </div>
       </>)}
 
       <div style={styles.footer}>
@@ -638,6 +622,25 @@ const Popup: React.FC = () => {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section style={styles.guideSection}>
+            <h2 style={styles.guideHeading}>Sous-titres</h2>
+            <p style={styles.guideHint}>
+              <strong>Traduction</strong> : l’autre langue sert de repli, sauf avec « Aucune ».
+            </p>
+            <p style={styles.guideHint}>
+              <strong>Phrases connues</strong> : phrase dont tous les mots sont connus ou ignorés.
+              Survol ou X pour révéler : le japonais d’abord, puis la traduction.
+            </p>
+            <p style={styles.guideHint}>
+              <strong>YouTube</strong> : sous-titres japonais du créateur en priorité, automatiques
+              en repli.
+            </p>
+            <p style={styles.guideHint}>
+              <strong>Audio de l’onglet</strong> : à activer une fois par onglet vidéo pour
+              capturer l’audio des phrases minées.
+            </p>
           </section>
         </div>
       )}
@@ -720,13 +723,13 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     gap: 12,
     width: "100%",
-    padding: "8px 10px",
+    padding: "10px 12px",
     border: "1px solid #343842",
-    borderRadius: 6,
+    borderRadius: 8,
     background: "#14161b",
     color: "#f4f1ea",
     fontFamily: "inherit",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
   },
@@ -750,9 +753,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   captureBox: {
     marginTop: 10,
-    padding: "10px 0",
-    borderTop: "1px solid #343842",
-    borderBottom: "1px solid #343842",
   },
   captureButton: {
     width: "100%",
@@ -776,23 +776,47 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#ff8490",
     wordBreak: "break-word",
   },
-  subtitleBox: {
-    marginTop: 10,
-    padding: "10px 0",
-    borderBottom: "1px solid #343842",
-  },
-  disclosureSection: {
-    padding: "8px 0",
-    borderBottom: "1px solid #343842",
-  },
-  localSubtitleSummary: {
-    color: "#f4f1ea",
-    fontSize: 11,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
   localSubtitleContent: {
-    paddingTop: 4,
+    padding: "0 12px 12px",
+  },
+  groupLabel: {
+    margin: "18px 2px 6px",
+    color: "#b2b6bf",
+    fontSize: 10,
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  },
+  card: {
+    border: "1px solid #343842",
+    borderRadius: 8,
+    background: "#14161b",
+    overflow: "hidden",
+  },
+  cardRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    minHeight: 40,
+    padding: "0 12px",
+    boxSizing: "border-box",
+    color: "#f4f1ea",
+    fontSize: 13,
+  },
+  cardRowDivided: {
+    borderTop: "1px solid #343842",
+  },
+  cardSummary: {
+    cursor: "pointer",
+    listStyle: "none",
+  },
+  chevron: {
+    width: 150,
+    color: "#b2b6bf",
+    fontSize: 16,
+    lineHeight: 1,
+    textAlign: "right",
   },
   localSubtitleTrack: {
     marginTop: 8,
@@ -805,34 +829,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontWeight: 600,
   },
-  languageRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    marginBottom: 7,
-    fontSize: 11,
-  },
   languageSelect: {
-    minWidth: 96,
-    padding: "4px 6px",
+    width: 150,
+    padding: "5px 6px",
     border: "1px solid #343842",
     borderRadius: 6,
     background: "#101216",
     color: "#f4f1ea",
-    fontSize: 11,
-  },
-  languageHint: {
-    margin: 0,
-    color: "#b2b6bf",
-    fontSize: 10,
-    lineHeight: 1.35,
-  },
-  sectionLabel: {
-    display: "block",
-    marginBottom: 8,
     fontSize: 12,
-    fontWeight: 600,
   },
   fileButton: {
     display: "block",
