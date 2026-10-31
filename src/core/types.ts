@@ -2,7 +2,6 @@
 // SubJap — Types partagés (source unique de la spec §7.4, §8, §9)
 // ---------------------------------------------------------------------------
 
-import type { PageEpisode } from "@/core/episode";
 
 // ── Plateformes ───────────────────────────────────────────────────────────
 
@@ -321,9 +320,9 @@ export interface MessageMap {
   /** URL of the sender's tab, for players embedded in a frame. */
   "tab:url": Record<string, never>;
   "tab:urlResult": { url: string | null };
-  /** Anime episode named by the top page of the sender's tab (or of `tabId`). */
-  "tab:episode": { tabId?: number };
-  "tab:episodeResult": { episode: PageEpisode | null };
+  /** Open Jimaku for the anime of the sender's tab (or of `tabId`), next to it. */
+  "jimaku:search": { tabId?: number };
+  "jimaku:searchResult": Record<string, never>;
   "screenshot:capture": Record<string, never>;
   "screenshot:captureResult": { dataUrl: string };
 

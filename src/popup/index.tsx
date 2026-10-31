@@ -19,7 +19,6 @@ import type {
   SecondarySubtitleLanguage,
 } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
-import { jimakuSearchUrl } from "@/core/episode";
 import {
   getLocalSubtitle,
   localSubtitleVideoId,
@@ -284,9 +283,11 @@ const Popup: React.FC = () => {
 
   const searchJimaku = useCallback(async () => {
     if (!missingJapanese) return;
-    const { episode } = await sendMessage("tab:episode", { tabId: missingJapanese.tabId })
-      .catch(() => ({ episode: null }));
-    await chrome.tabs.create({ url: jimakuSearchUrl(episode) });
+    try {
+      await sendMessage("jimaku:search", { tabId: missingJapanese.tabId });
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    }
   }, [missingJapanese]);
 
   /** Display changes apply live to the video under the popup. */

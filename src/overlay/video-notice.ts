@@ -7,9 +7,7 @@ import { forgetVideoSurface, mountVideoSurface } from "./mount";
 export interface VideoNoticeAction {
   label: string;
   primary?: boolean;
-  /** Opens this address in a new tab instead of running `onClick`. */
-  href?: string;
-  onClick?: () => void;
+  onClick: () => void;
 }
 
 export interface VideoNoticeOptions {
@@ -114,18 +112,11 @@ export class VideoNotice {
   }
 
   private buildAction(action: VideoNoticeAction): HTMLElement {
-    const element = action.href ? document.createElement("a") : document.createElement("button");
+    const element = document.createElement("button");
+    element.type = "button";
     element.textContent = action.label;
     element.style.cssText = this.buttonStyle(action.primary === true);
-    if (element instanceof HTMLAnchorElement) {
-      element.href = action.href ?? "";
-      element.target = "_blank";
-      element.rel = "noopener noreferrer";
-      element.addEventListener("click", () => action.onClick?.());
-    } else {
-      element.type = "button";
-      element.addEventListener("click", () => action.onClick?.());
-    }
+    element.addEventListener("click", () => action.onClick());
     return element;
   }
 
@@ -135,7 +126,6 @@ export class VideoNotice {
       "padding:7px 11px",
       "border-radius:6px",
       "cursor:pointer",
-      "text-decoration:none",
       "white-space:nowrap",
       `font:600 12px/1.35 ${FONT}`,
       primary ? "color:#0c0d10" : "color:#f4f1ea",

@@ -6,7 +6,7 @@ import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { onMessage } from "@/core/messaging";
-import { readPageEpisode } from "@/core/episode";
+import { jimakuSearchUrl, readPageEpisode, type PageEpisode } from "@/core/episode";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
 import { entrySpellings, selectDictionaryEntry } from "@/dictionary/match";
@@ -562,20 +562,33 @@ onMessage("tts:speak", ({ text }) => {
 
 onMessage("tab:url", (_payload, sender) => ({ url: sender.tab?.url ?? null }));
 
-// Players embedded in a frame cannot read the page that names the episode.
-onMessage("tab:episode", async ({ tabId }, sender) => {
-  const target = tabId ?? sender.tab?.id;
-  if (target == null) return { episode: null };
+/** Players embedded in a frame cannot read the page that names the episode. */
+async function readTabEpisode(tabId: number): Promise<PageEpisode | null> {
   try {
     const [frame] = await chrome.scripting.executeScript({
-      target: { tabId: target, frameIds: [0] },
+      target: { tabId, frameIds: [0] },
       func: readPageEpisode,
     });
-    return { episode: frame?.result ?? null };
+    return frame?.result ?? null;
   } catch {
     // Browser-restricted pages do not expose their DOM to extensions.
-    return { episode: null };
+    return null;
   }
+}
+
+// Embedded players are often sandboxed without popups: a link in the frame
+// would silently do nothing, so the extension opens the tab itself.
+onMessage("jimaku:search", async ({ tabId }, sender) => {
+  const target = tabId ?? sender.tab?.id;
+  if (target == null) throw new Error("Aucun onglet associé");
+  const tab = await chrome.tabs.get(target);
+  await chrome.tabs.create({
+    url: jimakuSearchUrl(await readTabEpisode(target)),
+    index: tab.index + 1,
+    openerTabId: target,
+    windowId: tab.windowId,
+  });
+  return {};
 });
 
 onMessage("screenshot:capture", async (_payload, sender) => {

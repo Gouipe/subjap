@@ -37,7 +37,6 @@ import {
   parseSubtitleFile,
   saveLocalSubtitle,
 } from "@/subtitles";
-import { jimakuSearchUrl } from "@/core/episode";
 import { VideoNotice } from "@/overlay/video-notice";
 import { primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
@@ -1266,7 +1265,6 @@ let missingJapaneseTimer: number | null = null;
 let missingJapaneseNotice: VideoNotice | null = null;
 /** Videos already told about, so the notice appears once per video. */
 const missingJapaneseNotified = new Set<string>();
-let missingJapanesePending = false;
 
 /** Anime players only: elsewhere a video without Japanese is usually not Japanese. */
 function checkMissingJapanese(): void {
@@ -1277,32 +1275,18 @@ function checkMissingJapanese(): void {
     return;
   }
   const key = status.videoId ?? video.currentSrc;
-  if (!key || missingJapaneseNotified.has(key) || missingJapanesePending) return;
+  if (!key || missingJapaneseNotified.has(key)) return;
   missingJapaneseNotified.add(key);
-  missingJapanesePending = true;
-  // The link needs the episode, read from the top page before the notice
-  // shows: a link opened after an await would lose the user's click.
-  void sendMessage("tab:episode", {})
-    .then(({ episode }) => episode, () => null)
-    .then((episode) => {
-      missingJapanesePending = false;
-      if (!enabled || adapter.getVideoElement() !== video) return;
-      if (adapter.getJapaneseSubtitleStatus?.()?.availability !== "missing") return;
-      showMissingJapaneseNotice(video, status.videoId, jimakuSearchUrl(episode));
-    });
+  showMissingJapaneseNotice(video, status.videoId);
 }
 
-function showMissingJapaneseNotice(
-  video: HTMLVideoElement,
-  videoId: string | null,
-  searchUrl: string,
-): void {
+function showMissingJapaneseNotice(video: HTMLVideoElement, videoId: string | null): void {
   missingJapaneseNotice?.close();
   const notice = new VideoNotice(video, {
     text: "Pas de sous-titres japonais pour cette vidéo.",
     autoHideMs: MISSING_JAPANESE_NOTICE_MS,
     actions: [
-      { label: "Chercher sur Jimaku", primary: true, href: searchUrl },
+      { label: "Chercher sur Jimaku", primary: true, onClick: () => searchJimaku(notice) },
       ...(videoId ? [{ label: "Importer", onClick: () => importJapaneseFile(videoId, notice) }] : []),
     ],
     onClose: () => {
@@ -1311,6 +1295,14 @@ function showMissingJapaneseNotice(
   });
   missingJapaneseNotice = notice;
   notice.show();
+}
+
+/** The extension opens the tab: sandboxed player frames cannot open one. */
+function searchJimaku(notice: VideoNotice): void {
+  void sendMessage("jimaku:search", {}).then(() => notice.close(), (err: unknown) => {
+    handleRuntimeError(err);
+    notice.setText("Impossible d’ouvrir Jimaku. Réessayez depuis la popup SubJap.");
+  });
 }
 
 /** Same storage as the popup import: the adapter picks the file up by itself. */
