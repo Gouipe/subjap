@@ -1241,7 +1241,7 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: "0.45em",
     lineHeight: 1,
     marginBottom: "0.08em",
-    color: C.muted,
+    color: "#ffffff",
     fontWeight: 500,
   },
   previewTranslation: {

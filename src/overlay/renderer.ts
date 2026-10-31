@@ -265,7 +265,8 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       font-size: calc(var(--sj-font-size, 28px) * 0.45);
       line-height: 1;
       margin-bottom: 0.08em;
-      color: var(--sj-muted);
+      /* White, not grey: grey means "unknown word" in the colour code. */
+      color: var(--sj-subtitle);
       font-weight: 500;
       white-space: nowrap;
       text-shadow: var(--sj-shadow);
