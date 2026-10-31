@@ -133,12 +133,12 @@ dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
 ### Importer des sous-titres locaux
 
 1. Ouvrir une page web avec un lecteur vidéo HTML5 visible, puis la popup SubJap.
-2. Dans **Pistes et décalage**, sous **Fichiers**, importer le fichier japonais
+2. Dans le menu **Pistes** de la popup, importer le fichier japonais
    sur la ligne **Japonais**. SubJap le traite comme du japonais pour l’overlay,
    la navigation et le mining.
 3. Facultativement, importer une traduction sur la ligne **Traduction**.
 
-Sous **Décalage**, chaque piste a son propre décalage au centième de seconde,
+Dans le menu **Décalage**, chaque piste a son propre décalage au centième de seconde,
 qu’elle vienne d’un fichier ou du lecteur (Re:ANIME, Netflix, YouTube) ; une
 valeur positive l’affiche plus tard, les boutons ajustent de 0,1 s et ↺ remet
 à zéro. Le décalage d’une piste du lecteur est mémorisé par vidéo ; celui d’un
@@ -160,7 +160,7 @@ compare les débuts de répliques et applique le décalage trouvé, seulement s�
 dépasse 1 s et ne fait aucun doute. Quand le fichier vient d’un autre montage
 de l’épisode (générique d’une autre longueur, coupure), il est recalé par
 parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler le
-recalage** ; la popup le rappelle sous **Fichiers** et permet aussi de
+recalage** ; la popup le rappelle dans **Pistes** et permet aussi de
 l’annuler. Le décalage réglé à la main s’ajoute à ce recalage. Un fichier dont
 le décalage a été réglé à la main avant tout recalage (y compris
 ↺) n’est jamais recalé.

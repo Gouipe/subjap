@@ -155,7 +155,8 @@ const Popup: React.FC = () => {
   const [videoId, setVideoId] = useState<string | null>(null);
   const [hasVideo, setHasVideo] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [localSubtitlesOpen, setLocalSubtitlesOpen] = useState(false);
+  const [tracksOpen, setTracksOpen] = useState(false);
+  const [offsetOpen, setOffsetOpen] = useState(false);
   const [display, setDisplay] = useState<DisplayOptions | null>(null);
   const [localSubtitles, setLocalSubtitles] = useState(EMPTY_LOCAL_SUBTITLES);
   const [offsetInputs, setOffsetInputs] = useState<Record<LocalSubtitleRole, string>>({
@@ -633,7 +634,7 @@ const Popup: React.FC = () => {
                 />
               </label>
             </div>
-            {localSubtitleError && !localSubtitlesOpen && (
+            {localSubtitleError && !tracksOpen && !offsetOpen && (
               <p style={styles.captureError}>{localSubtitleError}</p>
             )}
           </div>
@@ -676,122 +677,139 @@ const Popup: React.FC = () => {
           </select>
         </label>
         {videoId && (
-          <details onToggle={(event) => setLocalSubtitlesOpen(event.currentTarget.open)}>
-            <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
-              <span>Pistes et décalage</span>
-              <span
-                aria-hidden="true"
-                style={{
-                  ...styles.chevron,
-                  transform: localSubtitlesOpen ? "rotate(90deg)" : "none",
-                }}
-              >
-                ›
-              </span>
-            </summary>
-            <div style={styles.localSubtitleContent}>
-              {/* Linked offsets share one outlined panel, so the link is visible. */}
-              <div style={{
-                ...styles.offsetPanel,
-                ...(linkedOffsets && showTranslationOffset ? styles.offsetPanelLinked : {}),
-              }}>
-                {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
-                  <OffsetRow
-                    key={role}
-                    label={role === "primary" ? "Japonais" : "Traduction"}
-                    input={offsetInputs[role]}
-                    value={trackOffset(role)}
-                    disabled={localSubtitleBusy}
-                    onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
-                    onCommit={(value) => void changeOffset(role, value)}
-                  />
-                ))}
-                {showTranslationOffset && (
-                  <label style={styles.checkboxRow}>
-                    <input
-                      type="checkbox"
-                      checked={linkedOffsets}
-                      onChange={(event) => void chooseLinkedOffsets(event.target.checked)}
-                    />
-                    <span>Décaler les deux ensemble</span>
-                  </label>
-                )}
-              </div>
-              <p style={styles.offsetHint}>
-                Valeur positive : le sous-titre s’affiche plus tard.
-              </p>
-
-              <div style={styles.subsectionDivider} />
-              {LOCAL_SUBTITLE_ROLES.map((role) => {
-                const localSubtitle = localSubtitles[role];
-                const playerTrack = role === "primary"
-                  ? "Piste du lecteur"
-                  : secondarySubtitleLanguage === "none" ? "Aucune" : "Traduction du lecteur";
-                return (
-                  <div key={role} style={styles.fileRow}>
-                    <div style={styles.fileRowHead}>
-                      <span
-                        style={styles.offsetRowLabel}
-                        title={role === "primary"
-                          ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
-                          : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native."}
-                      >
-                        {role === "primary" ? "Japonais" : "Traduction"}
-                      </span>
-                      <span
-                        style={localSubtitle ? styles.fileName : styles.playerTrackName}
-                        title={localSubtitle?.fileName}
-                      >
-                        {localSubtitle?.fileName ?? playerTrack}
-                      </span>
-                    </div>
-                    <div style={styles.fileDetails}>
-                      {localSubtitle?.syncSegments?.length ? (
-                        <p style={styles.localSubtitleHint}>
-                          Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
-                          {" · "}
-                          <button
-                            style={styles.inlineLink}
-                            disabled={localSubtitleBusy}
-                            onClick={() => void removeAutoSync(role)}
-                          >
-                            Annuler
-                          </button>
-                        </p>
-                      ) : null}
-                      <div style={styles.fileActions}>
-                        <label style={styles.fileButton}>
-                          {localSubtitleBusy
-                            ? "Chargement…"
-                            : localSubtitle ? "Remplacer" : "Importer un fichier"}
-                          <input
-                            type="file"
-                            accept=".srt,.vtt,.webvtt,.ass,.ssa"
-                            hidden
-                            disabled={localSubtitleBusy}
-                            onChange={(event) => {
-                              void importLocalSubtitle(role, event.target.files?.[0]);
-                              event.target.value = "";
-                            }}
-                          />
-                        </label>
-                        {localSubtitle && (
-                          <button
-                            style={styles.deleteButton}
-                            disabled={localSubtitleBusy}
-                            onClick={() => void deleteLocalSubtitle(role)}
-                          >
-                            Supprimer
-                          </button>
-                        )}
+          <>
+            <details onToggle={(event) => setTracksOpen(event.currentTarget.open)}>
+              <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
+                <span>Pistes</span>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    ...styles.chevron,
+                    transform: tracksOpen ? "rotate(90deg)" : "none",
+                  }}
+                >
+                  ›
+                </span>
+              </summary>
+              <div style={styles.localSubtitleContent}>
+                {LOCAL_SUBTITLE_ROLES.map((role) => {
+                  const localSubtitle = localSubtitles[role];
+                  const playerTrack = role === "primary"
+                    ? "Piste du lecteur"
+                    : secondarySubtitleLanguage === "none" ? "Aucune" : "Traduction du lecteur";
+                  return (
+                    <div key={role} style={role === "secondary" ? undefined : styles.fileRow}>
+                      <div style={styles.fileRowHead}>
+                        <span
+                          style={styles.offsetRowLabel}
+                          title={role === "primary"
+                            ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
+                            : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native."}
+                        >
+                          {role === "primary" ? "Japonais" : "Traduction"}
+                        </span>
+                        <span
+                          style={localSubtitle ? styles.fileName : styles.playerTrackName}
+                          title={localSubtitle?.fileName}
+                        >
+                          {localSubtitle?.fileName ?? playerTrack}
+                        </span>
+                      </div>
+                      <div style={styles.fileDetails}>
+                        {localSubtitle?.syncSegments?.length ? (
+                          <p style={styles.localSubtitleHint}>
+                            Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                            {" · "}
+                            <button
+                              style={styles.inlineLink}
+                              disabled={localSubtitleBusy}
+                              onClick={() => void removeAutoSync(role)}
+                            >
+                              Annuler
+                            </button>
+                          </p>
+                        ) : null}
+                        <div style={styles.fileActions}>
+                          <label style={styles.fileButton}>
+                            {localSubtitleBusy
+                              ? "Chargement…"
+                              : localSubtitle ? "Remplacer" : "Importer un fichier"}
+                            <input
+                              type="file"
+                              accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                              hidden
+                              disabled={localSubtitleBusy}
+                              onChange={(event) => {
+                                void importLocalSubtitle(role, event.target.files?.[0]);
+                                event.target.value = "";
+                              }}
+                            />
+                          </label>
+                          {localSubtitle && (
+                            <button
+                              style={styles.deleteButton}
+                              disabled={localSubtitleBusy}
+                              onClick={() => void deleteLocalSubtitle(role)}
+                            >
+                              Supprimer
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-              {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
-            </div>
-          </details>
+                  );
+                })}
+                {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
+              </div>
+            </details>
+            <details onToggle={(event) => setOffsetOpen(event.currentTarget.open)}>
+              <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
+                <span>Décalage</span>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    ...styles.chevron,
+                    transform: offsetOpen ? "rotate(90deg)" : "none",
+                  }}
+                >
+                  ›
+                </span>
+              </summary>
+              <div style={styles.localSubtitleContent}>
+                {/* Linked offsets share one outlined panel, so the link is visible. */}
+                <div style={{
+                  ...styles.offsetPanel,
+                  ...(linkedOffsets && showTranslationOffset ? styles.offsetPanelLinked : {}),
+                }}>
+                  {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
+                    <OffsetRow
+                      key={role}
+                      label={role === "primary" ? "Japonais" : "Traduction"}
+                      input={offsetInputs[role]}
+                      value={trackOffset(role)}
+                      disabled={localSubtitleBusy}
+                      onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
+                      onCommit={(value) => void changeOffset(role, value)}
+                    />
+                  ))}
+                  {showTranslationOffset && (
+                    <label style={styles.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        checked={linkedOffsets}
+                        onChange={(event) => void chooseLinkedOffsets(event.target.checked)}
+                      />
+                      <span>Décaler les deux ensemble</span>
+                    </label>
+                  )}
+                </div>
+                <p style={styles.offsetHint}>
+                  Valeur positive : le sous-titre s’affiche plus tard.
+                </p>
+                {localSubtitleError && !tracksOpen && <p style={styles.captureError}>{localSubtitleError}</p>}
+              </div>
+            </details>
+          </>
         )}
       </div>
 
@@ -1147,10 +1165,6 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     textAlign: "center",
     transition: "transform 160ms cubic-bezier(0.22, 1, 0.36, 1)",
-  },
-  subsectionDivider: {
-    margin: "12px 0 10px",
-    borderTop: "1px solid #343842",
   },
   offsetRow: {
     display: "flex",
