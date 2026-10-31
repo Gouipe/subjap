@@ -84,13 +84,14 @@ describe("getFrequencyHighlight", () => {
     ).toBe("known");
   });
 
-  it("accepts exactly one green or blue word when no word is orange", () => {
+  it("accepts exactly one green or blue word when every other word is white", () => {
+    expect(
+      isSingleMiningCandidate(["known", "relevant", "ignored", null]),
+    ).toBe(true);
+    expect(isSingleMiningCandidate(["known", "near", null])).toBe(true);
     expect(
       isSingleMiningCandidate(["known", "relevant", "learning", null]),
-    ).toBe(true);
-    expect(isSingleMiningCandidate(["known", "near", "learning", null])).toBe(
-      true,
-    );
+    ).toBe(false);
     expect(isSingleMiningCandidate(["known", "relevant", "unknown"])).toBe(
       false,
     );

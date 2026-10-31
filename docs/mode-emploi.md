@@ -157,11 +157,12 @@ de révision (Chrome doit être ouvert avec l’extension). Cliquer sur le paren
 `日本語::Vocabulaire` pour une session commune, ou sur `Production` seule
 lorsqu’il est possible de répondre à voix haute.
 
-Couleurs : un mot n’est coloré que s’il est à miner, c’est-à-dire le seul
-inconnu de sa phrase — vert s’il est très fréquent, bleu s’il l’est un peu
-moins, souligné d’un trait continu de sa couleur. Les autres inconnus, y
-compris un mot `LEARNING` ou déjà présent dans Anki mais pas encore acquis, sont
-seulement grisés, si bien que le blanc se lit comme « compris » ; `KNOWN` et `IGNORED` sont blancs sans trait. La popover
+Couleurs : un mot n’est coloré que s’il est à miner, c’est-à-dire le seul mot
+non blanc de sa phrase — vert s’il est très fréquent, bleu s’il l’est un peu
+moins, souligné d’un trait continu de sa couleur. Un mot `LEARNING` ou déjà
+présent dans Anki mais pas encore acquis compte comme inconnu : il empêche la
+coloration. Les autres inconnus sont seulement grisés, si bien que le blanc se
+lit comme « compris » ; `KNOWN` et `IGNORED` sont blancs sans trait. La popover
 affiche toujours le rang disponible et le nombre de cartes Anki existantes.
 
 ## Piloter les couleurs depuis Anki

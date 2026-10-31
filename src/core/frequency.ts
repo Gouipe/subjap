@@ -69,21 +69,22 @@ export function isAllKnownOrIgnored(spans: readonly SpanToken[]): boolean {
 }
 
 /**
- * A sentence is a good mining candidate when it has one useful frequency
- * hint and no distant (orange) unknown word competing for attention.
+ * A sentence is a good mining candidate when exactly one word has a useful
+ * frequency hint and every other word is known or ignored (white): a word
+ * already in Anki or tagged LEARNING is not acquired yet, so it blocks too.
  * Punctuation and parenthetical tokens are represented as null and do not
  * participate in the decision.
  */
 export function isSingleMiningCandidate(
   highlights: readonly (FrequencyHighlight | null)[],
 ): boolean {
-  const wordHighlights = highlights.filter(
-    (highlight): highlight is FrequencyHighlight => highlight !== null,
-  );
-  const candidateCount = wordHighlights.filter(
-    (highlight) => highlight === "relevant" || highlight === "near",
-  ).length;
-  return candidateCount === 1 && !wordHighlights.includes("unknown");
+  let candidateCount = 0;
+  for (const highlight of highlights) {
+    if (highlight === null || highlight === "known" || highlight === "ignored") continue;
+    if (highlight !== "relevant" && highlight !== "near") return false;
+    candidateCount++;
+  }
+  return candidateCount === 1;
 }
 
 /**
