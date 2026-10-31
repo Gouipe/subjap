@@ -690,30 +690,36 @@ const Popup: React.FC = () => {
               </span>
             </summary>
             <div style={styles.localSubtitleContent}>
-              {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
-                <OffsetRow
-                  key={role}
-                  label={role === "primary" ? "Japonais" : "Traduction"}
-                  input={offsetInputs[role]}
-                  value={trackOffset(role)}
-                  disabled={localSubtitleBusy}
-                  onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
-                  onCommit={(value) => void changeOffset(role, value)}
-                />
-              ))}
+              {/* Linked offsets share one outlined panel, so the link is visible. */}
+              <div style={{
+                ...styles.offsetPanel,
+                ...(linkedOffsets && showTranslationOffset ? styles.offsetPanelLinked : {}),
+              }}>
+                {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
+                  <OffsetRow
+                    key={role}
+                    label={role === "primary" ? "Japonais" : "Traduction"}
+                    input={offsetInputs[role]}
+                    value={trackOffset(role)}
+                    disabled={localSubtitleBusy}
+                    onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
+                    onCommit={(value) => void changeOffset(role, value)}
+                  />
+                ))}
+                {showTranslationOffset && (
+                  <label style={styles.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      checked={linkedOffsets}
+                      onChange={(event) => void chooseLinkedOffsets(event.target.checked)}
+                    />
+                    <span>Décaler les deux ensemble</span>
+                  </label>
+                )}
+              </div>
               <p style={styles.offsetHint}>
                 En secondes ; valeur positive : le sous-titre s’affiche plus tard.
               </p>
-              {showTranslationOffset && (
-                <label style={styles.checkboxRow}>
-                  <input
-                    type="checkbox"
-                    checked={linkedOffsets}
-                    onChange={(event) => void chooseLinkedOffsets(event.target.checked)}
-                  />
-                  <span>Décaler les deux ensemble</span>
-                </label>
-              )}
 
               <div style={styles.subsectionDivider} />
               {LOCAL_SUBTITLE_ROLES.map((role) => {
@@ -739,48 +745,50 @@ const Popup: React.FC = () => {
                         {localSubtitle?.fileName ?? playerTrack}
                       </span>
                     </div>
-                    {localSubtitle?.syncSegments?.length ? (
-                      <p style={styles.localSubtitleHint}>
-                        Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
-                        {" ("}
-                        {localSubtitle.syncSegments
-                          .map((segment) => `${segment.offset > 0 ? "+" : ""}${segment.offset.toFixed(1).replace(".", ",")} s`)
-                          .join(", ")}
-                        {") · "}
-                        <button
-                          style={styles.inlineLink}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void removeAutoSync(role)}
-                        >
-                          Annuler
-                        </button>
-                      </p>
-                    ) : null}
-                    <div style={styles.fileActions}>
-                      <label style={styles.fileButton}>
-                        {localSubtitleBusy
-                          ? "Chargement…"
-                          : localSubtitle ? "Remplacer" : "Importer un fichier"}
-                        <input
-                          type="file"
-                          accept=".srt,.vtt,.webvtt,.ass,.ssa"
-                          hidden
-                          disabled={localSubtitleBusy}
-                          onChange={(event) => {
-                            void importLocalSubtitle(role, event.target.files?.[0]);
-                            event.target.value = "";
-                          }}
-                        />
-                      </label>
-                      {localSubtitle && (
-                        <button
-                          style={styles.deleteButton}
-                          disabled={localSubtitleBusy}
-                          onClick={() => void deleteLocalSubtitle(role)}
-                        >
-                          Supprimer
-                        </button>
-                      )}
+                    <div style={styles.fileDetails}>
+                      {localSubtitle?.syncSegments?.length ? (
+                        <p style={styles.localSubtitleHint}>
+                          Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                          {" ("}
+                          {localSubtitle.syncSegments
+                            .map((segment) => `${segment.offset > 0 ? "+" : ""}${segment.offset.toFixed(1).replace(".", ",")} s`)
+                            .join(", ")}
+                          {") · "}
+                          <button
+                            style={styles.inlineLink}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void removeAutoSync(role)}
+                          >
+                            Annuler
+                          </button>
+                        </p>
+                      ) : null}
+                      <div style={styles.fileActions}>
+                        <label style={styles.fileButton}>
+                          {localSubtitleBusy
+                            ? "Chargement…"
+                            : localSubtitle ? "Remplacer" : "Importer un fichier"}
+                          <input
+                            type="file"
+                            accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                            hidden
+                            disabled={localSubtitleBusy}
+                            onChange={(event) => {
+                              void importLocalSubtitle(role, event.target.files?.[0]);
+                              event.target.value = "";
+                            }}
+                          />
+                        </label>
+                        {localSubtitle && (
+                          <button
+                            style={styles.deleteButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void deleteLocalSubtitle(role)}
+                          >
+                            Supprimer
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1157,12 +1165,15 @@ const styles: Record<string, React.CSSProperties> = {
   offsetRowLabel: {
     flex: "0 0 70px",
     color: "#f4f1ea",
+    fontWeight: 500,
     fontSize: 12,
   },
   checkboxRow: {
     display: "flex",
     alignItems: "center",
     gap: 6,
+    paddingTop: 6,
+    borderTop: "1px solid #262a32",
     color: "#f4f1ea",
     fontSize: 12,
     cursor: "pointer",
@@ -1265,8 +1276,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontVariantNumeric: "tabular-nums",
   },
+  offsetPanel: {
+    padding: "8px 8px 6px",
+    border: "1px solid #343842",
+    borderRadius: 8,
+    background: "#101216",
+  },
+  offsetPanelLinked: {
+    borderColor: "rgba(255, 98, 77, 0.6)",
+  },
+  fileDetails: {
+    marginLeft: 74,
+  },
   offsetHint: {
-    margin: "0 0 8px",
+    margin: "6px 2px 0",
     color: "#b2b6bf",
     fontSize: 11,
     lineHeight: 1.35,
