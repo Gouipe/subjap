@@ -317,6 +317,20 @@ const Popup: React.FC = () => {
     [localSubtitles, videoId],
   );
 
+  /** Back to the file's own timing; the user's offset stays. */
+  const removeAutoSync = useCallback(async (role: LocalSubtitleRole) => {
+    const localSubtitle = localSubtitles[role];
+    if (!videoId || !localSubtitle) return;
+    const next = { ...localSubtitle, syncSegments: undefined, syncChecked: true };
+    setLocalSubtitles((current) => ({ ...current, [role]: next }));
+    setLocalSubtitleError(null);
+    try {
+      await saveLocalSubtitle(videoId, next, role);
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    }
+  }, [localSubtitles, videoId]);
+
   const persistPlayerTranslationOffset = useCallback(async (value: number) => {
     if (!videoId || !Number.isFinite(value)) return;
     const rounded = Math.round(value * 100) / 100;
@@ -680,6 +694,24 @@ const Popup: React.FC = () => {
                     {localSubtitle && (
                       <>
                         <p style={styles.fileName}>{localSubtitle.fileName}</p>
+                        {localSubtitle.syncSegments?.length ? (
+                          <p style={styles.localSubtitleHint}>
+                            Recalé automatiquement sur la traduction
+                            {localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                            {" ("}
+                            {localSubtitle.syncSegments
+                              .map((segment) => `${segment.offset > 0 ? "+" : ""}${segment.offset.toFixed(1).replace(".", ",")} s`)
+                              .join(", ")}
+                            {"). "}
+                            <button
+                              style={styles.inlineLink}
+                              disabled={localSubtitleBusy}
+                              onClick={() => void removeAutoSync(role)}
+                            >
+                              Annuler le recalage
+                            </button>
+                          </p>
+                        ) : null}
                         <OffsetControls
                           input={offsetInputs[role]}
                           value={localSubtitle.offsetSeconds}
@@ -1173,6 +1205,15 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#1b1e24",
     color: "#f4f1ea",
     fontSize: 9,
+    cursor: "pointer",
+  },
+  inlineLink: {
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    color: "#ff624d",
+    fontSize: 10,
+    textDecoration: "underline",
     cursor: "pointer",
   },
   deleteButton: {

@@ -49,6 +49,7 @@ import {
 } from "@/subtitles/jimaku";
 import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
 import { onLocalSubtitleAutoSync, type AutoSyncEvent } from "@/subtitles/auto-sync";
+import type { SyncSegment } from "@/subtitles/local-storage";
 import { compactSubtitleText, primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
@@ -1469,7 +1470,16 @@ function formatOffset(seconds: number): string {
 }
 
 /** Say it once, with a way back: the file keeps the offset it had, flagged as chosen. */
-function showAutoSyncNotice({ videoId, offsetSeconds }: AutoSyncEvent): void {
+/** "de −19,0 s" for one offset, "par parties (de −20,0 s à −19,0 s)" for several. */
+function describeSync(segments: SyncSegment[]): string {
+  const offsets = segments.map((segment) => segment.offset);
+  if (offsets.length === 1) return `de ${formatOffset(offsets[0] ?? 0)}`;
+  const low = Math.min(...offsets);
+  const high = Math.max(...offsets);
+  return `par parties (de ${formatOffset(low)} à ${formatOffset(high)})`;
+}
+
+function showAutoSyncNotice({ videoId, segments }: AutoSyncEvent): void {
   const video = adapter.getVideoElement();
   if (!enabled || !video) return;
   const installed = jimakuInstalledActions?.videoId === videoId && missingJapaneseNotice
@@ -1479,7 +1489,7 @@ function showAutoSyncNotice({ videoId, offsetSeconds }: AutoSyncEvent): void {
   const undo = (): void => {
     void (async () => {
       const record = await getLocalSubtitle(videoId, "primary");
-      if (record) await saveLocalSubtitle(videoId, { ...record, offsetSeconds: 0, syncChecked: true }, "primary");
+      if (record) await saveLocalSubtitle(videoId, { ...record, syncSegments: undefined, syncChecked: true }, "primary");
       notice.update({
         text: "Recalage annulé. Le décalage reste réglable depuis la popup SubJap.",
         autoHideMs: MISSING_JAPANESE_NOTICE_MS,
@@ -1490,8 +1500,8 @@ function showAutoSyncNotice({ videoId, offsetSeconds }: AutoSyncEvent): void {
   missingJapaneseNoticeReportsMissing = false;
   notice.update({
     text: installed
-      ? `Sous-titres japonais installés depuis Jimaku et recalés de ${formatOffset(offsetSeconds)} sur la traduction.`
-      : `Sous-titres japonais recalés de ${formatOffset(offsetSeconds)} sur la traduction.`,
+      ? `Sous-titres japonais installés depuis Jimaku et recalés ${describeSync(segments)} sur la traduction.`
+      : `Sous-titres japonais recalés ${describeSync(segments)} sur la traduction.`,
     autoHideMs: MISSING_JAPANESE_NOTICE_MS,
     actions: [...(installed?.actions ?? []), { label: "Annuler le recalage", onClick: undo }],
   });

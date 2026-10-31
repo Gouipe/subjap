@@ -4,6 +4,12 @@ import { parseSubtitleFile } from "@/subtitles/parse";
 
 export type LocalSubtitleRole = "primary" | "secondary";
 
+/** From this time of the file on, its lines are shifted by `offset` seconds. */
+export interface SyncSegment {
+  from: number;
+  offset: number;
+}
+
 export interface LocalSubtitleRecord {
   fileName: string;
   content: string;
@@ -14,6 +20,21 @@ export interface LocalSubtitleRecord {
    * player's translation: never shift it automatically again.
    */
   syncChecked?: boolean;
+  /**
+   * Automatic alignment on the player's translation, part by part, added to
+   * `offsetSeconds` (which stays the user's own adjustment).
+   */
+  syncSegments?: SyncSegment[];
+}
+
+/** Shift of a line starting at `start` in the file, from the automatic alignment. */
+export function syncSegmentOffset(segments: SyncSegment[] | undefined, start: number): number {
+  let offset = segments?.[0]?.offset ?? 0;
+  for (const segment of segments ?? []) {
+    if (segment.from > start) break;
+    offset = segment.offset;
+  }
+  return Number.isFinite(offset) ? offset : 0;
 }
 
 const STORAGE_PREFIX = "subjap_local_subtitle_watch_";
@@ -98,8 +119,8 @@ export function parseLocalSubtitleCues(
   return parseSubtitleFile(record.fileName, record.content).map((cue, index) => ({
     ...cue,
     id: `${sessionId}:${index}:${cue.id}`,
-    start: cue.start + record.offsetSeconds,
-    end: cue.end + record.offsetSeconds,
+    start: cue.start + record.offsetSeconds + syncSegmentOffset(record.syncSegments, cue.start),
+    end: cue.end + record.offsetSeconds + syncSegmentOffset(record.syncSegments, cue.start),
     language: role === "primary" ? "ja" : "local",
     source: {
       kind: "track" as const,

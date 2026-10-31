@@ -154,8 +154,12 @@ son rôle ; le choix **Aucun** masque la piste secondaire locale comme native.
 Un fichier japonais local (importé ou installé depuis Jimaku) est recalé une
 fois automatiquement sur la traduction native du lecteur (FR, sinon EN) : SubJap
 compare les débuts de répliques et applique le décalage trouvé, seulement s’il
-dépasse 1 s et ne fait aucun doute. Un bandeau l’indique, avec **Annuler le
-recalage**. Un fichier dont le décalage a été réglé à la main (y compris
+dépasse 1 s et ne fait aucun doute. Quand le fichier vient d’un autre montage
+de l’épisode (générique d’une autre longueur, coupure), il est recalé par
+parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler le
+recalage** ; la popup le rappelle sous la piste principale et permet aussi de
+l’annuler. Le décalage réglé à la main s’ajoute à ce recalage. Un fichier dont
+le décalage a été réglé à la main avant tout recalage (y compris
 **Réinitialiser**) n’est jamais recalé.
 
 Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
