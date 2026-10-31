@@ -25,7 +25,7 @@ import {
   parseLocalSubtitleCues,
 } from "@/subtitles/local-storage";
 import { parseSubtitleFile } from "@/subtitles/parse";
-import { activeSubtitleCues, firstCueStartingIn } from "@/subtitles/timeline";
+import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 
 const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
@@ -152,6 +152,10 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     const video = this.getVideoElement();
     if (!video || video.readyState < 1) return null;
     return firstCueStartingIn(this.translationCues(), after, until);
+  }
+
+  getTranslationCuesIn(start: number, end: number): SubtitleCue[] {
+    return cuesOverlapping(this.translationCues(), start, end);
   }
 
   getNavigationSessionId(): string {

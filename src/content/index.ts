@@ -49,7 +49,7 @@ import {
 } from "@/subtitles/jimaku";
 import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
 import { onLocalSubtitleAutoSync, type AutoSyncEvent } from "@/subtitles/auto-sync";
-import { primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
+import { compactSubtitleText, primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
 import { tokenizeCue } from "@/tokenizer/cue";
@@ -1160,10 +1160,35 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
     cue: rendered,
     targetToken: targetSpan,
     lemmaReading: dictionaryReadingForToken(targetSpan.token, entry),
-    translation: normalizeCueText(selectTranslationCue(lastCues)?.text ?? ""),
+    translation: miningTranslationText(rendered.cue),
     episodeContext: source,
     senses: entry?.senses.map((sense) => sense.glosses).filter((glosses) => glosses.length > 0) ?? [],
   });
+}
+
+/**
+ * Translation of a mined Japanese line. Tracks split lines independently, so
+ * one Japanese cue may carry several translation cues: keep those lying mostly
+ * within it, plus the one on screen, joined in time order.
+ */
+function miningTranslationText(japanese: SubtitleCue): string {
+  const shown = selectTranslationCue(lastCues);
+  // A provisional DOM end does not delimit the line yet.
+  const within = japanese.endConfirmed === false
+    ? []
+    : (adapter.getTranslationCuesIn?.(japanese.start, japanese.end) ?? []).filter((cue) => {
+        const duration = cue.end - cue.start;
+        const overlap = Math.min(cue.end, japanese.end) - Math.max(cue.start, japanese.start);
+        return duration > 0 && overlap >= duration * TRANSLATION_COUNTERPART_COVERAGE;
+      });
+  // The shown cue may come from another source (DOM) than the timeline.
+  const shownKey = shown ? subtitleCueKey(shown) : null;
+  const shownText = shown ? compactSubtitleText(shown.text) : "";
+  const parts = shown && !within.some((cue) =>
+      subtitleCueKey(cue) === shownKey || compactSubtitleText(cue.text) === shownText)
+    ? [...within, shown].sort((a, b) => a.start - b.start)
+    : within;
+  return parts.map((cue) => normalizeCueText(cue.text)).filter(Boolean).join(" ");
 }
 
 function onToggleKnown(lemma: string, currentStatus: WordStatus | null, token: Token): void {

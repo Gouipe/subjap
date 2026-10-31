@@ -13,6 +13,7 @@ import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 import {
   activeSubtitleCues,
   compactSubtitleText,
+  cuesOverlapping,
   firstCueStartingIn,
   SubtitleTrackCatalog,
 } from "@/subtitles/timeline";
@@ -826,6 +827,21 @@ export class NetflixAdapter implements PlatformAdapter {
       if (cue) return cueSnapshot(cue);
     }
     return null;
+  }
+
+  getTranslationCuesIn(start: number, end: number): SubtitleCue[] {
+    this.ensurePlaybackSession();
+    if (this.preferredSecondaryLanguage === "none") return [];
+    if (this.localTranslationCues.length > 0) {
+      return cuesOverlapping(this.localTranslationCues, start, end);
+    }
+    const languagePriority: SecondarySubtitleLanguage[] =
+      this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
+    for (const language of languagePriority) {
+      const cues = cuesOverlapping(this.tracks.cues(language), start, end);
+      if (cues.length) return cues.map(cueSnapshot);
+    }
+    return [];
   }
 
   private getActiveTranslationCue(currentTime: number): SubtitleCue | null {

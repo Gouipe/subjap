@@ -6,7 +6,7 @@ import {
   parseLocalSubtitleCues,
 } from "@/subtitles/local-storage";
 import { parseYouTubeCaptions } from "@/subtitles/youtube";
-import { activeSubtitleCues, firstCueStartingIn, SubtitleTrackCatalog } from "@/subtitles/timeline";
+import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn, SubtitleTrackCatalog } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 
 const HIDE_CLASS = "subjap-youtube-hide-native";
@@ -287,6 +287,10 @@ export class YouTubeAdapter implements PlatformAdapter {
   getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {
     if (!this.canUsePlayback()) return null;
     return firstCueStartingIn(this.translationCues(), after, until);
+  }
+
+  getTranslationCuesIn(start: number, end: number): SubtitleCue[] {
+    return cuesOverlapping(this.translationCues(), start, end);
   }
 
   private translationCues(): SubtitleCue[] {

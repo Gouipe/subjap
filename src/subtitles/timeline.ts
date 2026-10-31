@@ -24,6 +24,13 @@ export function firstCueStartingIn(
   );
 }
 
+/** Segments sharing some time with `start`–`end`, in time order. */
+export function cuesOverlapping(cues: SubtitleCue[], start: number, end: number): SubtitleCue[] {
+  return cues
+    .filter((cue) => cue.start < end && start < cue.end)
+    .sort((a, b) => a.start - b.start);
+}
+
 /** A newly started segment owns S; equal-start speakers share a seek position. */
 export function primarySubtitleCue(cues: SubtitleCue[]): SubtitleCue | null {
   return cues.reduce<SubtitleCue | null>(

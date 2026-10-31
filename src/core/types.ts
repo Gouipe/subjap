@@ -81,6 +81,8 @@ export interface PlatformAdapter {
   getNavigationCues?(): SubtitleCue[];
   /** Translation that would be shown next if it starts after `after`, up to `until` included. */
   getTranslationCueStartingIn?(after: number, until: number): SubtitleCue | null;
+  /** Translation cues of one language overlapping `start`–`end`, in time order. */
+  getTranslationCuesIn?(start: number, end: number): SubtitleCue[];
   /** Stable identity of the playback whose navigation cues are being exposed. */
   getNavigationSessionId?(): string;
   /** Freeze live cue publication while one cue is replayed for media capture. */
