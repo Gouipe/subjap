@@ -16,8 +16,7 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   showFurigana: true,
   hideNativeSubtitles: true,
   secondarySubtitleLanguage: "fr",
-  hideSecondarySubtitlesWhenAllKnown: false,
-  activeListeningMode: false,
+  knownSentenceSubtitles: "show",
 };
 
 /**
@@ -57,12 +56,18 @@ export function sanitizeOptions(
   ) {
     out.secondarySubtitleLanguage = raw.secondarySubtitleLanguage;
   }
-  if (typeof raw.hideSecondarySubtitlesWhenAllKnown === "boolean") {
-    out.hideSecondarySubtitlesWhenAllKnown =
-      raw.hideSecondarySubtitlesWhenAllKnown;
-  }
-  if (typeof raw.activeListeningMode === "boolean") {
-    out.activeListeningMode = raw.activeListeningMode;
+  if (
+    raw.knownSentenceSubtitles === "show" ||
+    raw.knownSentenceSubtitles === "hide-translation" ||
+    raw.knownSentenceSubtitles === "hide-all"
+  ) {
+    out.knownSentenceSubtitles = raw.knownSentenceSubtitles;
+  } else if (
+    (raw as { hideSecondarySubtitlesWhenAllKnown?: unknown })
+      .hideSecondarySubtitlesWhenAllKnown === true
+  ) {
+    // Settings saved before the three-level choice existed.
+    out.knownSentenceSubtitles = "hide-translation";
   }
 
   return out;

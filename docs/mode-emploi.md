@@ -74,26 +74,18 @@ ne se synchronisent pas entre eux. Les décisions manuelles ne sont donc pas
 partagées. Les états provenant d’Anki peuvent être réimportés dans chaque profil
 lors d’une synchronisation, si AnkiConnect y est accessible.
 
-Si **Activer l’écoute active** est activé, l’exercice ne se lance pas
-automatiquement : appuyer sur **Q** (phrase précédente) ou **S** (phrase
-courante) sur une phrase dont tous les mots sont connus ou ignorés. Les noms
-de locuteur ou indications entre parenthèses dans les sous-titres CC sont
-ignorés. La phrase doit aussi être suffisamment longue et structurée pour
-constituer un exercice.
-Cela fonctionne aussi en pause : **Q** ou **S** prépare l’exercice sans
-reprendre la vidéo, puis **A** démarre l’écoute. Pendant la lecture, l’exercice
-accompagne la phrase rejouée et met la vidéo en pause à sa fin.
-Sans piste japonaise complète, **S** fonctionne aussi sur une phrase encore
-en cours : SubJap observe sa disparition pour en déterminer la fin, puis
-met la vidéo en pause. Aucun temps d'écoute arbitraire n'est ajouté.
-Quand la traduction secondaire est masquée, le survol de la ligne japonaise la
-révèle également. À la fin de l’écoute, **Z** affiche le japonais et **E** les
-sous-titres secondaires, indépendamment et sans reprendre la vidéo. **R** ou
-**Espace** continue la lecture ; **A** rejoue la phrase. Les langues déjà
-révélées restent affichées à la fin de la relecture.
+Le réglage **Phrases connues** (popup et Options) agit sur les phrases dont
+tous les mots sont connus ou ignorés ; les noms de locuteur et indications
+entre parenthèses ne comptent pas :
 
-Lorsque le masquage automatique est activé, **X** révèle la traduction de la
-phrase courante. Elle est à nouveau soumise au masquage automatique au
+- **Tout afficher** : comportement normal ;
+- **Masquer la traduction** : seul le japonais reste affiché ;
+- **Masquer tout (écoute)** : japonais et traduction sont masqués, la vidéo
+  continue. On écoute d’abord une phrase dont on connaît déjà tous les mots,
+  pour entraîner l’oreille plutôt que la lecture. **S** la rejoue.
+
+Une ligne masquée réapparaît au survol. **X** révèle la phrase courante par
+étapes : le japonais d’abord, puis la traduction. Tout est à nouveau masqué au
 changement de sous-titre.
 
 L’enrichissement utilise Gemini 3.5 Flash-Lite via le Worker Cloudflare configuré

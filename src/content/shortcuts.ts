@@ -88,10 +88,6 @@ export class CueNavigator {
     return targetTime;
   }
 
-  getPendingCue(): SubtitleCue | null {
-    return this.pending?.cue ?? null;
-  }
-
   cancelPendingSeek(): void {
     this.pending = null;
   }
@@ -264,11 +260,6 @@ export function installPlaybackShortcuts(
   adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo" | "getNavigationSessionId"> &
     Partial<Pick<PlatformAdapter, "getVideoElement">>,
   navigator: CueNavigator,
-  onSeekRequested?: (
-    cue: SubtitleCue | null,
-    action: CueShortcutAction,
-    resume: boolean,
-  ) => void | ((accepted: boolean) => void),
 ): () => void {
   let removed = false;
   let seekQueue: Promise<void> = Promise.resolve();
@@ -295,30 +286,19 @@ export function installPlaybackShortcuts(
     // Queuing transport must not change the meaning of a queued key press.
     const seekTime = navigator.getSeekTime(action, pressedAt);
     if (seekTime === null) return;
-    const targetCue = navigator.getPendingCue();
     const sessionId = adapter.getNavigationSessionId?.();
-    // Release any exercise playback owner before a new navigation can run.
-    const complete = onSeekRequested?.(targetCue, action, resume);
     const runSeek = async (): Promise<void> => {
-      if (removed || sessionId !== adapter.getNavigationSessionId?.()) {
-        complete?.(false);
-        return;
-      }
+      if (removed || sessionId !== adapter.getNavigationSessionId?.()) return;
 
       try {
         const accepted = await adapter.seekTo(seekTime, resume);
-        if (removed || sessionId !== adapter.getNavigationSessionId?.()) {
-          complete?.(false);
-          return;
-        }
-        complete?.(accepted);
+        if (removed || sessionId !== adapter.getNavigationSessionId?.()) return;
         if (accepted) {
           return;
         }
         navigator.cancelPendingSeek();
         console.warn("[SubJap] Playback seek was not accepted by the adapter");
       } catch (err: unknown) {
-        complete?.(false);
         navigator.cancelPendingSeek();
         console.warn("[SubJap] Playback seek failed:", err);
       }

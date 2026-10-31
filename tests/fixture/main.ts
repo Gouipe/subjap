@@ -404,7 +404,7 @@ function ensureOverlay(): OverlayRenderer | null {
   if (!overlay) {
     overlay = new OverlayRenderer(video, {
       showFurigana: furiganaToggle.checked,
-      hideSecondarySubtitlesWhenAllKnown: hideSecondaryWhenKnownToggle.checked,
+      knownSentenceSubtitles: hideSecondaryWhenKnownToggle.checked ? "hide-translation" : "show",
     });
     currentVideo = video;
   }
@@ -936,7 +936,7 @@ furiganaToggle.addEventListener("change", () => {
 
 hideSecondaryWhenKnownToggle.addEventListener("change", () => {
   overlay?.setOptions({
-    hideSecondarySubtitlesWhenAllKnown: hideSecondaryWhenKnownToggle.checked,
+    knownSentenceSubtitles: hideSecondaryWhenKnownToggle.checked ? "hide-translation" : "show",
   });
 });
 

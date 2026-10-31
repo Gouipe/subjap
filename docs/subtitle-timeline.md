@@ -3,7 +3,7 @@
 ## Contrat utilisateur
 
 Un segment de la piste japonaise est un bloc SubJap. Le texte et les horaires
-de ce segment servent à l’affichage, aux raccourcis, au mode écoute et au mining.
+de ce segment servent à l’affichage, aux raccourcis et au mining.
 Les retours à la ligne ne créent pas de nouvelles positions dans la vidéo.
 Une phrase répartie entre plusieurs segments reste répartie entre plusieurs
 sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
@@ -24,8 +24,7 @@ segments à venir, une traduction seule attend 300 ms avant d’être affichée.
 
 Les segments qui se chevauchent sont affichés ensemble, chacun avec ses propres
 tokens et bornes. Le mot cliqué appartient toujours à son segment pour le
-mining. Le mode écoute conserve sa règle : il ne démarre pas automatiquement
-sur plusieurs segments simultanés.
+mining.
 
 `S` reprend le segment visible commencé le plus récemment. `Q` et `D` visent
 respectivement le début distinct précédent et suivant dans la même chronologie.
@@ -128,8 +127,8 @@ le repli reste actif. La traduction locale conserve sa priorité indépendante.
 
 Sur Netflix, une traduction active peut aussi être affichée seule lorsqu’aucune
 cue japonaise n’est active. Elle garde ses propres horaires et ses réglages de
-langue et de visibilité ; elle ne crée pas de cue japonaise pour la navigation,
-le mode écoute ou le mining. Les autres lecteurs conservent leur comportement
+langue et de visibilité ; elle ne crée pas de cue japonaise pour la navigation
+ou le mining. Les autres lecteurs conservent leur comportement
 habituel lorsque leur piste japonaise est absente.
 
 Avec une piste officielle active, un intervalle sans segment reste vide même
@@ -174,10 +173,7 @@ Sans piste officielle,
 un retour vers un début historique connu réutilise cette observation et attend
 son texte, avec un délai maximal.
 Pendant cette attente, la cible historique n'est pas publiée comme sous-titre :
-le lecteur doit effectivement réafficher le texte avant de pouvoir déclencher
-l'écoute active. Q/S/D ferme l'exercice précédent et annule sa surveillance
-avant tout nouveau déplacement. La fin d'écoute dépend de l'horloge vidéo,
-afin qu'un chargement ou un seek ne raccourcisse pas la phrase.
+le lecteur doit effectivement réafficher le texte.
 
 Netflix accepte des millisecondes entières : un début plus précis est arrondi
 vers le haut, de moins d’une milliseconde, pour éviter de rester juste avant le

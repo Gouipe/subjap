@@ -98,13 +98,11 @@ Dans l’onglet vidéo, hors des champs de saisie :
 | **S** | Rejouer le sous-titre courant |
 | **D** | Aller au sous-titre suivant |
 | **C** | Copier le japonais affiché |
-| **X** | Révéler la traduction secondaire masquée |
+| **X** | Révéler le sous-titre masqué (japonais, puis traduction) |
 
-Avec **Activer l’écoute active**, **Q** et **S** préparent aussi un exercice
-d’écoute sur le sous-titre précédent ou courant, si la phrase est éligible.
-Dans cet exercice, **A** démarre ou rejoue l’écoute, **Z** révèle le japonais,
-**E** révèle la traduction, **R** ou **Espace** reprend la vidéo, et **Échap**
-passe l’exercice.
+Le réglage **Phrases connues** agit sur les phrases dont tous les mots sont
+connus ou ignorés : tout afficher, masquer la traduction, ou masquer japonais
+et traduction pour écouter d’abord, sans pause.
 
 ### Problèmes connus
 

@@ -8,7 +8,7 @@ import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
 import { getOptions, saveOptions } from "@/core/options";
 import { isSubJapEnabled, setSubJapEnabled } from "@/core/enabled";
-import type { SecondarySubtitleLanguage } from "@/core/types";
+import type { KnownSentenceSubtitles, SecondarySubtitleLanguage } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
 import {
   getLocalSubtitle,
@@ -68,15 +68,7 @@ const SHORTCUT_GUIDE = [
   { key: "S", action: "Rejouer le sous-titre courant" },
   { key: "D", action: "Aller au sous-titre suivant" },
   { key: "C", action: "Copier le japonais affiché" },
-  { key: "X", action: "Révéler la traduction secondaire" },
-] as const;
-
-const LISTENING_SHORTCUT_GUIDE = [
-  { key: "A", action: "Démarrer ou rejouer l’écoute" },
-  { key: "Z", action: "Révéler le japonais" },
-  { key: "E", action: "Révéler la traduction" },
-  { key: "R / Espace", action: "Reprendre la vidéo" },
-  { key: "Échap", action: "Passer l’exercice" },
+  { key: "X", action: "Révéler le sous-titre masqué" },
 ] as const;
 
 const Popup: React.FC = () => {
@@ -92,9 +84,8 @@ const Popup: React.FC = () => {
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [secondarySubtitleLanguage, setSecondarySubtitleLanguage] =
     useState<SecondarySubtitleLanguage>("fr");
-  const [hideSecondarySubtitlesWhenAllKnown, setHideSecondarySubtitlesWhenAllKnown] =
-    useState(false);
-  const [activeListeningMode, setActiveListeningMode] = useState(false);
+  const [knownSentenceSubtitles, setKnownSentenceSubtitles] =
+    useState<KnownSentenceSubtitles>("show");
   const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
   const [videoId, setVideoId] = useState<string | null>(null);
   const [localSubtitles, setLocalSubtitles] = useState(EMPTY_LOCAL_SUBTITLES);
@@ -115,11 +106,8 @@ const Popup: React.FC = () => {
     setStats(statsResult);
     setDict(dictResult);
     setOnboarded(onboardedResult);
-    setHideSecondarySubtitlesWhenAllKnown(
-      optionsResult.hideSecondarySubtitlesWhenAllKnown,
-    );
+    setKnownSentenceSubtitles(optionsResult.knownSentenceSubtitles);
     setSecondarySubtitleLanguage(optionsResult.secondarySubtitleLanguage);
-    setActiveListeningMode(optionsResult.activeListeningMode);
     setConnected(true);
     setError(null);
   }, []);
@@ -248,40 +236,22 @@ const Popup: React.FC = () => {
     }
   }, [videoId]);
 
-  const toggleSecondarySubtitles = useCallback(
-    async (enabled: boolean) => {
-      const previous = hideSecondarySubtitlesWhenAllKnown;
-      setHideSecondarySubtitlesWhenAllKnown(enabled);
+  const chooseKnownSentenceSubtitles = useCallback(
+    async (mode: KnownSentenceSubtitles) => {
+      const previous = knownSentenceSubtitles;
+      setKnownSentenceSubtitles(mode);
       setSavingSubtitlePreference(true);
       setError(null);
       try {
-        await saveOptions({ hideSecondarySubtitlesWhenAllKnown: enabled });
+        await saveOptions({ knownSentenceSubtitles: mode });
       } catch (err: unknown) {
-        setHideSecondarySubtitlesWhenAllKnown(previous);
+        setKnownSentenceSubtitles(previous);
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setSavingSubtitlePreference(false);
       }
     },
-    [hideSecondarySubtitlesWhenAllKnown],
-  );
-
-  const toggleActiveListeningMode = useCallback(
-    async (enabled: boolean) => {
-      const previous = activeListeningMode;
-      setActiveListeningMode(enabled);
-      setSavingSubtitlePreference(true);
-      setError(null);
-      try {
-        await saveOptions({ activeListeningMode: enabled });
-      } catch (err: unknown) {
-        setActiveListeningMode(previous);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setSavingSubtitlePreference(false);
-      }
-    },
-    [activeListeningMode],
+    [knownSentenceSubtitles],
   );
 
   const chooseSecondarySubtitleLanguage = useCallback(
@@ -467,31 +437,29 @@ const Popup: React.FC = () => {
             L’autre langue est utilisée automatiquement si nécessaire, sauf avec « Aucun ».
           </p>
         </div>
-        <label style={styles.checkLabel}>
-          <input
-            type="checkbox"
-            checked={hideSecondarySubtitlesWhenAllKnown}
-            disabled={savingSubtitlePreference}
-            onChange={(event) =>
-              void toggleSecondarySubtitles(event.target.checked)
-            }
-          />
-          <span>Masquer FR/EN si tout est connu ou ignoré</span>
-        </label>
-        <label style={{ ...styles.checkLabel, marginTop: 10 }}>
-          <input
-            type="checkbox"
-            checked={activeListeningMode}
-            disabled={savingSubtitlePreference}
-            onChange={(event) =>
-              void toggleActiveListeningMode(event.target.checked)
-            }
-          />
-          <span>Activer l’écoute active</span>
-        </label>
-        <p style={styles.subtitleHint}>
-          Avec Q ou S, lance l’écoute sans texte sur une phrase éligible.
-        </p>
+        <div>
+          <label style={styles.languageRow}>
+            <span>Phrases connues</span>
+            <select
+              style={styles.languageSelect}
+              value={knownSentenceSubtitles}
+              disabled={savingSubtitlePreference}
+              onChange={(event) =>
+                void chooseKnownSentenceSubtitles(
+                  event.target.value as KnownSentenceSubtitles,
+                )
+              }
+            >
+              <option value="show">Tout afficher</option>
+              <option value="hide-translation">Masquer la traduction</option>
+              <option value="hide-all">Masquer tout (écoute)</option>
+            </select>
+          </label>
+          <p style={styles.languageHint}>
+            Phrase dont tous les mots sont connus ou ignorés. Survol ou X pour
+            révéler : le japonais d’abord, puis la traduction.
+          </p>
+        </div>
       </div>
 
       <details style={styles.disclosureSection}>
@@ -635,26 +603,6 @@ const Popup: React.FC = () => {
                 </div>
               ))}
             </div>
-            <p style={styles.guideHint}>
-              Avec l’écoute active, Q et S lancent aussi l’exercice si la phrase est éligible.
-            </p>
-            {activeListeningMode ? (
-              <div style={styles.guideListening}>
-                <h3 style={styles.guideSubheading}>Pendant l’écoute active</h3>
-                <div style={styles.guideShortcutList}>
-                  {LISTENING_SHORTCUT_GUIDE.map((item) => (
-                    <div key={item.key} style={styles.guideShortcutRow}>
-                      <kbd style={styles.guideKey}>{item.key}</kbd>
-                      <span style={styles.guideShortcutAction}>{item.action}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p style={styles.guideListeningHint}>
-                A, Z, E, R, Espace et Échap sont disponibles quand l’écoute active est activée.
-              </p>
-            )}
           </section>
         </div>
       </details>
@@ -984,20 +932,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 10,
     cursor: "pointer",
   },
-  checkLabel: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 8,
-    fontSize: 12,
-    lineHeight: 1.35,
-    cursor: "pointer",
-  },
-  subtitleHint: {
-    margin: "6px 0 0 24px",
-    fontSize: 10,
-    lineHeight: 1.35,
-    color: "#b2b6bf",
-  },
   guideSummary: {
     color: "#f4f1ea",
     fontSize: 12,
@@ -1015,12 +949,6 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "0 0 4px",
     color: "#f4f1ea",
     fontSize: 11,
-    fontWeight: 600,
-  },
-  guideSubheading: {
-    margin: "0 0 6px",
-    color: "#f4f1ea",
-    fontSize: 10,
     fontWeight: 600,
   },
   guideHint: {
@@ -1086,17 +1014,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#b2b6bf",
     fontSize: 10,
     lineHeight: 1.35,
-  },
-  guideListening: {
-    marginTop: 10,
-    paddingTop: 8,
-    borderTop: "1px solid #343842",
-  },
-  guideListeningHint: {
-    margin: "8px 0 0",
-    color: "#b2b6bf",
-    fontSize: 10,
-    lineHeight: 1.4,
   },
   button: {
     width: "100%",

@@ -57,14 +57,14 @@ describe("sanitizeOptions", () => {
     expect(DEFAULT_OPTIONS.hideNativeSubtitles).toBe(true);
   });
 
-  it("defaults secondary subtitle hiding to off", () => {
-    expect(DEFAULT_OPTIONS.hideSecondarySubtitlesWhenAllKnown).toBe(false);
+  it("defaults known-sentence hiding to off", () => {
+    expect(DEFAULT_OPTIONS.knownSentenceSubtitles).toBe("show");
   });
 
-  it("keeps the secondary subtitle toggle when valid", () => {
+  it("keeps the known-sentence choice when valid", () => {
     expect(
-      sanitizeOptions({ hideSecondarySubtitlesWhenAllKnown: true }),
-    ).toEqual({ hideSecondarySubtitlesWhenAllKnown: true });
+      sanitizeOptions({ knownSentenceSubtitles: "hide-all" }),
+    ).toEqual({ knownSentenceSubtitles: "hide-all" });
   });
 
   it("clamps fontSize to the [12, 64] range", () => {

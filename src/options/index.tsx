@@ -547,20 +547,6 @@ function OnboardingWizard(props: {
               />
             </div>
           </div>
-          <div style={s.row}>
-            <div style={s.rowLabel}>
-              <span>Mode d'écoute active</span>
-              <span style={s.rowHint}>
-                sur Q ou S, écoute les phrases éligibles sans texte
-              </span>
-            </div>
-            <div style={s.rowControl}>
-              <Toggle
-                checked={options.activeListeningMode}
-                onChange={(v) => setOptions({ ...options, activeListeningMode: v })}
-              />
-            </div>
-          </div>
           <div style={s.btnRow}>
             <Btn onClick={() => void finish()}>Terminer ✓</Btn>
           </div>
@@ -890,24 +876,25 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
               </select>
             </Row>
             <Row
-              label="Masquer les sous-titres FR/EN"
-              hint="masque la traduction quand tous les mots sont connus ou ignorés"
+              label="Phrases connues"
+              hint="tous les mots connus ou ignorés · survol ou X : japonais d'abord, puis traduction"
             >
-              <Toggle
-                checked={options.hideSecondarySubtitlesWhenAllKnown}
-                onChange={(v) =>
-                  void updateOptions({ hideSecondarySubtitlesWhenAllKnown: v })
+              <select
+                value={options.knownSentenceSubtitles}
+                style={s.select}
+                onChange={(e) =>
+                  void updateOptions({
+                    knownSentenceSubtitles:
+                      e.target.value === "hide-translation" || e.target.value === "hide-all"
+                        ? e.target.value
+                        : "show",
+                  })
                 }
-              />
-            </Row>
-            <Row
-              label="Mode d'écoute active"
-              hint="sur Q ou S : audio seul puis révélations manuelles"
-            >
-              <Toggle
-                checked={options.activeListeningMode}
-                onChange={(v) => void updateOptions({ activeListeningMode: v })}
-              />
+              >
+                <option value="show">Tout afficher</option>
+                <option value="hide-translation">Masquer la traduction</option>
+                <option value="hide-all">Masquer japonais et traduction (écoute)</option>
+              </select>
             </Row>
           </>
         )}
