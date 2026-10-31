@@ -58,15 +58,6 @@ comportement absent du harnais est découvert.
 
 Les commandes Node s’exécutent avec `npm.cmd` / `npx.cmd` sous Windows.
 
-## Stratégie de vérification
-
-Ne crée ni ne lance de tests.
-Pas de vérifications automatisées de type navigateur, sauf demande explicite contraire de
-l’utilisateur.
-
-Quand une implémentation est terminée et vérifiée, créer un commit avec les
-changements concernés avant de rendre la main.
-
 ## Correction de bugs
 
 Quand je te demande de corriger un bug, ne cherche pas toujours simplement à corriger
