@@ -463,10 +463,15 @@ function OnboardingWizard(props: {
           {anki === null ? (
             <p style={s.muted}>Vérification…</p>
           ) : anki.connected ? (
-            <p style={{ color: C.green }}>
-              ✓ AnkiConnect détecté — {anki.deckNames.length}{" "}
-              {anki.deckNames.length > 1 ? "decks" : "deck"}
-            </p>
+            <>
+              <p style={{ color: C.green }}>
+                ✓ AnkiConnect détecté — {anki.deckNames.length}{" "}
+                {anki.deckNames.length > 1 ? "decks" : "deck"}
+              </p>
+              <p style={s.mutedSmall}>
+                SubJap va créer dans Anki le deck 日本語::Vocabulaire et son type de note.
+              </p>
+            </>
           ) : (
             <p style={{ color: C.amber }}>
               AnkiConnect introuvable. Ouvrez Anki (avec le plugin AnkiConnect), puis vérifiez à
