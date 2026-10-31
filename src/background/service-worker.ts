@@ -790,6 +790,23 @@ function refreshProductionActivation(template: string): string {
   return template.replace(activation, () => MIGAKU_PRODUCTION_ACTIVATION_FRAGMENT.trim());
 }
 
+/**
+ * Move TTS tags left outside the front card (HyperTTS appends them at the end of the
+ * template) under the reading, so their replay button sits inside the card.
+ */
+function placeFrontTtsInCard(template: string): string {
+  const audioSlot = "{{#AudioMot}}<div class=\"audio audio-word\">{{AudioMot}}</div>{{/AudioMot}}";
+  if (!template.includes("front-card") || !template.includes(audioSlot)) return template;
+  const looseTts = /\{\{tts\b[^}]*\}\}(?!<\/div>)/gu;
+  const tags = template.match(looseTts);
+  if (!tags) return template;
+  const placed = tags.map((tag) => `\n    <div class="audio audio-tts">${tag}</div>`).join("");
+  return template
+    .replace(/[ \t]*\{\{tts\b[^}]*\}\}(?!<\/div>)[ \t]*\n?/gu, "")
+    .replace(audioSlot, () => `${audioSlot}${placed}`)
+    .replace(/\n+$/u, "\n");
+}
+
 /** Move an unmodified single-column back body to the two-column layout, keeping everything around it. */
 function upgradeLegacyBackLayout(template: string): string {
   const legacyBack =
@@ -995,7 +1012,9 @@ async function updateMigakuModelPresentation(modelName: string): Promise<void> {
     throw new Error(`Anki model "${modelName}" has no comprehension template`);
   }
   const nextComprehension = {
-    Front: migrateManagedTemplatePart(comprehension.Front, MIGAKU_FRONT_TEMPLATE),
+    Front: placeFrontTtsInCard(
+      migrateManagedTemplatePart(comprehension.Front, MIGAKU_FRONT_TEMPLATE),
+    ),
     Back: migrateManagedTemplatePart(comprehension.Back, MIGAKU_BACK_TEMPLATE, true),
   };
 
