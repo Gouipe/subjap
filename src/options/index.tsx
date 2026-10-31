@@ -321,7 +321,7 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>SubJap est prêt</h2>
           <p style={s.muted}>
-            Ouvrez une vidéo Netflix ou YouTube qui a des sous-titres japonais.
+            Ouvrez une vidéo Netflix, YouTube ou Re:ANIME qui a des sous-titres japonais.
           </p>
 
           <h3 style={s.guideTitle}>Miner un mot</h3>
@@ -377,6 +377,14 @@ function OnboardingWizard(props: {
               }}
             >
               Ouvrir YouTube
+            </Btn>
+            <Btn
+              variant="ghost"
+              onClick={() => {
+                void chrome.tabs.create({ url: "https://reanime.to/" });
+              }}
+            >
+              Ouvrir Re:ANIME
             </Btn>
             <Btn variant="ghost" onClick={props.onFinished}>
               Voir les réglages
