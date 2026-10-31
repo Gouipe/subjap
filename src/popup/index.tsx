@@ -130,7 +130,7 @@ function OffsetRow(props: {
         aria-label={`Réinitialiser le décalage ${props.label.toLowerCase()}`}
         onClick={() => props.onCommit(0)}
       >
-        ↺
+        <span style={styles.resetGlyph}>↺</span>
       </button>
     </div>
   );
@@ -693,7 +693,7 @@ const Popup: React.FC = () => {
               </span>
             </summary>
             <div style={styles.localSubtitleContent}>
-              <span style={styles.subsectionLabel}>Décalage (s) · positif = plus tard</span>
+              <span style={styles.subsectionLabel}>Décalage (secondes)</span>
               {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
                 <OffsetRow
                   key={role}
@@ -705,6 +705,9 @@ const Popup: React.FC = () => {
                   onCommit={(value) => void changeOffset(role, value)}
                 />
               ))}
+              <p style={styles.offsetHint}>
+                Valeur positive : le sous-titre s’affiche plus tard.
+              </p>
               {showTranslationOffset && (
                 <label style={styles.checkboxRow}>
                   <input
@@ -1155,7 +1158,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "block",
     margin: "4px 0 6px",
     color: "#b2b6bf",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 600,
     letterSpacing: "0.04em",
   },
@@ -1171,21 +1174,20 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 6,
   },
   offsetRowLabel: {
-    flex: "0 0 64px",
+    flex: "0 0 70px",
     color: "#f4f1ea",
-    fontSize: 11,
+    fontSize: 12,
   },
   checkboxRow: {
     display: "flex",
     alignItems: "center",
     gap: 6,
-    marginTop: 2,
     color: "#f4f1ea",
-    fontSize: 11,
+    fontSize: 12,
     cursor: "pointer",
   },
   fileRow: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   fileRowHead: {
     display: "flex",
@@ -1195,13 +1197,13 @@ const styles: Record<string, React.CSSProperties> = {
   fileActions: {
     display: "flex",
     gap: 6,
-    marginTop: 6,
+    marginTop: 8,
   },
   playerTrackName: {
     flex: 1,
     minWidth: 0,
     color: "#b2b6bf",
-    fontSize: 11,
+    fontSize: 12,
   },
   languageSelect: {
     width: 150,
@@ -1255,7 +1257,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: "#1b1e24",
     color: "#f4f1ea",
-    fontSize: 11,
+    fontSize: 12,
     textAlign: "center",
     cursor: "pointer",
   },
@@ -1263,7 +1265,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
     color: "#78d6a3",
-    fontSize: 10,
+    fontSize: 12,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -1271,26 +1273,41 @@ const styles: Record<string, React.CSSProperties> = {
   offsetInput: {
     width: 58,
     flex: "0 0 auto",
+    minHeight: 28,
     padding: "4px 6px",
+    boxSizing: "border-box",
     border: "1px solid #343842",
     borderRadius: 6,
     background: "#101216",
     color: "#f4f1ea",
+    fontSize: 13,
+    fontVariantNumeric: "tabular-nums",
+  },
+  offsetHint: {
+    margin: "0 0 8px",
+    color: "#b2b6bf",
+    fontSize: 11,
+    lineHeight: 1.35,
+  },
+  resetGlyph: {
+    fontSize: 15,
+    lineHeight: 1,
   },
   localSubtitleHint: {
     margin: "6px 0 0",
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 1.35,
     color: "#b2b6bf",
   },
   smallButton: {
     flex: 1,
-    padding: "5px 3px",
+    minHeight: 28,
+    padding: "4px 3px",
     border: "1px solid #343842",
     borderRadius: 6,
     background: "#1b1e24",
     color: "#f4f1ea",
-    fontSize: 10,
+    fontSize: 12,
     cursor: "pointer",
   },
   inlineLink: {
@@ -1298,7 +1315,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     background: "transparent",
     color: "#ff624d",
-    fontSize: 10,
+    fontSize: 11,
     textDecoration: "underline",
     cursor: "pointer",
   },
@@ -1311,7 +1328,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: "transparent",
     color: "#ff8490",
-    fontSize: 10,
+    fontSize: 12,
     cursor: "pointer",
   },
   guideContent: {
