@@ -98,10 +98,14 @@ test.describe("SubJap UX fixture", () => {
     await page.getByTestId("bilingual-known-cue").click();
 
     await expect(page.locator(".subjap-cue-line")).toBeVisible();
-    await expect(page.locator(".subjap-translation-line")).toHaveCount(0);
+    // Hidden, not removed, so that hovering can reveal it.
+    const translation = page.locator(".subjap-translation-line");
+    await expect(translation).toHaveText("J’étudie le japonais.");
+    await expect(translation).toHaveClass(/subjap-translation-line--hidden/);
 
     await page.getByLabel("Masquer FR/EN si la phrase est connue").uncheck();
-    await expect(page.locator(".subjap-translation-line")).toHaveText("J’étudie le japonais.");
+    await expect(translation).toHaveText("J’étudie le japonais.");
+    await expect(translation).not.toHaveClass(/subjap-translation-line--hidden/);
   });
 
   test("conserve la traduction dès qu’un mot reste inconnu", async ({ page }) => {

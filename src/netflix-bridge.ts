@@ -1144,7 +1144,8 @@ function installTimedTextCapture(page: Window): void {
       }
     }
     for (const track of discoveredTracks.values()) {
-      if (track.episodeId === episodeId) {
+      // A neutral URL gets its language only once its body is read.
+      if (track.episodeId === episodeId && track.language) {
         emit(NETFLIX_TIMED_TEXT_URL_EVENT, track);
       }
     }

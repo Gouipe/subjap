@@ -120,7 +120,8 @@ function fixtureWordState(token: Token): WordState | null {
   if (tokenMatches(unknownLemmas, token) || token.lemma === "を") {
     candidates.push({ key: token.lemma, status: "unknown", source: "import" });
   }
-  if (token.lemma === "する") {
+  // する is LEARNING unless a scenario marks it known.
+  if (token.lemma === "する" && !tokenMatches(knownLemmas, token)) {
     candidates.push({ key: token.lemma, status: "learning", source: "import" });
   }
   return (
