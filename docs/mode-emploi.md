@@ -178,7 +178,9 @@ Ajouter à une note l’un des tags exacts `KNOWN`, `IGNORED`, `UNKNOWN` ou
 `Mot`. La synchronisation est automatique ; pour la forcer, ouvrir les options
 SubJap et cliquer sur **Synchroniser maintenant**.
 
-Une décision prise manuellement dans SubJap reste prioritaire sur Anki. Si une
+Une décision prise manuellement dans SubJap (**Mark Known**, **Ignore**) reste
+prioritaire sur Anki. La retirer (**✓ Known**, **Unignore**) rend la main à
+Anki : un mot appris plus tard dans Anki redevient connu. Si une
 couleur ne change pas, vérifier le tag, le champ `Mot`, AnkiConnect, puis relancer
 la synchronisation.
 

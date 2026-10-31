@@ -43,9 +43,9 @@ const POS_LABELS: Record<string, string> = {
 
 export interface PopoverCallbacks {
   /** Called when the user clicks "Mark Known" / "Mark Unknown" */
-  onToggleKnown: (lemma: string, currentStatus: WordStatus | null) => void;
+  onToggleKnown: (lemma: string, currentStatus: WordStatus | null, token: Token) => void;
   /** Called when the user clicks "Ignore" / "Unignore" */
-  onToggleIgnored: (lemma: string, currentStatus: WordStatus | null) => void;
+  onToggleIgnored: (lemma: string, currentStatus: WordStatus | null, token: Token) => void;
   /** Called when the user clicks "Mine this" */
   onMine: (token: Token, entry: DictionaryEntry | null) => void;
 }
@@ -501,7 +501,7 @@ export class WordPopover {
   // ── Handlers ───────────────────────────────────────────────────────────
 
   private handleToggleKnown(): void {
-    this.callbacks.onToggleKnown(this.currentLemma, this.currentStatus);
+    this.callbacks.onToggleKnown(this.currentLemma, this.currentStatus, this.currentToken!);
     // Update local state optimistically
     this.currentStatus = this.currentStatus === "known" ? "unknown" : "known";
     this.populateContent(
@@ -515,8 +515,9 @@ export class WordPopover {
   }
 
   private handleToggleIgnored(): void {
-    this.callbacks.onToggleIgnored(this.currentLemma, this.currentStatus);
-    // Unignore always returns the word to the regular unknown state.
+    this.callbacks.onToggleIgnored(this.currentLemma, this.currentStatus, this.currentToken!);
+    // Optimistic: after Unignore the subtitle shows whatever Anki or the
+    // defaults say about the word; the popover shows it as unknown meanwhile.
     this.currentStatus = this.currentStatus === "ignored" ? "unknown" : "ignored";
     this.populateContent(
       this.currentToken!,

@@ -350,7 +350,8 @@ actuelles sont :
 Les handlers enregistrés dans le bus couvrent :
 
 - `dict:status`, `dict:download` et `dict:lookup` ;
-- `word:get`, `word:set` et `word:batch` ;
+- `word:get`, `word:getBatch`, `word:set`, `word:unset` et `word:batch` ; `word:unset`
+  retire une décision manuelle pour que le mot suive de nouveau Anki ;
 - `mine:create` et `stats:get` ;
 - `data:reset` ;
 - `anki:status`, `anki:syncKnown`, `anki:setup`, `anki:addNote` et

@@ -380,6 +380,29 @@ onMessage("word:set", async (payload) => {
   await db.wordStates.put({ ...payload, key: canonicalizeLexicalKey(payload.key) });
 });
 
+// ── word:unset ────────────────────────────────────────────────────────────
+// A stored manual state outranks Anki forever, so withdrawing Known/Ignore by
+// writing a manual "unknown" would freeze the word even after it is learned in
+// Anki. Delete the manual decision instead, and keep an explicit "unknown"
+// only when Anki or the default would restore the withdrawn status.
+
+onMessage("word:unset", async ({ key, aliases = [], status, defaultStatus }) => {
+  const keys = lexicalKeyCandidates(key, ...aliases);
+  const states = await db.wordStates.bulkGet(keys);
+  await db.wordStates.bulkDelete(keys.filter((_, index) => states[index]?.source === "manual"));
+
+  const fallback = chooseWordState(states.filter((state) => state?.source !== "manual"));
+  if ((fallback?.status ?? defaultStatus) !== status) return { state: fallback };
+
+  const override: WordState = {
+    key: canonicalizeLexicalKey(key),
+    status: "unknown",
+    source: "manual",
+  };
+  await db.wordStates.put(override);
+  return { state: override };
+});
+
 // ── word:batch ────────────────────────────────────────────────────────────
 
 onMessage("word:batch", async (payload) => {

@@ -273,6 +273,16 @@ export interface MessageMap {
     items: Array<{ key: string; state: WordState | null; ankiNoteCount: number }>;
   };
   "word:set": WordState;
+  /** Withdraw a manual Known/Ignore decision so Anki and defaults apply again. */
+  "word:unset": {
+    key: string;
+    aliases?: string[];
+    /** Status being withdrawn. */
+    status: WordStatus;
+    /** Status the token gets without any stored state (default-ignored units). */
+    defaultStatus?: WordStatus;
+  };
+  "word:unsetResult": { state: WordState | null };
   "word:batch": WordState[];
 
   // Frequency ranks

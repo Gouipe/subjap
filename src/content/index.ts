@@ -28,6 +28,7 @@ import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import {
   effectiveWordState,
   isAllKnownOrIgnored,
+  isDefaultIgnoredToken,
   isNonLexicalToken,
 } from "@/core/frequency";
 import { MiningModal, VideoAudioCapture } from "@/mining";
@@ -1217,57 +1218,74 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
   });
 }
 
-function onToggleKnown(lemma: string, currentStatus: WordStatus | null): void {
-  const next: WordState = {
-    key: lemma,
-    status: currentStatus === "known" ? "unknown" : "known",
-    source: "manual",
-    knownAt: currentStatus === "known" ? undefined : Date.now(),
-  };
-
-  void sendMessage("word:set", next)
-    .catch((err) => {
-      console.warn(`[SubJap] word:set failed for "${lemma}":`, err);
-      handleRuntimeError(err);
-    })
-    .finally(() => {
-      knownWordCountPromise = null;
-      lastSignature = "";
-      enqueueCues(lastCues);
-    });
-
-  wordStateByLemma.set(lemma, next);
-  lastSignature = "";
-  enqueueCues(lastCues);
-
-  // Re-render immediately so known/unknown/frequency colours update. The
-  // persisted count is refreshed after the write completes.
+function onToggleKnown(lemma: string, currentStatus: WordStatus | null, token: Token): void {
+  if (currentStatus === "known") {
+    unsetWordState(lemma, "known", token);
+    return;
+  }
+  setWordState({ key: lemma, status: "known", source: "manual", knownAt: Date.now() });
 }
 
-function onToggleIgnored(
-  lemma: string,
-  currentStatus: WordStatus | null,
-): void {
-  const next: WordState = {
-    key: lemma,
-    status: currentStatus === "ignored" ? "unknown" : "ignored",
-    source: "manual",
-  };
+function onToggleIgnored(lemma: string, currentStatus: WordStatus | null, token: Token): void {
+  if (currentStatus === "ignored") {
+    unsetWordState(lemma, "ignored", token);
+    return;
+  }
+  setWordState({ key: lemma, status: "ignored", source: "manual" });
+}
 
+/** Re-render immediately; the known count is refreshed once the write settles. */
+function refreshWordStates(): void {
+  lastSignature = "";
+  enqueueCues(lastCues);
+}
+
+function setWordState(next: WordState): void {
   void sendMessage("word:set", next)
     .catch((err) => {
-      console.warn(`[SubJap] word:set failed for "${lemma}":`, err);
+      console.warn(`[SubJap] word:set failed for "${next.key}":`, err);
       handleRuntimeError(err);
     })
     .finally(() => {
       knownWordCountPromise = null;
-      lastSignature = "";
-      enqueueCues(lastCues);
+      refreshWordStates();
     });
 
-  wordStateByLemma.set(lemma, next);
-  lastSignature = "";
-  enqueueCues(lastCues);
+  wordStateByLemma.set(next.key, next);
+  refreshWordStates();
+}
+
+/**
+ * Withdraw a manual Known/Ignore decision: the word then follows Anki and the
+ * default-ignored rule again, so learning it later in Anki still counts.
+ */
+function unsetWordState(lemma: string, status: WordStatus, token: Token): void {
+  const defaultStatus =
+    isDefaultIgnoredToken(token) && (ankiNoteCountByLemma.get(lemma) ?? 0) === 0
+      ? "ignored"
+      : undefined;
+
+  void sendMessage("word:unset", {
+    key: lemma,
+    aliases: [...(queriedAliasesByLemma.get(lemma) ?? [])],
+    status,
+    defaultStatus,
+  })
+    .then(({ state }) => {
+      wordStateByLemma.set(lemma, state);
+    })
+    .catch((err) => {
+      console.warn(`[SubJap] word:unset failed for "${lemma}":`, err);
+      handleRuntimeError(err);
+    })
+    .finally(() => {
+      knownWordCountPromise = null;
+      refreshWordStates();
+    });
+
+  // Shown as unknown until the worker resolves what Anki says about the word.
+  wordStateByLemma.set(lemma, { key: lemma, status: "unknown", source: "manual" });
+  refreshWordStates();
 }
 
 // ---------------------------------------------------------------------------
