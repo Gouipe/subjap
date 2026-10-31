@@ -59,14 +59,15 @@ export function readPageEpisode(): PageEpisode {
       // Ignore malformed structured data.
     }
   }
-  if (!result.series || !result.episode) {
-    // "Series - Episode 6 | Site"
-    const title = document.title.match(/^(.*?)\s+-\s+Episode\s+(\d+)/i);
-    if (title) {
-      result.series ??= text(title[1]);
-      result.episode ??= Number(title[2]);
-    }
+  // Sites change episode without reloading: structured data can still
+  // describe the previous one, while the address and title follow.
+  const title = document.title.match(/^(.*?)\s+-\s+Episode\s+(\d+)/i);
+  if (title) {
+    result.series ??= text(title[1]);
+    result.episode = Number(title[2]);
   }
+  const fromUrl = Number(new URLSearchParams(location.search).get("ep") ?? NaN);
+  if (Number.isInteger(fromUrl) && fromUrl > 0) result.episode = fromUrl;
   if (!result.anilistId) {
     for (const element of Array.from(document.querySelectorAll('a[href*="anilist.co/anime/"], img[src*="anilistcdn/media/anime/cover"]'))) {
       result.anilistId = anilist(element.getAttribute("href") ?? element.getAttribute("src"));

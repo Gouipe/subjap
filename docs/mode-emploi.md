@@ -171,12 +171,14 @@ Avec une clé API Jimaku (compte gratuit sur jimaku.cc, clé copiée depuis la
 page de compte, puis collée dans les options SubJap, section **Sous-titres
 japonais (Jimaku)**), SubJap installe tout seul les sous-titres japonais de
 l’épisode sur les lecteurs Artplayer : il retrouve l’anime grâce à la page
-(identifiant AniList, sinon nom de la série), choisit le fichier de l’épisode
+(identifiant AniList, sinon nom de la série ; l’épisode d’après l’adresse ou le
+titre de la page, qui suivent les changements d’épisode sans rechargement), choisit le fichier de l’épisode
 en préférant les sources web et en écartant les fichiers mêlant chinois et
 japonais, et ouvre si besoin les archives ZIP de saison. Le fichier devient la
 piste principale locale de la vidéo. Le bandeau propose alors **Changer**
-(autres fichiers de l’épisode) et **Retirer**. Une piste retirée, depuis le
-bandeau ou la popup, n’est plus jamais réinstallée pour cette vidéo. Sans clé,
+(autres fichiers de l’épisode) et **Retirer** : une piste retirée depuis le
+bandeau n’est plus jamais réinstallée pour cette vidéo. Supprimée depuis la
+popup, elle est réinstallée au prochain chargement de la page. Sans clé,
 le bandeau propose **Installer automatiquement**, qui ouvre ce réglage.
 
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la

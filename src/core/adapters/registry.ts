@@ -29,6 +29,8 @@ import { activeSubtitleCues, firstCueStartingIn } from "@/subtitles/timeline";
 
 const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
 const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
+/** Sites change episode without reloading the player frame: follow the tab URL. */
+const TOP_URL_REFRESH_MS = 2_000;
 const MAX_SUBTITLE_FILE_LENGTH = 8_000_000;
 /** A player answering with no usable file this long has no subtitle menu at all. */
 const ARTPLAYER_NO_TRACKS_AFTER_MS = 15_000;
@@ -68,6 +70,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private topUrl: string | null = null;
   private artplayer: ArtplayerSubtitles | null = null;
   private lastArtplayerRequestAt = 0;
+  private lastTopUrlRequestAt = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
   private hideNative = false;
   private style: HTMLStyleElement | null = null;
@@ -120,15 +123,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
       html.${ARTPLAYER_HIDE_CLASS} .libassjs-canvas { visibility: hidden !important; }`;
     (document.head ?? document.documentElement).appendChild(this.style);
     this.timer = setInterval(this.tick, 1_000);
-    if (window.top !== window) {
-      void sendMessage("tab:url", {}).then(({ url }) => {
-        if (!this.callback || !url) return;
-        this.topUrl = url;
-        this.updateVideoId();
-      }).catch(() => {
-        // Without the tab URL, local imports stay keyed on the frame URL.
-      });
-    }
+    this.refreshTopUrl();
     this.tick();
     this.publish();
     return () => this.destroy();
@@ -223,6 +218,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.timer = null;
     this.artplayer = null;
     this.lastArtplayerRequestAt = 0;
+    this.lastTopUrlRequestAt = 0;
     this.hideNative = false;
     document.documentElement.classList.remove(ARTPLAYER_HIDE_CLASS);
     this.style?.remove();
@@ -340,7 +336,21 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     return translations[this.preferredSecondaryLanguage] ?? translations[fallback] ?? [];
   }
 
+  /** Local imports of an embedded player are keyed on the tab URL, which can change under it. */
+  private refreshTopUrl(): void {
+    if (window.top === window) return;
+    this.lastTopUrlRequestAt = Date.now();
+    void sendMessage("tab:url", {}).then(({ url }) => {
+      if (!this.callback || !url || url === this.topUrl) return;
+      this.topUrl = url;
+      this.updateVideoId();
+    }).catch(() => {
+      // Without the tab URL, local imports stay keyed on the frame URL.
+    });
+  }
+
   private readonly tick = (): void => {
+    if (Date.now() - this.lastTopUrlRequestAt >= TOP_URL_REFRESH_MS) this.refreshTopUrl();
     const video = this.getVideoElement();
     if (!video || !document.querySelector(".art-video-player")) return;
     const source = video.currentSrc || video.src;

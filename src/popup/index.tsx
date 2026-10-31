@@ -19,7 +19,6 @@ import type {
   SecondarySubtitleLanguage,
 } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
-import { declineJimaku } from "@/subtitles/jimaku";
 import {
   getLocalSubtitle,
   localSubtitleVideoId,
@@ -273,8 +272,6 @@ const Popup: React.FC = () => {
     setLocalSubtitleError(null);
     try {
       await removeLocalSubtitle(videoId, role);
-      // A Japanese track removed on purpose is not installed again from Jimaku.
-      if (role === "primary") await declineJimaku(videoId);
       setLocalSubtitles((current) => ({ ...current, [role]: null }));
       setOffsetInputs((current) => ({ ...current, [role]: "0.00" }));
     } catch (err: unknown) {
