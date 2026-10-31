@@ -693,7 +693,6 @@ const Popup: React.FC = () => {
               </span>
             </summary>
             <div style={styles.localSubtitleContent}>
-              <span style={styles.subsectionLabel}>Décalage (secondes)</span>
               {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
                 <OffsetRow
                   key={role}
@@ -706,7 +705,7 @@ const Popup: React.FC = () => {
                 />
               ))}
               <p style={styles.offsetHint}>
-                Valeur positive : le sous-titre s’affiche plus tard.
+                En secondes ; valeur positive : le sous-titre s’affiche plus tard.
               </p>
               {showTranslationOffset && (
                 <label style={styles.checkboxRow}>
@@ -719,7 +718,7 @@ const Popup: React.FC = () => {
                 </label>
               )}
 
-              <span style={{ ...styles.subsectionLabel, ...styles.subsectionDivided }}>Fichiers</span>
+              <div style={styles.subsectionDivider} />
               {LOCAL_SUBTITLE_ROLES.map((role) => {
                 const localSubtitle = localSubtitles[role];
                 const playerTrack = role === "primary"
@@ -1075,7 +1074,7 @@ const styles: Record<string, React.CSSProperties> = {
     wordBreak: "break-word",
   },
   localSubtitleContent: {
-    padding: "0 12px 12px",
+    padding: "4px 12px 12px",
   },
   groupLabel: {
     margin: "18px 2px 6px",
@@ -1154,17 +1153,8 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center",
     transition: "transform 160ms cubic-bezier(0.22, 1, 0.36, 1)",
   },
-  subsectionLabel: {
-    display: "block",
-    margin: "4px 0 6px",
-    color: "#b2b6bf",
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "0.04em",
-  },
-  subsectionDivided: {
-    marginTop: 12,
-    paddingTop: 10,
+  subsectionDivider: {
+    margin: "12px 0 10px",
     borderTop: "1px solid #343842",
   },
   offsetRow: {
