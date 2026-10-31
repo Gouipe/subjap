@@ -12,7 +12,7 @@ Les pistes japonaise et de traduction gardent leurs propres horaires. Une
 traduction qui se termine avant le segment japonais qu’elle accompagne reste
 affichée jusqu’à la fin de ce segment ou jusqu’à la traduction suivante, pour
 que la ligne japonaise ne descende pas brièvement à sa place. De même, une
-traduction qui commence au plus 0,5 s après un segment japonais affiché sans
+traduction qui commence au plus 1 s après un segment japonais affiché sans
 traduction apparaît dès ce segment, pour que son arrivée ne fasse pas
 remonter la ligne japonaise. À l’inverse,
 lorsque le segment japonais commence après sa traduction ou se termine avant

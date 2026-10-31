@@ -185,7 +185,7 @@ let pairedTranslation: {
 /** Share of a translation covered by its Japanese cues that makes it their counterpart. */
 const TRANSLATION_COUNTERPART_COVERAGE = 0.5;
 /** How long after its Japanese line a translation may start and still appear with it. */
-const TRANSLATION_ANTICIPATION_SECONDS = 0.5;
+const TRANSLATION_ANTICIPATION_SECONDS = 1;
 /** Wait before showing a translation alone when only DOM history is known. */
 const TRANSLATION_ALONE_DOM_DELAY_MS = 300;
 
