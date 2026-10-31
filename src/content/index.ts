@@ -35,8 +35,17 @@ import {
   markParentheticalTokens,
   normalizeCueText,
   parseSubtitleFile,
+  removeLocalSubtitle,
   saveLocalSubtitle,
 } from "@/subtitles";
+import {
+  declineJimaku,
+  getJimakuApiKey,
+  isJimakuDeclined,
+  JIMAKU_API_KEY_STORAGE_KEY,
+  type JimakuChoice,
+  type JimakuInstallResult,
+} from "@/subtitles/jimaku";
 import { VideoNotice } from "@/overlay/video-notice";
 import { primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
@@ -1263,7 +1272,9 @@ function installShortcuts(): () => void {
 const MISSING_JAPANESE_NOTICE_MS = 12_000;
 let missingJapaneseTimer: number | null = null;
 let missingJapaneseNotice: VideoNotice | null = null;
-/** Videos already told about, so the notice appears once per video. */
+/** The notice reports missing subtitles: it goes away once some appear. */
+let missingJapaneseNoticeReportsMissing = false;
+/** Videos already handled, so the notice appears once per video. */
 const missingJapaneseNotified = new Set<string>();
 
 /** Anime players only: elsewhere a video without Japanese is usually not Japanese. */
@@ -1271,30 +1282,149 @@ function checkMissingJapanese(): void {
   const status = adapter.getJapaneseSubtitleStatus?.();
   const video = adapter.getVideoElement();
   if (!status || status.player !== "artplayer" || status.availability !== "missing" || !video) {
-    if (status?.availability === "available") missingJapaneseNotice?.close();
+    if (status?.availability === "available" && missingJapaneseNoticeReportsMissing) {
+      missingJapaneseNotice?.close();
+    }
     return;
   }
   const key = status.videoId ?? video.currentSrc;
   if (!key || missingJapaneseNotified.has(key)) return;
   missingJapaneseNotified.add(key);
-  showMissingJapaneseNotice(video, status.videoId);
+  void handleMissingJapanese(video, status.videoId);
 }
 
-function showMissingJapaneseNotice(video: HTMLVideoElement, videoId: string | null): void {
+/** Install from Jimaku when a key is set, unless the user removed its file before. */
+async function handleMissingJapanese(video: HTMLVideoElement, videoId: string | null): Promise<void> {
+  const [apiKey, declined] = videoId
+    ? await Promise.all([getJimakuApiKey(), isJimakuDeclined(videoId)]).catch(() => ["", false] as const)
+    : ["", true] as const;
+  if (!enabled || adapter.getVideoElement() !== video) return;
+  const notice = openMissingJapaneseNotice(video);
+  if (!videoId || !apiKey || declined) {
+    showMissingJapanese(notice, videoId, { offerSetup: !apiKey && !declined });
+    return;
+  }
+  void installFromJimaku(notice, videoId);
+}
+
+function openMissingJapaneseNotice(video: HTMLVideoElement): VideoNotice {
   missingJapaneseNotice?.close();
   const notice = new VideoNotice(video, {
-    text: "Pas de sous-titres japonais pour cette vidéo.",
-    autoHideMs: MISSING_JAPANESE_NOTICE_MS,
-    actions: [
-      { label: "Chercher sur Jimaku", primary: true, onClick: () => searchJimaku(notice) },
-      ...(videoId ? [{ label: "Importer", onClick: () => importJapaneseFile(videoId, notice) }] : []),
-    ],
+    text: "",
+    actions: [],
+    autoHideMs: null,
     onClose: () => {
-      if (missingJapaneseNotice === notice) missingJapaneseNotice = null;
+      if (missingJapaneseNotice !== notice) return;
+      missingJapaneseNotice = null;
+      missingJapaneseNoticeReportsMissing = false;
     },
   });
   missingJapaneseNotice = notice;
   notice.show();
+  return notice;
+}
+
+function showMissingJapanese(
+  notice: VideoNotice,
+  videoId: string | null,
+  { text = "Pas de sous-titres japonais pour cette vidéo.", offerSetup = false } = {},
+): void {
+  missingJapaneseNoticeReportsMissing = missingJapaneseNotice === notice;
+  notice.update({
+    text,
+    autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+    actions: [
+      ...(offerSetup ? [{ label: "Installer automatiquement", primary: true, onClick: openJimakuSettings }] : []),
+      { label: "Chercher sur Jimaku", primary: !offerSetup, onClick: () => searchJimaku(notice) },
+      ...(videoId ? [{ label: "Importer", onClick: () => importJapaneseFile(videoId, notice) }] : []),
+    ],
+  });
+}
+
+function openJimakuSettings(): void {
+  void sendMessage("options:open", { section: "jimaku" }).catch(handleRuntimeError);
+}
+
+async function installFromJimaku(notice: VideoNotice, videoId: string, choice?: JimakuChoice): Promise<void> {
+  if (missingJapaneseNotice === notice) missingJapaneseNoticeReportsMissing = false;
+  notice.update({
+    text: choice ? `Installation de ${choice.name}…` : "Recherche des sous-titres japonais sur Jimaku…",
+    actions: [],
+    autoHideMs: null,
+  });
+  let result: JimakuInstallResult;
+  try {
+    result = await sendMessage("jimaku:install", { videoId, choice });
+  } catch (err: unknown) {
+    handleRuntimeError(err);
+    result = { status: "error", message: "Jimaku injoignable." };
+  }
+  switch (result.status) {
+    case "installed": {
+      const { choices, fileName } = result;
+      notice.update({
+        text: "Sous-titres japonais installés depuis Jimaku.",
+        autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+        actions: [
+          ...(choices.length > 1
+            ? [{ label: "Changer", onClick: () => chooseJimakuFile(notice, videoId, choices, fileName) }]
+            : []),
+          { label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) },
+        ],
+      });
+      return;
+    }
+    case "no-key":
+      showMissingJapanese(notice, videoId, { offerSetup: true });
+      return;
+    case "bad-key":
+      missingJapaneseNoticeReportsMissing = missingJapaneseNotice === notice;
+      notice.update({
+        text: "Clé Jimaku refusée.",
+        autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+        actions: [
+          { label: "Vérifier la clé", primary: true, onClick: openJimakuSettings },
+          { label: "Chercher sur Jimaku", onClick: () => searchJimaku(notice) },
+          { label: "Importer", onClick: () => importJapaneseFile(videoId, notice) },
+        ],
+      });
+      return;
+    case "not-found":
+      showMissingJapanese(notice, videoId, { text: "Introuvable sur Jimaku pour cet épisode." });
+      return;
+    case "error":
+      showMissingJapanese(notice, videoId, { text: result.message });
+  }
+}
+
+/** The other files of the episode, the installed one first. */
+function chooseJimakuFile(
+  notice: VideoNotice,
+  videoId: string,
+  choices: JimakuChoice[],
+  installed: string,
+): void {
+  notice.update({
+    text: "Choisir un autre fichier Jimaku :",
+    list: true,
+    autoHideMs: null,
+    actions: choices.slice(0, 8).map((choice) => ({
+      label: choice.name,
+      primary: choice.name === installed,
+      onClick: () => void installFromJimaku(notice, videoId, choice),
+    })),
+  });
+}
+
+/** Removed for good: the next visit of this video does not install it again. */
+async function removeJimakuFile(notice: VideoNotice, videoId: string): Promise<void> {
+  try {
+    await Promise.all([removeLocalSubtitle(videoId, "primary"), declineJimaku(videoId)]);
+    showMissingJapanese(notice, videoId, { text: "Sous-titres Jimaku retirés pour cette vidéo." });
+  } catch (err: unknown) {
+    handleRuntimeError(err);
+    notice.setText("Retrait impossible. Supprimez la piste depuis la popup SubJap.");
+  }
 }
 
 /** The extension opens the tab: sandboxed player frames cannot open one. */
@@ -1438,6 +1568,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (isEnabledValue(enabledChange.newValue)) enable();
     else disable();
   }
+
+  // A key just saved from the options: try the video that was missing subtitles.
+  if (changes[JIMAKU_API_KEY_STORAGE_KEY]?.newValue) missingJapaneseNotified.clear();
 
   if (changes[DICTIONARY_REVISION_STORAGE_KEY]) {
     dictionaryCompoundByTerm.clear();

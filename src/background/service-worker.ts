@@ -6,6 +6,7 @@ import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { onMessage } from "@/core/messaging";
+import { checkJimakuKey, installFromJimaku } from "./jimaku";
 import {
   findJimakuEntryUrl,
   JIMAKU_HOME_URL,
@@ -597,6 +598,19 @@ async function jimakuUrl(episode: PageEpisode | null): Promise<string> {
   }
   return jimakuSearchUrl(episode);
 }
+
+onMessage("jimaku:install", async ({ videoId, choice }, sender) => {
+  const tabId = sender.tab?.id;
+  return installFromJimaku(videoId, tabId == null ? null : await readTabEpisode(tabId), choice);
+});
+
+onMessage("jimaku:check", async ({ key }) => ({ valid: await checkJimakuKey(key) }));
+
+onMessage("options:open", async ({ section }) => {
+  const url = chrome.runtime.getURL("src/options/index.html");
+  await chrome.tabs.create({ url: section ? `${url}#${encodeURIComponent(section)}` : url });
+  return {};
+});
 
 // Embedded players are often sandboxed without popups: a link in the frame
 // would silently do nothing, so the extension opens the tab itself.

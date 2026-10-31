@@ -10,11 +10,16 @@ export interface VideoNoticeAction {
   onClick: () => void;
 }
 
-export interface VideoNoticeOptions {
+export interface VideoNoticeContent {
   text: string;
   actions: VideoNoticeAction[];
-  /** Hides itself after this delay, unless the pointer rests on it. */
-  autoHideMs: number;
+  /** Hides itself after this delay, unless the pointer rests on it; null stays. */
+  autoHideMs: number | null;
+  /** One action per line, for a list of files to pick from. */
+  list?: boolean;
+}
+
+export interface VideoNoticeOptions extends VideoNoticeContent {
   /** Called once the notice is gone, whatever the reason. */
   onClose?: () => void;
 }
@@ -30,6 +35,9 @@ function bottomInset(height: number): number {
 export class VideoNotice {
   private readonly element: HTMLDivElement;
   private readonly message: HTMLSpanElement;
+  private readonly actions: HTMLSpanElement;
+  private readonly closeButton: HTMLButtonElement;
+  private autoHideMs: number | null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private positionTimer: ReturnType<typeof setInterval> | null = null;
   private closed = false;
@@ -38,6 +46,7 @@ export class VideoNotice {
     private readonly video: HTMLVideoElement,
     private readonly options: VideoNoticeOptions,
   ) {
+    this.autoHideMs = options.autoHideMs;
     document.getElementById(NOTICE_ID)?.remove();
     this.element = document.createElement("div");
     this.element.id = NOTICE_ID;
@@ -63,22 +72,16 @@ export class VideoNotice {
     ].join(";");
 
     this.message = document.createElement("span");
-    this.message.style.cssText = "flex:1 1 180px;min-width:0";
-    this.message.textContent = options.text;
+    this.actions = document.createElement("span");
+    this.closeButton = document.createElement("button");
+    this.closeButton.type = "button";
+    this.closeButton.textContent = "✕";
+    this.closeButton.setAttribute("aria-label", "Fermer");
+    this.closeButton.style.cssText = this.buttonStyle(false) + ";padding:6px 8px;background:transparent;border-color:transparent";
+    this.closeButton.addEventListener("click", () => this.close());
+    this.renderContent(options);
 
-    const actions = document.createElement("span");
-    actions.style.cssText = "display:flex;align-items:center;gap:6px;flex:none";
-    for (const action of options.actions) actions.appendChild(this.buildAction(action));
-
-    const close = document.createElement("button");
-    close.type = "button";
-    close.textContent = "✕";
-    close.setAttribute("aria-label", "Fermer");
-    close.style.cssText = this.buttonStyle(false) + ";padding:6px 8px;background:transparent;border-color:transparent";
-    close.addEventListener("click", () => this.close());
-    actions.appendChild(close);
-
-    this.element.append(this.message, actions);
+    this.element.append(this.message, this.actions);
     // Keyboard shortcuts of the player must not fire from the notice.
     for (const type of ["keydown", "keyup", "keypress"]) {
       this.element.addEventListener(type, (event) => event.stopPropagation());
@@ -100,6 +103,28 @@ export class VideoNotice {
     this.message.textContent = text;
   }
 
+  /** Replace the whole content and restart the auto-hide delay. */
+  update(content: VideoNoticeContent): void {
+    if (this.closed) return;
+    this.autoHideMs = content.autoHideMs;
+    this.renderContent(content);
+    if (!this.element.matches(":hover")) this.scheduleHide();
+  }
+
+  private renderContent(content: VideoNoticeContent): void {
+    const list = content.list === true;
+    this.message.style.cssText = list
+      ? "flex:1 1 100%;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px"
+      : "flex:1 1 180px;min-width:0";
+    this.message.textContent = content.text;
+    this.actions.style.cssText = list
+      ? "display:flex;flex-direction:column;align-items:stretch;gap:6px;flex:1 1 100%;min-width:0"
+      : "display:flex;align-items:center;gap:6px;flex:none";
+    this.actions.replaceChildren(...content.actions.map((action) => this.buildAction(action, list)));
+    if (list) this.message.append(this.closeButton);
+    else this.actions.appendChild(this.closeButton);
+  }
+
   close(): void {
     if (this.closed) return;
     this.closed = true;
@@ -111,11 +136,14 @@ export class VideoNotice {
     this.options.onClose?.();
   }
 
-  private buildAction(action: VideoNoticeAction): HTMLElement {
+  private buildAction(action: VideoNoticeAction, list = false): HTMLElement {
     const element = document.createElement("button");
     element.type = "button";
     element.textContent = action.label;
-    element.style.cssText = this.buttonStyle(action.primary === true);
+    element.title = action.label;
+    element.style.cssText = this.buttonStyle(action.primary === true) + (list
+      ? ";text-align:left;overflow:hidden;text-overflow:ellipsis;max-width:100%"
+      : "");
     element.addEventListener("click", () => action.onClick());
     return element;
   }
@@ -147,7 +175,8 @@ export class VideoNotice {
 
   private scheduleHide(): void {
     this.clearHideTimer();
-    this.hideTimer = setTimeout(() => this.close(), this.options.autoHideMs);
+    if (this.autoHideMs === null) return;
+    this.hideTimer = setTimeout(() => this.close(), this.autoHideMs);
   }
 
   private clearHideTimer(): void {

@@ -2,6 +2,8 @@
 // SubJap — Types partagés (source unique de la spec §7.4, §8, §9)
 // ---------------------------------------------------------------------------
 
+import type { JimakuChoice, JimakuInstallResult } from "@/subtitles/jimaku";
+
 
 // ── Plateformes ───────────────────────────────────────────────────────────
 
@@ -320,6 +322,14 @@ export interface MessageMap {
   /** URL of the sender's tab, for players embedded in a frame. */
   "tab:url": Record<string, never>;
   "tab:urlResult": { url: string | null };
+  /** Install the episode's Japanese subtitles from Jimaku as the video's local primary track. */
+  "jimaku:install": { videoId: string; choice?: JimakuChoice };
+  "jimaku:installResult": JimakuInstallResult;
+  "jimaku:check": { key: string };
+  "jimaku:checkResult": { valid: boolean };
+  /** Open the options page, scrolled to one of its sections. */
+  "options:open": { section?: string };
+  "options:openResult": Record<string, never>;
   /** Open Jimaku for the anime of the sender's tab (or of `tabId`), next to it. */
   "jimaku:search": { tabId?: number };
   "jimaku:searchResult": Record<string, never>;

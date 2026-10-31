@@ -8,7 +8,7 @@
 //     overlay display options and data management.
 // ---------------------------------------------------------------------------
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "@/ui/theme.css";
 import { sendMessage } from "@/core/messaging";
@@ -38,6 +38,7 @@ import {
 } from "@/onboarding";
 import type { OnboardingState } from "@/onboarding";
 import type { OverlayOptions } from "@/core/types";
+import { getJimakuApiKey, saveJimakuApiKey } from "@/subtitles/jimaku";
 
 interface DictStatus {
   count: number;
@@ -127,12 +128,94 @@ function SubtitlePreview(props: { scale: number; showFurigana: boolean }): JSX.E
   );
 }
 
-function Section(props: { title: string; children: React.ReactNode }): JSX.Element {
+function Section(props: { title: string; children: React.ReactNode; id?: string }): JSX.Element {
   return (
-    <section style={s.section}>
+    <section style={s.section} id={props.id}>
       <h2 style={s.sectionTitle}>{props.title}</h2>
       {props.children}
     </section>
+  );
+}
+
+/**
+ * Jimaku API key: lets SubJap install the Japanese subtitles of anime
+ * videos that have none. Opened from the video notice at #jimaku.
+ */
+function JimakuSettings(): JSX.Element {
+  const [key, setKey] = useState("");
+  const [saved, setSaved] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void getJimakuApiKey().then((value) => {
+      setKey(value);
+      setSaved(value);
+      // Opened from the video notice: go straight to the field, once the
+      // sections above have their final height.
+      if (location.hash === "#jimaku") {
+        setTimeout(() => {
+          input.current?.scrollIntoView({ block: "center" });
+          input.current?.focus({ preventScroll: true });
+        }, 300);
+      }
+    });
+  }, []);
+
+  const save = useCallback(async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const trimmed = key.trim();
+      if (trimmed && !(await sendMessage("jimaku:check", { key: trimmed })).valid) {
+        setNote({ ok: false, text: "Clé refusée par Jimaku. Vérifiez-la sur votre page de compte." });
+        return;
+      }
+      await saveJimakuApiKey(trimmed);
+      setSaved(trimmed);
+      setNote({
+        ok: true,
+        text: trimmed
+          ? "Clé enregistrée : les sous-titres japonais manquants seront installés automatiquement."
+          : "Clé retirée : l’installation automatique est désactivée.",
+      });
+    } catch (err) {
+      setNote({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }, [key]);
+
+  return (
+    <Section title="Sous-titres japonais (Jimaku)" id="jimaku">
+      <p style={s.muted}>
+        Quand une vidéo d’anime (Re:ANIME…) n’a pas de sous-titres japonais, SubJap
+        peut les installer depuis Jimaku. Créez un compte gratuit sur{" "}
+        <a href="https://jimaku.cc/login" target="_blank" rel="noreferrer" style={s.link}>jimaku.cc</a>,
+        puis copiez la clé API depuis votre{" "}
+        <a href="https://jimaku.cc/account" target="_blank" rel="noreferrer" style={s.link}>page de compte</a>.
+      </p>
+      <Row label="Clé API Jimaku">
+        <input
+          ref={input}
+          type="password"
+          value={key}
+          placeholder="Collez la clé ici"
+          autoComplete="off"
+          spellCheck={false}
+          style={s.input}
+          onChange={(e) => setKey(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void save();
+          }}
+        />
+        <Btn onClick={() => void save()} disabled={busy || key.trim() === saved}>
+          {busy ? "Vérification…" : "Enregistrer"}
+        </Btn>
+      </Row>
+      {note && <p style={{ ...s.mutedSmall, color: note.ok ? C.green : C.red }}>{note.text}</p>}
+    </Section>
   );
 }
 
@@ -974,6 +1057,8 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
         )}
       </Section>
 
+      <JimakuSettings />
+
       <Section title="Intelligence artificielle">
         <p style={s.muted}>
           Modifie les instructions utilisées pour enrichir les Notes. Les
@@ -1303,6 +1388,9 @@ const s: Record<string, React.CSSProperties> = {
     color: C.muted,
     fontSize: 14,
     lineHeight: 1.5,
+  },
+  link: {
+    color: C.accent,
   },
   mutedSmall: {
     color: C.muted,
