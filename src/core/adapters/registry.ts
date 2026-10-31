@@ -339,15 +339,15 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   /** Imported files win over the player's own tracks, role by role. */
   private japaneseCues(): SubtitleCue[] {
     this.offsets.setVideo(this.videoId);
-    return this.offsets.shiftCommon(
-      this.localPrimaryCues.length ? this.localPrimaryCues : this.artplayer?.japanese ?? [],
-    );
+    return this.localPrimaryCues.length
+      ? this.localPrimaryCues
+      : this.offsets.shiftPlayerJapanese(this.artplayer?.japanese ?? []);
   }
 
   private translationCues(): SubtitleCue[] {
     if (this.preferredSecondaryLanguage === "none") return [];
+    if (this.localSecondaryCues.length) return this.localSecondaryCues;
     this.offsets.setVideo(this.videoId);
-    if (this.localSecondaryCues.length) return this.offsets.shiftCommon(this.localSecondaryCues);
     const translations = this.artplayer?.translations ?? {};
     const fallback = this.preferredSecondaryLanguage === "fr" ? "en" : "fr";
     return this.offsets.shiftPlayerTranslation(

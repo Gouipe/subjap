@@ -1,23 +1,23 @@
 // ---------------------------------------------------------------------------
-// SubJap — Offsets set for one video, outside imported files
+// SubJap — Offsets of the tracks the player itself provides
 //
-// The common offset shifts the Japanese track and the translation together,
-// whatever their source. The translation offset shifts only the translation
-// the player itself provides: an imported file keeps its offset in its own
-// record. Both are stored per video and added to the file offsets.
+// An imported file keeps its offset in its own record. The player's Japanese
+// track and translation have no record: their offsets are stored per video
+// here. Whether the popup shifts both tracks together is a global choice.
 // ---------------------------------------------------------------------------
 
 import type { SubtitleCue } from "@/core/types";
 
 const TRANSLATION_PREFIX = "subjap_translation_offset_";
-const COMMON_PREFIX = "subjap_common_offset_";
+const JAPANESE_PREFIX = "subjap_japanese_offset_";
+const LINKED_KEY = "subjap_linked_offsets";
 
 export function translationOffsetStorageKey(videoId: string): string {
   return `${TRANSLATION_PREFIX}${videoId}`;
 }
 
-export function commonOffsetStorageKey(videoId: string): string {
-  return `${COMMON_PREFIX}${videoId}`;
+export function japaneseOffsetStorageKey(videoId: string): string {
+  return `${JAPANESE_PREFIX}${videoId}`;
 }
 
 async function readOffset(key: string): Promise<number> {
@@ -39,13 +39,22 @@ export function saveTranslationOffset(videoId: string, seconds: number): Promise
   return writeOffset(translationOffsetStorageKey(videoId), seconds);
 }
 
-/** Seconds added to both tracks of this video; 0 when unset. */
-export function getCommonOffset(videoId: string): Promise<number> {
-  return readOffset(commonOffsetStorageKey(videoId));
+/** Seconds added to the player's Japanese track of this video; 0 when unset. */
+export function getJapaneseOffset(videoId: string): Promise<number> {
+  return readOffset(japaneseOffsetStorageKey(videoId));
 }
 
-export function saveCommonOffset(videoId: string, seconds: number): Promise<void> {
-  return writeOffset(commonOffsetStorageKey(videoId), seconds);
+export function saveJapaneseOffset(videoId: string, seconds: number): Promise<void> {
+  return writeOffset(japaneseOffsetStorageKey(videoId), seconds);
+}
+
+/** True when changing one track's offset changes the other by as much. */
+export async function getLinkedOffsets(): Promise<boolean> {
+  return (await chrome.storage.local.get(LINKED_KEY))[LINKED_KEY] === true;
+}
+
+export async function saveLinkedOffsets(linked: boolean): Promise<void> {
+  await chrome.storage.local.set({ [LINKED_KEY]: linked });
 }
 
 /**
@@ -54,7 +63,7 @@ export function saveCommonOffset(videoId: string, seconds: number): Promise<void
  */
 export class VideoOffsetWatcher {
   private videoId: string | null = null;
-  private common = 0;
+  private japanese = 0;
   private translation = 0;
   private revision = 0;
   private listening = false;
@@ -68,7 +77,7 @@ export class VideoOffsetWatcher {
     area: string,
   ): void => {
     if (area !== "local" || !this.videoId) return;
-    if (changes[translationOffsetStorageKey(this.videoId)] || changes[commonOffsetStorageKey(this.videoId)]) {
+    if (changes[translationOffsetStorageKey(this.videoId)] || changes[japaneseOffsetStorageKey(this.videoId)]) {
       this.load();
     }
   };
@@ -80,29 +89,27 @@ export class VideoOffsetWatcher {
     }
     if (videoId === this.videoId) return;
     this.videoId = videoId;
-    if (this.common !== 0 || this.translation !== 0) {
-      this.common = 0;
+    if (this.japanese !== 0 || this.translation !== 0) {
+      this.japanese = 0;
       this.translation = 0;
       this.onChange();
     }
     this.load();
   }
 
-  /** Japanese cues and imported translations: the common offset only. */
-  shiftCommon(cues: SubtitleCue[]): SubtitleCue[] {
-    return this.shift(cues, this.common);
+  shiftPlayerJapanese(cues: SubtitleCue[]): SubtitleCue[] {
+    return this.shift(cues, this.japanese);
   }
 
-  /** The player's own translation: common and translation offsets. */
   shiftPlayerTranslation(cues: SubtitleCue[]): SubtitleCue[] {
-    return this.shift(cues, this.common + this.translation);
+    return this.shift(cues, this.translation);
   }
 
   destroy(): void {
     if (this.listening) chrome.storage.onChanged.removeListener(this.onStorageChange);
     this.listening = false;
     this.videoId = null;
-    this.common = 0;
+    this.japanese = 0;
     this.translation = 0;
     this.revision += 1;
   }
@@ -120,10 +127,10 @@ export class VideoOffsetWatcher {
     const videoId = this.videoId;
     const revision = ++this.revision;
     if (!videoId) return;
-    void Promise.all([getCommonOffset(videoId), getTranslationOffset(videoId)]).then(([common, translation]) => {
+    void Promise.all([getJapaneseOffset(videoId), getTranslationOffset(videoId)]).then(([japanese, translation]) => {
       if (revision !== this.revision) return;
-      if (common === this.common && translation === this.translation) return;
-      this.common = common;
+      if (japanese === this.japanese && translation === this.translation) return;
+      this.japanese = japanese;
       this.translation = translation;
       this.onChange();
     }).catch(() => {

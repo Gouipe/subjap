@@ -133,23 +133,20 @@ dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
 ### Importer des sous-titres locaux
 
 1. Ouvrir une page web avec un lecteur vidéo HTML5 visible, puis la popup SubJap.
-2. Dans **Pistes et décalage**, importer le fichier japonais sous **Piste
-   principale**. SubJap le traite comme du japonais pour l’overlay, la navigation
-   et le mining.
-3. Facultativement, importer une traduction sous **Piste secondaire**. Chaque
-   piste possède son propre décalage au centième de seconde ; une valeur positive
-   l’affiche plus tard et les boutons ajustent de 0,1 s.
+2. Dans **Pistes et décalage**, sous **Fichiers**, importer le fichier japonais
+   sur la ligne **Japonais**. SubJap le traite comme du japonais pour l’overlay,
+   la navigation et le mining.
+3. Facultativement, importer une traduction sur la ligne **Traduction**.
 
-Sans fichier de traduction importé, la piste secondaire affiche **Traduction
-du lecteur** avec son propre décalage, mémorisé par vidéo : il décale la
-traduction fournie par Re:ANIME, Netflix ou YouTube, indépendamment du
-japonais.
-
-En haut de la section, **Les deux pistes** décale le japonais et la traduction
-ensemble, qu’ils viennent du lecteur ou d’un fichier, par exemple quand toute la
-vidéo est en avance sur ses sous-titres. Ce décalage commun est mémorisé par
-vidéo et s’ajoute au décalage propre à chaque piste. Sur Netflix, le japonais
-lu seulement à l’écran (sans piste chargée) ne peut pas être décalé.
+Sous **Décalage**, chaque piste a son propre décalage au centième de seconde,
+qu’elle vienne d’un fichier ou du lecteur (Re:ANIME, Netflix, YouTube) ; une
+valeur positive l’affiche plus tard, les boutons ajustent de 0,1 s et ↺ remet
+à zéro. Le décalage d’une piste du lecteur est mémorisé par vidéo ; celui d’un
+fichier, avec le fichier. Avec **Décaler les deux ensemble** coché (choix
+mémorisé pour toutes les vidéos), modifier une piste décale l’autre d’autant,
+par exemple quand toute la vidéo est en avance sur ses sous-titres. Sur
+Netflix, le japonais lu seulement à l’écran (sans piste chargée) ne peut pas
+être décalé.
 
 Les fichiers SRT, VTT et ASS sont acceptés et mémorisés séparément pour chaque
 vidéo : par identifiant de lecture Netflix ou YouTube, ou par adresse de page
@@ -163,7 +160,7 @@ compare les débuts de répliques et applique le décalage trouvé, seulement s�
 dépasse 1 s et ne fait aucun doute. Quand le fichier vient d’un autre montage
 de l’épisode (générique d’une autre longueur, coupure), il est recalé par
 parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler le
-recalage** ; la popup le rappelle sous la piste principale et permet aussi de
+recalage** ; la popup le rappelle sous **Fichiers** et permet aussi de
 l’annuler. Le décalage réglé à la main s’ajoute à ce recalage. Un fichier dont
 le décalage a été réglé à la main avant tout recalage (y compris
 **Réinitialiser**) n’est jamais recalé.

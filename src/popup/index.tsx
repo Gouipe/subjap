@@ -20,9 +20,11 @@ import type {
 } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
 import {
-  getCommonOffset,
+  getJapaneseOffset,
+  getLinkedOffsets,
   getTranslationOffset,
-  saveCommonOffset,
+  saveJapaneseOffset,
+  saveLinkedOffsets,
   saveTranslationOffset,
 } from "@/subtitles/video-offset";
 import {
@@ -90,8 +92,9 @@ const SHORTCUT_GUIDE = [
   { key: "X", action: "Révéler le sous-titre masqué" },
 ] as const;
 
-/** Offset of one subtitle track: typed value, ±0.1 s steps and reset. */
-function OffsetControls(props: {
+/** Offset of one subtitle track on one line: typed value, ±0.1 s steps and reset. */
+function OffsetRow(props: {
+  label: string;
   input: string;
   value: number;
   disabled: boolean;
@@ -99,37 +102,37 @@ function OffsetControls(props: {
   onCommit: (seconds: number) => void;
 }): JSX.Element {
   return (
-    <>
-      <label style={styles.offsetLabel}>
-        <span>Décalage (s)</span>
-        <input
-          style={styles.offsetInput}
-          type="number"
-          step="0.01"
-          value={props.input}
-          disabled={props.disabled}
-          onChange={(event) => props.onInput(event.target.value)}
-          onBlur={() => props.onCommit(Number(props.input.replace(",", ".")))}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
-        />
-      </label>
-      <p style={styles.localSubtitleHint}>
-        Une valeur positive affiche le texte plus tard.
-      </p>
-      <div style={styles.offsetActions}>
-        <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(props.value - 0.1)}>
-          − 0,1 s
-        </button>
-        <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(props.value + 0.1)}>
-          + 0,1 s
-        </button>
-        <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(0)}>
-          Réinitialiser
-        </button>
-      </div>
-    </>
+    <div style={styles.offsetRow}>
+      <span style={styles.offsetRowLabel}>{props.label}</span>
+      <input
+        style={styles.offsetInput}
+        type="number"
+        step="0.01"
+        aria-label={`Décalage ${props.label.toLowerCase()} (s)`}
+        value={props.input}
+        disabled={props.disabled}
+        onChange={(event) => props.onInput(event.target.value)}
+        onBlur={() => props.onCommit(Number(props.input.replace(",", ".")))}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+      />
+      <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(props.value - 0.1)}>
+        −0,1
+      </button>
+      <button style={styles.smallButton} disabled={props.disabled} onClick={() => props.onCommit(props.value + 0.1)}>
+        +0,1
+      </button>
+      <button
+        style={styles.smallButton}
+        disabled={props.disabled}
+        title="Réinitialiser"
+        aria-label={`Réinitialiser le décalage ${props.label.toLowerCase()}`}
+        onClick={() => props.onCommit(0)}
+      >
+        ↺
+      </button>
+    </div>
   );
 }
 
@@ -161,12 +164,13 @@ const Popup: React.FC = () => {
   });
   const [localSubtitleBusy, setLocalSubtitleBusy] = useState(false);
   const [localSubtitleError, setLocalSubtitleError] = useState<string | null>(null);
-  /** Offset of the translation the player provides, when no file replaces it. */
-  const [playerTranslationOffset, setPlayerTranslationOffset] = useState(0);
-  const [playerOffsetInput, setPlayerOffsetInput] = useState("0.00");
-  /** Offset of both tracks together, added to each track's own offset. */
-  const [commonOffset, setCommonOffset] = useState(0);
-  const [commonOffsetInput, setCommonOffsetInput] = useState("0.00");
+  /** Offsets of the tracks the player provides, when no file replaces them. */
+  const [playerOffsets, setPlayerOffsets] = useState<Record<LocalSubtitleRole, number>>({
+    primary: 0,
+    secondary: 0,
+  });
+  /** Changing one track's offset changes the other by as much. */
+  const [linkedOffsets, setLinkedOffsets] = useState(false);
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
 
@@ -257,20 +261,19 @@ const Popup: React.FC = () => {
       }, () => {
         // No frame answered: Japanese subtitles are available or still unknown.
       });
-      const [primary, secondary, playerOffset, bothOffset] = await Promise.all([
+      const [primary, secondary, japaneseOffset, translationOffset, linked] = await Promise.all([
         getLocalSubtitle(currentVideoId, "primary"),
         getLocalSubtitle(currentVideoId, "secondary"),
+        getJapaneseOffset(currentVideoId),
         getTranslationOffset(currentVideoId),
-        getCommonOffset(currentVideoId),
+        getLinkedOffsets(),
       ]);
       setLocalSubtitles({ primary, secondary });
-      setPlayerTranslationOffset(playerOffset);
-      setPlayerOffsetInput(playerOffset.toFixed(2));
-      setCommonOffset(bothOffset);
-      setCommonOffsetInput(bothOffset.toFixed(2));
+      setPlayerOffsets({ primary: japaneseOffset, secondary: translationOffset });
+      setLinkedOffsets(linked);
       setOffsetInputs({
-        primary: (primary?.offsetSeconds ?? 0).toFixed(2),
-        secondary: (secondary?.offsetSeconds ?? 0).toFixed(2),
+        primary: (primary?.offsetSeconds ?? japaneseOffset).toFixed(2),
+        secondary: (secondary?.offsetSeconds ?? translationOffset).toFixed(2),
       });
     })().catch((err: unknown) => {
       setLocalSubtitleError(err instanceof Error ? err.message : String(err));
@@ -306,27 +309,69 @@ const Popup: React.FC = () => {
     [videoId],
   );
 
+  /** Offset in force for a track: its file's, otherwise the player track's. */
+  const trackOffset = useCallback(
+    (role: LocalSubtitleRole) => localSubtitles[role]?.offsetSeconds ?? playerOffsets[role],
+    [localSubtitles, playerOffsets],
+  );
+
   const persistOffset = useCallback(
-    async (role: LocalSubtitleRole, value: number) => {
+    async (role: LocalSubtitleRole, seconds: number) => {
+      if (!videoId) return;
       const localSubtitle = localSubtitles[role];
-      if (!videoId || !localSubtitle || !Number.isFinite(value)) return;
+      setOffsetInputs((current) => ({ ...current, [role]: seconds.toFixed(2) }));
+      if (localSubtitle) {
+        // An offset the user set is never replaced by the automatic alignment.
+        const next = { ...localSubtitle, offsetSeconds: seconds, syncChecked: true };
+        setLocalSubtitles((current) => ({ ...current, [role]: next }));
+        await saveLocalSubtitle(videoId, next, role);
+      } else {
+        setPlayerOffsets((current) => ({ ...current, [role]: seconds }));
+        await (role === "primary" ? saveJapaneseOffset : saveTranslationOffset)(videoId, seconds);
+      }
+    },
+    [localSubtitles, videoId],
+  );
+
+  const showTranslationOffset = !!localSubtitles.secondary || secondarySubtitleLanguage !== "none";
+
+  /** Sets one track's offset; linked, the other moves by as much. */
+  const changeOffset = useCallback(
+    async (role: LocalSubtitleRole, value: number) => {
+      if (!Number.isFinite(value)) {
+        setOffsetInputs((current) => ({ ...current, [role]: trackOffset(role).toFixed(2) }));
+        return;
+      }
       const rounded = Math.round(value * 100) / 100;
-      // An offset the user set is never replaced by the automatic alignment.
-      const next = { ...localSubtitle, offsetSeconds: rounded, syncChecked: true };
-      setLocalSubtitles((current) => ({ ...current, [role]: next }));
-      setOffsetInputs((current) => ({ ...current, [role]: rounded.toFixed(2) }));
+      const delta = rounded - trackOffset(role);
+      const other: LocalSubtitleRole = role === "primary" ? "secondary" : "primary";
       setLocalSubtitleBusy(true);
       setLocalSubtitleError(null);
       try {
-        await saveLocalSubtitle(videoId, next, role);
+        await Promise.all([
+          persistOffset(role, rounded),
+          linkedOffsets && showTranslationOffset && delta !== 0
+            ? persistOffset(other, Math.round((trackOffset(other) + delta) * 100) / 100)
+            : Promise.resolve(),
+        ]);
       } catch (err: unknown) {
         setLocalSubtitleError(err instanceof Error ? err.message : String(err));
       } finally {
         setLocalSubtitleBusy(false);
       }
     },
-    [localSubtitles, videoId],
+    [linkedOffsets, persistOffset, showTranslationOffset, trackOffset],
   );
+
+  const chooseLinkedOffsets = useCallback(async (linked: boolean) => {
+    setLinkedOffsets(linked);
+    try {
+      await saveLinkedOffsets(linked);
+    } catch (err: unknown) {
+      setLinkedOffsets(!linked);
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
 
   /** Back to the file's own timing; the user's offset stays. */
   const removeAutoSync = useCallback(async (role: LocalSubtitleRole) => {
@@ -342,32 +387,6 @@ const Popup: React.FC = () => {
     }
   }, [localSubtitles, videoId]);
 
-  const persistPlayerTranslationOffset = useCallback(async (value: number) => {
-    if (!videoId || !Number.isFinite(value)) return;
-    const rounded = Math.round(value * 100) / 100;
-    setPlayerTranslationOffset(rounded);
-    setPlayerOffsetInput(rounded.toFixed(2));
-    setLocalSubtitleError(null);
-    try {
-      await saveTranslationOffset(videoId, rounded);
-    } catch (err: unknown) {
-      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
-    }
-  }, [videoId]);
-
-  const persistCommonOffset = useCallback(async (value: number) => {
-    if (!videoId || !Number.isFinite(value)) return;
-    const rounded = Math.round(value * 100) / 100;
-    setCommonOffset(rounded);
-    setCommonOffsetInput(rounded.toFixed(2));
-    setLocalSubtitleError(null);
-    try {
-      await saveCommonOffset(videoId, rounded);
-    } catch (err: unknown) {
-      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
-    }
-  }, [videoId]);
-
   const deleteLocalSubtitle = useCallback(async (role: LocalSubtitleRole) => {
     if (!videoId) return;
     setLocalSubtitleBusy(true);
@@ -375,13 +394,13 @@ const Popup: React.FC = () => {
     try {
       await removeLocalSubtitle(videoId, role);
       setLocalSubtitles((current) => ({ ...current, [role]: null }));
-      setOffsetInputs((current) => ({ ...current, [role]: "0.00" }));
+      setOffsetInputs((current) => ({ ...current, [role]: playerOffsets[role].toFixed(2) }));
     } catch (err: unknown) {
       setLocalSubtitleError(err instanceof Error ? err.message : String(err));
     } finally {
       setLocalSubtitleBusy(false);
     }
-  }, [videoId]);
+  }, [playerOffsets, videoId]);
 
   const searchJimaku = useCallback(async () => {
     if (!missingJapanese) return;
@@ -674,97 +693,96 @@ const Popup: React.FC = () => {
               </span>
             </summary>
             <div style={styles.localSubtitleContent}>
-              <div style={styles.localSubtitleTrack}>
-                <span style={styles.localSubtitleRole}>Les deux pistes · japonais et traduction</span>
-                <p style={styles.localSubtitleHint}>
-                  Décale le japonais et la traduction ensemble, en plus du décalage propre à chaque piste.
-                </p>
-                <OffsetControls
-                  input={commonOffsetInput}
-                  value={commonOffset}
+              <span style={styles.subsectionLabel}>Décalage (s) · positif = plus tard</span>
+              {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
+                <OffsetRow
+                  key={role}
+                  label={role === "primary" ? "Japonais" : "Traduction"}
+                  input={offsetInputs[role]}
+                  value={trackOffset(role)}
                   disabled={localSubtitleBusy}
-                  onInput={setCommonOffsetInput}
-                  onCommit={(value) => void persistCommonOffset(value)}
+                  onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
+                  onCommit={(value) => void changeOffset(role, value)}
                 />
-              </div>
+              ))}
+              {showTranslationOffset && (
+                <label style={styles.checkboxRow}>
+                  <input
+                    type="checkbox"
+                    checked={linkedOffsets}
+                    onChange={(event) => void chooseLinkedOffsets(event.target.checked)}
+                  />
+                  <span>Décaler les deux ensemble</span>
+                </label>
+              )}
+
+              <span style={{ ...styles.subsectionLabel, ...styles.subsectionDivided }}>Fichiers</span>
               {LOCAL_SUBTITLE_ROLES.map((role) => {
                 const localSubtitle = localSubtitles[role];
-                const roleTitle = role === "primary"
-                  ? "Piste principale · japonais"
-                  : "Piste secondaire · traduction";
-                const roleHint = role === "primary"
-                  ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
-                  : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native.";
+                const playerTrack = role === "primary"
+                  ? "Piste du lecteur"
+                  : secondarySubtitleLanguage === "none" ? "Aucune" : "Traduction du lecteur";
                 return (
-                  <div key={role} style={styles.localSubtitleTrack}>
-                    <span style={styles.localSubtitleRole}>{roleTitle}</span>
-                    <label style={styles.fileButton}>
-                      {localSubtitleBusy
-                        ? "Chargement…"
-                        : localSubtitle
-                          ? "Remplacer le fichier"
-                          : "Choisir un fichier"}
-                      <input
-                        type="file"
-                        accept=".srt,.vtt,.webvtt,.ass,.ssa"
-                        hidden
-                        disabled={localSubtitleBusy}
-                        onChange={(event) => {
-                          void importLocalSubtitle(role, event.target.files?.[0]);
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
-                    <p style={styles.localSubtitleHint}>{roleHint}</p>
-                    {role === "secondary" && !localSubtitle && secondarySubtitleLanguage !== "none" && (
-                      <>
-                        <p style={styles.fileName}>Traduction du lecteur</p>
-                        <OffsetControls
-                          input={playerOffsetInput}
-                          value={playerTranslationOffset}
+                  <div key={role} style={styles.fileRow}>
+                    <div style={styles.fileRowHead}>
+                      <span
+                        style={styles.offsetRowLabel}
+                        title={role === "primary"
+                          ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
+                          : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native."}
+                      >
+                        {role === "primary" ? "Japonais" : "Traduction"}
+                      </span>
+                      <span
+                        style={localSubtitle ? styles.fileName : styles.playerTrackName}
+                        title={localSubtitle?.fileName}
+                      >
+                        {localSubtitle?.fileName ?? playerTrack}
+                      </span>
+                    </div>
+                    {localSubtitle?.syncSegments?.length ? (
+                      <p style={styles.localSubtitleHint}>
+                        Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                        {" ("}
+                        {localSubtitle.syncSegments
+                          .map((segment) => `${segment.offset > 0 ? "+" : ""}${segment.offset.toFixed(1).replace(".", ",")} s`)
+                          .join(", ")}
+                        {") · "}
+                        <button
+                          style={styles.inlineLink}
                           disabled={localSubtitleBusy}
-                          onInput={setPlayerOffsetInput}
-                          onCommit={(value) => void persistPlayerTranslationOffset(value)}
-                        />
-                      </>
-                    )}
-                    {localSubtitle && (
-                      <>
-                        <p style={styles.fileName}>{localSubtitle.fileName}</p>
-                        {localSubtitle.syncSegments?.length ? (
-                          <p style={styles.localSubtitleHint}>
-                            Recalé automatiquement sur la traduction
-                            {localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
-                            {" ("}
-                            {localSubtitle.syncSegments
-                              .map((segment) => `${segment.offset > 0 ? "+" : ""}${segment.offset.toFixed(1).replace(".", ",")} s`)
-                              .join(", ")}
-                            {"). "}
-                            <button
-                              style={styles.inlineLink}
-                              disabled={localSubtitleBusy}
-                              onClick={() => void removeAutoSync(role)}
-                            >
-                              Annuler le recalage
-                            </button>
-                          </p>
-                        ) : null}
-                        <OffsetControls
-                          input={offsetInputs[role]}
-                          value={localSubtitle.offsetSeconds}
+                          onClick={() => void removeAutoSync(role)}
+                        >
+                          Annuler
+                        </button>
+                      </p>
+                    ) : null}
+                    <div style={styles.fileActions}>
+                      <label style={styles.fileButton}>
+                        {localSubtitleBusy
+                          ? "Chargement…"
+                          : localSubtitle ? "Remplacer" : "Importer un fichier"}
+                        <input
+                          type="file"
+                          accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                          hidden
                           disabled={localSubtitleBusy}
-                          onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
-                          onCommit={(value) => void persistOffset(role, value)}
+                          onChange={(event) => {
+                            void importLocalSubtitle(role, event.target.files?.[0]);
+                            event.target.value = "";
+                          }}
                         />
+                      </label>
+                      {localSubtitle && (
                         <button
                           style={styles.deleteButton}
                           disabled={localSubtitleBusy}
                           onClick={() => void deleteLocalSubtitle(role)}
                         >
-                          Supprimer la piste
+                          Supprimer
                         </button>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1133,16 +1151,57 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "center",
     transition: "transform 160ms cubic-bezier(0.22, 1, 0.36, 1)",
   },
-  localSubtitleTrack: {
-    marginTop: 8,
-    paddingTop: 8,
+  subsectionLabel: {
+    display: "block",
+    margin: "4px 0 6px",
+    color: "#b2b6bf",
+    fontSize: 10,
+    fontWeight: 600,
+    letterSpacing: "0.04em",
+  },
+  subsectionDivided: {
+    marginTop: 12,
+    paddingTop: 10,
     borderTop: "1px solid #343842",
   },
-  localSubtitleRole: {
-    display: "block",
+  offsetRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
     marginBottom: 6,
+  },
+  offsetRowLabel: {
+    flex: "0 0 64px",
+    color: "#f4f1ea",
     fontSize: 11,
-    fontWeight: 600,
+  },
+  checkboxRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+    color: "#f4f1ea",
+    fontSize: 11,
+    cursor: "pointer",
+  },
+  fileRow: {
+    marginBottom: 10,
+  },
+  fileRowHead: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  fileActions: {
+    display: "flex",
+    gap: 6,
+    marginTop: 6,
+  },
+  playerTrackName: {
+    flex: 1,
+    minWidth: 0,
+    color: "#b2b6bf",
+    fontSize: 11,
   },
   languageSelect: {
     width: 150,
@@ -1190,7 +1249,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   fileButton: {
-    display: "block",
+    flex: 1,
     padding: "7px 10px",
     border: "1px solid #343842",
     borderRadius: 6,
@@ -1201,22 +1260,17 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   fileName: {
-    margin: "7px 0",
+    flex: 1,
+    minWidth: 0,
     color: "#78d6a3",
     fontSize: 10,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  offsetLabel: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    fontSize: 11,
-  },
   offsetInput: {
-    width: 78,
+    width: 58,
+    flex: "0 0 auto",
     padding: "4px 6px",
     border: "1px solid #343842",
     borderRadius: 6,
@@ -1229,11 +1283,6 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.35,
     color: "#b2b6bf",
   },
-  offsetActions: {
-    display: "flex",
-    gap: 4,
-    marginTop: 8,
-  },
   smallButton: {
     flex: 1,
     padding: "5px 3px",
@@ -1241,7 +1290,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: "#1b1e24",
     color: "#f4f1ea",
-    fontSize: 9,
+    fontSize: 10,
     cursor: "pointer",
   },
   inlineLink: {
@@ -1254,9 +1303,8 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   deleteButton: {
-    width: "100%",
-    marginTop: 8,
-    padding: "6px 8px",
+    flex: "0 0 auto",
+    padding: "6px 10px",
     // Outlined in the danger colour, like the options' danger buttons:
     // recognisable as a button without competing with the main actions.
     border: "1px solid #ff8490",

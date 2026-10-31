@@ -76,10 +76,11 @@ export class YouTubeAdapter implements PlatformAdapter {
     return this.japaneseCues(this.catalog.cues("ja"));
   }
 
-  /** Imported Japanese wins over the player's track, shifted by the common offset. */
+  /** Imported Japanese wins over the player's track, shifted by its own offset. */
   private japaneseCues(native: SubtitleCue[]): SubtitleCue[] {
+    if (this.localPrimaryCues.length) return this.localPrimaryCues;
     this.offsets.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
-    return this.offsets.shiftCommon(this.localPrimaryCues.length ? this.localPrimaryCues : native);
+    return this.offsets.shiftPlayerJapanese(native);
   }
 
   getNavigationSessionId(): string {
@@ -307,8 +308,8 @@ export class YouTubeAdapter implements PlatformAdapter {
 
   private translationCues(): SubtitleCue[] {
     if (this.preferredLanguage === "none") return [];
+    if (this.localSecondaryCues.length) return this.localSecondaryCues;
     this.offsets.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
-    if (this.localSecondaryCues.length) return this.offsets.shiftCommon(this.localSecondaryCues);
     const secondary = this.info?.tracks.find((track) => track.language !== "ja");
     return secondary ? this.offsets.shiftPlayerTranslation(this.catalog.cues(secondary.language)) : [];
   }
