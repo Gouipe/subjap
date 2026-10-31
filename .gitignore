@@ -23,7 +23,3 @@ playwright-report/
 *.log
 .DS_Store
 Thumbs.db
-
-# DeepSeek TUI transient state (HANDOFF.md / instructions.md are committed)
-.deepseek/state/
-script_notif.ps1
