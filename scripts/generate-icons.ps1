@@ -1,5 +1,6 @@
-# Generates the extension icons (public/icons/icon-<size>.png): a white 字 on
-# a vermilion rounded square, matching DESIGN.md (clap-vermilion, subtitle-white).
+# Generates the extension icons (public/icons/icon-<size>.png): an ink-black 字 on
+# a vermilion rounded square, matching DESIGN.md (clap-vermilion, canvas-ink).
+# Ink on vermilion contrasts about 6.6:1; white only reached about 2.6:1.
 # Each size is drawn at 8x and downscaled so small sizes stay smooth.
 #
 # Usage: powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1
@@ -21,7 +22,7 @@ $fonts.AddFontFile("$env:WINDIR\Fonts\YuGothB.ttc")
 $family = $fonts.Families | Where-Object { $_.Name -eq "Yu Gothic UI" } | Select-Object -First 1
 
 $background = [System.Drawing.ColorTranslator]::FromHtml("#FF624D")
-$foreground = [System.Drawing.ColorTranslator]::FromHtml("#F4F1EA")
+$foreground = [System.Drawing.ColorTranslator]::FromHtml("#0C0D10")
 $glyph = [string][char]0x5B57 # 字
 $scale = 8
 
@@ -45,7 +46,7 @@ foreach ($size in 16, 32, 48, 128) {
 
   # Glyph as a path, scaled to the requested ink box, then centred. The 16 px
   # icon draws its glyph later, hinted to the pixel grid, because a downscaled
-  # glyph turns its 1 px strokes into a pink blur.
+  # glyph turns its 1 px strokes into a blur.
   $hinted = $size -le 16
   if (-not $hinted) {
     $text = New-Object System.Drawing.Drawing2D.GraphicsPath
