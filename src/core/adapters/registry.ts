@@ -32,7 +32,8 @@ const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
 const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
 /** Sites change episode without reloading the player frame: follow the tab URL. */
 const TOP_URL_REFRESH_MS = 2_000;
-const MAX_SUBTITLE_FILE_LENGTH = 8_000_000;
+/** Fansub ASS files with heavy typesetting reach a dozen megabytes. */
+const MAX_SUBTITLE_FILE_LENGTH = 20_000_000;
 /** A player answering with no usable file this long has no subtitle menu at all. */
 const ARTPLAYER_NO_TRACKS_AFTER_MS = 15_000;
 

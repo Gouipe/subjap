@@ -53,16 +53,23 @@ export function classifyArtplayerSubtitle(
   return { ...candidate, language, sdh: SDH.test(candidate.label) };
 }
 
-/** Best track per language: dialogue-only first, SDH as a fallback. */
+/** Plain text formats carry only dialogue; ASS fansubs also typeset signs and karaoke. */
+function isPlainTextTrack(track: ArtplayerSubtitleTrack): boolean {
+  return /\.(?:srt|vtt|webvtt)$/i.test(artplayerSubtitleFileName(track.url));
+}
+
+/** Best track per language: dialogue-only first, SDH as a fallback; plain text preferred. */
 export function selectArtplayerSubtitleTracks(
   candidates: ArtplayerSubtitleCandidate[],
 ): Partial<Record<ArtplayerSubtitleLanguage, ArtplayerSubtitleTrack>> {
   const selected: Partial<Record<ArtplayerSubtitleLanguage, ArtplayerSubtitleTrack>> = {};
+  const rank = (track: ArtplayerSubtitleTrack): number =>
+    (track.sdh ? 0 : 2) + (isPlainTextTrack(track) ? 1 : 0);
   for (const candidate of candidates) {
     const track = classifyArtplayerSubtitle(candidate);
     if (!track) continue;
     const current = selected[track.language];
-    if (!current || (current.sdh && !track.sdh)) selected[track.language] = track;
+    if (!current || rank(track) > rank(current)) selected[track.language] = track;
   }
   return selected;
 }

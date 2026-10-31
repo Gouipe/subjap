@@ -133,6 +133,20 @@ function splitAssLine(line: string, fieldCount: number): string[] {
   return head;
 }
 
+/**
+ * Fansub ASS files also time signs, karaoke and drawn shapes: thousands of
+ * events that are not dialogue. Their styles say so, or their tags do.
+ */
+const ASS_NON_DIALOGUE_STYLE =
+  /sign|^(?:op|ed)\b|^(?:op|ed)[\s_-]|opening|ending|song|kara|insert|title|typeset|logo|eyecatch|note|^ts\b/i;
+const ASS_DRAWING_OR_KARAOKE = /\\p[1-9]|\\k[fo]?\d/i;
+/**
+ * Positioned lines are signs in a fansub, but converted TV captions place
+ * every line: positioning only marks a sign when it is the exception.
+ */
+const ASS_POSITIONED = /\\(?:pos|move|clip|iclip|org)\(/i;
+const ASS_POSITIONED_DIALOGUE_SHARE = 0.5;
+
 /** Parse ASS/SSA content into `SubtitleCue[]` (from the [Events] section). */
 export function parseASS(content: string): SubtitleCue[] {
   const normalized = content.replace(/\r\n/g, "\n");
@@ -149,10 +163,11 @@ export function parseASS(content: string): SubtitleCue[] {
   const startIdx = fields.indexOf("start");
   const endIdx = fields.indexOf("end");
   const textIdx = fields.indexOf("text");
+  const styleIdx = fields.indexOf("style");
   if (startIdx === -1 || endIdx === -1 || textIdx === -1) return [];
 
-  const cues: SubtitleCue[] = [];
-  let index = 0;
+  const events: { start: number; end: number; text: string; positioned: boolean }[] = [];
+  const seen = new Set<string>();
 
   for (const line of body.split("\n")) {
     const m = line.match(/^Dialogue:\s*(.*)$/);
@@ -163,11 +178,24 @@ export function parseASS(content: string): SubtitleCue[] {
     const end = parseAssTimestamp(parts[endIdx] ?? "");
     const text = (parts[textIdx] ?? "").trim();
     if (start == null || end == null || !text) continue;
-
-    index += 1;
-    cues.push({ id: String(index), start, end, text });
+    if (ASS_NON_DIALOGUE_STYLE.test((parts[styleIdx] ?? "").trim()) || ASS_DRAWING_OR_KARAOKE.test(text)) continue;
+    // Layered effects repeat the same line.
+    const key = `${start}|${end}|${text.replace(/\{[^}]*\}/g, "")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    events.push({ start, end, text, positioned: ASS_POSITIONED.test(text) });
   }
-  return cues;
+
+  const positionedShare = events.filter((event) => event.positioned).length / Math.max(1, events.length);
+  const keepPositioned = positionedShare > ASS_POSITIONED_DIALOGUE_SHARE;
+  return events
+    .filter((event) => keepPositioned || !event.positioned)
+    .map((event, index): SubtitleCue => ({
+      id: String(index + 1),
+      start: event.start,
+      end: event.end,
+      text: event.text,
+    }));
 }
 
 /** Parse the TTML/DFXP timed-text documents used by Netflix. */
