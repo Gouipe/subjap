@@ -14,6 +14,7 @@ CLAUDE.local.md
 
 # Linked worktrees used for isolated agent work
 .worktrees/
+.claude/worktrees/
 
 # Playwright reports and browser artifacts
 test-results/
