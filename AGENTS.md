@@ -1,64 +1,50 @@
 # SubJap — instructions projet
 
-Utiliser git worktree pour les fonctionnalités longues, risquées ou susceptibles
-d’être travaillées en parallèle. Pour une modification courte et isolée,
-travailler directement dans le worktree courant est acceptable. Si une seconde
-tâche parallèle apparaît ensuite, créer à ce moment-là un worktree dédié.
-Lorsqu’un worktree est utilisé, une fois l’implémentation terminée et vérifiée,
-merger son commit dans `master` et  lancer un npm run build avant de rendre la main.
+Extension Chrome/Edge (Manifest V3) pour apprendre le japonais à partir des
+sous-titres vidéo et créer des cartes Anki. Installation et usage : voir le
+[README](README.md).
 
-Références du projet :
+## Documentation
 
-- [`PRODUCT.md`](PRODUCT.md) et [`DESIGN.md`](DESIGN.md) — identité stratégique
-  et système visuel de SubJap ; les consulter avant toute modification de
-  l'interface, de l'overlay, du mining ou des cartes Anki ;
-- [`docs/`](docs/) — documentation du projet ; commencer par parcourir ce dossier
-  avant toute modification et consulter les documents dont le nom correspond au
-  sujet traité ;
-- [`docs/anki-card-formatting.md`](docs/anki-card-formatting.md) — contrat,
-  architecture et procédure pour la mise en forme des cartes Anki ;
-- [`docs/architecture.md`](docs/architecture.md) — architecture actuelle ;
-- [`docs/testing.md`](docs/testing.md) — fixture et scénarios de test ;
-- `tests/fixture/` et `tests/e2e/` — harnais exécutable.
+Avant de coder, lire les documents liés au sujet traité :
 
-## Consultation générale de `docs/`
-
-Avant de coder, exécuter `rg --files docs` et ouvrir les documents pertinents
-en fonction de leur nom. Les noms donnent une première indication de la
-documentation à consulter :
-
-- `anki*`, `card*`, `template*`, `format*`, `style*` : cartes Anki et rendu ;
-- `architecture*` : frontières entre modules et flux de données ;
-- `testing*`, `fixture*`, `e2e*` : stratégie de vérification et harnais ;
-- `mode-emploi*`, `guide*`, `instructions*` : procédure d’utilisation ou de
-  développement ;
-- `audio*`, `tts*` : capture et fichiers audio ;
-- `benchmark*`, `performance*`, `perf*` : mesures et contraintes de
-  performance ;
-- `TODO*`, `plan*`, `spec*`, `historique*`, `handoff*` : backlog, décisions ou
-  historique, à consulter lorsque le sujet correspond mais à ne pas considérer
-  automatiquement comme l’état courant.
-
-Si aucun nom ne correspond exactement, consulter `architecture.md`, puis la
-documentation la plus proche par domaine. Les documents de `docs/` sont des
-références de contexte ; les instructions normatives de ce fichier et les
-besoins explicites de l’utilisateur restent prioritaires.
+- [`PRODUCT.md`](PRODUCT.md) et [`DESIGN.md`](DESIGN.md) — identité et système
+  visuel ; à consulter avant toute modification de l'interface, de l'overlay,
+  du mining ou des cartes Anki ;
+- [`docs/architecture.md`](docs/architecture.md) — modules, flux de données et
+  contraintes ; point d'entrée par défaut ;
+- [`docs/subtitle-timeline.md`](docs/subtitle-timeline.md) — segments,
+  horaires et navigation entre sous-titres ;
+- [`docs/tokenization.md`](docs/tokenization.md) — Lindera/UniDic, unités
+  cliquables et sélection JMdict ;
+- [`docs/anki-card-formatting.md`](docs/anki-card-formatting.md) — contrat et
+  procédure de mise en forme des cartes Anki ;
+- [`docs/anki-production.md`](docs/anki-production.md) — cartes de production
+  orale ;
+- [`docs/mode-emploi.md`](docs/mode-emploi.md) — fonctions côté utilisateur ;
+- [`docs/testing.md`](docs/testing.md) — tests, fixture et E2E
+  (`tests/fixture/`, `tests/e2e/`) ;
+- [`docs/benchmark-unidic.md`](docs/benchmark-unidic.md) — benchmark de
+  tokenisation.
 
 À la fin d’un développement, mettre à jour la documentation pertinente
 seulement si le changement apporte ou modifie une information significative et
 durable : comportement utilisateur, architecture, contrat, procédure,
-configuration ou limitation connue. Si aucune information de cette nature n’a
-changé, ne modifier aucun document ; éviter les mises à jour purement
+configuration ou limitation connue. Éviter les mises à jour purement
 mécaniques, évidentes, internes ou temporaires.
 
-Ne pas créer de régression dans la fixture ou les scénarios E2E, même lorsqu’un
-comportement absent du harnais est découvert.
+## Règles de développement
 
-Les commandes Node s’exécutent avec `npm.cmd` / `npx.cmd` sous Windows.
+- Ne pas créer de régression dans la fixture ou les scénarios E2E, même
+  lorsqu’un comportement absent du harnais est découvert.
+- Sous Windows, les commandes Node s’exécutent avec `npm.cmd` / `npx.cmd`.
+- Utiliser git worktree pour les fonctionnalités longues, risquées ou
+  susceptibles d’être travaillées en parallèle ; une modification courte et
+  isolée peut se faire dans le worktree courant. Lorsqu’un worktree est
+  utilisé, une fois l’implémentation terminée et vérifiée, merger son commit
+  dans `master` et lancer `npm run build`.
 
 ## Correction de bugs
 
-Quand je te demande de corriger un bug, ne cherche pas toujours simplement à corriger
-le cas unique remonté.
-Essaye de comprendre la vraie source du problème, et cherche une solution qui soit pérenne. 
-Si possible cherche des solutions qui vont corriger tous les cas similaires. 
+Ne pas se contenter de corriger le cas remonté : comprendre la vraie source du
+problème et chercher une solution pérenne qui corrige aussi les cas similaires.

@@ -17,11 +17,8 @@ Dans le dépôt SubJap, la présentation est définie dans
 - `MIGAKU_TEMPLATE_MARKER` permet de reconnaître un template déjà géré par
   SubJap.
 
-Le dépôt séparé `C:\Users\piola\Projects\migaku-export` n’appartient plus au
-workflow de maintenance de SubJap : ne pas le modifier ni le construire lors
-des évolutions de cartes Anki. Le modèle `Migaku Memory Import` reste néanmoins
-pris en charge dans Anki afin que les cartes déjà importées bénéficient de la
-présentation actuelle. Ne pas modifier `dist/` à la main : c’est une sortie
+Le modèle `Migaku Memory Import` reste pris en charge dans Anki afin que les
+cartes déjà importées depuis Migaku bénéficient de la présentation actuelle. Ne pas modifier `dist/` à la main : c’est une sortie
 générée.
 
 ## Modèles et decks concernés
@@ -29,7 +26,7 @@ générée.
 | Type de note | Deck habituel | Origine | Présentation partagée |
 | --- | --- | --- | --- |
 | `Migaku Memory` | `日本語::Vocabulaire::Compréhension` | cartes minées depuis SubJap | oui |
-| `Migaku Memory Import` | `日本語::Vocabulaire::Compréhension` | paquet produit par `migaku-export` | oui |
+| `Migaku Memory Import` | `日本語::Vocabulaire::Compréhension` | import historique depuis Migaku | oui |
 | `Migaku Vocabulary Status` | `Migaku Memory::Status` | états de vocabulaire importés | non, modèle technique suspendu |
 
 Le modèle `Migaku Memory Import` a volontairement un nom différent de
@@ -274,8 +271,6 @@ puis poursuivre le diagnostic si le problème persiste.
 
 ### Maintenance des modèles
 
-- modifier ou construire le dépôt externe `migaku-export` depuis un travail
-  consacré à SubJap ;
 - modifier uniquement le CSS d’un modèle dans Anki sans mettre à jour la source ;
 - confondre le champ `Définitions` avec un champ hypothétique `Definition` ;
 - rendre l’image plus grande sans réserver de place à `Notes` ;

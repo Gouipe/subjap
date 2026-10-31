@@ -4,10 +4,9 @@
 
 1. Installer AnkiConnect dans Anki et laisser Anki ouvert pendant l’usage de
    SubJap (`127.0.0.1:8765`).
-2. Dans `C:\Users\piola\Projects\subjap`, exécuter `npm install`, puis
-   `npm run build`.
+2. À la racine du dépôt, exécuter `npm install`, puis `npm run build`.
 3. Dans `chrome://extensions`, activer le mode développeur et charger le dossier
-   `C:\Users\piola\Projects\subjap\dist`. Après chaque nouvelle compilation,
+   `dist` du dépôt. Après chaque nouvelle compilation,
    cliquer sur **Recharger**.
 
 SubJap crée automatiquement les sous-decks
@@ -19,8 +18,8 @@ Le premier passage par SubJap applique aussi le thème desktop sombre aux modèl
 ne modifie pas le contenu des notes. Après l’installation du template versionné,
 SubJap préserve les ajouts effectués par d’autres extensions dans celui-ci,
 notamment les balises realtime créées par HyperTTS. Le modèle
-`Migaku Memory Import` est celui utilisé par les cartes de compréhension
-produites par `migaku-export`.
+`Migaku Memory Import` est celui des cartes de compréhension importées depuis
+Migaku.
 
 SubJap ne génère pas l’audio du mot. Pour entendre le mot dans Anki, installer et
 configurer HyperTTS sur le modèle `Migaku Memory`, avec `Lecture` comme source,
@@ -171,28 +170,6 @@ moins, souligné d’un trait continu de sa couleur. Les autres inconnus, y
 compris un mot `LEARNING` ou déjà présent dans Anki mais pas encore acquis, sont
 seulement grisés, si bien que le blanc se lit comme « compris » ; `KNOWN` et `IGNORED` sont blancs sans trait. La popover
 affiche toujours le rang disponible et le nombre de cartes Anki existantes.
-
-## Reconstruire et importer l’export Migaku
-
-Dans PowerShell :
-
-```powershell
-cd C:\Users\piola\Projects\migaku-export
-npm install
-node export-cards.js .\core_<identifiant>.db .\migaku_cards_full.json .\migaku_cards_full.csv .\migaku_word_states.json
-node fetch-media.js
-node build-export.js
-node verify-export.js
-```
-
-`fetch-media.js` nécessite la session Migaku locale dans `db/study`. Importer
-ensuite `Migaku_Memory.apkg` depuis **Fichier > Importer** dans Anki. Le paquet
-crée `日本語::Vocabulaire::Compréhension`, à réviser normalement, ainsi que
-`日本語::Vocabulaire::Production`, initialement vide, et
-`Migaku Memory::Status`, qui doit rester entièrement suspendu : ce second deck
-sert uniquement à transmettre les couleurs à SubJap. Les cartes Migaku déjà
-étudiées et les cartes sans mot japonais cible ne sont pas ajoutées aux
-révisions. Faire une sauvegarde Anki avant un import important.
 
 ## Piloter les couleurs depuis Anki
 
