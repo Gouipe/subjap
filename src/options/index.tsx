@@ -681,7 +681,7 @@ function OnboardingWizard(props: {
               <div style={s.lifecycleTitle}>Inconnu ou miné</div>
               <div style={s.legendText}>
                 Un mot pas encore connu, qu’il ait déjà une carte Anki ou non. Miné, il reste gris
-                tant que sa carte est en apprentissage.
+                jusqu’à ce que vous étudiiez sa carte dans Anki.
               </div>
             </div>
 
@@ -702,12 +702,9 @@ function OnboardingWizard(props: {
             <div>
               <div style={s.lifecycleTitle}>À miner</div>
               <div style={s.legendText}>
-                Un mot ne se colore que s’il est le seul inconnu de sa phrase : tous les autres
-                sont blancs, donc la phrase se comprend avec lui seul. Vert : il est aussi fréquent
-                que les mots que vous connaissez déjà (son rang de fréquence est inférieur à votre
-                nombre de mots connus). Bleu : il fait partie des 300 mots suivants de la liste de
-                fréquence. Plus rare, il reste gris. Survolez-le, puis cliquez sur{" "}
-                {strong("Mine this")}.
+                <div>Le seul mot inconnu de la phrase.</div>
+                <div>Vert : son rang de fréquence est inférieur à votre nombre de mots connus.</div>
+                <div>Bleu : il fait partie des 300 mots suivants de la liste de fréquence.</div>
               </div>
             </div>
 
@@ -715,8 +712,8 @@ function OnboardingWizard(props: {
             <div>
               <div style={s.lifecycleTitle}>Acquis</div>
               <div style={s.legendText}>
-                Quand la carte passe en Révision dans Anki, le mot devient blanc et compte dans les
-                {" "}{strong("Mots connus")}.
+                Dès que sa carte a passé les étapes d’apprentissage d’Anki, en général lors de la
+                première séance, le mot devient blanc et compte dans les {strong("Mots connus")}.
               </div>
             </div>
           </div>
