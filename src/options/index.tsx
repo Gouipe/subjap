@@ -419,10 +419,13 @@ function KnownWordsTriage(props: {
 
   const commit = useCallback(async () => {
     if (!batch) return;
-    const keys = batch.items.filter((item) => checked.has(item.key)).map((item) => item.key);
-    await sendMessage("knownTriage:commit", { keys, throughRank: batch.throughRank });
+    const known = batch.items.filter((item) => checked.has(item.key));
+    await sendMessage("knownTriage:commit", {
+      keys: known.flatMap((item) => [item.key, ...(item.alsoKeys ?? [])]),
+      throughRank: batch.throughRank,
+    });
     setValidated((count) => count + 1);
-    setNearLevel(keys.length < batch.items.length * KNOWN_TRIAGE_LEVEL_HINT_RATIO);
+    setNearLevel(known.length < batch.items.length * KNOWN_TRIAGE_LEVEL_HINT_RATIO);
   }, [batch, checked]);
 
   const run = useCallback(async (action: () => Promise<void>) => {
@@ -448,7 +451,14 @@ function KnownWordsTriage(props: {
   const items = batch?.items ?? [];
   const allChecked = items.length > 0 && items.every((item) => checked.has(item.key));
   const busy = status !== "ready";
-  const detail = items.find((item) => item.key === focused);
+  const progress = [
+    batch && batch.fromRank > 0
+      ? `${batch.fromRank.toLocaleString("fr-FR")} mots les plus fréquents déjà triés`
+      : "",
+    knownWords !== null ? `${knownWords.toLocaleString("fr-FR")} mots connus` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div ref={container}>
@@ -459,25 +469,36 @@ function KnownWordsTriage(props: {
         <p style={s.muted}>Chargement…</p>
       ) : (
         <>
-          <p style={s.mutedSmall}>
-            Rang {batch.fromRank.toLocaleString("fr-FR")} /{" "}
-            {batch.totalRanks.toLocaleString("fr-FR")}
-            {knownWords !== null && ` · ${knownWords.toLocaleString("fr-FR")} mots connus`}
-          </p>
           {nearLevel && items.length > 0 && (
             <div style={s.noticeBox}>
               Vous approchez de votre niveau : la suite se fera en regardant.
             </div>
           )}
           {items.length === 0 ? (
-            <p style={s.muted}>Toute la liste de fréquence a été triée.</p>
+            <>
+              <p style={s.mutedSmall}>{progress}</p>
+              <p style={s.muted}>Toute la liste de fréquence a été triée.</p>
+            </>
           ) : (
             <>
               <p style={s.muted}>
-                Décochez les mots que vous ne connaissez pas, puis validez. Les mots décochés
-                restent à miner.
+                Cliquez sur les mots que vous ne connaissez pas, puis validez. Ils restent à
+                miner ; le sens apparaît au survol.
               </p>
-              <div style={s.triageGrid} onMouseLeave={() => setFocused(null)}>
+              <div style={s.triageHeader}>
+                <span style={s.triageProgress}>{progress}</span>
+                <button
+                  type="button"
+                  style={s.textLink}
+                  onClick={() =>
+                    setChecked(allChecked ? new Set() : new Set(items.map((item) => item.key)))
+                  }
+                  disabled={busy}
+                >
+                  {allChecked ? "Tout décocher" : "Tout cocher"}
+                </button>
+              </div>
+              <div style={s.triageList} onMouseLeave={() => setFocused(null)}>
                 {items.map((item) => {
                   const known = checked.has(item.key);
                   return (
@@ -486,29 +507,24 @@ function KnownWordsTriage(props: {
                       type="button"
                       aria-pressed={known}
                       style={{
-                        ...s.triageChip,
-                        ...(known ? s.triageChipKnown : s.triageChipUnknown),
+                        ...s.triageRow,
+                        ...(known ? s.triageRowKnown : s.triageRowUnknown),
                       }}
                       onClick={() => toggle(item.key)}
                       onMouseEnter={() => setFocused(item.key)}
                       onFocus={() => setFocused(item.key)}
+                      onBlur={() => setFocused(null)}
                     >
-                      <span aria-hidden="true" style={s.triageMark}>
-                        {known ? "✓" : ""}
+                      <span style={s.triageWord}>{item.key}</span>
+                      <span style={s.triageReading}>{item.reading ?? ""}</span>
+                      <span style={s.triageMeaning}>
+                        {focused === item.key ? item.meaning ?? "pas de définition" : ""}
                       </span>
-                      <span>{item.key}</span>
-                      {item.reading && <span style={s.triageReading}>{item.reading}</span>}
+                      <span style={s.triageStatus}>{known ? "" : "à apprendre"}</span>
                     </button>
                   );
                 })}
               </div>
-              <p style={s.triageDetail} aria-live="polite">
-                {detail
-                  ? `${detail.key}${detail.reading ? ` · ${detail.reading}` : ""} — ${
-                      detail.meaning ?? "pas de définition"
-                    }`
-                  : "Survolez un mot pour voir son sens."}
-              </p>
             </>
           )}
           <div style={s.btnRow}>
@@ -525,17 +541,6 @@ function KnownWordsTriage(props: {
                 {status === "saving" ? "Enregistrement…" : "Valider et continuer →"}
               </Btn>
             )}
-            {items.length > 0 && (
-              <Btn
-                variant="ghost"
-                onClick={() =>
-                  setChecked(allChecked ? new Set() : new Set(items.map((item) => item.key)))
-                }
-                disabled={busy}
-              >
-                {allChecked ? "Tout décocher" : "Tout cocher"}
-              </Btn>
-            )}
             {props.onFinish && (
               <Btn
                 variant={items.length > 0 ? "ghost" : "primary"}
@@ -547,12 +552,7 @@ function KnownWordsTriage(props: {
                 }
                 disabled={busy}
               >
-                Valider et terminer ✓
-              </Btn>
-            )}
-            {props.onFinish && validated === 0 && items.length > 0 && (
-              <Btn variant="ghost" onClick={props.onFinish} disabled={busy}>
-                Passer sans enregistrer
+                {items.length > 0 ? "Valider et terminer ✓" : "Terminer ✓"}
               </Btn>
             )}
             {!props.onFinish && batch.fromRank > 0 && (
@@ -571,6 +571,16 @@ function KnownWordsTriage(props: {
               </Btn>
             )}
           </div>
+          {props.onFinish && validated === 0 && items.length > 0 && (
+            <button
+              type="button"
+              style={{ ...s.textLink, ...s.skipLink }}
+              onClick={props.onFinish}
+              disabled={busy}
+            >
+              Passer sans enregistrer
+            </button>
+          )}
         </>
       )}
     </div>
@@ -1635,47 +1645,75 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 14,
     lineHeight: 1.5,
   },
-  triageGrid: {
+  triageHeader: {
     display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
     marginTop: 12,
   },
-  triageChip: {
-    display: "inline-flex",
+  triageProgress: {
+    color: C.muted,
+    fontSize: 12,
+  },
+  triageList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    marginTop: 8,
+  },
+  triageRow: {
+    display: "grid",
+    gridTemplateColumns: "7.5em 8em minmax(0, 1fr) auto",
     alignItems: "baseline",
-    gap: 6,
-    padding: "5px 10px 5px 8px",
+    columnGap: 12,
+    width: "100%",
+    padding: "6px 12px",
     borderRadius: 6,
     fontFamily: "inherit",
-    fontSize: 16,
+    textAlign: "left",
     cursor: "pointer",
   },
-  triageChipKnown: {
+  triageRowKnown: {
     color: C.text,
     backgroundColor: C.panelRaised,
     border: `1px solid ${C.panelBorder}`,
   },
-  triageChipUnknown: {
+  triageRowUnknown: {
     color: C.unknownGrey,
     backgroundColor: "transparent",
     border: `1px dashed ${C.panelBorder}`,
   },
-  triageMark: {
-    display: "inline-block",
-    width: 10,
-    fontSize: 12,
-    color: C.green,
+  triageWord: {
+    fontSize: 17,
   },
   triageReading: {
-    fontSize: 12,
+    fontSize: 13,
     color: C.muted,
   },
-  triageDetail: {
-    minHeight: 20,
-    margin: "12px 0 0",
+  triageMeaning: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
     fontSize: 13,
-    lineHeight: 1.5,
+    color: C.muted,
+  },
+  triageStatus: {
+    fontSize: 12,
+    color: C.unknownGrey,
+  },
+  textLink: {
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    color: C.accent,
+    fontFamily: "inherit",
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  skipLink: {
+    display: "block",
+    marginTop: 12,
     color: C.muted,
   },
   link: {

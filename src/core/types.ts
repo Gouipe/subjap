@@ -197,6 +197,8 @@ export interface WordState {
 export interface KnownTriageItem {
   key: string;
   rank: number;
+  /** Frequency-list stem shown as its verb (受け取 → 受け取る), marked known with it. */
+  alsoKeys?: string[];
   /** Kana reading, only for words written with kanji. */
   reading?: string;
   /** Short English meaning from JMdict, when the dictionary is installed. */

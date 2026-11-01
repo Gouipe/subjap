@@ -6,7 +6,7 @@
 // know. A batch walks the frequency list from the last triaged rank and keeps
 // only words without any stored state or Anki card. Unchecked words stay
 // unknown: only the rank reached is remembered, so they never come back
-// until the learner restarts from the beginning.
+// until the learner offers them again from the beginning.
 
 import { db } from "@/core/db";
 import { toHiragana } from "@/core/kana";
@@ -14,10 +14,23 @@ import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key
 import { selectDictionaryEntry } from "@/dictionary/match";
 import type { DictionaryEntry, KnownTriageBatch, KnownTriageItem } from "@/core/types";
 
-export const KNOWN_TRIAGE_BATCH_SIZE = 50;
+export const KNOWN_TRIAGE_BATCH_SIZE = 20;
 const KNOWN_TRIAGE_RANK_SETTING_KEY = "knownTriage:rank";
-const SCAN_CHUNK = 200;
+const SCAN_CHUNK = 100;
 const HAS_KANJI = /\p{Script=Han}/u;
+
+/** Godan continuative ending → dictionary ending (話し → 話す). */
+const GODAN_STEM_ENDINGS: Readonly<Record<string, string>> = {
+  い: "う",
+  き: "く",
+  ぎ: "ぐ",
+  し: "す",
+  ち: "つ",
+  に: "ぬ",
+  び: "ぶ",
+  み: "む",
+  り: "る",
+};
 
 async function triagedRank(): Promise<number> {
   const setting = await db.settings.get(KNOWN_TRIAGE_RANK_SETTING_KEY);
@@ -31,6 +44,15 @@ function isInterjectionOnly(entry: DictionaryEntry): boolean {
   );
 }
 
+/** A real verb, not a noun that merely takes する. */
+function isVerb(entry: DictionaryEntry): boolean {
+  return entry.partOfSpeech.some(
+    (tag) =>
+      /^v(?:1|2|4|5|k|n|r|z)/u.test(tag) ||
+      (/\bverb\b/iu.test(tag) && !/aux\. verb suru/iu.test(tag)),
+  );
+}
+
 function shortMeaning(entry: DictionaryEntry): string {
   return entry.senses
     .slice(0, 2)
@@ -39,24 +61,27 @@ function shortMeaning(entry: DictionaryEntry): string {
     .join(" ; ");
 }
 
-async function dictionaryEntriesByKey(keys: string[]): Promise<Map<string, DictionaryEntry | null>> {
-  const readings = keys.map((key) => toHiragana(key.normalize("NFKC")));
-  const terms = [...new Set([...keys, ...readings])];
-  const matches = (
-    await Promise.all([
-      db.dictionaryEntries.where("headword").anyOf(terms).toArray(),
-      db.dictionaryEntries.where("aliases").anyOf(terms).toArray(),
-      db.dictionaryEntries.where("reading").anyOf(terms).toArray(),
-    ])
-  ).flat();
-  const entries = [...new Set(matches)];
-  return new Map(
-    keys.map((key) => [
-      key,
-      selectDictionaryEntry(entries, [key], "orthography") ??
-        selectDictionaryEntry(entries, [key], "reading"),
-    ]),
-  );
+/**
+ * The subtitle frequency list keeps verb stems (受け取, 出会, 話し, 教え).
+ * Candidate dictionary forms, most likely first. A stem ending in kanji is
+ * only completed when it is not a word by itself (上 must not become 上る).
+ */
+function verbCandidates(key: string, isWord: boolean): string[] {
+  if (!HAS_KANJI.test(key)) return [];
+  const last = key.slice(-1);
+  if (HAS_KANJI.test(last)) return isWord ? [] : [`${key}る`, `${key}う`];
+  const godanEnding = GODAN_STEM_ENDINGS[last];
+  return [`${key}る`, ...(godanEnding ? [`${key.slice(0, -1)}${godanEnding}`] : [])];
+}
+
+async function dictionaryEntries(terms: string[]): Promise<DictionaryEntry[]> {
+  const unique = [...new Set(terms)];
+  const matches = await Promise.all([
+    db.dictionaryEntries.where("headword").anyOf(unique).toArray(),
+    db.dictionaryEntries.where("aliases").anyOf(unique).toArray(),
+    db.dictionaryEntries.where("reading").anyOf(unique).toArray(),
+  ]);
+  return [...new Set(matches.flat())];
 }
 
 /** The next frequent words without any state, after the last triaged rank. */
@@ -65,6 +90,7 @@ export async function nextKnownTriageBatch(): Promise<KnownTriageBatch> {
   const last = await db.frequencyEntries.orderBy("rank").last();
   const totalRanks = last?.rank ?? 0;
   const items: KnownTriageItem[] = [];
+  const offered = new Set<string>();
   let scannedRank = fromRank;
 
   while (items.length < KNOWN_TRIAGE_BATCH_SIZE && scannedRank < totalRanks) {
@@ -75,11 +101,37 @@ export async function nextKnownTriageBatch(): Promise<KnownTriageBatch> {
       .sortBy("rank");
     if (chunk.length === 0) break;
 
-    const flat = [...new Set(chunk.flatMap((entry) => lexicalKeyCandidates(entry.key)))];
-    const [states, ankiWords, dictionary] = await Promise.all([
+    const keys = chunk.map((entry) => entry.key);
+    const allVerbCandidates = keys.flatMap((key) => verbCandidates(key, false));
+    const entries = await dictionaryEntries([
+      ...keys,
+      ...keys.map((key) => toHiragana(key.normalize("NFKC"))),
+      ...allVerbCandidates,
+    ]);
+    const lookups = keys.map((key) => {
+      const spelled = selectDictionaryEntry(entries, [key], "orthography");
+      const verb = verbCandidates(key, spelled !== null)
+        .map((candidate) => ({
+          key: candidate,
+          entry: selectDictionaryEntry(entries, [candidate], "orthography"),
+        }))
+        .find((candidate) => candidate.entry !== null && isVerb(candidate.entry));
+      return {
+        exact: spelled ?? selectDictionaryEntry(entries, [key], "reading"),
+        verb,
+      };
+    });
+
+    const flat = [
+      ...new Set(
+        keys.flatMap((key, index) =>
+          lexicalKeyCandidates(key, ...(lookups[index]?.verb ? [lookups[index].verb.key] : [])),
+        ),
+      ),
+    ];
+    const [states, ankiWords] = await Promise.all([
       db.wordStates.bulkGet(flat),
       db.ankiWords.bulkGet(flat),
-      dictionaryEntriesByKey(chunk.map((entry) => entry.key)),
     ]);
     const tracked = new Set(
       flat.filter(
@@ -87,19 +139,23 @@ export async function nextKnownTriageBatch(): Promise<KnownTriageBatch> {
       ),
     );
 
-    for (const entry of chunk) {
-      scannedRank = entry.rank;
-      if (lexicalKeyCandidates(entry.key).some((key) => tracked.has(key))) continue;
-      const dictionaryEntry = dictionary.get(entry.key) ?? null;
-      if (dictionaryEntry && isInterjectionOnly(dictionaryEntry)) continue;
+    for (const [index, frequencyEntry] of chunk.entries()) {
+      scannedRank = frequencyEntry.rank;
+      const { exact, verb } = lookups[index] ?? { exact: null, verb: undefined };
+      const key = verb?.key ?? frequencyEntry.key;
+      const identities = lexicalKeyCandidates(key, frequencyEntry.key);
+      if (offered.has(key) || identities.some((identity) => tracked.has(identity))) continue;
+      const entry = verb?.entry ?? exact;
+      if (!verb && entry && isInterjectionOnly(entry)) continue;
 
-      const reading =
-        dictionaryEntry && HAS_KANJI.test(entry.key) ? toHiragana(dictionaryEntry.reading) : "";
-      const meaning = dictionaryEntry ? shortMeaning(dictionaryEntry) : "";
+      const reading = entry && HAS_KANJI.test(key) ? toHiragana(entry.reading) : "";
+      const meaning = entry ? shortMeaning(entry) : "";
+      offered.add(key);
       items.push({
-        key: entry.key,
-        rank: entry.rank,
-        ...(reading && reading !== entry.key ? { reading } : {}),
+        key,
+        rank: frequencyEntry.rank,
+        ...(verb ? { alsoKeys: [frequencyEntry.key] } : {}),
+        ...(reading && reading !== key ? { reading } : {}),
         ...(meaning ? { meaning } : {}),
       });
       if (items.length === KNOWN_TRIAGE_BATCH_SIZE) break;
