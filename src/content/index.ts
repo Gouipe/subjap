@@ -47,7 +47,11 @@ import {
   type JimakuInstallResult,
 } from "@/subtitles/jimaku";
 import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
-import { onLocalSubtitleAutoSync, type AutoSyncEvent } from "@/subtitles/auto-sync";
+import {
+  estimateTranslationShift,
+  onLocalSubtitleAutoSync,
+  type AutoSyncEvent,
+} from "@/subtitles/auto-sync";
 import type { SyncSegment } from "@/subtitles/local-storage";
 import { compactSubtitleText, primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
@@ -899,17 +903,47 @@ function knownJapaneseCues(): SubtitleCue[] {
     .filter((cue) => cue.endConfirmed !== false && normalizeCueText(cue.text).length > 0);
 }
 
+let translationShiftCache: { key: string; japanese: SubtitleCue[]; shift: number } | null = null;
+
+/**
+ * Seconds by which the translation track as a whole starts its lines before
+ * the Japanese one, measured on the episode. Only pairing uses it: neither
+ * track is shown at another time.
+ */
+function translationShift(): number {
+  const japanese = adapter.getNavigationCues?.() ?? [];
+  const translations = adapter.getTranslationCuesIn?.(-Infinity, Infinity) ?? [];
+  const first = translations[0];
+  const last = translations.at(-1);
+  const key = JSON.stringify([
+    japanese.length, japanese[0]?.start, translations.length,
+    first && subtitleCueKey(first), first?.start, last && subtitleCueKey(last),
+  ]);
+  if (translationShiftCache?.japanese !== japanese || translationShiftCache.key !== key) {
+    const shift = estimateTranslationShift(
+      japanese.filter((cue) => cue.endConfirmed !== false).map((cue) => cue.start),
+      translations.map((cue) => cue.start),
+    );
+    translationShiftCache = { key, japanese, shift };
+  }
+  return translationShiftCache.shift;
+}
+
 /**
  * The Japanese line a translation overlaps the most, among those shown and
- * the timeline's. A provisional DOM end only means the line is still shown:
- * it may well last through the translation.
+ * the timeline's, once the translation track's usual lead is compensated. A
+ * provisional DOM end only means the line is still shown: it may well last
+ * through the translation.
  */
 function owningJapaneseCue(translation: SubtitleCue, shown: SubtitleCue[]): SubtitleCue | null {
+  const shift = translationShift();
+  const start = translation.start + shift;
+  const end = translation.end + shift;
   let owner: SubtitleCue | null = null;
   let longest = 0;
   for (const cue of [...shown, ...knownJapaneseCues()]) {
-    const end = cue.endConfirmed === false ? Math.max(cue.end, translation.end) : cue.end;
-    const overlap = Math.min(end, translation.end) - Math.max(cue.start, translation.start);
+    const cueEnd = cue.endConfirmed === false ? Math.max(cue.end, end) : cue.end;
+    const overlap = Math.min(cueEnd, end) - Math.max(cue.start, start);
     if (overlap > longest) {
       owner = cue;
       longest = overlap;

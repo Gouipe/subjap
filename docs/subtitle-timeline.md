@@ -10,7 +10,10 @@ sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
 
 Les pistes japonaise et de traduction gardent leurs propres horaires. Chaque
 segment japonais est affiché avec sa propre traduction : celle qu’il recouvre
-le plus dans le temps. Une traduction qui commence alors qu’un segment
+le plus dans le temps. Les traductions commencent souvent un peu avant la voix,
+que suit le japonais : l’avance habituelle de la piste de traduction (au plus
+2 s) est mesurée sur l’épisode et compensée pour ce choix seulement, sans
+changer l’horaire d’affichage d’aucune piste. Une traduction qui commence alors qu’un segment
 japonais précédent est encore affiché, mais qui appartient à un segment à
 venir, attend le début de celui-ci ; la traduction précédente reste affichée
 en attendant. Une

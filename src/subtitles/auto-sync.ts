@@ -193,6 +193,28 @@ export function estimateSubtitleSync(
   return segments;
 }
 
+/**
+ * Larger gaps are not the usual lead of a translation over the voice: two
+ * releases cut differently are the automatic alignment's business.
+ */
+const MAX_TRANSLATION_SHIFT_SECONDS = 2;
+
+/**
+ * Seconds to add to the translation's lines so that they start with the
+ * Japanese ones, measured on the whole episode; 0 when unclear. Translations
+ * often start a little before the voice, which the Japanese follows.
+ */
+export function estimateTranslationShift(japaneseStarts: number[], translationStarts: number[]): number {
+  const japanese = sorted(japaneseStarts);
+  const reference = sorted(translationStarts);
+  if (japanese.length < MIN_CUES || reference.length < MIN_CUES) return 0;
+  const offset = votePeaks(japanese, reference, 1)[0];
+  if (offset === undefined || Math.abs(offset) > MAX_TRANSLATION_SHIFT_SECONDS) return 0;
+  const matched = countTrue(matchesAt(japanese, reference, offset));
+  if (matched < MIN_MATCHED || matched / japanese.length < MIN_MATCHED_SHARE) return 0;
+  return -offset;
+}
+
 // ---------------------------------------------------------------------------
 // Applying it to a video's local Japanese track
 // ---------------------------------------------------------------------------
