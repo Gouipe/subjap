@@ -543,21 +543,6 @@ function KnownWordsTriage(props: {
                 {items.length > 0 ? "Valider et terminer ✓" : "Terminer ✓"}
               </Btn>
             )}
-            {!props.onFinish && batch.fromRank > 0 && (
-              <Btn
-                variant="ghost"
-                onClick={() =>
-                  void run(async () => {
-                    await sendMessage("knownTriage:restart", {});
-                    setNearLevel(false);
-                    await loadBatch();
-                  })
-                }
-                disabled={busy}
-              >
-                Revoir les mots décochés
-              </Btn>
-            )}
           </div>
           {props.onFinish && validated === 0 && items.length > 0 && (
             <button

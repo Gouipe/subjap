@@ -332,8 +332,6 @@ export interface MessageMap {
   /** Mark `keys` known and resume the next batch after `throughRank`. */
   "knownTriage:commit": { keys: string[]; throughRank: number };
   "knownTriage:commitResult": void;
-  "knownTriage:restart": Record<string, never>;
-  "knownTriage:restartResult": void;
 
   // Frequency ranks
   "frequency:batch": { terms: string[] };

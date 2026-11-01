@@ -73,8 +73,7 @@ comme avec **Mark Known**, les décochés restent à miner et ne sont plus
 proposés. Un radical de la liste est présenté sous son verbe (受け取 →
 受け取る) ; les deux sont marqués connus. Les mots qui ont déjà un état ou une
 carte Anki sont sautés, après une synchronisation Anki si Anki est ouvert.
-SubJap reprend là où on s’était arrêté ; **Revoir les mots décochés** les
-repropose. Tant que
+SubJap reprend là où on s’était arrêté. Tant que
 le compteur est sous 100 mots connus, la popup affiche un lien vers cette
 section.
 

@@ -6,7 +6,7 @@
 // know. A batch walks the frequency list from the last triaged rank and keeps
 // only words without any stored state or Anki card. Unchecked words stay
 // unknown: only the rank reached is remembered, so they never come back
-// until the learner offers them again from the beginning.
+// in the triage.
 
 import { db } from "@/core/db";
 import { toHiragana } from "@/core/kana";
@@ -182,8 +182,4 @@ export async function commitKnownTriage(keys: string[], throughRank: number): Pr
       value: Math.max(throughRank, await triagedRank()),
     });
   });
-}
-
-export async function restartKnownTriage(): Promise<void> {
-  await db.settings.delete(KNOWN_TRIAGE_RANK_SETTING_KEY);
 }
