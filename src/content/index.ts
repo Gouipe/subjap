@@ -177,6 +177,20 @@ const resumeTabAudio = (): void => {
 document.addEventListener("pointerdown", resumeTabAudio, true);
 document.addEventListener("keydown", resumeTabAudio, true);
 
+// While the tab is captured, Chrome keeps HTML5 fullscreen inside the tab.
+// The service worker then fullscreens the browser window too. Only the top
+// frame reports: a frame's fullscreen also sets its ancestors' element.
+if (isTopFrame) {
+  const reportFullscreen = (active: boolean): void => {
+    void sendMessage("fullscreen:page", { active }).catch(() => undefined);
+  };
+  document.addEventListener("fullscreenchange", () => {
+    reportFullscreen(document.fullscreenElement !== null);
+  });
+  // Leaving the page drops its fullscreen without any fullscreenchange.
+  window.addEventListener("pagehide", () => reportFullscreen(false));
+}
+
 /** Effective overlay options (loaded from storage, live-updated). */
 let overlayOptions: OverlayOptions = DEFAULT_OPTIONS;
 

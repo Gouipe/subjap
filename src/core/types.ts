@@ -390,6 +390,9 @@ export interface MessageMap {
   "tabCapture:offscreenPhraseStartResult": { ready: boolean };
   "tabCapture:offscreenPhraseStop": Record<string, never>;
   "tabCapture:offscreenPhraseStopResult": { dataUrl: string | null };
+  /** The page entered or left HTML5 fullscreen (reported by the top frame). */
+  "fullscreen:page": { active: boolean };
+  "fullscreen:pageResult": Record<string, never>;
 
   // Stats
   "stats:get": Record<string, never>;

@@ -715,6 +715,58 @@ onMessage("tabCapture:status", async (_payload, sender) => {
   };
 });
 
+// ── fullscreen:page ───────────────────────────────────────────────────────
+// A captured tab's HTML5 fullscreen only fills the tab ("fullscreen within
+// tab"). Fullscreen the window as well, then give it back its previous state.
+// Kept in session storage: the worker may be stopped while the video plays.
+
+const FULLSCREEN_RESTORE_KEY = "fullscreenRestore";
+type FullscreenRestore = Record<string, { windowId: number; state: chrome.windows.windowStateEnum }>;
+
+async function readFullscreenRestore(): Promise<FullscreenRestore> {
+  const stored = await chrome.storage.session.get(FULLSCREEN_RESTORE_KEY);
+  return (stored[FULLSCREEN_RESTORE_KEY] as FullscreenRestore | undefined) ?? {};
+}
+
+async function isTabCaptured(tabId: number): Promise<boolean> {
+  const capturedTabs = await new Promise<chrome.tabCapture.CaptureInfo[]>((resolve) => {
+    chrome.tabCapture.getCapturedTabs(resolve);
+  });
+  return capturedTabs.some((capture) => capture.tabId === tabId && capture.status === "active");
+}
+
+onMessage("fullscreen:page", async ({ active }, sender) => {
+  const tabId = sender.tab?.id;
+  const windowId = sender.tab?.windowId;
+  if (tabId == null || windowId == null) return {};
+  const restore = await readFullscreenRestore();
+  const saved = restore[tabId];
+
+  if (active) {
+    if (!(await isTabCaptured(tabId))) return {};
+    const { state } = await chrome.windows.get(windowId);
+    if (state === "fullscreen" || state == null) return {};
+    restore[tabId] = { windowId, state };
+    await chrome.storage.session.set({ [FULLSCREEN_RESTORE_KEY]: restore });
+    await chrome.windows.update(windowId, { state: "fullscreen" });
+    return {};
+  }
+
+  if (!saved) return {};
+  delete restore[tabId];
+  await chrome.storage.session.set({ [FULLSCREEN_RESTORE_KEY]: restore });
+  await chrome.windows.update(saved.windowId, { state: saved.state }).catch(() => undefined);
+  return {};
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void readFullscreenRestore().then((restore) => {
+    if (!restore[tabId]) return;
+    delete restore[tabId];
+    return chrome.storage.session.set({ [FULLSCREEN_RESTORE_KEY]: restore });
+  });
+});
+
 onMessage("tabCapture:phraseStart", async () => {
   await ensureAudioOffscreen();
   return chrome.runtime.sendMessage({ type: "tabCapture:offscreenPhraseStart" });
