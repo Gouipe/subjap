@@ -20,8 +20,9 @@ horaires à ceux de la traduction affichée, décalage compris. Une traduction
 qui commence vers la fin d’un segment japonais précédent encore affiché (elle
 en couvre moins de la moitié), mais qui appartient à un segment à venir,
 attend le début de celui-ci ; la traduction précédente reste affichée en
-attendant. Une traduction qui couvre au moins la moitié du segment affiché le
-traduit aussi et apparaît avec lui. Une
+attendant. Une traduction qui couvre au moins la moitié d’un segment le
+traduit aussi et apparaît dès son début, sauf si une autre traduction doit
+apparaître avant elle pendant ce segment. Une
 traduction qui se termine avant le segment japonais qu’elle accompagne reste
 affichée jusqu’à la fin de ce segment ou jusqu’à la traduction suivante, pour
 que la ligne japonaise ne descende pas brièvement à sa place. De même, une

@@ -831,9 +831,9 @@ function isJapaneseTrack(language: string | undefined): boolean {
  * - when the Japanese line ends first, or starts after its translation, that
  *   part of the translation is not shown alone: it would flash, in
  *   particular when hidden because every word is known;
- * - a translation starting at most 1 s after its Japanese line appears with
- *   that line, in place of the previous translation, so the pair appears
- *   together.
+ * - a translation starting at most 1 s after its Japanese line, or lasting
+ *   through at least half of it, appears from the start of that line, in
+ *   place of the previous translation, so the pair appears together.
  * A translation only briefly overlapping Japanese cues (a burned-in sign) is
  * not their counterpart and is still shown alone outside them.
  */
@@ -938,36 +938,48 @@ function belongsToLaterJapaneseLine(
   if (!owner || owner.start <= now) return false;
   const ownerKey = subtitleCueKey(owner);
   if (shown.some((cue) => subtitleCueKey(cue) === ownerKey)) return false;
-  return shown.every((cue) => {
-    // A provisional DOM end is unknown: the line may well last through it.
-    if (cue.endConfirmed === false) return false;
-    const duration = cue.end - cue.start;
-    const covered = Math.min(cue.end, translation.end) - Math.max(cue.start, translation.start);
-    return duration > 0 && covered < duration * TRANSLATION_COUNTERPART_COVERAGE;
-  });
+  // A provisional DOM end is unknown: the line may well last through it.
+  return shown.every((cue) => cue.endConfirmed !== false && !coversHalfOf(translation, cue));
 }
 
-/** The translation of this Japanese line, if it starts at most 1 s after it. */
+/** True when a translation lasts through at least half of a Japanese line of known end. */
+function coversHalfOf(translation: SubtitleCue, japanese: SubtitleCue): boolean {
+  if (japanese.endConfirmed === false) return false;
+  const duration = japanese.end - japanese.start;
+  const covered = Math.min(japanese.end, translation.end) - Math.max(japanese.start, translation.start);
+  return duration > 0 && covered >= duration * TRANSLATION_COUNTERPART_COVERAGE;
+}
+
+/**
+ * The translation to show from the start of this Japanese line: its own,
+ * starting at most 1 s after it, or one lasting through at least half of it,
+ * which also translates it. A later translation never jumps over an earlier
+ * one still to come, so the translations keep their order.
+ */
 function ownTranslationStartingSoon(
   latest: SubtitleCue,
   japaneseCues: SubtitleCue[],
   now: number,
 ): SubtitleCue | null {
-  const until = latest.start + TRANSLATION_ANTICIPATION_SECONDS;
+  const soon = latest.start + TRANSLATION_ANTICIPATION_SECONDS;
+  const until = latest.endConfirmed === false ? soon : Math.max(soon, latest.end);
   if (until <= now) return null;
   const candidates = adapter.getTranslationCuesIn?.(now, until) ??
     [adapter.getTranslationCueStartingIn?.(now, until)].filter((cue): cue is SubtitleCue => !!cue);
-  return candidates.find((candidate) => {
-    if (candidate.start > until || candidate.end <= now || !selectTranslationCue([candidate])) {
-      return false;
-    }
-    if (!isOwnedBy(candidate, latest, japaneseCues)) return false;
+  for (const candidate of [...candidates].sort((a, b) => a.start - b.start)) {
+    if (candidate.end <= now || candidate.start >= until || !selectTranslationCue([candidate])) continue;
+    const translatesLatest =
+      (candidate.start <= soon && isOwnedBy(candidate, latest, japaneseCues)) ||
+      coversHalfOf(candidate, latest);
     const coverage = new Map(japaneseCues.map((cue) => [
       subtitleCueKey(cue),
       { cue, lastSeen: cue.endConfirmed === false ? candidate.end : now },
     ]));
-    return isCounterpartOf(candidate, coverage);
-  }) ?? null;
+    if (translatesLatest && isCounterpartOf(candidate, coverage)) return candidate;
+    // Already shown translations of earlier lines are passed over, not upcoming ones.
+    if (candidate.start > now) return null;
+  }
+  return null;
 }
 
 /**
