@@ -1442,14 +1442,14 @@ async function removeJimakuFile(notice: VideoNotice, videoId: string): Promise<v
 // ---------------------------------------------------------------------------
 
 function formatOffset(seconds: number): string {
-  return `${seconds > 0 ? "+" : "−"}${Math.abs(seconds).toFixed(1).replace(".", ",")} s`;
+  return `${seconds > 0 ? "+" : "−"}${Math.abs(seconds).toFixed(1).replace(".", ",")}00a0s`;
 }
 
 /** Say it once, with a way back: the file keeps the offset it had, flagged as chosen. */
 /** "de −19,0 s" for one offset, "par parties (de −20,0 s à −19,0 s)" for several. */
 function describeSync(segments: SyncSegment[]): string {
   const offsets = segments.map((segment) => segment.offset);
-  if (offsets.length === 1) return `de ${formatOffset(offsets[0] ?? 0)}`;
+  if (offsets.length === 1) return `de00a0${formatOffset(offsets[0] ?? 0)}`;
   const low = Math.min(...offsets);
   const high = Math.max(...offsets);
   return `par parties (de ${formatOffset(low)} à ${formatOffset(high)})`;
