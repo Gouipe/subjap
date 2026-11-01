@@ -56,6 +56,8 @@ export class VideoNotice {
       "flex-wrap:wrap",
       "align-items:center",
       "gap:8px 12px",
+      // Sized on its content: the centring left offset would otherwise squeeze it to the space left of it.
+      "width:max-content",
       "max-width:min(92vw,560px)",
       "padding:10px 10px 10px 14px",
       "box-sizing:border-box",
@@ -157,6 +159,7 @@ export class VideoNotice {
     }
     const rect = this.video.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
+    this.element.style.maxWidth = `${Math.min(560, rect.width * 0.92)}px`;
     this.element.style.left = `${rect.left + rect.width / 2}px`;
     this.element.style.top = `${rect.bottom - bottomInset(rect.height)}px`;
   }
