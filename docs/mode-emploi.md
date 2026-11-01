@@ -68,7 +68,7 @@ Pour ne pas partir de zéro, la dernière étape de l’assistant et la section
 **Mots déjà connus** des Options (bouton **Trier les mots fréquents**)
 proposent les mots les plus fréquents des sous-titres par lots de 20, un par
 ligne, tous cochés. Décocher ceux qu’on ne connaît pas (le sens apparaît au
-survol), puis **Valider et continuer** : les mots cochés deviennent connus
+survol), puis **Valider et passer au lot suivant** : les mots cochés deviennent connus
 comme avec **Mark Known**, les décochés restent à miner et ne sont plus
 proposés. Un radical de la liste est présenté sous son verbe (受け取 →
 受け取る) ; les deux sont marqués connus. Les mots qui ont déjà un état ou une

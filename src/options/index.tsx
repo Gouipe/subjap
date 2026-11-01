@@ -467,7 +467,7 @@ function KnownWordsTriage(props: {
             <>
               <div style={s.triageHeader}>
                 <span style={s.triageProgress}>
-                  Les {items.length} mots les plus fréquents encore inconnus
+                  Les {items.length} mots les plus fréquents pas encore marqués comme connus
                 </span>
                 <button
                   type="button"
@@ -526,7 +526,7 @@ function KnownWordsTriage(props: {
                 }
                 disabled={busy}
               >
-                {status === "saving" ? "Enregistrement…" : "Valider et continuer →"}
+                {status === "saving" ? "Enregistrement…" : "Valider et passer au lot suivant →"}
               </Btn>
             )}
             {props.onFinish && (
