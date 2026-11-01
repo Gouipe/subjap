@@ -49,15 +49,35 @@ export function saveTranslationOffset(videoId: string, seconds: number): Promise
   return writeOffset(translationOffsetStorageKey(videoId), seconds);
 }
 
-/** True once the translation's offset was set automatically, or by the user. */
-async function isTranslationOffsetChecked(videoId: string): Promise<boolean> {
+/**
+ * Who last set the translation's offset of a video: the automatic alignment
+ * ("auto"), the user ("user"), or nobody once measured as already aligned
+ * ("measured"). Unset until then.
+ */
+type TranslationOffsetOrigin = "auto" | "user" | "measured";
+
+async function translationOffsetOrigin(videoId: string): Promise<TranslationOffsetOrigin | null> {
   const key = translationOffsetCheckedStorageKey(videoId);
-  return (await chrome.storage.local.get(key))[key] === true;
+  const value = (await chrome.storage.local.get(key))[key] as unknown;
+  return value === "auto" || value === "user" || value === "measured" ? value : null;
 }
 
-/** The translation's offset is never set automatically for this video again. */
-export async function markTranslationOffsetChecked(videoId: string): Promise<void> {
-  await chrome.storage.local.set({ [translationOffsetCheckedStorageKey(videoId)]: true });
+/** True while the translation's offset is the one set automatically. */
+export async function isTranslationOffsetAutomatic(videoId: string): Promise<boolean> {
+  return (await translationOffsetOrigin(videoId)) === "auto";
+}
+
+/** The user set the translation's offset: it is never set automatically again. */
+export async function markTranslationOffsetSetByUser(videoId: string): Promise<void> {
+  await chrome.storage.local.set({ [translationOffsetCheckedStorageKey(videoId)]: "user" });
+}
+
+/** True when a change of storage may change whether the offset is automatic. */
+export function isTranslationOffsetOriginChange(
+  changes: Record<string, chrome.storage.StorageChange>,
+  videoId: string,
+): boolean {
+  return !!changes[translationOffsetCheckedStorageKey(videoId)];
 }
 
 /** Seconds added to the player's Japanese track of this video; 0 when unset. */
@@ -157,12 +177,19 @@ export class VideoOffsetWatcher {
     const offset = Math.round((this.translation + shift) * 100) / 100;
     this.aligning = true;
     void (async () => {
-      if (await isTranslationOffsetChecked(videoId)) return;
-      if (Math.abs(shift) >= MIN_AUTOMATIC_SHIFT_SECONDS) {
-        await saveTranslationOffset(videoId, offset);
-        console.info(`[SubJap] Traduction synchronisée sur le japonais : ${offset.toFixed(2)} s`);
+      if (await translationOffsetOrigin(videoId)) return;
+      const originKey = translationOffsetCheckedStorageKey(videoId);
+      if (Math.abs(shift) < MIN_AUTOMATIC_SHIFT_SECONDS) {
+        await chrome.storage.local.set({ [originKey]: "measured" });
+        return;
       }
-      await markTranslationOffsetChecked(videoId);
+      // Offset and origin together, so the popup never shows one without the other.
+      if (offset === 0) await chrome.storage.local.remove(translationOffsetStorageKey(videoId));
+      await chrome.storage.local.set({
+        [originKey]: "auto",
+        ...(offset === 0 ? {} : { [translationOffsetStorageKey(videoId)]: offset }),
+      });
+      console.info(`[SubJap] Traduction synchronisée sur le japonais : ${offset.toFixed(2)} s`);
     })().catch((error: unknown) => {
       console.warn("[SubJap] Synchronisation de la traduction impossible:", error);
     }).finally(() => {
@@ -198,10 +225,10 @@ export class VideoOffsetWatcher {
     void Promise.all([
       getJapaneseOffset(videoId),
       getTranslationOffset(videoId),
-      isTranslationOffsetChecked(videoId),
-    ]).then(([japanese, translation, checked]) => {
+      translationOffsetOrigin(videoId),
+    ]).then(([japanese, translation, origin]) => {
       if (revision !== this.revision) return;
-      this.translationChecked = checked;
+      this.translationChecked = origin !== null;
       if (japanese === this.japanese && translation === this.translation) return;
       this.japanese = japanese;
       this.translation = translation;

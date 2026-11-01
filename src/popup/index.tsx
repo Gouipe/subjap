@@ -23,7 +23,9 @@ import {
   getJapaneseOffset,
   getLinkedOffsets,
   getTranslationOffset,
-  markTranslationOffsetChecked,
+  isTranslationOffsetAutomatic,
+  isTranslationOffsetOriginChange,
+  markTranslationOffsetSetByUser,
   saveJapaneseOffset,
   saveLinkedOffsets,
   saveTranslationOffset,
@@ -181,6 +183,8 @@ const Popup: React.FC = () => {
   });
   /** Changing one track's offset changes the other by as much. */
   const [linkedOffsets, setLinkedOffsets] = useState(false);
+  /** The player's translation offset was set by the automatic alignment. */
+  const [translationOffsetAutomatic, setTranslationOffsetAutomatic] = useState(false);
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
   const [tabId, setTabId] = useState<number | null>(null);
@@ -224,7 +228,11 @@ const Popup: React.FC = () => {
     if (!videoId) return;
     const key = translationOffsetStorageKey(videoId);
     const onChange = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-      if (area !== "local" || !changes[key]) return;
+      if (area !== "local") return;
+      if (isTranslationOffsetOriginChange(changes, videoId)) {
+        void isTranslationOffsetAutomatic(videoId).then(setTranslationOffsetAutomatic, () => undefined);
+      }
+      if (!changes[key]) return;
       const value = changes[key].newValue as unknown;
       const seconds = typeof value === "number" && Number.isFinite(value) ? value : 0;
       setPlayerOffsets((current) => ({ ...current, secondary: seconds }));
@@ -307,13 +315,15 @@ const Popup: React.FC = () => {
       }, () => {
         // No frame answered: Japanese subtitles are available or still unknown.
       });
-      const [primary, secondary, japaneseOffset, translationOffset, linked] = await Promise.all([
+      const [primary, secondary, japaneseOffset, translationOffset, linked, automatic] = await Promise.all([
         getLocalSubtitle(currentVideoId, "primary"),
         getLocalSubtitle(currentVideoId, "secondary"),
         getJapaneseOffset(currentVideoId),
         getTranslationOffset(currentVideoId),
         getLinkedOffsets(),
+        isTranslationOffsetAutomatic(currentVideoId),
       ]);
+      setTranslationOffsetAutomatic(automatic);
       setLocalSubtitles({ primary, secondary });
       setPlayerOffsets({ primary: japaneseOffset, secondary: translationOffset });
       setLinkedOffsets(linked);
@@ -395,7 +405,7 @@ const Popup: React.FC = () => {
       setLocalSubtitleError(null);
       try {
         // The user's own translation offset is never replaced automatically.
-        if (role === "secondary" && videoId) await markTranslationOffsetChecked(videoId);
+        if (role === "secondary" && videoId) await markTranslationOffsetSetByUser(videoId);
         await Promise.all([
           persistOffset(role, rounded),
           linkedOffsets && !alone && showTranslationOffset && delta !== 0
@@ -912,6 +922,9 @@ const Popup: React.FC = () => {
                     </label>
                   )}
                 </div>
+                {showTranslationOffset && translationOffsetAutomatic && !localSubtitles.secondary && (
+                  <p style={styles.offsetHint}>Traduction synchronisée automatiquement.</p>
+                )}
                 <p style={styles.offsetHint}>
                   Valeur positive : le sous-titre s’affiche plus tard.
                 </p>

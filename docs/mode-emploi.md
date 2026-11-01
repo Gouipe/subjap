@@ -163,7 +163,8 @@ par exemple quand toute la vidéo est en avance sur ses sous-titres ; ↺ ne
 remet à zéro que sa propre piste. La première fois qu’une vidéo est lue, le
 décalage de la traduction du lecteur est réglé automatiquement pour que ses
 lignes commencent avec les lignes japonaises, sauf si tu l’as déjà modifié ;
-tu peux ensuite le changer comme les autres. Sur
+la mention « Traduction synchronisée automatiquement » l’indique jusqu’à ce
+que tu le changes toi-même. Sur
 Netflix, le japonais lu seulement à l’écran (sans piste chargée) ne peut pas
 être décalé.
 
