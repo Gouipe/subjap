@@ -604,17 +604,28 @@ function WizardStepper(props: { current: number }): JSX.Element {
   );
 }
 
-const MINING_CALLOUTS: ReadonlyArray<readonly [string, string]> = [
+const MINING_CALLOUTS: ReadonlyArray<readonly [string, React.ReactNode]> = [
   ["Corriger au clic", "le mot, la lecture, la phrase et la traduction se modifient directement"],
   ["Sens", "cochez celui qui correspond à la scène"],
-  ["Scène", "image et audio sont capturés automatiquement ; Q réécoute la phrase"],
+  [
+    "Scène",
+    <>
+      image et audio sont capturés automatiquement ; <MockKbd>Q</MockKbd> réécoute la phrase
+    </>,
+  ],
   [
     "IA (facultatif)",
-    "I ajoute la décomposition des kanjis, des synonymes et une association, si l’IA est configurée dans les réglages",
+    <>
+      <MockKbd>I</MockKbd> ajoute la décomposition des kanjis, des synonymes et une association,
+      si l’IA est configurée dans les réglages
+    </>,
   ],
   [
     "Créer",
-    "Ctrl+Entrée envoie la carte dans Anki ; Échap ne ferme jamais la fenêtre, seule la croix ✕ la ferme",
+    <>
+      <MockKbd>Ctrl+Entrée</MockKbd> envoie la carte dans Anki ; <MockKbd>Échap</MockKbd> ne
+      ferme jamais la fenêtre, seule la croix ✕ la ferme
+    </>,
   ],
 ];
 
@@ -1929,7 +1940,8 @@ const s: Record<string, React.CSSProperties> = {
     width: 18,
     height: 18,
     borderRadius: "50%",
-    backgroundColor: C.accent,
+    // Neutral, so callouts never read as the vermilion stepper or a state colour.
+    backgroundColor: C.text,
     color: C.bg,
     fontSize: 11,
     fontWeight: 700,
