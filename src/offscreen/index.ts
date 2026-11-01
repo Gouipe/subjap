@@ -46,14 +46,11 @@ function encodeWavDataUrl(samples: Float32Array, sampleRate: number): string {
 
 onMessage("tabCapture:offscreenStream", async ({ streamId }) => {
   stream?.getTracks().forEach((track) => track.stop());
+  // Audio only: while a tab's video is captured, Chrome confines HTML5
+  // fullscreen to the tab ("fullscreen within tab"), so the player's
+  // fullscreen button stops filling the screen. Nothing here uses the picture.
   stream = await navigator.mediaDevices.getUserMedia({
     audio: {
-      mandatory: {
-        chromeMediaSource: "tab",
-        chromeMediaSourceId: streamId,
-      },
-    } as MediaTrackConstraints,
-    video: {
       mandatory: {
         chromeMediaSource: "tab",
         chromeMediaSourceId: streamId,
