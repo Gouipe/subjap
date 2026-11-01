@@ -1392,7 +1392,7 @@ async function installFromJimaku(notice: VideoNotice, videoId: string): Promise<
   }
   switch (result.status) {
     case "installed": {
-      const actions = [{ label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) }];
+      const actions = [{ label: "Désinstaller", onClick: () => void removeJimakuFile(notice, videoId) }];
       // Picking another file is left to the popup: by the time a file proves wrong, the notice is gone.
       const hint = result.choices.length > 1 ? "\nAutres fichiers au choix via l’icône SubJap." : "";
       jimakuInstalledActions = { videoId, actions, hint };
@@ -1430,10 +1430,10 @@ async function installFromJimaku(notice: VideoNotice, videoId: string): Promise<
 async function removeJimakuFile(notice: VideoNotice, videoId: string): Promise<void> {
   try {
     await Promise.all([removeLocalSubtitle(videoId, "primary"), declineJimaku(videoId)]);
-    showMissingJapanese(notice, videoId, { text: "Sous-titres Jimaku retirés pour cette vidéo." });
+    showMissingJapanese(notice, videoId, { text: "Sous-titres Jimaku désinstallés pour cette vidéo." });
   } catch (err: unknown) {
     handleRuntimeError(err);
-    notice.setText("Retrait impossible. Supprimez la piste via l’icône SubJap.");
+    notice.setText("Désinstallation impossible. Supprimez la piste via l’icône SubJap.");
   }
 }
 
