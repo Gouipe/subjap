@@ -105,6 +105,8 @@ function OffsetRow(props: {
   disabled: boolean;
   onInput: (value: string) => void;
   onCommit: (seconds: number) => void;
+  /** Back to 0 for this track only, even when the offsets are linked. */
+  onReset: () => void;
 }): JSX.Element {
   return (
     <div style={styles.offsetRow}>
@@ -133,7 +135,7 @@ function OffsetRow(props: {
         disabled={props.disabled}
         title="Réinitialiser"
         aria-label={`Réinitialiser le décalage ${props.label.toLowerCase()}`}
-        onClick={() => props.onCommit(0)}
+        onClick={props.onReset}
       >
         <span style={styles.resetGlyph}>↺</span>
       </button>
@@ -360,9 +362,9 @@ const Popup: React.FC = () => {
 
   const showTranslationOffset = !!localSubtitles.secondary || secondarySubtitleLanguage !== "none";
 
-  /** Sets one track's offset; linked, the other moves by as much. */
+  /** Sets one track's offset; linked, the other moves by as much unless `alone`. */
   const changeOffset = useCallback(
-    async (role: LocalSubtitleRole, value: number) => {
+    async (role: LocalSubtitleRole, value: number, alone = false) => {
       if (!Number.isFinite(value)) {
         setOffsetInputs((current) => ({ ...current, [role]: trackOffset(role).toFixed(2) }));
         return;
@@ -375,7 +377,7 @@ const Popup: React.FC = () => {
       try {
         await Promise.all([
           persistOffset(role, rounded),
-          linkedOffsets && showTranslationOffset && delta !== 0
+          linkedOffsets && !alone && showTranslationOffset && delta !== 0
             ? persistOffset(other, Math.round((trackOffset(other) + delta) * 100) / 100)
             : Promise.resolve(),
         ]);
@@ -875,6 +877,7 @@ const Popup: React.FC = () => {
                       disabled={localSubtitleBusy}
                       onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
                       onCommit={(value) => void changeOffset(role, value)}
+                      onReset={() => void changeOffset(role, 0, true)}
                     />
                   ))}
                   {showTranslationOffset && (
