@@ -12,7 +12,8 @@
    connus). Après la dernière étape, la page **Les couleurs des mots** donne la
    légende des sous-titres : gris (inconnu, y compris un mot miné dont la carte
    n’a pas encore été étudiée), vert et bleu (à miner, selon le rang de
-   fréquence, seulement si c’est le seul inconnu de la phrase), blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
+   fréquence, seulement si c’est le seul inconnu de la phrase), blanc pointillé
+   (en cours) et blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
    **Mine this** ne crée alors pas de carte à réviser. L’écran final liste les
    raccourcis.
 
@@ -60,8 +61,8 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
    `日本語::Vocabulaire::Compréhension` d’Anki.
 
 Le compteur **Mots connus** inclut automatiquement les mots dont une carte
-`Compréhension` dans `日本語` ou ses sous-decks a terminé l’apprentissage
-initial et est passée en Révision. Un oubli suivi de réapprentissage ne les
+`Compréhension` dans `日本語` ou ses sous-decks a été étudiée, qu’elle soit
+encore dans ses étapes d’apprentissage ou passée en Révision. Un oubli suivi de réapprentissage ne les
 retire pas du compteur. Les mots tagués `KNOWN`, y compris dans
 `Migaku Memory::Status`, restent connus ; chaque identité lexicale compte une
 seule fois. Les anciens tags `UNKNOWN` ou `LEARNING` ne bloquent pas un mot
@@ -242,8 +243,15 @@ non blanc de sa phrase — vert s’il est très fréquent, bleu s’il l’est 
 moins, souligné d’un trait continu de sa couleur. Un mot `LEARNING` ou déjà
 présent dans Anki mais pas encore acquis compte comme inconnu : il empêche la
 coloration. Les autres inconnus sont seulement grisés, si bien que le blanc se
-lit comme « compris » ; `KNOWN` et `IGNORED` sont blancs sans trait. La popover
-affiche toujours le rang disponible et le nombre de cartes Anki existantes.
+lit comme « compris » ; `KNOWN` et `IGNORED` sont blancs sans trait. Un mot
+**en cours** — connu grâce à une carte `Compréhension` étudiée dont
+l’intervalle est inférieur à 21 jours (pas encore mûre) — reste blanc avec un
+fin pointillé, pour le remarquer en contexte ; il compte comme connu et
+n’empêche pas la coloration. Le pointillé disparaît quand la carte devient
+mûre, si le mot est tagué `KNOWN` ou marqué **Mark Known** dans SubJap. Il se
+désactive dans les Options, **Affichage des sous-titres** → **Pointiller les
+mots en cours**. La popover affiche toujours le rang disponible et le nombre
+de cartes Anki existantes, suivi de « en cours » le cas échéant.
 
 ## Piloter les couleurs depuis Anki
 

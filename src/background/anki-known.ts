@@ -14,6 +14,8 @@ const MIGAKU_STATUS_MODEL_NAME = "Migaku Vocabulary Status";
 export interface ImportedAnkiWordState {
   key: string;
   status: WordStatus;
+  /** Known only through studied cards that are not mature yet. */
+  young?: boolean;
 }
 
 const TAG_STATUS: Record<string, WordStatus> = {
@@ -57,16 +59,24 @@ export function normalizeAnkiWord(value: string): string {
 export function extractAnkiWordStates(
   notes: AnkiNoteInfoForWordStates[],
   learnedNoteIds: ReadonlySet<number> = new Set(),
+  youngNoteIds: ReadonlySet<number> = new Set(),
 ): ImportedAnkiWordState[] {
   const byWord = new Map<string, WordStatus>();
+  // A word is young when a studied card is not mature yet and nothing else
+  // (a mature card, a KNOWN tag) says it is firmly known.
+  const youngWords = new Set<string>();
+  const firmlyKnownWords = new Set<string>();
   for (const note of notes) {
     const key = normalizeAnkiWord(note.fields.Mot?.value ?? "");
     if (!key) continue;
     const statuses = (note.tags ?? [])
       .map((tag) => TAG_STATUS[tag.toUpperCase()])
       .filter((status): status is WordStatus => status !== undefined);
+    if (statuses.includes("known")) firmlyKnownWords.add(key);
     if (note.noteId !== undefined && learnedNoteIds.has(note.noteId)) {
       statuses.push("known");
+      if (youngNoteIds.has(note.noteId)) youngWords.add(key);
+      else firmlyKnownWords.add(key);
     }
     for (const status of statuses) {
       const current = byWord.get(key);
@@ -75,7 +85,11 @@ export function extractAnkiWordStates(
       }
     }
   }
-  return [...byWord].map(([key, status]) => ({ key, status }));
+  return [...byWord].map(([key, status]) =>
+    status === "known" && youngWords.has(key) && !firmlyKnownWords.has(key)
+      ? { key, status, young: true }
+      : { key, status },
+  );
 }
 
 /** Count every Anki study note (status notes excluded) by its normalized `Mot` field. */
@@ -123,7 +137,11 @@ export function planImportedStateReconciliation(
   for (const desiredState of desired) {
     const existing = currentByKey.get(desiredState.key);
     if (existing?.source === "manual") continue;
-    if (existing?.source === "import" && existing.status === desiredState.status) continue;
+    if (
+      existing?.source === "import" &&
+      existing.status === desiredState.status &&
+      existing.young === desiredState.young
+    ) continue;
     upserts.push({
       key: desiredState.key,
       status: desiredState.status,
@@ -132,6 +150,7 @@ export function planImportedStateReconciliation(
           ? existing?.knownAt ?? now
           : undefined,
       source: "import",
+      ...(desiredState.young ? { young: true } : {}),
     });
   }
   return { upserts, removals };

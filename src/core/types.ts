@@ -192,6 +192,8 @@ export interface WordState {
   knownAt?: number;
   /** "default" is derived at render time and never persisted. */
   source: "manual" | "frequency-list" | "import" | "default";
+  /** Known through a studied Anki card that is not mature yet (interval under 21 days). */
+  young?: boolean;
 }
 
 export interface KnownTriageItem {
@@ -468,6 +470,8 @@ export interface OverlayOptions {
   secondarySubtitleLanguage: SecondarySubtitleLanguage;
   /** What to hide when every lexical word of the displayed sentence is known/ignored. */
   knownSentenceSubtitles: KnownSentenceSubtitles;
+  /** Dot-underline known words whose Anki card is studied but not mature yet. */
+  markYoungWords: boolean;
 }
 
 /**

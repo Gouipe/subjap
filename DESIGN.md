@@ -291,7 +291,10 @@ Le token japonais est le composant signature. **The Mine-Now Rule.** Un mot
 phrase prend le vert ou le bleu, souligné d'un trait plein de sa couleur. Les
 autres mots encore illisibles, y compris ceux déjà dans Anki mais pas encore
 acquis, sont seulement grisés, sans soulignement, afin que le blanc se lise
-comme « compris ». La présence dans Anki n'est précisée que dans la popover.
+comme « compris ». Un mot connu dont la carte Anki n'est pas encore mûre reste
+blanc avec un fin pointillé blanc translucide : jamais de couleur ni de trait
+plein, réservés aux mots à miner. La présence dans Anki n'est précisée que dans
+la popover.
 Chaque état porte un seul signal, et les soulignements restent droits jusqu'aux
 extrémités du mot. Survol, focus et
 sélection ajoutent un soulignement ou un fond local afin que la couleur ne soit

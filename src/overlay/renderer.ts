@@ -220,6 +220,13 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       color: var(--sj-subtitle);
       border-bottom-color: transparent;
     }
+    /* Studied in Anki but not mature yet: still white (readable), with a
+       discreet dotted underline so the word gets noticed in context. A solid
+       coloured underline stays reserved for words to mine. */
+    #${CONTAINER_ID} .subjap-known.subjap-young {
+      border-bottom-style: dotted;
+      border-bottom-color: rgba(255, 255, 255, 0.5);
+    }
     /* A coloured word is a word to mine now: the only unknown of an i+1
        sentence. Every other word that cannot be read yet, including words
        already in Anki but not acquired, is only greyed, so white reads as
@@ -596,6 +603,9 @@ export class OverlayRenderer {
       );
       if (highlight === "known" || highlight === "ignored") {
         span.classList.add("subjap-known");
+        if (highlight === "known" && st.wordState?.young && this.options.markYoungWords) {
+          span.classList.add("subjap-young");
+        }
       } else if (highlight === "learning") {
         span.classList.add("subjap-learning");
       } else {

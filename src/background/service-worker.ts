@@ -746,15 +746,25 @@ interface AnkiNoteInfo {
   tags: string[];
 }
 
+/** Anki calls a card mature once its interval reaches this many days. */
+const MATURE_INTERVAL_DAYS = 21;
+
 /** Combine global status tags with acquired comprehension vocabulary in 日本語. */
 onMessage("anki:syncKnown", async () => {
   await maintainProductionCards();
-  // Anki's is:review includes relearning after a lapse, plus suspended/buried
-  // reviews. Production progress must never qualify its comprehension sibling.
-  const [noteIds, learnedNoteIds] = await Promise.all([
+  // A comprehension card counts once studied: in its learning steps or in
+  // review (Anki's is:review includes relearning, suspended and buried
+  // reviews). It stays young until its interval reaches 21 days, Anki's
+  // "mature" threshold. Production progress must never qualify its
+  // comprehension sibling.
+  const comprehension = `Mot:* "deck:日本語" "card:${MIGAKU_COMPREHENSION_TEMPLATE_NAME}"`;
+  const [noteIds, learnedNoteIds, youngNoteIds] = await Promise.all([
     ankiInvoke<number[]>("findNotes", { query: "Mot:*" }),
     ankiInvoke<number[]>("findNotes", {
-      query: `Mot:* "deck:日本語" "card:${MIGAKU_COMPREHENSION_TEMPLATE_NAME}" is:review`,
+      query: `${comprehension} (is:learn OR is:review)`,
+    }),
+    ankiInvoke<number[]>("findNotes", {
+      query: `${comprehension} (is:learn OR (is:review prop:ivl<${MATURE_INTERVAL_DAYS}))`,
     }),
   ]);
   const notes: AnkiNoteInfo[] = [];
@@ -765,7 +775,11 @@ onMessage("anki:syncKnown", async () => {
       })),
     );
   }
-  const desired = extractAnkiWordStates(notes, new Set(learnedNoteIds));
+  const desired = extractAnkiWordStates(
+    notes,
+    new Set(learnedNoteIds),
+    new Set(youngNoteIds),
+  );
   const desiredPresences = extractAnkiWordPresences(notes);
   const [current, currentPresences] = await Promise.all([
     db.wordStates.toArray(),

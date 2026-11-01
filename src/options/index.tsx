@@ -705,6 +705,23 @@ function OnboardingWizard(props: {
               </div>
             </div>
 
+            <span
+              style={{
+                ...s.legendWord,
+                color: C.text,
+                borderBottom: "2px dotted rgba(255, 255, 255, 0.5)",
+              }}
+            >
+              単語
+            </span>
+            <div>
+              <div style={s.lifecycleTitle}>En cours</div>
+              <div style={s.legendText}>
+                Carte Anki étudiée, pas encore mûre (moins de 21 jours). Désactivable dans les
+                réglages.
+              </div>
+            </div>
+
             <span style={{ ...s.legendWord, color: C.text }}>単語</span>
             <div>
               <div style={s.lifecycleTitle}>Mot connu</div>
@@ -1296,6 +1313,15 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
               <Toggle
                 checked={options.showFurigana}
                 onChange={(v) => void updateOptions({ showFurigana: v })}
+              />
+            </Row>
+            <Row
+              label="Pointiller les mots en cours"
+              hint="carte Anki étudiée mais pas encore mûre (intervalle de moins de 21 jours)"
+            >
+              <Toggle
+                checked={options.markYoungWords}
+                onChange={(v) => void updateOptions({ markYoungWords: v })}
               />
             </Row>
             <Row

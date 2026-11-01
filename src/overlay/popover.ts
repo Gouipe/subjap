@@ -59,6 +59,7 @@ export class WordPopover {
   private currentStatus: WordStatus | null = null;
   private currentFrequencyRank: number | undefined;
   private currentAnkiNoteCount = 0;
+  private currentAnkiYoung = false;
   private currentToken: Token | null = null;
   private currentEntry: DictionaryEntry | null = null;
   private boundOnKeydown: (e: KeyboardEvent) => void;
@@ -86,8 +87,11 @@ export class WordPopover {
     frequencyRank?: number;
     /** Number of existing Anki notes whose normalized `Mot` matches the lemma. */
     ankiNoteCount?: number;
+    /** Known through a studied Anki card that is not mature yet. */
+    ankiYoung?: boolean;
   }): void {
     const { anchor, token, entry, pitchAccent, wordStatus, frequencyRank, ankiNoteCount } = params;
+    this.currentAnkiYoung = params.ankiYoung === true;
 
     this.currentToken = token;
     this.currentEntry = entry ?? null;
@@ -409,7 +413,9 @@ export class WordPopover {
     if (ankiEl) {
       ankiEl.textContent =
         ankiNoteCount > 0
-          ? `Déjà dans Anki · ${ankiNoteCount} carte${ankiNoteCount === 1 ? "" : "s"}`
+          ? `Déjà dans Anki · ${ankiNoteCount} carte${ankiNoteCount === 1 ? "" : "s"}${
+              this.currentAnkiYoung && wordStatus === "known" ? " · en cours" : ""
+            }`
           : "";
     }
 

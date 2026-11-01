@@ -1166,18 +1166,19 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
   const renderedSpan = lastRenderedCues
     .flatMap((cue) => cue.spans)
     .find((span) => span.token === token);
+  const wordState = effectiveWordState(
+    token,
+    wordStateByLemma.get(tokenCanonicalKey(token)) ?? null,
+    renderedSpan?.ankiNoteCount ?? 0,
+  );
   showPopover({
     anchor,
     token,
     entry: dictEntry,
-    wordStatus:
-      effectiveWordState(
-        token,
-        wordStateByLemma.get(tokenCanonicalKey(token)) ?? null,
-        renderedSpan?.ankiNoteCount ?? 0,
-      )?.status ?? null,
+    wordStatus: wordState?.status ?? null,
     frequencyRank: renderedSpan?.frequencyRank,
     ankiNoteCount: renderedSpan?.ankiNoteCount ?? 0,
+    ankiYoung: wordState?.young === true,
   });
 }
 

@@ -30,6 +30,7 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   showFurigana: true,
   secondarySubtitleLanguage: "fr",
   knownSentenceSubtitles: "show",
+  markYoungWords: true,
 };
 
 /**
@@ -61,6 +62,9 @@ export function sanitizeOptions(
   }
   if (typeof raw.showFurigana === "boolean") {
     out.showFurigana = raw.showFurigana;
+  }
+  if (typeof raw.markYoungWords === "boolean") {
+    out.markYoungWords = raw.markYoungWords;
   }
   if (
     raw.secondarySubtitleLanguage === "fr" ||
