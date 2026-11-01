@@ -225,7 +225,12 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
        coloured underline stays reserved for words to mine. */
     #${CONTAINER_ID} .subjap-known.subjap-young {
       border-bottom-style: dotted;
-      border-bottom-color: rgba(255, 255, 255, 0.5);
+      border-bottom-color: rgba(255, 255, 255, 0.9);
+      /* Dots read lighter than a solid line: thicken them, and pull the
+         extra width back with a negative margin so the text stays on the
+         same baseline as its neighbours. */
+      border-bottom-width: max(3px, 0.12em);
+      margin-bottom: calc(max(2px, 0.08em) - max(3px, 0.12em));
     }
     /* A coloured word is a word to mine now: the only unknown of an i+1
        sentence. Every other word that cannot be read yet, including words

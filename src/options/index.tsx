@@ -969,7 +969,7 @@ function OnboardingWizard(props: {
               style={{
                 ...s.legendWord,
                 color: C.text,
-                borderBottom: "2px dotted rgba(255, 255, 255, 0.5)",
+                borderBottom: "3px dotted rgba(255, 255, 255, 0.9)",
               }}
             >
               単語

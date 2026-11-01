@@ -88,7 +88,7 @@ const WORD_COLOR_GUIDE = [
   {
     word: "覚える",
     color: "#f4f1ea",
-    underline: "2px dotted rgba(255, 255, 255, 0.5)",
+    underline: "3px dotted rgba(255, 255, 255, 0.9)",
     label: "En cours : carte Anki étudiée, pas encore mûre",
   },
   {
