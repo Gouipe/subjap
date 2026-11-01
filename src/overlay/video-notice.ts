@@ -110,7 +110,7 @@ export class VideoNotice {
   }
 
   private renderContent(content: VideoNoticeContent): void {
-    this.message.style.cssText = "flex:1 1 180px;min-width:0";
+    this.message.style.cssText = "flex:1 1 180px;min-width:0;white-space:pre-line";
     this.message.textContent = content.text;
     this.actions.style.cssText = "display:flex;align-items:center;gap:6px;flex:none";
     this.actions.replaceChildren(...content.actions.map((action) => this.buildAction(action)), this.closeButton);
