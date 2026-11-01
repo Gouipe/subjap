@@ -375,7 +375,6 @@ function KnownWordsTriage(props: {
 }): JSX.Element {
   const [batch, setBatch] = useState<KnownTriageBatch | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [knownWords, setKnownWords] = useState<number | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [status, setStatus] = useState<"syncing" | "loading" | "ready" | "saving">("syncing");
   const [validated, setValidated] = useState(0);
@@ -385,13 +384,9 @@ function KnownWordsTriage(props: {
 
   const loadBatch = useCallback(async () => {
     setStatus("loading");
-    const [next, stats] = await Promise.all([
-      sendMessage("knownTriage:batch", {}),
-      sendMessage("stats:get", {}),
-    ]);
+    const next = await sendMessage("knownTriage:batch", {});
     setBatch(next);
     setChecked(new Set(next.items.map((item) => item.key)));
-    setKnownWords(stats.knownWords);
     setFocused(null);
     setStatus("ready");
   }, []);
@@ -451,14 +446,6 @@ function KnownWordsTriage(props: {
   const items = batch?.items ?? [];
   const allChecked = items.length > 0 && items.every((item) => checked.has(item.key));
   const busy = status !== "ready";
-  const progress = [
-    batch && batch.fromRank > 0
-      ? `${batch.fromRank.toLocaleString("fr-FR")} mots les plus fréquents déjà triés`
-      : "",
-    knownWords !== null ? `${knownWords.toLocaleString("fr-FR")} mots connus` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
 
   return (
     <div ref={container}>
@@ -475,18 +462,13 @@ function KnownWordsTriage(props: {
             </div>
           )}
           {items.length === 0 ? (
-            <>
-              <p style={s.mutedSmall}>{progress}</p>
-              <p style={s.muted}>Toute la liste de fréquence a été triée.</p>
-            </>
+            <p style={s.muted}>Toute la liste de fréquence a été triée.</p>
           ) : (
             <>
-              <p style={s.muted}>
-                Cliquez sur les mots que vous ne connaissez pas, puis validez. Ils restent à
-                miner ; le sens apparaît au survol.
-              </p>
               <div style={s.triageHeader}>
-                <span style={s.triageProgress}>{progress}</span>
+                <span style={s.triageProgress}>
+                  Les {items.length} mots les plus fréquents encore inconnus
+                </span>
                 <button
                   type="button"
                   style={s.textLink}
@@ -505,7 +487,8 @@ function KnownWordsTriage(props: {
                     <button
                       key={item.key}
                       type="button"
-                      aria-pressed={known}
+                      role="checkbox"
+                      aria-checked={known}
                       style={{
                         ...s.triageRow,
                         ...(known ? s.triageRowKnown : s.triageRowUnknown),
@@ -515,12 +498,17 @@ function KnownWordsTriage(props: {
                       onFocus={() => setFocused(item.key)}
                       onBlur={() => setFocused(null)}
                     >
+                      <span
+                        aria-hidden="true"
+                        style={{ ...s.triageBox, ...(known ? s.triageBoxChecked : {}) }}
+                      >
+                        {known ? "✓" : ""}
+                      </span>
                       <span style={s.triageWord}>{item.key}</span>
                       <span style={s.triageReading}>{item.reading ?? ""}</span>
                       <span style={s.triageMeaning}>
                         {focused === item.key ? item.meaning ?? "pas de définition" : ""}
                       </span>
-                      <span style={s.triageStatus}>{known ? "" : "à apprendre"}</span>
                     </button>
                   );
                 })}
@@ -988,6 +976,8 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  /** The triage list is long: unfolded on demand, or when opened from the popup. */
+  const [triageOpen, setTriageOpen] = useState(() => location.hash === "#mots-connus");
 
   const refresh = useCallback(async () => {
     try {
@@ -1236,11 +1226,14 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
       </Section>
 
       <Section title="Mots déjà connus" id="mots-connus">
-        <p style={s.muted}>
-          Indiquez, par lots, les mots fréquents que vous connaissez déjà. SubJap reprend là où
-          vous vous étiez arrêté ; une erreur se corrige mot par mot avec ✓ Known.
-        </p>
-        <KnownWordsTriage />
+        <p style={s.muted}>Indiquez les mots fréquents que vous connaissez déjà.</p>
+        {triageOpen ? (
+          <KnownWordsTriage />
+        ) : (
+          <Btn variant="ghost" onClick={() => setTriageOpen(true)}>
+            Trier les mots fréquents →
+          </Btn>
+        )}
       </Section>
 
       <Section title="Affichage des sous-titres">
@@ -1664,7 +1657,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   triageRow: {
     display: "grid",
-    gridTemplateColumns: "7.5em 8em minmax(0, 1fr) auto",
+    gridTemplateColumns: "16px 7.5em 8em minmax(0, 1fr)",
     alignItems: "baseline",
     columnGap: 12,
     width: "100%",
@@ -1682,7 +1675,7 @@ const s: Record<string, React.CSSProperties> = {
   triageRowUnknown: {
     color: C.unknownGrey,
     backgroundColor: "transparent",
-    border: `1px dashed ${C.panelBorder}`,
+    border: "1px solid transparent",
   },
   triageWord: {
     fontSize: 17,
@@ -1698,9 +1691,22 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 13,
     color: C.muted,
   },
-  triageStatus: {
-    fontSize: 12,
-    color: C.unknownGrey,
+  triageBox: {
+    display: "inline-grid",
+    placeItems: "center",
+    width: 16,
+    height: 16,
+    alignSelf: "center",
+    borderRadius: 4,
+    border: `1.5px solid ${C.muted}`,
+    fontSize: 11,
+    fontWeight: 700,
+    lineHeight: 1,
+    color: C.bg,
+  },
+  triageBoxChecked: {
+    backgroundColor: C.accent,
+    borderColor: C.accent,
   },
   textLink: {
     padding: 0,
