@@ -830,7 +830,9 @@ function isJapaneseTrack(language: string | undefined): boolean {
  *   line does not drop into its place and jump back up with the next pair;
  * - when the Japanese line ends first, or starts after its translation, that
  *   part of the translation is not shown alone: it would flash, in
- *   particular when hidden because every word is known;
+ *   particular when hidden because every word is known; a translation
+ *   already shown that also covers the next line stays through the silence
+ *   between them;
  * - a translation starting at most 1 s after its Japanese line, or lasting
  *   through at least half of it, appears from the start of that line, in
  *   place of the previous translation, so the pair appears together.
@@ -847,6 +849,9 @@ function pairTranslationWithJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
       : null;
 
   if (japaneseCues.length === 0) {
+    // Already shown with a Japanese line, a translation that also covers the
+    // next one stays through the silence between them.
+    if (active && japaneseShownWithActive && continuesIntoLaterJapaneseLine(active)) return cues;
     if (active && isCounterpartOf(active, japaneseShownWithActive)) {
       return cues.filter((cue) => cue !== active);
     }
@@ -940,6 +945,12 @@ function belongsToLaterJapaneseLine(
   if (shown.some((cue) => subtitleCueKey(cue) === ownerKey)) return false;
   // A provisional DOM end is unknown: the line may well last through it.
   return shown.every((cue) => cue.endConfirmed !== false && !coversHalfOf(translation, cue));
+}
+
+/** True when a Japanese line still to come starts before this translation ends. */
+function continuesIntoLaterJapaneseLine(translation: SubtitleCue): boolean {
+  const now = adapter.getCurrentTime();
+  return knownJapaneseCues().some((cue) => cue.start > now && cue.start < translation.end);
 }
 
 /** True when a translation lasts through at least half of a Japanese line of known end. */

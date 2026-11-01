@@ -32,7 +32,9 @@ apparaisse ensemble. À l’inverse,
 lorsque le segment japonais commence après sa traduction ou se termine avant
 elle, cette partie de la traduction n’est pas affichée seule : elle
 apparaîtrait brièvement, notamment lorsqu’elle est masquée parce que tous les
-mots sont connus. Une traduction est la contrepartie de segments japonais
+mots sont connus. Une traduction déjà affichée avec un segment et qui couvre
+aussi le segment suivant reste affichée pendant le silence entre les deux. Une
+traduction est la contrepartie de segments japonais
 lorsque ceux-ci (affichés avec elle ou connus de la timeline) couvrent au
 moins la moitié de son intervalle ; un texte incrusté qui ne chevauche que
 brièvement un dialogue reste affiché seul en dehors de celui-ci. Lorsque la
