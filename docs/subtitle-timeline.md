@@ -16,10 +16,12 @@ lecteur (au plus 2 s) est mesurée sur l’épisode, tel qu’affiché, et ajout
 son décalage, visible et modifiable dans le popup. Un décalage de traduction
 réglé par l’utilisateur n’est jamais remplacé ; une traduction importée garde
 ses horaires. La synchronisation d’un fichier japonais importé compare ses
-horaires à ceux de la traduction affichée, décalage compris. Une traduction qui commence alors qu’un segment
-japonais précédent est encore affiché, mais qui appartient à un segment à
-venir, attend le début de celui-ci ; la traduction précédente reste affichée
-en attendant. Une
+horaires à ceux de la traduction affichée, décalage compris. Une traduction
+qui commence vers la fin d’un segment japonais précédent encore affiché (elle
+en couvre moins de la moitié), mais qui appartient à un segment à venir,
+attend le début de celui-ci ; la traduction précédente reste affichée en
+attendant. Une traduction qui couvre au moins la moitié du segment affiché le
+traduit aussi et apparaît avec lui. Une
 traduction qui se termine avant le segment japonais qu’elle accompagne reste
 affichée jusqu’à la fin de ce segment ou jusqu’à la traduction suivante, pour
 que la ligne japonaise ne descende pas brièvement à sa place. De même, une

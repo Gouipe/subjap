@@ -822,9 +822,9 @@ function isJapaneseTrack(language: string | undefined): boolean {
  * Tracks time their lines independently, so a translation rarely starts and
  * ends exactly with the Japanese line it accompanies. Each Japanese line is
  * shown with its own translation, the one overlapping it the most:
- * - a translation starting while an earlier Japanese line is still shown,
- *   but belonging to a line still to come, waits for that line; the earlier
- *   translation stays meanwhile;
+ * - a translation starting near the end of an earlier Japanese line still
+ *   shown (less than half of it), but belonging to a line still to come,
+ *   waits for that line; the earlier translation stays meanwhile;
  * - when the translation ends first, keep it while one of those Japanese cues
  *   is still shown, until another translation replaces it, so the Japanese
  *   line does not drop into its place and jump back up with the next pair;
@@ -924,7 +924,11 @@ function isOwnedBy(translation: SubtitleCue, japanese: SubtitleCue, shown: Subti
   return !!owner && subtitleCueKey(owner) === subtitleCueKey(japanese);
 }
 
-/** True when a translation belongs to a Japanese line that has not started yet. */
+/**
+ * True when a translation belongs to a Japanese line that has not started
+ * yet, and only overlaps the end of those shown: covering at least half of
+ * one of them, it translates that line too and is shown with it.
+ */
 function belongsToLaterJapaneseLine(
   translation: SubtitleCue,
   shown: SubtitleCue[],
@@ -933,7 +937,14 @@ function belongsToLaterJapaneseLine(
   const owner = owningJapaneseCue(translation, shown);
   if (!owner || owner.start <= now) return false;
   const ownerKey = subtitleCueKey(owner);
-  return !shown.some((cue) => subtitleCueKey(cue) === ownerKey);
+  if (shown.some((cue) => subtitleCueKey(cue) === ownerKey)) return false;
+  return shown.every((cue) => {
+    // A provisional DOM end is unknown: the line may well last through it.
+    if (cue.endConfirmed === false) return false;
+    const duration = cue.end - cue.start;
+    const covered = Math.min(cue.end, translation.end) - Math.max(cue.start, translation.start);
+    return duration > 0 && covered < duration * TRANSLATION_COUNTERPART_COVERAGE;
+  });
 }
 
 /** The translation of this Japanese line, if it starts at most 1 s after it. */
