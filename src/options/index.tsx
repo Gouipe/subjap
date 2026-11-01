@@ -960,6 +960,13 @@ function OnboardingWizard(props: {
 // Settings panel (onboarding complete)
 // ---------------------------------------------------------------------------
 
+/** Word to type before "Tout effacer" runs: Enter alone must never erase. */
+const RESET_CONFIRMATION_WORD = "effacer";
+
+function isResetConfirmed(typed: string | null): boolean {
+  return typed?.trim().toLowerCase() === RESET_CONFIRMATION_WORD;
+}
+
 function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [dict, setDict] = useState<DictStatus | null>(null);
   const [anki, setAnki] = useState<AnkiStatus | null>(null);
@@ -974,6 +981,8 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [aiPrompt, setAiPrompt] = useState<string | null>(null);
   const [savingAiPrompt, setSavingAiPrompt] = useState(false);
   const [resetting, setResetting] = useState(false);
+  /** Typed confirmation of "Tout effacer"; null while the button is not armed. */
+  const [resetConfirmation, setResetConfirmation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   /** The triage list is long: unfolded on demand, or when opened from the popup. */
@@ -1107,17 +1116,11 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   }, []);
 
   const resetData = useCallback(async () => {
-    if (
-      !window.confirm(
-        "Tout effacer ? Cette action supprime les états de mots, cartes, dictionnaire et réglages (données locales uniquement).",
-      )
-    ) {
-      return;
-    }
     setResetting(true);
     setError(null);
     try {
       await sendMessage("data:reset", {});
+      setResetConfirmation(null);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1345,10 +1348,51 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
 
       <Section title="Données">
         <Row label="Effacer" hint="états de mots, cartes, dictionnaire et réglages">
-          <Btn variant="danger" onClick={() => void resetData()} disabled={resetting}>
-            {resetting ? "Effacement…" : "Tout effacer"}
+          <Btn
+            variant="danger"
+            onClick={() => setResetConfirmation("")}
+            disabled={resetConfirmation !== null}
+          >
+            Tout effacer
           </Btn>
         </Row>
+        {resetConfirmation !== null && (
+          <div style={s.resetConfirm}>
+            <p style={s.resetConfirmText}>
+              Les décisions manuelles (Mark Known, Ignore, mots déjà connus) et les cartes locales
+              seront perdues définitivement. Anki n’est pas modifié : ses états reviendront à la
+              prochaine synchronisation. Tapez « {RESET_CONFIRMATION_WORD} » pour confirmer.
+            </p>
+            <div style={s.btnRow}>
+              <input
+                autoFocus
+                value={resetConfirmation}
+                placeholder={RESET_CONFIRMATION_WORD}
+                aria-label={`Tapez « ${RESET_CONFIRMATION_WORD} » pour confirmer`}
+                autoComplete="off"
+                spellCheck={false}
+                style={s.input}
+                onChange={(e) => setResetConfirmation(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setResetConfirmation(null);
+                  if (e.key === "Enter" && isResetConfirmed(resetConfirmation) && !resetting) {
+                    void resetData();
+                  }
+                }}
+              />
+              <Btn
+                variant="danger"
+                onClick={() => void resetData()}
+                disabled={!isResetConfirmed(resetConfirmation) || resetting}
+              >
+                {resetting ? "Effacement…" : "Effacer définitivement"}
+              </Btn>
+              <Btn variant="ghost" onClick={() => setResetConfirmation(null)} disabled={resetting}>
+                Annuler
+              </Btn>
+            </div>
+          </div>
+        )}
         <Row label="Assistant" hint="relance la configuration en 4 étapes">
           <Btn variant="ghost" onClick={props.onStartOnboarding}>
             Recommencer l'onboarding
@@ -1776,6 +1820,19 @@ const s: Record<string, React.CSSProperties> = {
     padding: "10px 12px",
     fontSize: 13,
     marginBottom: 16,
+  },
+  resetConfirm: {
+    marginTop: 8,
+    padding: "12px 14px",
+    borderRadius: 8,
+    border: `1px solid ${C.red}`,
+    backgroundColor: "rgba(255,132,144,0.08)",
+  },
+  resetConfirmText: {
+    margin: "0 0 10px",
+    fontSize: 13,
+    lineHeight: 1.5,
+    color: C.text,
   },
   noticeBox: {
     backgroundColor: "rgba(120,214,163,0.10)",
