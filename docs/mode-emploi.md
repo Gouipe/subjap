@@ -209,8 +209,8 @@ l’épisode sur les lecteurs Artplayer : il retrouve l’anime grâce à la pag
 titre de la page, qui suivent les changements d’épisode sans rechargement), choisit le fichier de l’épisode
 en préférant les sources web et en écartant les fichiers mêlant chinois et
 japonais, et ouvre si besoin les archives ZIP de saison. Le fichier devient la
-piste principale locale de la vidéo. Le bandeau propose alors **Autres sous-titres
-disponibles…** (autres fichiers de l’épisode) et **Retirer** : une piste retirée depuis le
+piste principale locale de la vidéo. Le bandeau propose alors **Retirer**, et signale
+quand d’autres fichiers de l’épisode sont proposés dans la popup : une piste retirée depuis le
 bandeau n’est plus jamais réinstallée pour cette vidéo. Dans la popup, **Pistes**
 affiche « Jimaku · 4 autres fichiers » sous le fichier japonais installé : la liste
 des fichiers de l’épisode s’y déplie, l’actuel encadré, et un clic installe

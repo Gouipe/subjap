@@ -15,8 +15,6 @@ export interface VideoNoticeContent {
   actions: VideoNoticeAction[];
   /** Hides itself after this delay, unless the pointer rests on it; null stays. */
   autoHideMs: number | null;
-  /** One action per line, for a list of files to pick from. */
-  list?: boolean;
 }
 
 export interface VideoNoticeOptions extends VideoNoticeContent {
@@ -112,17 +110,10 @@ export class VideoNotice {
   }
 
   private renderContent(content: VideoNoticeContent): void {
-    const list = content.list === true;
-    this.message.style.cssText = list
-      ? "flex:1 1 100%;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px"
-      : "flex:1 1 180px;min-width:0";
+    this.message.style.cssText = "flex:1 1 180px;min-width:0";
     this.message.textContent = content.text;
-    this.actions.style.cssText = list
-      ? "display:flex;flex-direction:column;align-items:stretch;gap:6px;flex:1 1 100%;min-width:0"
-      : "display:flex;align-items:center;gap:6px;flex:none";
-    this.actions.replaceChildren(...content.actions.map((action) => this.buildAction(action, list)));
-    if (list) this.message.append(this.closeButton);
-    else this.actions.appendChild(this.closeButton);
+    this.actions.style.cssText = "display:flex;align-items:center;gap:6px;flex:none";
+    this.actions.replaceChildren(...content.actions.map((action) => this.buildAction(action)), this.closeButton);
   }
 
   close(): void {
@@ -136,14 +127,11 @@ export class VideoNotice {
     this.options.onClose?.();
   }
 
-  private buildAction(action: VideoNoticeAction, list = false): HTMLElement {
+  private buildAction(action: VideoNoticeAction): HTMLElement {
     const element = document.createElement("button");
     element.type = "button";
     element.textContent = action.label;
-    element.title = action.label;
-    element.style.cssText = this.buttonStyle(action.primary === true) + (list
-      ? ";text-align:left;overflow:hidden;text-overflow:ellipsis;max-width:100%"
-      : "");
+    element.style.cssText = this.buttonStyle(action.primary === true);
     element.addEventListener("click", () => action.onClick());
     return element;
   }

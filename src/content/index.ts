@@ -44,7 +44,6 @@ import {
   getJimakuApiKey,
   isJimakuDeclined,
   JIMAKU_API_KEY_STORAGE_KEY,
-  type JimakuChoice,
   type JimakuInstallResult,
 } from "@/subtitles/jimaku";
 import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
@@ -1302,8 +1301,8 @@ let missingJapaneseTimer: number | null = null;
 let missingJapaneseNotice: VideoNotice | null = null;
 /** The notice reports missing subtitles: it goes away once some appear. */
 let missingJapaneseNoticeReportsMissing = false;
-/** Actions of the "installed from Jimaku" notice, kept when the file is then aligned. */
-let jimakuInstalledActions: { videoId: string; actions: VideoNoticeAction[] } | null = null;
+/** The "installed from Jimaku" notice, kept when the file is then aligned. */
+let jimakuInstalledActions: { videoId: string; actions: VideoNoticeAction[]; hint: string } | null = null;
 /** Videos already handled, so the notice appears once per video. */
 const missingJapaneseNotified = new Set<string>();
 
@@ -1377,32 +1376,28 @@ function openJimakuSettings(): void {
   void sendMessage("options:open", { section: "jimaku" }).catch(handleRuntimeError);
 }
 
-async function installFromJimaku(notice: VideoNotice, videoId: string, choice?: JimakuChoice): Promise<void> {
+async function installFromJimaku(notice: VideoNotice, videoId: string): Promise<void> {
   if (missingJapaneseNotice === notice) missingJapaneseNoticeReportsMissing = false;
   notice.update({
-    text: choice ? `Installation de ${choice.name}…` : "Recherche des sous-titres japonais sur Jimaku…",
+    text: "Recherche des sous-titres japonais sur Jimaku…",
     actions: [],
     autoHideMs: null,
   });
   let result: JimakuInstallResult;
   try {
-    result = await sendMessage("jimaku:install", { videoId, choice });
+    result = await sendMessage("jimaku:install", { videoId });
   } catch (err: unknown) {
     handleRuntimeError(err);
     result = { status: "error", message: "Jimaku injoignable." };
   }
   switch (result.status) {
     case "installed": {
-      const { choices, fileName } = result;
-      const actions = [
-        ...(choices.length > 1
-          ? [{ label: "Autres sous-titres disponibles…", onClick: () => chooseJimakuFile(notice, videoId, choices, fileName) }]
-          : []),
-        { label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) },
-      ];
-      jimakuInstalledActions = { videoId, actions };
+      const actions = [{ label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) }];
+      // Picking another file is left to the popup: by the time a file proves wrong, the notice is gone.
+      const hint = result.choices.length > 1 ? " D’autres fichiers sont proposés dans la popup SubJap." : "";
+      jimakuInstalledActions = { videoId, actions, hint };
       notice.update({
-        text: "Sous-titres japonais installés depuis Jimaku.",
+        text: `Sous-titres japonais installés depuis Jimaku.${hint}`,
         autoHideMs: MISSING_JAPANESE_NOTICE_MS,
         actions,
       });
@@ -1429,25 +1424,6 @@ async function installFromJimaku(notice: VideoNotice, videoId: string, choice?: 
     case "error":
       showMissingJapanese(notice, videoId, { text: result.message });
   }
-}
-
-/** The other files of the episode, the installed one first. */
-function chooseJimakuFile(
-  notice: VideoNotice,
-  videoId: string,
-  choices: JimakuChoice[],
-  installed: string,
-): void {
-  notice.update({
-    text: "Choisir un autre fichier Jimaku :",
-    list: true,
-    autoHideMs: null,
-    actions: choices.slice(0, 8).map((choice) => ({
-      label: choice.name,
-      primary: choice.name === installed,
-      onClick: () => void installFromJimaku(notice, videoId, choice),
-    })),
-  });
 }
 
 /** Removed for good: the next visit of this video does not install it again. */
@@ -1500,7 +1476,7 @@ function showAutoSyncNotice({ videoId, segments }: AutoSyncEvent): void {
   missingJapaneseNoticeReportsMissing = false;
   notice.update({
     text: installed
-      ? `Sous-titres japonais installés depuis Jimaku et recalés ${describeSync(segments)} sur la traduction.`
+      ? `Sous-titres japonais installés depuis Jimaku et recalés ${describeSync(segments)} sur la traduction.${installed.hint}`
       : `Sous-titres japonais recalés ${describeSync(segments)} sur la traduction.`,
     autoHideMs: MISSING_JAPANESE_NOTICE_MS,
     actions: [...(installed?.actions ?? []), { label: "Annuler le recalage", onClick: undo }],
