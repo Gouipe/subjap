@@ -1442,14 +1442,14 @@ async function removeJimakuFile(notice: VideoNotice, videoId: string): Promise<v
 // ---------------------------------------------------------------------------
 
 function formatOffset(seconds: number): string {
-  return `${seconds > 0 ? "+" : "−"}${Math.abs(seconds).toFixed(1).replace(".", ",")} s`;
+  return `${seconds > 0 ? "+" : "−"}${Math.abs(seconds).toFixed(1).replace(".", ",")}\u00a0s`;
 }
 
 /** Say it once, with a way back: the file keeps the offset it had, flagged as chosen. */
-/** "de −19,0 s" for one offset, "par parties (de −20,0 s à −19,0 s)" for several. */
+/** "(−19,0 s)" for one offset, "par parties (de −20,0 s à −19,0 s)" for several. */
 function describeSync(segments: SyncSegment[]): string {
   const offsets = segments.map((segment) => segment.offset);
-  if (offsets.length === 1) return `de ${formatOffset(offsets[0] ?? 0)}`;
+  if (offsets.length === 1) return `(${formatOffset(offsets[0] ?? 0)})`;
   const low = Math.min(...offsets);
   const high = Math.max(...offsets);
   return `par parties (de ${formatOffset(low)} à ${formatOffset(high)})`;
@@ -1467,7 +1467,7 @@ function showAutoSyncNotice({ videoId, segments }: AutoSyncEvent): void {
       const record = await getLocalSubtitle(videoId, "primary");
       if (record) await saveLocalSubtitle(videoId, { ...record, syncSegments: undefined, syncChecked: true }, "primary");
       notice.update({
-        text: "Recalage annulé. Le décalage reste réglable via l’icône SubJap.",
+        text: "Synchronisation annulée. Le décalage reste réglable via l’icône SubJap.",
         autoHideMs: MISSING_JAPANESE_NOTICE_MS,
         actions: [],
       });
@@ -1476,10 +1476,10 @@ function showAutoSyncNotice({ videoId, segments }: AutoSyncEvent): void {
   missingJapaneseNoticeReportsMissing = false;
   notice.update({
     text: installed
-      ? `Sous-titres Jimaku installés et recalés ${describeSync(segments)}.${installed.hint}`
-      : `Sous-titres japonais recalés ${describeSync(segments)} sur la traduction.`,
+      ? `Sous-titres Jimaku installés et synchronisés ${describeSync(segments)}.${installed.hint}`
+      : `Sous-titres japonais synchronisés sur la traduction ${describeSync(segments)}.`,
     autoHideMs: MISSING_JAPANESE_NOTICE_MS,
-    actions: [...(installed?.actions ?? []), { label: "Annuler le recalage", onClick: undo }],
+    actions: [...(installed?.actions ?? []), { label: "Annuler la synchro", onClick: undo }],
   });
 }
 

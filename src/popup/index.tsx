@@ -803,7 +803,7 @@ const Popup: React.FC = () => {
                         ) : null}
                         {localSubtitle?.syncSegments?.length ? (
                           <p style={styles.localSubtitleHint}>
-                            Recalé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                            Synchronisé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
                             {" · "}
                             <button
                               style={styles.inlineLink}

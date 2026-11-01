@@ -169,16 +169,16 @@ sur les autres sites. Les anciennes traductions locales restent dans la piste
 secondaire. Sur Netflix et YouTube, une piste locale remplace la piste native de
 son rôle ; le choix **Aucun** masque la piste secondaire locale comme native.
 
-Un fichier japonais local (importé ou installé depuis Jimaku) est recalé une
+Un fichier japonais local (importé ou installé depuis Jimaku) est synchronisé une
 fois automatiquement sur la traduction native du lecteur (FR, sinon EN) : SubJap
 compare les débuts de répliques et applique le décalage trouvé, seulement s’il
 dépasse 1 s et ne fait aucun doute. Quand le fichier vient d’un autre montage
-de l’épisode (générique d’une autre longueur, coupure), il est recalé par
-parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler le
-recalage** ; la popup le rappelle dans **Pistes** et permet aussi de
-l’annuler. Le décalage réglé à la main s’ajoute à ce recalage. Un fichier dont
-le décalage a été réglé à la main avant tout recalage (y compris
-↺) n’est jamais recalé.
+de l’épisode (générique d’une autre longueur, coupure), il est synchronisé par
+parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler la
+synchro** ; la popup le rappelle dans **Pistes** (« Synchronisé · Annuler ») et permet aussi de
+l’annuler. Le décalage réglé à la main s’ajoute à cette synchronisation. Un fichier dont
+le décalage a été réglé à la main avant toute synchronisation (y compris
+↺) n’est jamais synchronisé.
 
 Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
 HTML5 visible, y compris dans un lecteur intégré depuis un autre site. Il ne
