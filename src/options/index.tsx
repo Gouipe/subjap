@@ -678,8 +678,11 @@ function OnboardingWizard(props: {
           <div style={s.lifecycle}>
             <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
             <div>
-              <div style={s.lifecycleTitle}>Inconnu</div>
-              <div style={s.legendText}>Grisé : pas encore prioritaire.</div>
+              <div style={s.lifecycleTitle}>Inconnu ou miné</div>
+              <div style={s.legendText}>
+                Un mot pas encore connu, qu’il ait déjà une carte Anki ou non. Miné, il reste gris
+                tant que sa carte est en apprentissage.
+              </div>
             </div>
 
             <span style={s.lifecyclePair}>
@@ -699,18 +702,12 @@ function OnboardingWizard(props: {
             <div>
               <div style={s.lifecycleTitle}>À miner</div>
               <div style={s.legendText}>
-                Le seul mot inconnu de la phrase : vert s’il est très fréquent, bleu s’il l’est un
-                peu moins. Survolez-le, puis cliquez sur {strong("Mine this")}.
-              </div>
-            </div>
-
-            <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
-            <div>
-              <div style={s.lifecycleTitle}>Miné</div>
-              <div style={s.legendText}>
-                La carte est dans Anki (日本語::Vocabulaire::Compréhension). Le mot reste gris tant
-                que la carte est en apprentissage ; au survol, la fiche indique « Déjà dans Anki ·
-                1 carte ».
+                Un mot ne se colore que s’il est le seul inconnu de sa phrase : tous les autres
+                sont blancs, donc la phrase se comprend avec lui seul. Vert : il est aussi fréquent
+                que les mots que vous connaissez déjà (son rang de fréquence est inférieur à votre
+                nombre de mots connus). Bleu : il fait partie des 300 mots suivants de la liste de
+                fréquence. Plus rare, il reste gris. Survolez-le, puis cliquez sur{" "}
+                {strong("Mine this")}.
               </div>
             </div>
 
@@ -719,7 +716,7 @@ function OnboardingWizard(props: {
               <div style={s.lifecycleTitle}>Acquis</div>
               <div style={s.legendText}>
                 Quand la carte passe en Révision dans Anki, le mot devient blanc et compte dans les
-                {" "}{strong("Mots connus")}. Un oubli ultérieur ne le fait pas redescendre.
+                {" "}{strong("Mots connus")}.
               </div>
             </div>
           </div>
