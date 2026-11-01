@@ -576,7 +576,8 @@ function OnboardingWizard(props: {
   const [downloading, setDownloading] = useState(false);
   const [checkingAnki, setCheckingAnki] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [finished, setFinished] = useState(false);
+  /** Explanation screens shown once the four steps are done. */
+  const [endScreen, setEndScreen] = useState<"lifecycle" | "ready" | null>(null);
 
   const step = Math.min(state.currentStep + 1, 4);
 
@@ -656,13 +657,95 @@ function OnboardingWizard(props: {
     setError(null);
     try {
       await completeKnownWordsStep();
-      setFinished(true);
+      setAnki(await sendMessage("anki:status", {}));
+      setEndScreen("lifecycle");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
 
-  if (finished) {
+  if (endScreen === "lifecycle") {
+    const strong = (text: string): JSX.Element => (
+      <strong style={{ color: C.text }}>{text}</strong>
+    );
+    return (
+      <Page maxWidth={560}>
+        <Header />
+        <div style={s.card}>
+          <h2 style={s.cardTitle}>Le parcours d’un mot</h2>
+          <p style={s.muted}>Dans les sous-titres, chaque mot passe par ces états.</p>
+
+          <div style={s.lifecycle}>
+            <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
+            <div>
+              <div style={s.lifecycleTitle}>Inconnu</div>
+              <div style={s.legendText}>Grisé : pas encore prioritaire.</div>
+            </div>
+
+            <span style={s.lifecyclePair}>
+              <span style={{ ...s.legendWord, color: C.green, borderBottomColor: C.green }}>
+                単語
+              </span>
+              <span
+                style={{
+                  ...s.legendWord,
+                  color: C.priorityBlue,
+                  borderBottomColor: C.priorityBlue,
+                }}
+              >
+                単語
+              </span>
+            </span>
+            <div>
+              <div style={s.lifecycleTitle}>À miner</div>
+              <div style={s.legendText}>
+                Le seul mot inconnu de la phrase : vert s’il est très fréquent, bleu s’il l’est un
+                peu moins. Survolez-le, puis cliquez sur {strong("Mine this")}.
+              </div>
+            </div>
+
+            <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
+            <div>
+              <div style={s.lifecycleTitle}>Miné</div>
+              <div style={s.legendText}>
+                La carte est dans Anki (日本語::Vocabulaire::Compréhension). Le mot reste gris tant
+                que la carte est en apprentissage ; au survol, la fiche indique « Déjà dans Anki ·
+                1 carte ».
+              </div>
+            </div>
+
+            <span style={{ ...s.legendWord, color: C.text }}>単語</span>
+            <div>
+              <div style={s.lifecycleTitle}>Acquis</div>
+              <div style={s.legendText}>
+                Quand la carte passe en Révision dans Anki, le mot devient blanc et compte dans les
+                {" "}{strong("Mots connus")}. Un oubli ultérieur ne le fait pas redescendre.
+              </div>
+            </div>
+          </div>
+
+          <p style={s.mutedSmall}>
+            {strong("Mark Known")} rend un mot blanc tout de suite, sans carte. {strong("Ignore")}{" "}
+            fait de même pour les noms propres ou les onomatopées.
+          </p>
+
+          {!anki?.connected && (
+            <div style={s.warningBox}>
+              Anki n’est pas connecté : {strong("Mine this")} ne crée pas de carte à réviser, donc
+              aucun mot ne devient acquis par ce chemin. Utilisez {strong("Mark Known")}, ou
+              connectez Anki dans les réglages.
+            </div>
+          )}
+
+          <div style={s.btnRow}>
+            <Btn onClick={() => setEndScreen("ready")}>Continuer →</Btn>
+          </div>
+        </div>
+      </Page>
+    );
+  }
+
+  if (endScreen === "ready") {
     return (
       <Page maxWidth={560}>
         <Header />
@@ -671,30 +754,6 @@ function OnboardingWizard(props: {
           <p style={s.muted}>
             Ouvrez une vidéo Re:ANIME, YouTube ou Netflix qui a des sous-titres japonais.
           </p>
-
-          <h3 style={s.guideTitle}>Miner un mot</h3>
-          <p style={s.muted}>
-            Survolez un mot du sous-titre pour voir sa définition, puis cliquez sur{" "}
-            <strong style={{ color: C.text }}>Mine this</strong> pour créer la carte Anki.
-          </p>
-
-          <h3 style={s.guideTitle}>Couleurs</h3>
-          <div style={s.legend}>
-            <span style={{ ...s.legendWord, color: C.green, borderBottomColor: C.green }}>
-              単語
-            </span>
-            <span style={s.legendText}>à miner, très fréquent</span>
-            <span
-              style={{ ...s.legendWord, color: C.priorityBlue, borderBottomColor: C.priorityBlue }}
-            >
-              単語
-            </span>
-            <span style={s.legendText}>à miner, un peu moins fréquent</span>
-            <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
-            <span style={s.legendText}>inconnu, pas encore prioritaire</span>
-            <span style={{ ...s.legendWord, color: C.text }}>単語</span>
-            <span style={s.legendText}>compris</span>
-          </div>
 
           <h3 style={s.guideTitle}>Raccourcis</h3>
           <div style={s.legend}>
@@ -1783,6 +1842,33 @@ const s: Record<string, React.CSSProperties> = {
   legendText: {
     color: C.muted,
     fontSize: 13,
+  },
+  lifecycle: {
+    display: "grid",
+    gridTemplateColumns: "auto 1fr",
+    alignItems: "start",
+    columnGap: 14,
+    rowGap: 14,
+    margin: "16px 0",
+  },
+  lifecyclePair: {
+    display: "flex",
+    gap: 6,
+  },
+  lifecycleTitle: {
+    color: C.text,
+    fontSize: 14,
+    fontWeight: 600,
+    marginBottom: 2,
+  },
+  warningBox: {
+    backgroundColor: "rgba(241,180,109,0.10)",
+    border: `1px solid ${C.amber}`,
+    color: C.amber,
+    borderRadius: 8,
+    padding: "10px 12px",
+    fontSize: 13,
+    marginTop: 12,
   },
   kbd: {
     justifySelf: "start",

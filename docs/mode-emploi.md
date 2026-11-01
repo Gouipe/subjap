@@ -8,6 +8,13 @@
 3. Dans `chrome://extensions`, activer le mode développeur et charger le dossier
    `dist` du dépôt. Après chaque nouvelle compilation,
    cliquer sur **Recharger**.
+4. Suivre l’assistant des Options (dictionnaire, Anki, affichage, mots déjà
+   connus). Après la dernière étape, la page **Le parcours d’un mot** explique
+   les états d’un mot : inconnu (gris), à miner (vert ou bleu), miné (encore
+   gris tant que la carte est en apprentissage), puis acquis (blanc) quand la
+   carte passe en Révision. Si Anki n’est pas connecté, un encadré rappelle que
+   **Mine this** ne crée alors pas de carte à réviser. L’écran final liste les
+   raccourcis.
 
 SubJap crée automatiquement les sous-decks
 `日本語::Vocabulaire::Compréhension` et `日本語::Vocabulaire::Production`, ainsi
