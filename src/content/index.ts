@@ -1394,7 +1394,7 @@ async function installFromJimaku(notice: VideoNotice, videoId: string): Promise<
     case "installed": {
       const actions = [{ label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) }];
       // Picking another file is left to the popup: by the time a file proves wrong, the notice is gone.
-      const hint = result.choices.length > 1 ? " D’autres fichiers sont proposés dans la popup SubJap." : "";
+      const hint = result.choices.length > 1 ? " Autres fichiers dans la popup." : "";
       jimakuInstalledActions = { videoId, actions, hint };
       notice.update({
         text: `Sous-titres japonais installés depuis Jimaku.${hint}`,
@@ -1476,7 +1476,7 @@ function showAutoSyncNotice({ videoId, segments }: AutoSyncEvent): void {
   missingJapaneseNoticeReportsMissing = false;
   notice.update({
     text: installed
-      ? `Sous-titres japonais installés depuis Jimaku et recalés ${describeSync(segments)} sur la traduction.${installed.hint}`
+      ? `Sous-titres Jimaku installés et recalés ${describeSync(segments)}.${installed.hint}`
       : `Sous-titres japonais recalés ${describeSync(segments)} sur la traduction.`,
     autoHideMs: MISSING_JAPANESE_NOTICE_MS,
     actions: [...(installed?.actions ?? []), { label: "Annuler le recalage", onClick: undo }],
