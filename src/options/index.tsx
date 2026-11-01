@@ -2,7 +2,7 @@
 // SubJap — Options page (React)
 //
 // Two modes:
-//   • Onboarding wizard (3 steps) when the user hasn't completed setup yet —
+//   • Onboarding wizard (4 steps) when the user hasn't completed setup yet —
 //     the service worker opens this page on first install.
 //   • Full settings panel once onboarding is complete: dictionary, Anki,
 //     overlay display options and data management.
@@ -34,10 +34,11 @@ import {
   completeAnkiStep,
   skipAnkiStep,
   completeOptionsStep,
+  completeKnownWordsStep,
   resetOnboarding,
 } from "@/onboarding";
 import type { OnboardingState } from "@/onboarding";
-import type { OverlayOptions } from "@/core/types";
+import type { KnownTriageBatch, OverlayOptions } from "@/core/types";
 import { getJimakuApiKey, saveJimakuApiKey } from "@/subtitles/jimaku";
 
 interface DictStatus {
@@ -362,7 +363,222 @@ function Header(props: { children?: React.ReactNode }): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Onboarding wizard (3 steps)
+// Words already known: triage of the frequency list, batch after batch
+// ---------------------------------------------------------------------------
+
+/** Below this share of checked words, the learner is nearing their level. */
+const KNOWN_TRIAGE_LEVEL_HINT_RATIO = 0.3;
+
+function KnownWordsTriage(props: {
+  /** Onboarding: ends the wizard, after saving the current batch or skipping. */
+  onFinish?: () => void;
+}): JSX.Element {
+  const [batch, setBatch] = useState<KnownTriageBatch | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [knownWords, setKnownWords] = useState<number | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
+  const [status, setStatus] = useState<"syncing" | "loading" | "ready" | "saving">("syncing");
+  const [validated, setValidated] = useState(0);
+  const [nearLevel, setNearLevel] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const container = useRef<HTMLDivElement>(null);
+
+  const loadBatch = useCallback(async () => {
+    setStatus("loading");
+    const [next, stats] = await Promise.all([
+      sendMessage("knownTriage:batch", {}),
+      sendMessage("stats:get", {}),
+    ]);
+    setBatch(next);
+    setChecked(new Set(next.items.map((item) => item.key)));
+    setKnownWords(stats.knownWords);
+    setFocused(null);
+    setStatus("ready");
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      // Words already acquired in Anki must not be offered.
+      try {
+        if ((await sendMessage("anki:status", {})).connected) {
+          await sendMessage("anki:syncKnown", {});
+        }
+      } catch (err) {
+        console.info("[SubJap] Anki sync before known-word triage unavailable:", err);
+      }
+      await loadBatch();
+      // Opened from the popup link.
+      if (location.hash === "#mots-connus") {
+        setTimeout(() => container.current?.parentElement?.scrollIntoView({ block: "start" }), 300);
+      }
+    })().catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("ready");
+    });
+  }, [loadBatch]);
+
+  const commit = useCallback(async () => {
+    if (!batch) return;
+    const keys = batch.items.filter((item) => checked.has(item.key)).map((item) => item.key);
+    await sendMessage("knownTriage:commit", { keys, throughRank: batch.throughRank });
+    setValidated((count) => count + 1);
+    setNearLevel(keys.length < batch.items.length * KNOWN_TRIAGE_LEVEL_HINT_RATIO);
+  }, [batch, checked]);
+
+  const run = useCallback(async (action: () => Promise<void>) => {
+    setStatus("saving");
+    setError(null);
+    try {
+      await action();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("ready");
+    }
+  }, []);
+
+  const toggle = (key: string): void => {
+    setChecked((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const items = batch?.items ?? [];
+  const allChecked = items.length > 0 && items.every((item) => checked.has(item.key));
+  const busy = status !== "ready";
+  const detail = items.find((item) => item.key === focused);
+
+  return (
+    <div ref={container}>
+      {error && <div style={s.errorBox}>{error}</div>}
+      {status === "syncing" ? (
+        <p style={s.muted}>Synchronisation avec Anki…</p>
+      ) : batch === null ? (
+        <p style={s.muted}>Chargement…</p>
+      ) : (
+        <>
+          <p style={s.mutedSmall}>
+            Rang {batch.fromRank.toLocaleString("fr-FR")} /{" "}
+            {batch.totalRanks.toLocaleString("fr-FR")}
+            {knownWords !== null && ` · ${knownWords.toLocaleString("fr-FR")} mots connus`}
+          </p>
+          {nearLevel && items.length > 0 && (
+            <div style={s.noticeBox}>
+              Vous approchez de votre niveau : la suite se fera en regardant.
+            </div>
+          )}
+          {items.length === 0 ? (
+            <p style={s.muted}>Toute la liste de fréquence a été triée.</p>
+          ) : (
+            <>
+              <p style={s.muted}>
+                Décochez les mots que vous ne connaissez pas, puis validez. Les mots décochés
+                restent à miner.
+              </p>
+              <div style={s.triageGrid} onMouseLeave={() => setFocused(null)}>
+                {items.map((item) => {
+                  const known = checked.has(item.key);
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-pressed={known}
+                      style={{
+                        ...s.triageChip,
+                        ...(known ? s.triageChipKnown : s.triageChipUnknown),
+                      }}
+                      onClick={() => toggle(item.key)}
+                      onMouseEnter={() => setFocused(item.key)}
+                      onFocus={() => setFocused(item.key)}
+                    >
+                      <span aria-hidden="true" style={s.triageMark}>
+                        {known ? "✓" : ""}
+                      </span>
+                      <span>{item.key}</span>
+                      {item.reading && <span style={s.triageReading}>{item.reading}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={s.triageDetail} aria-live="polite">
+                {detail
+                  ? `${detail.key}${detail.reading ? ` · ${detail.reading}` : ""} — ${
+                      detail.meaning ?? "pas de définition"
+                    }`
+                  : "Survolez un mot pour voir son sens."}
+              </p>
+            </>
+          )}
+          <div style={s.btnRow}>
+            {items.length > 0 && (
+              <Btn
+                onClick={() =>
+                  void run(async () => {
+                    await commit();
+                    await loadBatch();
+                  })
+                }
+                disabled={busy}
+              >
+                {status === "saving" ? "Enregistrement…" : "Valider et continuer →"}
+              </Btn>
+            )}
+            {items.length > 0 && (
+              <Btn
+                variant="ghost"
+                onClick={() =>
+                  setChecked(allChecked ? new Set() : new Set(items.map((item) => item.key)))
+                }
+                disabled={busy}
+              >
+                {allChecked ? "Tout décocher" : "Tout cocher"}
+              </Btn>
+            )}
+            {props.onFinish && (
+              <Btn
+                variant={items.length > 0 ? "ghost" : "primary"}
+                onClick={() =>
+                  void run(async () => {
+                    if (items.length > 0) await commit();
+                    props.onFinish?.();
+                  })
+                }
+                disabled={busy}
+              >
+                Terminer ✓
+              </Btn>
+            )}
+            {props.onFinish && validated === 0 && items.length > 0 && (
+              <Btn variant="ghost" onClick={props.onFinish} disabled={busy}>
+                Passer cette étape
+              </Btn>
+            )}
+            {!props.onFinish && batch.fromRank > 0 && (
+              <Btn
+                variant="ghost"
+                onClick={() =>
+                  void run(async () => {
+                    await sendMessage("knownTriage:restart", {});
+                    setNearLevel(false);
+                    await loadBatch();
+                  })
+                }
+                disabled={busy}
+              >
+                Recommencer depuis le début
+              </Btn>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding wizard (4 steps)
 // ---------------------------------------------------------------------------
 
 function OnboardingWizard(props: {
@@ -379,7 +595,7 @@ function OnboardingWizard(props: {
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
 
-  const step = Math.min(state.currentStep + 1, 3);
+  const step = Math.min(state.currentStep + 1, 4);
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -443,15 +659,25 @@ function OnboardingWizard(props: {
     }
   }, [advanceTo]);
 
-  const finish = useCallback(async () => {
+  const saveDisplayOptions = useCallback(async () => {
     setError(null);
     try {
       await completeOptionsStep(options);
+      await advanceTo(3);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [advanceTo, options]);
+
+  const finish = useCallback(async () => {
+    setError(null);
+    try {
+      await completeKnownWordsStep();
       setFinished(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [options]);
+  }, []);
 
   if (finished) {
     return (
@@ -539,7 +765,7 @@ function OnboardingWizard(props: {
       <Header />
       {/* Stepper */}
       <div style={s.stepper}>
-        {[1, 2, 3].map((n) => (
+        {[1, 2, 3, 4].map((n) => (
           <React.Fragment key={n}>
             <div
               style={{
@@ -549,7 +775,7 @@ function OnboardingWizard(props: {
             >
               {n}
             </div>
-            {n < 3 && <div style={s.stepLine} />}
+            {n < 4 && <div style={s.stepLine} />}
           </React.Fragment>
         ))}
       </div>
@@ -712,8 +938,20 @@ function OnboardingWizard(props: {
             </div>
           </div>
           <div style={s.btnRow}>
-            <Btn onClick={() => void finish()}>Terminer ✓</Btn>
+            <Btn onClick={() => void saveDisplayOptions()}>Continuer →</Btn>
           </div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div style={s.card}>
+          <h2 style={s.cardTitle}>4 · Mots déjà connus</h2>
+          <p style={s.muted}>
+            Facultatif — Vous connaissez déjà du japonais ? Indiquez les mots fréquents que vous
+            connaissez : SubJap ne grisera que les vrais inconnus. Vous pourrez y revenir à tout
+            moment dans les réglages, section « Mots déjà connus ».
+          </p>
+          <KnownWordsTriage onFinish={() => void finish()} />
         </div>
       )}
     </Page>
@@ -987,6 +1225,14 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
         </Row>
       </Section>
 
+      <Section title="Mots déjà connus" id="mots-connus">
+        <p style={s.muted}>
+          Indiquez, par lots, les mots fréquents que vous connaissez déjà. SubJap reprend là où
+          vous vous étiez arrêté ; une erreur se corrige mot par mot avec ✓ Known.
+        </p>
+        <KnownWordsTriage />
+      </Section>
+
       <Section title="Affichage des sous-titres">
         {options && (
           <>
@@ -1100,7 +1346,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             {resetting ? "Effacement…" : "Tout effacer"}
           </Btn>
         </Row>
-        <Row label="Assistant" hint="relance la configuration en 3 étapes">
+        <Row label="Assistant" hint="relance la configuration en 4 étapes">
           <Btn variant="ghost" onClick={props.onStartOnboarding}>
             Recommencer l'onboarding
           </Btn>
@@ -1388,6 +1634,49 @@ const s: Record<string, React.CSSProperties> = {
     color: C.muted,
     fontSize: 14,
     lineHeight: 1.5,
+  },
+  triageGrid: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  triageChip: {
+    display: "inline-flex",
+    alignItems: "baseline",
+    gap: 6,
+    padding: "5px 10px 5px 8px",
+    borderRadius: 6,
+    fontFamily: "inherit",
+    fontSize: 16,
+    cursor: "pointer",
+  },
+  triageChipKnown: {
+    color: C.text,
+    backgroundColor: C.panelRaised,
+    border: `1px solid ${C.panelBorder}`,
+  },
+  triageChipUnknown: {
+    color: C.unknownGrey,
+    backgroundColor: "transparent",
+    border: `1px dashed ${C.panelBorder}`,
+  },
+  triageMark: {
+    display: "inline-block",
+    width: 10,
+    fontSize: 12,
+    color: C.green,
+  },
+  triageReading: {
+    fontSize: 12,
+    color: C.muted,
+  },
+  triageDetail: {
+    minHeight: 20,
+    margin: "12px 0 0",
+    fontSize: 13,
+    lineHeight: 1.5,
+    color: C.muted,
   },
   link: {
     color: C.accent,

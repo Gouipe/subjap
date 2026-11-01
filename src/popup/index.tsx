@@ -52,6 +52,8 @@ interface DictStatus {
 type DisplayOptions = Pick<OverlayOptions, "subtitleScale" | "showFurigana">;
 
 const SUBTITLE_SCALE_STEP = 10;
+/** Below this many known words, the popup points to the known-word triage. */
+const KNOWN_WORDS_LINK_THRESHOLD = 100;
 
 const LOCAL_SUBTITLE_ROLES: LocalSubtitleRole[] = ["primary", "secondary"];
 /** The offset menu reopens as the user last left it. */
@@ -966,6 +968,17 @@ const Popup: React.FC = () => {
       )}
       </>)}
 
+      {enabled !== false && onboarded && stats && stats.knownWords < KNOWN_WORDS_LINK_THRESHOLD && (
+        <button
+          style={styles.knownWordsLink}
+          onClick={() => {
+            void sendMessage("options:open", { section: "mots-connus" }).then(() => window.close());
+          }}
+        >
+          Indiquer les mots que je connais déjà →
+        </button>
+      )}
+
       <div style={styles.footer}>
         <span style={styles.footerStat}>
           {stats ? `${stats.knownWords.toLocaleString("fr-FR")} mots connus` : ""}
@@ -1570,6 +1583,17 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 6,
     color: "#b2b6bf",
+  },
+  knownWordsLink: {
+    display: "block",
+    marginTop: 10,
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    color: "#ff624d",
+    fontSize: 12,
+    textAlign: "left",
+    cursor: "pointer",
   },
   footerLink: {
     padding: 0,

@@ -33,6 +33,7 @@ import {
   WORD_STATUS_PRIORITY,
 } from "./anki-known";
 import { prepareAiEnrichmentCandidates } from "./ai-enrichment";
+import { commitKnownTriage, nextKnownTriageBatch, restartKnownTriage } from "./known-triage";
 import {
   ANKI_COMPREHENSION_DECK,
   ANKI_PRODUCTION_DECK,
@@ -434,6 +435,21 @@ onMessage("frequency:batch", async ({ terms }) => {
   });
 
   return { ranks };
+});
+
+// ── knownTriage:* ─────────────────────────────────────────────────────────
+
+onMessage("knownTriage:batch", async () => {
+  await ensureFrequencyRanks();
+  return nextKnownTriageBatch();
+});
+
+onMessage("knownTriage:commit", async ({ keys, throughRank }) => {
+  await commitKnownTriage(keys, throughRank);
+});
+
+onMessage("knownTriage:restart", async () => {
+  await restartKnownTriage();
 });
 
 // ── mine:create ───────────────────────────────────────────────────────────

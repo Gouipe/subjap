@@ -194,6 +194,25 @@ export interface WordState {
   source: "manual" | "frequency-list" | "import" | "default";
 }
 
+export interface KnownTriageItem {
+  key: string;
+  rank: number;
+  /** Kana reading, only for words written with kanji. */
+  reading?: string;
+  /** Short English meaning from JMdict, when the dictionary is installed. */
+  meaning?: string;
+}
+
+export interface KnownTriageBatch {
+  items: KnownTriageItem[];
+  /** Rank already triaged before this batch. */
+  fromRank: number;
+  /** Rank the next batch resumes after once this one is committed. */
+  throughRank: number;
+  /** Highest rank of the frequency list. */
+  totalRanks: number;
+}
+
 export interface AnkiWordPresence {
   key: string; // normalized lexical identity from the Anki `Mot` field
   noteCount: number;
@@ -304,6 +323,15 @@ export interface MessageMap {
   };
   "word:unsetResult": { state: WordState | null };
   "word:batch": WordState[];
+
+  // Known-word triage: frequent words without any state, in batches
+  "knownTriage:batch": Record<string, never>;
+  "knownTriage:batchResult": KnownTriageBatch;
+  /** Mark `keys` known and resume the next batch after `throughRank`. */
+  "knownTriage:commit": { keys: string[]; throughRank: number };
+  "knownTriage:commitResult": void;
+  "knownTriage:restart": Record<string, never>;
+  "knownTriage:restartResult": void;
 
   // Frequency ranks
   "frequency:batch": { terms: string[] };

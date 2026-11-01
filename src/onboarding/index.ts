@@ -2,10 +2,11 @@
 // SubJap — Onboarding flow controller
 // ---------------------------------------------------------------------------
 //
-// Orchestrates the 3-step onboarding process:
+// Orchestrates the 4-step onboarding process:
 //   1. Dictionary pack download
 //   2. AnkiConnect detection + deck/model setup
 //   3. Default options
+//   4. Words already known (optional triage, also available in the options)
 //
 // The actual UI pages are built separately (options page, popup).
 // This module provides the logic layer: check completion status,
@@ -89,7 +90,7 @@ export async function skipAnkiStep(): Promise<void> {
   await saveOnboardingState(state);
 }
 
-/** Step 3: Save default options and mark onboarding as complete. */
+/** Step 3: Save default options. */
 export async function completeOptionsStep(
   options: Partial<OverlayOptions> = {},
 ): Promise<void> {
@@ -98,8 +99,15 @@ export async function completeOptionsStep(
 
   const state = await getOnboardingState();
   state.optionsConfigured = true;
+  state.currentStep = Math.max(state.currentStep, 3);
+  await saveOnboardingState(state);
+}
+
+/** Step 4: words already known (done or skipped); onboarding is complete. */
+export async function completeKnownWordsStep(): Promise<void> {
+  const state = await getOnboardingState();
   state.completed = true;
-  state.currentStep = 3;
+  state.currentStep = 4;
   await saveOnboardingState(state);
 }
 

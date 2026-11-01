@@ -62,6 +62,19 @@ acquis. Les choix manuels dans SubJap et les mots ignorés restent prioritaires.
 La synchronisation a lieu à l’ouverture de Netflix, au retour sur l’onglet et
 toutes les deux minutes, avec Anki ouvert. La popup seule ne la déclenche pas.
 
+### Indiquer les mots déjà connus
+
+Pour ne pas partir de zéro, la dernière étape de l’assistant et la section
+**Mots déjà connus** des Options proposent les mots les plus fréquents des
+sous-titres par lots de 50, tous cochés. Décocher ceux qu’on ne connaît pas
+(le sens apparaît au survol), puis **Valider et continuer** : les mots cochés
+deviennent connus comme avec **Mark Known**, les autres restent à miner et ne
+sont plus proposés. Les mots qui ont déjà un état ou une carte Anki sont sautés,
+après une synchronisation Anki si Anki est ouvert. SubJap reprend au rang
+atteint ; **Recommencer depuis le début** repropose les mots décochés. Tant que
+le compteur est sous 100 mots connus, la popup affiche un lien vers cette
+section.
+
 Pour regarder une vidéo sans SubJap, utiliser l’interrupteur en haut de la
 popup. Désactivé, SubJap ne fait plus rien sur aucun site : pas d’overlay, pas
 de raccourcis, sous-titres natifs inchangés. L’effet est immédiat dans les
