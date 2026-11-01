@@ -147,8 +147,8 @@ le repli reste actif. La traduction locale conserve sa priorité indépendante.
 Sur Netflix, une traduction active peut aussi être affichée seule lorsqu’aucune
 cue japonaise n’est active. Elle garde ses propres horaires et ses réglages de
 langue et de visibilité ; elle ne crée pas de cue japonaise pour la navigation
-ou le mining. Les autres lecteurs conservent leur comportement
-habituel lorsque leur piste japonaise est absente.
+ou le mining. Les autres lecteurs n’affichent une traduction seule que
+pendant le silence entre deux segments japonais qu’elle couvre.
 
 Avec une piste officielle active, un intervalle sans segment reste vide même
 si Netflix conserve brièvement un ancien texte dans le DOM. Les échéances des

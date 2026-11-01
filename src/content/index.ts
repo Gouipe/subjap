@@ -218,6 +218,8 @@ let pairedTranslation: {
   cue: SubtitleCue;
   japaneseCues: Map<string, { cue: SubtitleCue; lastSeen: number }>;
 } | null = null;
+/** Key of the translation shown alone in the silence between two of its Japanese lines. */
+let translationKeptThroughSilence: string | null = null;
 /** Share of a translation covered by its Japanese cues that makes it their counterpart. */
 const TRANSLATION_COUNTERPART_COVERAGE = 0.5;
 /** How long after its Japanese line a translation may start and still appear with it. */
@@ -598,7 +600,8 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
   hoveredToken = null;
 
   if (japaneseCues.length === 0) {
-    if (adapter.id === "netflix" && translation) {
+    // Other players show a translation alone only between two of its Japanese lines.
+    if (translation && (adapter.id === "netflix" || translation.cueKey === translationKeptThroughSilence)) {
       spanRegistry.clear();
       lastRenderedCues = [];
       cueNavigator.observe([]);
@@ -848,10 +851,14 @@ function pairTranslationWithJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
       ? paired.japaneseCues
       : null;
 
+  translationKeptThroughSilence = null;
   if (japaneseCues.length === 0) {
     // Already shown with a Japanese line, a translation that also covers the
     // next one stays through the silence between them.
-    if (active && japaneseShownWithActive && continuesIntoLaterJapaneseLine(active)) return cues;
+    if (active && japaneseShownWithActive && continuesIntoLaterJapaneseLine(active)) {
+      translationKeptThroughSilence = subtitleCueKey(active);
+      return cues;
+    }
     if (active && isCounterpartOf(active, japaneseShownWithActive)) {
       return cues.filter((cue) => cue !== active);
     }
@@ -1686,6 +1693,7 @@ function disable(): void {
   cueRevision++;
   lastCues = [];
   pairedTranslation = null;
+  translationKeptThroughSilence = null;
   spanRegistry.clear();
   lastRenderedCues = [];
   cueNavigationSessionId = null;
