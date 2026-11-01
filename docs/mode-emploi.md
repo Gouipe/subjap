@@ -71,7 +71,7 @@ sous-titres par lots de 50, tous cochés. Décocher ceux qu’on ne connaît pas
 deviennent connus comme avec **Mark Known**, les autres restent à miner et ne
 sont plus proposés. Les mots qui ont déjà un état ou une carte Anki sont sautés,
 après une synchronisation Anki si Anki est ouvert. SubJap reprend au rang
-atteint ; **Recommencer depuis le début** repropose les mots décochés. Tant que
+atteint ; **Revoir les mots décochés** les repropose. Tant que
 le compteur est sous 100 mots connus, la popup affiche un lien vers cette
 section.
 

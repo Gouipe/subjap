@@ -547,12 +547,12 @@ function KnownWordsTriage(props: {
                 }
                 disabled={busy}
               >
-                Terminer ✓
+                Valider et terminer ✓
               </Btn>
             )}
             {props.onFinish && validated === 0 && items.length > 0 && (
               <Btn variant="ghost" onClick={props.onFinish} disabled={busy}>
-                Passer cette étape
+                Passer sans enregistrer
               </Btn>
             )}
             {!props.onFinish && batch.fromRank > 0 && (
@@ -567,7 +567,7 @@ function KnownWordsTriage(props: {
                 }
                 disabled={busy}
               >
-                Recommencer depuis le début
+                Revoir les mots décochés
               </Btn>
             )}
           </div>
