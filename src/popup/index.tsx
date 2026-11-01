@@ -23,9 +23,11 @@ import {
   getJapaneseOffset,
   getLinkedOffsets,
   getTranslationOffset,
+  markTranslationOffsetChecked,
   saveJapaneseOffset,
   saveLinkedOffsets,
   saveTranslationOffset,
+  translationOffsetStorageKey,
 } from "@/subtitles/video-offset";
 import {
   getLocalSubtitle,
@@ -217,6 +219,23 @@ const Popup: React.FC = () => {
     });
   }, []);
 
+  // The translation's offset can be set automatically while the popup is open.
+  useEffect(() => {
+    if (!videoId) return;
+    const key = translationOffsetStorageKey(videoId);
+    const onChange = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area !== "local" || !changes[key]) return;
+      const value = changes[key].newValue as unknown;
+      const seconds = typeof value === "number" && Number.isFinite(value) ? value : 0;
+      setPlayerOffsets((current) => ({ ...current, secondary: seconds }));
+      if (!localSubtitles.secondary) {
+        setOffsetInputs((current) => ({ ...current, secondary: seconds.toFixed(2) }));
+      }
+    };
+    chrome.storage.onChanged.addListener(onChange);
+    return () => chrome.storage.onChanged.removeListener(onChange);
+  }, [localSubtitles.secondary, videoId]);
+
   const toggleOffsetMenu = useCallback((open: boolean) => {
     setOffsetOpen(open);
     void chrome.storage.local.set({ [OFFSET_MENU_OPEN_KEY]: open }).catch(() => {
@@ -375,6 +394,8 @@ const Popup: React.FC = () => {
       setLocalSubtitleBusy(true);
       setLocalSubtitleError(null);
       try {
+        // The user's own translation offset is never replaced automatically.
+        if (role === "secondary" && videoId) await markTranslationOffsetChecked(videoId);
         await Promise.all([
           persistOffset(role, rounded),
           linkedOffsets && !alone && showTranslationOffset && delta !== 0
@@ -387,7 +408,7 @@ const Popup: React.FC = () => {
         setLocalSubtitleBusy(false);
       }
     },
-    [linkedOffsets, persistOffset, showTranslationOffset, trackOffset],
+    [linkedOffsets, persistOffset, showTranslationOffset, trackOffset, videoId],
   );
 
   const chooseLinkedOffsets = useCallback(async (linked: boolean) => {

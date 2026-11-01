@@ -160,7 +160,10 @@ valeur positive l’affiche plus tard, les boutons ajustent de 0,1 s et ↺ reme
 fichier, avec le fichier. Avec **Décaler les deux ensemble** coché (choix
 mémorisé pour toutes les vidéos), modifier une piste décale l’autre d’autant,
 par exemple quand toute la vidéo est en avance sur ses sous-titres ; ↺ ne
-remet à zéro que sa propre piste. Sur
+remet à zéro que sa propre piste. La première fois qu’une vidéo est lue, le
+décalage de la traduction du lecteur est réglé automatiquement pour que ses
+lignes commencent avec les lignes japonaises, sauf si tu l’as déjà modifié ;
+tu peux ensuite le changer comme les autres. Sur
 Netflix, le japonais lu seulement à l’écran (sans piste chargée) ne peut pas
 être décalé.
 

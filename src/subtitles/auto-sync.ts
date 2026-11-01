@@ -201,17 +201,18 @@ const MAX_TRANSLATION_SHIFT_SECONDS = 2;
 
 /**
  * Seconds to add to the translation's lines so that they start with the
- * Japanese ones, measured on the whole episode; 0 when unclear. Translations
- * often start a little before the voice, which the Japanese follows.
+ * Japanese ones, measured on the whole episode; null when unclear.
+ * Translations often start a little before the voice, which the Japanese
+ * follows.
  */
-export function estimateTranslationShift(japaneseStarts: number[], translationStarts: number[]): number {
+export function estimateTranslationShift(japaneseStarts: number[], translationStarts: number[]): number | null {
   const japanese = sorted(japaneseStarts);
   const reference = sorted(translationStarts);
-  if (japanese.length < MIN_CUES || reference.length < MIN_CUES) return 0;
+  if (japanese.length < MIN_CUES || reference.length < MIN_CUES) return null;
   const offset = votePeaks(japanese, reference, 1)[0];
-  if (offset === undefined || Math.abs(offset) > MAX_TRANSLATION_SHIFT_SECONDS) return 0;
+  if (offset === undefined || Math.abs(offset) > MAX_TRANSLATION_SHIFT_SECONDS) return null;
   const matched = countTrue(matchesAt(japanese, reference, offset));
-  if (matched < MIN_MATCHED || matched / japanese.length < MIN_MATCHED_SHARE) return 0;
+  if (matched < MIN_MATCHED || matched / japanese.length < MIN_MATCHED_SHARE) return null;
   return -offset;
 }
 

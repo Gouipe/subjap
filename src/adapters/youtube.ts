@@ -277,10 +277,11 @@ export class YouTubeAdapter implements PlatformAdapter {
 
   private publish(): void {
     if (!this.callback) return;
+    this.offsets.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
     this.autoSync.run(
       this.videoId ? `youtube:${this.videoId}` : null,
       this.localPrimaryCues[0]?.source?.sessionId,
-      [this.catalog.cues("fr"), this.catalog.cues("en")],
+      [this.catalog.cues("fr"), this.catalog.cues("en")].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
     );
     const usable = this.canUsePlayback();
     this.applyNativeVisibility();
@@ -290,6 +291,7 @@ export class YouTubeAdapter implements PlatformAdapter {
     const nativeJapanese = this.info?.tracks.some((track) => track.language === "ja") ? this.catalog.cues("ja") : [];
     const japanese = this.japaneseCues(nativeJapanese);
     const translation = this.translationCues();
+    if (!this.localSecondaryCues.length) this.offsets.alignTranslation(japanese, translation);
     const cues = usable ? [...activeSubtitleCues(japanese, time), ...activeSubtitleCues(translation, time)] : [];
     const signature = `${this.getNavigationSessionId()}:${japanese.length}:${cues.map((cue) => cue.id).join("|")}`;
     if (signature === this.lastSignature) return;

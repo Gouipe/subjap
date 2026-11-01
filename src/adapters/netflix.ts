@@ -632,8 +632,9 @@ export class NetflixAdapter implements PlatformAdapter {
     this.autoSync.run(
       this.currentWatchId(),
       this.localPrimaryCues[0]?.source?.sessionId,
-      [this.tracks.cues("fr"), this.tracks.cues("en")],
+      [this.nativeTranslationCues("fr"), this.nativeTranslationCues("en")],
     );
+    this.alignNativeTranslation();
     if (this.ensurePlaybackSession()) {
       // Do not attach a mutation timestamp captured for the previous title to
       // the new episode. The next DOM/track emission will use its own clock.
@@ -829,6 +830,20 @@ export class NetflixAdapter implements PlatformAdapter {
   private nativeTranslationCues(language: SecondarySubtitleLanguage): SubtitleCue[] {
     this.offsets.setVideo(this.currentWatchId());
     return this.offsets.shiftPlayerTranslation(this.tracks.cues(language));
+  }
+
+  /** Starts Netflix's translation with the timed Japanese, once per video. */
+  private alignNativeTranslation(): void {
+    if (this.preferredSecondaryLanguage === "none" || this.localTranslationCues.length > 0) return;
+    const official = this.playerJapanese(this.tracks.cues("ja"));
+    const japanese = this.localPrimaryCues.length ? this.localPrimaryCues
+      : official.length ? official : this.playerJapanese(this.standardCues);
+    const languagePriority: SecondarySubtitleLanguage[] =
+      this.preferredSecondaryLanguage === "fr" ? ["fr", "en"] : ["en", "fr"];
+    const translation = languagePriority
+      .map((language) => this.nativeTranslationCues(language))
+      .find((cues) => cues.length > 0);
+    if (translation) this.offsets.alignTranslation(japanese, translation);
   }
 
   getTranslationCueStartingIn(after: number, until: number): SubtitleCue | null {

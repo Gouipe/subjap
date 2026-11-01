@@ -469,11 +469,15 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     if (!this.callback) return;
     this.applyNativeVisibility();
     const translations = this.artplayer?.translations ?? {};
+    this.offsets.setVideo(this.videoId);
     this.autoSync.run(
       this.videoId,
       this.localPrimaryCues[0]?.source?.sessionId,
-      [translations.fr ?? [], translations.en ?? []],
+      [translations.fr ?? [], translations.en ?? []].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
     );
+    if (!this.localSecondaryCues.length) {
+      this.offsets.alignTranslation(this.japaneseCues(), this.translationCues());
+    }
     const video = this.getVideoElement();
     const time = video?.currentTime ?? 0;
     const usable = !!video && video.readyState >= 1;
