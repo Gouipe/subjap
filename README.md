@@ -34,6 +34,12 @@ Puis dans Chrome ou Edge :
 Cette installation utilise le mode développeur. L’extension reste liée au
 dossier `dist` : ne pas le déplacer après l’avoir chargée.
 
+Pour passer à un autre dossier, par exemple d’un zip déjà compilé à son propre
+build, cliquer à nouveau sur **Charger l’extension non empaquetée** et choisir
+le nouveau dossier. L’extension garde le même identifiant, donc les mêmes
+données. Ne pas cliquer sur **Supprimer** avant : la suppression efface les
+données de SubJap.
+
 ### Configurer Anki et l’audio
 
 1. Installer AnkiConnect depuis sa page AnkiWeb, puis redémarrer Anki et le
