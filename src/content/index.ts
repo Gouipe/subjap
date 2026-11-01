@@ -820,78 +820,142 @@ function isJapaneseTrack(language: string | undefined): boolean {
 
 /**
  * Tracks time their lines independently, so a translation rarely starts and
- * ends exactly with the Japanese line it accompanies:
+ * ends exactly with the Japanese line it accompanies. Each Japanese line is
+ * shown with its own translation, the one overlapping it the most:
+ * - a translation starting while an earlier Japanese line is still shown,
+ *   but belonging to a line still to come, waits for that line; the earlier
+ *   translation stays meanwhile;
  * - when the translation ends first, keep it while one of those Japanese cues
  *   is still shown, until another translation replaces it, so the Japanese
  *   line does not drop into its place and jump back up with the next pair;
  * - when the Japanese line ends first, or starts after its translation, that
  *   part of the translation is not shown alone: it would flash, in
  *   particular when hidden because every word is known;
- * - when the translation starts shortly after a Japanese line shown without
- *   one, it appears with that line, so its arrival does not push the
- *   Japanese line up.
+ * - a translation starting at most 1 s after its Japanese line appears with
+ *   that line, in place of the previous translation, so the pair appears
+ *   together.
  * A translation only briefly overlapping Japanese cues (a burned-in sign) is
  * not their counterpart and is still shown alone outside them.
  */
 function pairTranslationWithJapaneseCues(cues: SubtitleCue[]): SubtitleCue[] {
   const japaneseCues = cues.filter((cue) => isJapaneseTrack(cue.language));
-  const translation = selectTranslationCue(cues);
+  const active = selectTranslationCue(cues);
   const paired = pairedTranslation;
-  const japaneseShownWithTranslation =
-    paired && translation && subtitleCueKey(paired.cue) === subtitleCueKey(translation)
+  const japaneseShownWithActive =
+    paired && active && subtitleCueKey(paired.cue) === subtitleCueKey(active)
       ? paired.japaneseCues
       : null;
 
-  if (translation && japaneseCues.length > 0) {
-    const pairedJapanese = japaneseShownWithTranslation ??
-      new Map<string, { cue: SubtitleCue; lastSeen: number }>();
-    const lastSeen = adapter.getCurrentTime();
-    for (const cue of japaneseCues) pairedJapanese.set(subtitleCueKey(cue), { cue, lastSeen });
-    pairedTranslation = { cue: translation, japaneseCues: pairedJapanese };
-    return cues;
-  }
-
-  if (translation) {
-    if (isCounterpartOf(translation, japaneseShownWithTranslation)) {
-      return cues.filter((cue) => cue !== translation);
+  if (japaneseCues.length === 0) {
+    if (active && isCounterpartOf(active, japaneseShownWithActive)) {
+      return cues.filter((cue) => cue !== active);
     }
     pairedTranslation = null;
     return cues;
   }
 
-  if (
+  const now = adapter.getCurrentTime();
+  const withoutActive = active ? cues.filter((cue) => cue !== active) : cues;
+  let shown: SubtitleCue | null = null;
+  /** Kept from earlier Japanese lines, it stays paired with them only. */
+  let held = false;
+  if (active && !belongsToLaterJapaneseLine(active, japaneseCues, now)) {
+    shown = active;
+  } else if (
     paired &&
+    (!active || subtitleCueKey(paired.cue) !== subtitleCueKey(active)) &&
     japaneseCues.some((cue) => paired.japaneseCues.has(subtitleCueKey(cue))) &&
     selectTranslationCue([paired.cue])
   ) {
-    return [...cues, paired.cue];
+    shown = paired.cue;
+    held = true;
   }
-  pairedTranslation = null;
-  return withUpcomingTranslation(cues, japaneseCues);
+
+  const latest = primarySubtitleCue(japaneseCues);
+  if (latest && (!shown || !isOwnedBy(shown, latest, japaneseCues))) {
+    const own = ownTranslationStartingSoon(latest, japaneseCues, now);
+    if (own) {
+      shown = own;
+      held = false;
+    }
+  }
+
+  if (!shown) {
+    pairedTranslation = null;
+    return withoutActive;
+  }
+  if (held) return [...withoutActive, shown];
+  const pairedJapanese = paired && subtitleCueKey(paired.cue) === subtitleCueKey(shown)
+    ? paired.japaneseCues
+    : new Map<string, { cue: SubtitleCue; lastSeen: number }>();
+  for (const cue of japaneseCues) pairedJapanese.set(subtitleCueKey(cue), { cue, lastSeen: now });
+  pairedTranslation = { cue: shown, japaneseCues: pairedJapanese };
+  return shown === active ? cues : [...withoutActive, shown];
 }
 
-/** Adds the translation starting just after Japanese cues shown without one. */
-function withUpcomingTranslation(cues: SubtitleCue[], japaneseCues: SubtitleCue[]): SubtitleCue[] {
-  const latest = primarySubtitleCue(japaneseCues);
-  if (!latest) return cues;
-  const now = adapter.getCurrentTime();
-  const upcoming = adapter.getTranslationCueStartingIn?.(
-    now,
-    latest.start + TRANSLATION_ANTICIPATION_SECONDS,
-  );
-  if (!upcoming || !selectTranslationCue([upcoming])) return cues;
-  // A provisional DOM end only means the line is still shown: it may well
-  // last through a translation starting this soon.
-  const coverage = new Map(japaneseCues.map((cue) => [
-    subtitleCueKey(cue),
-    { cue, lastSeen: cue.endConfirmed === false ? upcoming.end : now },
-  ]));
-  if (!isCounterpartOf(upcoming, coverage)) return cues;
-  pairedTranslation = {
-    cue: upcoming,
-    japaneseCues: new Map(japaneseCues.map((cue) => [subtitleCueKey(cue), { cue, lastSeen: now }])),
-  };
-  return [...cues, upcoming];
+/** Japanese timeline cues whose bounds are known, shown or not. */
+function knownJapaneseCues(): SubtitleCue[] {
+  return (adapter.getNavigationCues?.() ?? [])
+    .filter((cue) => cue.endConfirmed !== false && normalizeCueText(cue.text).length > 0);
+}
+
+/**
+ * The Japanese line a translation overlaps the most, among those shown and
+ * the timeline's. A provisional DOM end only means the line is still shown:
+ * it may well last through the translation.
+ */
+function owningJapaneseCue(translation: SubtitleCue, shown: SubtitleCue[]): SubtitleCue | null {
+  let owner: SubtitleCue | null = null;
+  let longest = 0;
+  for (const cue of [...shown, ...knownJapaneseCues()]) {
+    const end = cue.endConfirmed === false ? Math.max(cue.end, translation.end) : cue.end;
+    const overlap = Math.min(end, translation.end) - Math.max(cue.start, translation.start);
+    if (overlap > longest) {
+      owner = cue;
+      longest = overlap;
+    }
+  }
+  return owner;
+}
+
+function isOwnedBy(translation: SubtitleCue, japanese: SubtitleCue, shown: SubtitleCue[]): boolean {
+  const owner = owningJapaneseCue(translation, shown);
+  return !!owner && subtitleCueKey(owner) === subtitleCueKey(japanese);
+}
+
+/** True when a translation belongs to a Japanese line that has not started yet. */
+function belongsToLaterJapaneseLine(
+  translation: SubtitleCue,
+  shown: SubtitleCue[],
+  now: number,
+): boolean {
+  const owner = owningJapaneseCue(translation, shown);
+  if (!owner || owner.start <= now) return false;
+  const ownerKey = subtitleCueKey(owner);
+  return !shown.some((cue) => subtitleCueKey(cue) === ownerKey);
+}
+
+/** The translation of this Japanese line, if it starts at most 1 s after it. */
+function ownTranslationStartingSoon(
+  latest: SubtitleCue,
+  japaneseCues: SubtitleCue[],
+  now: number,
+): SubtitleCue | null {
+  const until = latest.start + TRANSLATION_ANTICIPATION_SECONDS;
+  if (until <= now) return null;
+  const candidates = adapter.getTranslationCuesIn?.(now, until) ??
+    [adapter.getTranslationCueStartingIn?.(now, until)].filter((cue): cue is SubtitleCue => !!cue);
+  return candidates.find((candidate) => {
+    if (candidate.start > until || candidate.end <= now || !selectTranslationCue([candidate])) {
+      return false;
+    }
+    if (!isOwnedBy(candidate, latest, japaneseCues)) return false;
+    const coverage = new Map(japaneseCues.map((cue) => [
+      subtitleCueKey(cue),
+      { cue, lastSeen: cue.endConfirmed === false ? candidate.end : now },
+    ]));
+    return isCounterpartOf(candidate, coverage);
+  }) ?? null;
 }
 
 /**
@@ -908,9 +972,7 @@ function isCounterpartOf(
     // A provisional DOM end is not known yet: the cue lasted until it was last shown.
     ...[...(shownWith?.values() ?? [])].map(({ cue, lastSeen }): [number, number] =>
       [cue.start, cue.endConfirmed === false ? lastSeen : cue.end]),
-    ...(adapter.getNavigationCues?.() ?? [])
-      .filter((cue) => cue.endConfirmed !== false && normalizeCueText(cue.text).length > 0)
-      .map((cue): [number, number] => [cue.start, cue.end]),
+    ...knownJapaneseCues().map((cue): [number, number] => [cue.start, cue.end]),
   ];
   const intervals = japaneseIntervals
     .map(([start, end]): [number, number] =>

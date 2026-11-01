@@ -8,13 +8,18 @@ Les retours à la ligne ne créent pas de nouvelles positions dans la vidéo.
 Une phrase répartie entre plusieurs segments reste répartie entre plusieurs
 sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
 
-Les pistes japonaise et de traduction gardent leurs propres horaires. Une
+Les pistes japonaise et de traduction gardent leurs propres horaires. Chaque
+segment japonais est affiché avec sa propre traduction : celle qu’il recouvre
+le plus dans le temps. Une traduction qui commence alors qu’un segment
+japonais précédent est encore affiché, mais qui appartient à un segment à
+venir, attend le début de celui-ci ; la traduction précédente reste affichée
+en attendant. Une
 traduction qui se termine avant le segment japonais qu’elle accompagne reste
 affichée jusqu’à la fin de ce segment ou jusqu’à la traduction suivante, pour
 que la ligne japonaise ne descende pas brièvement à sa place. De même, une
-traduction qui commence au plus 1 s après un segment japonais affiché sans
-traduction apparaît dès ce segment, pour que son arrivée ne fasse pas
-remonter la ligne japonaise. À l’inverse,
+traduction qui commence au plus 1 s après son segment japonais apparaît dès
+ce segment, à la place de la traduction précédente, pour que la paire
+apparaisse ensemble. À l’inverse,
 lorsque le segment japonais commence après sa traduction ou se termine avant
 elle, cette partie de la traduction n’est pas affichée seule : elle
 apparaîtrait brièvement, notamment lorsqu’elle est masquée parce que tous les
