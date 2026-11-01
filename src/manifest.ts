@@ -5,6 +5,10 @@ const manifest: ManifestV3Export = {
   name: "SubJap",
   version: "0.1.0",
   description: "Apprendre le japonais en regardant des anime",
+  // Public key pinning the extension ID to cahpadjckhokgbglcanpijmloignnecd.
+  // Without it, an unpacked extension's ID derives from its folder path, so
+  // loading a build from another folder would start with empty storage.
+  key: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsJ5GaZoLANEY8QBrj4PxIMwCaFR/B3g9AmMyaiBzfM7B2zNe0xY4DzvjashKCyK9b7hWl4K/D8evAxD6iMWT+VebgFP95ncqX/GydvuP+4+8RNqzGmOVy3pNnsY/g1ls0WugoNJUzSstrYK8g8aaJJyJEh7yJ31Bccqx2nCqzMxieHTQ/NgiyDWuAhyB0ZkeQbFlsf0esniEzaesbMgVWxSaZhpmPg+xlfvV7R6tMYFgUQ3BcLo/5VIgLRRwgf8iKpP1AeI0r7tZvUNVVGqHozYg7JSXx+e8jJMbs+CSUvMUEH4e3WytHRnr3d+mFV0iNiap49zwWt+wRhki8sKRYQIDAQAB",
   permissions: [
     "storage",
     "alarms",
