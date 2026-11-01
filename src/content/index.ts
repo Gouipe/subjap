@@ -1105,7 +1105,7 @@ function showMiningCaptureWarning(): void {
     <div style="max-width:420px;padding:24px;border-radius:12px;background:#14161b;color:#f4f1ea;box-shadow:0 8px 8px rgba(0,0,0,.42)">
       <div style="font-size:17px;font-weight:600;margin-bottom:12px">Enregistrement audio désactivé</div>
       <div style="line-height:1.5;color:#b2b6bf">
-        Active d’abord « Audio de l’onglet » depuis la popup SubJap pour pouvoir miner une phrase avec son audio.
+        Active d’abord « Audio de l’onglet » via l’icône SubJap pour pouvoir miner une phrase avec son audio.
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:20px">
         <button data-action="close" style="padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer">Fermer</button>
@@ -1394,7 +1394,7 @@ async function installFromJimaku(notice: VideoNotice, videoId: string): Promise<
     case "installed": {
       const actions = [{ label: "Retirer", onClick: () => void removeJimakuFile(notice, videoId) }];
       // Picking another file is left to the popup: by the time a file proves wrong, the notice is gone.
-      const hint = result.choices.length > 1 ? "\nAutres fichiers au choix dans la popup." : "";
+      const hint = result.choices.length > 1 ? "\nAutres fichiers au choix via l’icône SubJap." : "";
       jimakuInstalledActions = { videoId, actions, hint };
       notice.update({
         text: `Sous-titres japonais installés depuis Jimaku.${hint}`,
@@ -1433,7 +1433,7 @@ async function removeJimakuFile(notice: VideoNotice, videoId: string): Promise<v
     showMissingJapanese(notice, videoId, { text: "Sous-titres Jimaku retirés pour cette vidéo." });
   } catch (err: unknown) {
     handleRuntimeError(err);
-    notice.setText("Retrait impossible. Supprimez la piste depuis la popup SubJap.");
+    notice.setText("Retrait impossible. Supprimez la piste via l’icône SubJap.");
   }
 }
 
@@ -1467,7 +1467,7 @@ function showAutoSyncNotice({ videoId, segments }: AutoSyncEvent): void {
       const record = await getLocalSubtitle(videoId, "primary");
       if (record) await saveLocalSubtitle(videoId, { ...record, syncSegments: undefined, syncChecked: true }, "primary");
       notice.update({
-        text: "Recalage annulé. Le décalage reste réglable depuis la popup SubJap.",
+        text: "Recalage annulé. Le décalage reste réglable via l’icône SubJap.",
         autoHideMs: MISSING_JAPANESE_NOTICE_MS,
         actions: [],
       });
@@ -1489,7 +1489,7 @@ onLocalSubtitleAutoSync(showAutoSyncNotice);
 function searchJimaku(notice: VideoNotice): void {
   void sendMessage("jimaku:search", {}).then(() => notice.close(), (err: unknown) => {
     handleRuntimeError(err);
-    notice.setText("Impossible d’ouvrir Jimaku. Réessayez depuis la popup SubJap.");
+    notice.setText("Impossible d’ouvrir Jimaku. Réessayez via l’icône SubJap.");
   });
 }
 
@@ -1517,7 +1517,7 @@ function importJapaneseFile(videoId: string, notice: VideoNotice): void {
         notice.close();
       } catch (err: unknown) {
         handleRuntimeError(err);
-        notice.setText("Import impossible. Réessayez depuis la popup SubJap.");
+        notice.setText("Import impossible. Réessayez via l’icône SubJap.");
       }
     })();
   }, { once: true });
