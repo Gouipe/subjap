@@ -2,7 +2,7 @@
 // SubJap — Options page (React)
 //
 // Two modes:
-//   • Onboarding wizard (4 setup steps, 3 explanation slides) when the user hasn't completed setup yet —
+//   • Onboarding wizard (4 setup steps, 4 explanation slides) when the user hasn't completed setup yet —
 //     the service worker opens this page on first install.
 //   • Full settings panel once onboarding is complete: dictionary, Anki,
 //     overlay display options and data management.
@@ -569,13 +569,13 @@ function KnownWordsTriage(props: {
 
 const WIZARD_STEP_GROUPS: ReadonlyArray<{ label: string; steps: number[] }> = [
   { label: "Configuration", steps: [1, 2, 3, 4] },
-  { label: "Découverte", steps: [5, 6, 7] },
+  { label: "Découverte", steps: [5, 6, 7, 8] },
 ];
 
-/** Progress through the 4 setup steps, then the 3 explanation slides. */
+/** Progress through the 4 setup steps, then the 4 explanation slides. */
 function WizardStepper(props: { current: number }): JSX.Element {
   return (
-    <div style={s.stepper} aria-label={`Étape ${props.current} sur 7`}>
+    <div style={s.stepper} aria-label={`Étape ${props.current} sur 8`}>
       {WIZARD_STEP_GROUPS.map((group, groupIndex) => (
         <React.Fragment key={group.label}>
           {groupIndex > 0 && <div style={s.stepGroupSeparator} aria-hidden="true" />}
@@ -629,11 +629,118 @@ const MINING_CALLOUTS: ReadonlyArray<readonly [string, React.ReactNode]> = [
   ],
 ];
 
+const ANKI_CALLOUTS: ReadonlyArray<readonly [string, React.ReactNode]> = [
+  ["Recto", "retrouvez le sens du mot, puis retournez la carte"],
+  ["Verso", "le sens retenu au minage, puis la scène et vos notes"],
+  [
+    "Production orale (facultatif)",
+    "crée une carte sœur où il faut dire le mot à voix haute à partir de ses définitions ; à réserver aux mots utiles à l’oral, de préférence déjà bien acquis",
+  ],
+  [
+    "Raccourcis",
+    <>
+      <MockKbd>Q</MockKbd> rejoue la phrase, <MockKbd>W</MockKbd> affiche la traduction
+    </>,
+  ],
+  [
+    "Notation au clavier",
+    <>
+      <MockKbd>&amp;</MockKbd> À revoir · <MockKbd>é</MockKbd> Difficile ·{" "}
+      <MockKbd>&quot;</MockKbd> Correct · <MockKbd>&apos;</MockKbd> Facile
+    </>,
+  ],
+];
+
 function Callout(props: { n: number }): JSX.Element {
   return (
     <span style={s.callout} aria-hidden="true">
       {props.n}
     </span>
+  );
+}
+
+/** Numbered explanations matching the callouts of a mock-up. */
+function CalloutList(props: {
+  items: ReadonlyArray<readonly [string, React.ReactNode]>;
+}): JSX.Element {
+  return (
+    <ol style={s.calloutList}>
+      {props.items.map(([title, text], index) => (
+        <li key={title} style={s.calloutItem}>
+          <Callout n={index + 1} />
+          <div>
+            <span style={s.lifecycleTitle}>{title}</span>
+            <span style={s.legendText}> · {text}</span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Static, simplified replica of a comprehension card, front then back. */
+function AnkiCardPreview(): JSX.Element {
+  return (
+    <div style={s.mock} role="img" aria-label="Aperçu d’une carte Anki, recto puis verso">
+      <span style={s.mockLabel}>RECTO</span>
+      <div style={{ ...s.mockSheet, ...s.mockFront }}>
+        <span style={{ ...s.mockWord, color: C.text }}>大切</span>
+        <span style={s.mockReading}>たいせつ</span>
+        <span style={s.mockCornerCallout}>
+          <Callout n={1} />
+        </span>
+      </div>
+
+      <span style={s.mockLabel}>VERSO</span>
+      <div style={s.mockSheet}>
+        <div style={{ ...s.mockRow, justifyContent: "space-between" }}>
+          <span style={s.mockWord}>大切</span>
+          <span style={s.mockRow}>
+            <span style={s.mockButton}>Activer la production orale</span>
+            <Callout n={3} />
+          </span>
+        </div>
+        <div style={{ ...s.mockRow, marginTop: 6 }}>
+          <span>important · precious · valuable</span>
+          <Callout n={2} />
+        </div>
+      </div>
+      <div style={s.mockSheet}>
+        <div style={{ ...s.mockImage, aspectRatio: "auto", height: 48 }}>Image de la scène</div>
+        <div style={{ ...s.mockSentence, marginTop: 6 }}>
+          これは<span style={{ color: MOCK_TARGET, fontWeight: 600 }}>大切</span>な本だ
+        </div>
+        <div style={{ ...s.mockRow, marginTop: 6 }}>
+          <span style={s.mockButton}>
+            ▶ Phrase <MockKbd>Q</MockKbd>
+          </span>
+          <span style={s.mockButton}>
+            Voir la traduction <MockKbd>W</MockKbd>
+          </span>
+          <Callout n={4} />
+        </div>
+      </div>
+      <div style={{ ...s.mockSheet, ...s.mockRow }}>
+        <span style={s.mockLabel}>Notes</span>
+        <span style={s.mockTranslation}>…</span>
+      </div>
+
+      <div style={{ ...s.mockFooter, justifyContent: "center", flexWrap: "wrap" }}>
+        <span style={s.mockButton}>
+          À revoir <MockKbd>&amp;</MockKbd>
+        </span>
+        <span style={s.mockButton}>
+          Difficile <MockKbd>é</MockKbd>
+        </span>
+        <span style={s.mockButton}>
+          Correct <MockKbd>&quot;</MockKbd>
+        </span>
+        <span style={s.mockButton}>
+          Facile <MockKbd>&apos;</MockKbd>
+        </span>
+        <Callout n={5} />
+      </div>
+    </div>
   );
 }
 
@@ -712,7 +819,7 @@ function MiningPreview(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Onboarding wizard (4 setup steps, then 3 explanation slides)
+// Onboarding wizard (4 setup steps, then 4 explanation slides)
 // ---------------------------------------------------------------------------
 
 function OnboardingWizard(props: {
@@ -728,7 +835,7 @@ function OnboardingWizard(props: {
   const [checkingAnki, setCheckingAnki] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Explanation screens shown once the four steps are done. */
-  const [endScreen, setEndScreen] = useState<"colors" | "mining" | "ready" | null>(null);
+  const [endScreen, setEndScreen] = useState<"colors" | "mining" | "anki" | "ready" | null>(null);
 
   const step = Math.min(state.currentStep + 1, 4);
 
@@ -917,19 +1024,32 @@ function OnboardingWizard(props: {
             Après {strong("Mine this")}, cet écran prépare la carte Anki à partir de la scène.
           </p>
           <MiningPreview />
-          <ol style={s.calloutList}>
-            {MINING_CALLOUTS.map(([title, text], index) => (
-              <li key={title} style={s.calloutItem}>
-                <Callout n={index + 1} />
-                <div>
-                  <span style={s.lifecycleTitle}>{title}</span>
-                  <span style={s.legendText}> · {text}</span>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <CalloutList items={MINING_CALLOUTS} />
           <div style={s.btnRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("colors")}>
+              ← Précédent
+            </Btn>
+            <Btn onClick={() => setEndScreen("anki")}>Continuer →</Btn>
+          </div>
+        </div>
+      </Page>
+    );
+  }
+
+  if (endScreen === "anki") {
+    return (
+      <Page maxWidth={560}>
+        <Header />
+        <WizardStepper current={7} />
+        <div style={s.card}>
+          <h2 style={s.cardTitle}>7 · Dans Anki</h2>
+          <p style={s.muted}>
+            Vos cartes arrivent dans {strong("日本語::Vocabulaire::Compréhension")}.
+          </p>
+          <AnkiCardPreview />
+          <CalloutList items={ANKI_CALLOUTS} />
+          <div style={s.btnRow}>
+            <Btn variant="ghost" onClick={() => setEndScreen("mining")}>
               ← Précédent
             </Btn>
             <Btn onClick={() => setEndScreen("ready")}>Continuer →</Btn>
@@ -943,9 +1063,9 @@ function OnboardingWizard(props: {
     return (
       <Page maxWidth={560}>
         <Header />
-        <WizardStepper current={7} />
+        <WizardStepper current={8} />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>7 · SubJap est prêt</h2>
+          <h2 style={s.cardTitle}>8 · SubJap est prêt</h2>
           <p style={s.muted}>
             Ouvrez une vidéo Re:ANIME, YouTube ou Netflix qui a des sous-titres japonais.
           </p>
@@ -965,7 +1085,7 @@ function OnboardingWizard(props: {
           </p>
 
           <div style={s.btnRow}>
-            <Btn variant="ghost" onClick={() => setEndScreen("mining")}>
+            <Btn variant="ghost" onClick={() => setEndScreen("anki")}>
               ← Précédent
             </Btn>
             <Btn
@@ -1629,7 +1749,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </div>
           </div>
         )}
-        <Row label="Assistant" hint="relance les 4 étapes de configuration et les 3 slides de découverte">
+        <Row label="Assistant" hint="relance les 4 étapes de configuration et les 4 slides de découverte">
           <Btn variant="ghost" onClick={props.onStartOnboarding}>
             Recommencer l'onboarding
           </Btn>
@@ -2065,6 +2185,19 @@ const s: Record<string, React.CSSProperties> = {
     gap: 8,
     paddingTop: 8,
     borderTop: `1px solid ${C.panelBorder}`,
+  },
+  mockFront: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+    padding: "14px 12px",
+  },
+  mockCornerCallout: {
+    position: "absolute",
+    top: 8,
+    right: 10,
   },
   mockSend: {
     padding: "6px 12px",

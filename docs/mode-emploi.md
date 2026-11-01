@@ -8,17 +8,19 @@
 3. Dans `chrome://extensions`, activer le mode développeur et charger le dossier
    `dist` du dépôt. Après chaque nouvelle compilation,
    cliquer sur **Recharger**.
-4. Suivre l’assistant des Options : un fil en 7 points montre la progression,
+4. Suivre l’assistant des Options : un fil en 8 points montre la progression,
    en deux groupes. **Configuration** (1–4) : dictionnaire, Anki, affichage,
-   mots déjà connus. **Découverte** (5–7), avec **← Précédent** sur les
-   slides 6 et 7 : la page **Les couleurs des mots** donne la
+   mots déjà connus. **Découverte** (5–8), avec **← Précédent** sur les
+   slides 6 à 8 : la page **Les couleurs des mots** donne la
    légende des sous-titres : gris (inconnu, y compris un mot miné dont la carte
    n’a pas encore été étudiée), vert et bleu (à miner, selon le rang de
    fréquence, seulement si c’est le seul inconnu de la phrase), blanc pointillé
    (en cours) et blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
    **Mine this** ne crée alors pas de carte à réviser. Le slide **Créer une
    carte** montre une maquette annotée de l’écran de minage (correction au clic,
-   sens, scène et `Q`, IA et `I`, `Ctrl+Entrée`). L’écran final liste les
+   sens, scène et `Q`, IA et `I`, `Ctrl+Entrée`). Le slide **Dans Anki** montre
+   le recto et le verso d’une carte de compréhension (production orale
+   facultative, `Q`, `W`, notation `&` `é` `"` `'`). L’écran final liste les
    raccourcis.
 
 SubJap crée automatiquement les sous-decks
