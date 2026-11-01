@@ -2,7 +2,7 @@
 // SubJap — Options page (React)
 //
 // Two modes:
-//   • Onboarding wizard (4 steps) when the user hasn't completed setup yet —
+//   • Onboarding wizard (4 setup steps, 3 explanation slides) when the user hasn't completed setup yet —
 //     the service worker opens this page on first install.
 //   • Full settings panel once onboarding is complete: dictionary, Anki,
 //     overlay display options and data management.
@@ -70,6 +70,9 @@ const C = {
   priorityBlue: "#55b8ff",
   unknownGrey: "#9ca1aa",
 };
+
+/** Target word colour of the mining dialog (its accent hover tone). */
+const MOCK_TARGET = "#ff7966";
 
 /** Video-tab shortcuts shown at the end of onboarding (see README). */
 const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
@@ -561,7 +564,144 @@ function KnownWordsTriage(props: {
 }
 
 // ---------------------------------------------------------------------------
-// Onboarding wizard (4 steps)
+// Onboarding wizard: stepper and mining-screen preview
+// ---------------------------------------------------------------------------
+
+const WIZARD_STEP_GROUPS: ReadonlyArray<{ label: string; steps: number[] }> = [
+  { label: "Configuration", steps: [1, 2, 3, 4] },
+  { label: "Découverte", steps: [5, 6, 7] },
+];
+
+/** Progress through the 4 setup steps, then the 3 explanation slides. */
+function WizardStepper(props: { current: number }): JSX.Element {
+  return (
+    <div style={s.stepper} aria-label={`Étape ${props.current} sur 7`}>
+      {WIZARD_STEP_GROUPS.map((group, groupIndex) => (
+        <React.Fragment key={group.label}>
+          {groupIndex > 0 && <div style={s.stepGroupSeparator} aria-hidden="true" />}
+          <div style={{ ...s.stepGroup, flex: group.steps.length }}>
+            <span style={s.stepGroupLabel}>{group.label}</span>
+            <div style={s.stepGroupDots}>
+              {group.steps.map((n, index) => (
+                <React.Fragment key={n}>
+                  <div
+                    style={{
+                      ...s.stepDot,
+                      backgroundColor: props.current >= n ? C.accent : C.panelBorder,
+                    }}
+                    aria-current={props.current === n ? "step" : undefined}
+                  >
+                    {n}
+                  </div>
+                  {index < group.steps.length - 1 && <div style={s.stepLine} />}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+const MINING_CALLOUTS: ReadonlyArray<readonly [string, string]> = [
+  ["Corriger au clic", "le mot, la lecture, la phrase et la traduction se modifient directement"],
+  ["Sens", "cochez celui qui correspond à la scène"],
+  ["Scène", "image et audio sont capturés automatiquement ; Q réécoute la phrase"],
+  [
+    "IA (facultatif)",
+    "I ajoute la décomposition des kanjis, des synonymes et une association, si l’IA est configurée dans les réglages",
+  ],
+  [
+    "Créer",
+    "Ctrl+Entrée envoie la carte dans Anki ; Échap ne ferme jamais la fenêtre, seule la croix ✕ la ferme",
+  ],
+];
+
+function Callout(props: { n: number }): JSX.Element {
+  return (
+    <span style={s.callout} aria-hidden="true">
+      {props.n}
+    </span>
+  );
+}
+
+function MockKbd(props: { children: React.ReactNode; onAccent?: boolean }): JSX.Element {
+  return (
+    <span
+      style={{
+        ...s.mockKbd,
+        ...(props.onAccent ? { borderColor: "rgba(12,13,16,0.35)", color: C.bg } : {}),
+      }}
+    >
+      {props.children}
+    </span>
+  );
+}
+
+/** Static, simplified replica of the « Créer une carte » dialog with numbered callouts. */
+function MiningPreview(): JSX.Element {
+  return (
+    <div style={s.mock} role="img" aria-label="Aperçu de l’écran Créer une carte">
+      <div style={s.mockHeader}>
+        <span>
+          <span style={s.mockTitle}>Créer une carte</span>
+          <span style={s.mockSource}>Mon anime · épisode 3</span>
+        </span>
+        <span style={s.mockSource}>✕</span>
+      </div>
+
+      <div style={s.mockSheet}>
+        <div style={s.mockRow}>
+          <span style={s.mockWord}>大切</span>
+          <span style={s.mockReading}>たいせつ</span>
+          <Callout n={1} />
+        </div>
+        <div style={{ ...s.mockRow, ...s.mockDefinitions }}>
+          <span style={s.mockSense}>✓ important · precious · valuable</span>
+          <span style={{ ...s.mockSense, ...s.mockSenseOff }}>careful</span>
+          <Callout n={2} />
+        </div>
+      </div>
+
+      <div style={{ ...s.mockSheet, ...s.mockScene }}>
+        <div style={s.mockImage}>Image de la scène</div>
+        <div>
+          <div style={s.mockSentence}>
+            これは<span style={{ color: MOCK_TARGET, fontWeight: 600 }}>大切</span>な本だ
+          </div>
+          <div style={{ ...s.mockRow, margin: "6px 0" }}>
+            <span style={s.mockButton}>
+              ▶ Phrase <MockKbd>Q</MockKbd>
+            </span>
+            <Callout n={3} />
+          </div>
+          <div style={s.mockTranslation}>C’est un livre précieux.</div>
+        </div>
+      </div>
+
+      <div style={{ ...s.mockSheet, ...s.mockRow, justifyContent: "space-between" }}>
+        <span style={s.mockLabel}>Notes</span>
+        <span style={s.mockRow}>
+          <span style={s.mockButton}>
+            ✨ Enrichir avec l’IA <MockKbd>I</MockKbd>
+          </span>
+          <Callout n={4} />
+        </span>
+      </div>
+
+      <div style={s.mockFooter}>
+        <span style={{ ...s.mockButton, ...s.mockSend }}>
+          Créer dans Anki <MockKbd onAccent>Ctrl+Entrée</MockKbd>
+        </span>
+        <Callout n={5} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding wizard (4 setup steps, then 3 explanation slides)
 // ---------------------------------------------------------------------------
 
 function OnboardingWizard(props: {
@@ -577,7 +717,7 @@ function OnboardingWizard(props: {
   const [checkingAnki, setCheckingAnki] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Explanation screens shown once the four steps are done. */
-  const [endScreen, setEndScreen] = useState<"lifecycle" | "ready" | null>(null);
+  const [endScreen, setEndScreen] = useState<"colors" | "mining" | "ready" | null>(null);
 
   const step = Math.min(state.currentStep + 1, 4);
 
@@ -658,21 +798,23 @@ function OnboardingWizard(props: {
     try {
       await completeKnownWordsStep();
       setAnki(await sendMessage("anki:status", {}));
-      setEndScreen("lifecycle");
+      setEndScreen("colors");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
 
-  if (endScreen === "lifecycle") {
-    const strong = (text: string): JSX.Element => (
-      <strong style={{ color: C.text }}>{text}</strong>
-    );
+  const strong = (text: string): JSX.Element => (
+    <strong style={{ color: C.text }}>{text}</strong>
+  );
+
+  if (endScreen === "colors") {
     return (
       <Page maxWidth={560}>
         <Header />
+        <WizardStepper current={5} />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>Les couleurs des mots</h2>
+          <h2 style={s.cardTitle}>5 · Les couleurs des mots</h2>
 
           <div style={s.lifecycle}>
             <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
@@ -746,6 +888,39 @@ function OnboardingWizard(props: {
           )}
 
           <div style={s.btnRow}>
+            <Btn onClick={() => setEndScreen("mining")}>Continuer →</Btn>
+          </div>
+        </div>
+      </Page>
+    );
+  }
+
+  if (endScreen === "mining") {
+    return (
+      <Page maxWidth={560}>
+        <Header />
+        <WizardStepper current={6} />
+        <div style={s.card}>
+          <h2 style={s.cardTitle}>6 · Créer une carte</h2>
+          <p style={s.muted}>
+            Après {strong("Mine this")}, cet écran prépare la carte Anki à partir de la scène.
+          </p>
+          <MiningPreview />
+          <ol style={s.calloutList}>
+            {MINING_CALLOUTS.map(([title, text], index) => (
+              <li key={title} style={s.calloutItem}>
+                <Callout n={index + 1} />
+                <div>
+                  <span style={s.lifecycleTitle}>{title}</span>
+                  <span style={s.legendText}> · {text}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div style={s.btnRow}>
+            <Btn variant="ghost" onClick={() => setEndScreen("colors")}>
+              ← Précédent
+            </Btn>
             <Btn onClick={() => setEndScreen("ready")}>Continuer →</Btn>
           </div>
         </div>
@@ -757,8 +932,9 @@ function OnboardingWizard(props: {
     return (
       <Page maxWidth={560}>
         <Header />
+        <WizardStepper current={7} />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>SubJap est prêt</h2>
+          <h2 style={s.cardTitle}>7 · SubJap est prêt</h2>
           <p style={s.muted}>
             Ouvrez une vidéo Re:ANIME, YouTube ou Netflix qui a des sous-titres japonais.
           </p>
@@ -778,6 +954,9 @@ function OnboardingWizard(props: {
           </p>
 
           <div style={s.btnRow}>
+            <Btn variant="ghost" onClick={() => setEndScreen("mining")}>
+              ← Précédent
+            </Btn>
             <Btn
               onClick={() => {
                 void chrome.tabs.create({ url: "https://reanime.to/" });
@@ -813,22 +992,7 @@ function OnboardingWizard(props: {
   return (
     <Page maxWidth={560}>
       <Header />
-      {/* Stepper */}
-      <div style={s.stepper}>
-        {[1, 2, 3, 4].map((n) => (
-          <React.Fragment key={n}>
-            <div
-              style={{
-                ...s.stepDot,
-                backgroundColor: step >= n ? C.accent : C.panelBorder,
-              }}
-            >
-              {n}
-            </div>
-            {n < 4 && <div style={s.stepLine} />}
-          </React.Fragment>
-        ))}
-      </div>
+      <WizardStepper current={step} />
 
       {error && <div style={s.errorBox}>{error}</div>}
 
@@ -1454,7 +1618,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </div>
           </div>
         )}
-        <Row label="Assistant" hint="relance la configuration en 4 étapes">
+        <Row label="Assistant" hint="relance les 4 étapes de configuration et les 3 slides de découverte">
           <Btn variant="ghost" onClick={props.onStartOnboarding}>
             Recommencer l'onboarding
           </Btn>
@@ -1718,9 +1882,183 @@ const s: Record<string, React.CSSProperties> = {
   },
   stepper: {
     display: "flex",
+    alignItems: "flex-end",
+    gap: 12,
+    marginBottom: 20,
+  },
+  stepGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    minWidth: 0,
+  },
+  stepGroupLabel: {
+    color: C.muted,
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+  },
+  stepGroupDots: {
+    display: "flex",
     alignItems: "center",
     gap: 6,
-    marginBottom: 20,
+  },
+  stepGroupSeparator: {
+    alignSelf: "stretch",
+    width: 1,
+    backgroundColor: C.panelBorder,
+  },
+  calloutList: {
+    listStyle: "none",
+    margin: "16px 0 0",
+    padding: 0,
+    display: "grid",
+    rowGap: 8,
+  },
+  calloutItem: {
+    display: "grid",
+    gridTemplateColumns: "auto 1fr",
+    columnGap: 10,
+    alignItems: "baseline",
+  },
+  callout: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    backgroundColor: C.accent,
+    color: C.bg,
+    fontSize: 11,
+    fontWeight: 700,
+    lineHeight: 1,
+  },
+  mock: {
+    display: "grid",
+    rowGap: 8,
+    marginTop: 14,
+    padding: "12px 14px",
+    backgroundColor: C.bg,
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 10,
+    fontSize: 12,
+    color: C.text,
+  },
+  mockHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  mockTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    marginRight: 8,
+  },
+  mockSource: {
+    color: C.muted,
+    fontSize: 11,
+  },
+  mockSheet: {
+    padding: "10px 12px",
+    backgroundColor: C.panel,
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 8,
+  },
+  mockRow: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  mockWord: {
+    color: MOCK_TARGET,
+    fontSize: 26,
+    fontWeight: 600,
+    lineHeight: 1.2,
+  },
+  mockReading: {
+    color: C.muted,
+    fontSize: 14,
+  },
+  mockDefinitions: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTop: `1px solid ${C.panelBorder}`,
+  },
+  mockSense: {
+    padding: "2px 8px",
+    border: `1px solid ${C.muted}`,
+    borderRadius: 6,
+    backgroundColor: C.panelRaised,
+  },
+  mockSenseOff: {
+    borderColor: C.panelBorder,
+    backgroundColor: "transparent",
+    color: C.muted,
+  },
+  mockScene: {
+    display: "grid",
+    gridTemplateColumns: "110px minmax(0, 1fr)",
+    columnGap: 12,
+    alignItems: "start",
+  },
+  mockImage: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    aspectRatio: "16 / 9",
+    border: `1px dashed ${C.panelBorder}`,
+    borderRadius: 6,
+    color: C.muted,
+    fontSize: 10,
+    textAlign: "center",
+  },
+  mockSentence: {
+    fontSize: 17,
+    lineHeight: 1.5,
+  },
+  mockTranslation: {
+    color: C.muted,
+    fontSize: 12,
+  },
+  mockButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "3px 8px",
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 6,
+    backgroundColor: C.panelRaised,
+    fontWeight: 600,
+  },
+  mockKbd: {
+    padding: "0 4px",
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 3,
+    color: C.muted,
+    fontSize: 10,
+    fontWeight: 500,
+  },
+  mockLabel: {
+    color: C.muted,
+    fontSize: 11,
+    fontWeight: 600,
+  },
+  mockFooter: {
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 8,
+    paddingTop: 8,
+    borderTop: `1px solid ${C.panelBorder}`,
+  },
+  mockSend: {
+    padding: "6px 12px",
+    backgroundColor: C.accent,
+    borderColor: C.accent,
+    color: C.bg,
   },
   stepDot: {
     width: 26,
