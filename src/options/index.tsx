@@ -672,51 +672,48 @@ function OnboardingWizard(props: {
       <Page maxWidth={560}>
         <Header />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>Le parcours d’un mot</h2>
-          <p style={s.muted}>Dans les sous-titres, chaque mot passe par ces états.</p>
+          <h2 style={s.cardTitle}>Les couleurs des mots</h2>
 
           <div style={s.lifecycle}>
             <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
             <div>
-              <div style={s.lifecycleTitle}>Inconnu ou miné</div>
+              <div style={s.lifecycleTitle}>Inconnu</div>
               <div style={s.legendText}>
-                Un mot pas encore connu, qu’il ait déjà une carte Anki ou non. Miné, il reste gris
-                jusqu’à ce que vous étudiiez sa carte dans Anki.
+                Y compris un mot miné dont vous n’avez pas encore étudié la carte dans Anki.
               </div>
             </div>
 
-            <span style={s.lifecyclePair}>
-              <span style={{ ...s.legendWord, color: C.green, borderBottomColor: C.green }}>
-                単語
-              </span>
-              <span
-                style={{
-                  ...s.legendWord,
-                  color: C.priorityBlue,
-                  borderBottomColor: C.priorityBlue,
-                }}
-              >
-                単語
-              </span>
+            <span style={{ ...s.legendWord, color: C.green, borderBottomColor: C.green }}>
+              単語
             </span>
             <div>
-              <div style={s.lifecycleTitle}>À miner</div>
+              <div style={s.lifecycleTitle}>À miner, très fréquent</div>
               <div style={s.legendText}>
-                <div>Le seul mot inconnu de la phrase.</div>
-                <div>Vert : son rang de fréquence est inférieur à votre nombre de mots connus.</div>
-                <div>Bleu : il fait partie des 300 mots suivants de la liste de fréquence.</div>
+                Son rang de fréquence est inférieur à votre nombre de mots connus.
+              </div>
+            </div>
+
+            <span
+              style={{ ...s.legendWord, color: C.priorityBlue, borderBottomColor: C.priorityBlue }}
+            >
+              単語
+            </span>
+            <div>
+              <div style={s.lifecycleTitle}>À miner, un peu moins fréquent</div>
+              <div style={s.legendText}>
+                Il fait partie des 300 mots suivants de la liste de fréquence.
               </div>
             </div>
 
             <span style={{ ...s.legendWord, color: C.text }}>単語</span>
             <div>
-              <div style={s.lifecycleTitle}>Acquis</div>
-              <div style={s.legendText}>
-                Dès que sa carte a passé les étapes d’apprentissage d’Anki, en général lors de la
-                première séance, le mot devient blanc et compte dans les {strong("Mots connus")}.
-              </div>
+              <div style={s.lifecycleTitle}>Mot connu</div>
             </div>
           </div>
+
+          <p style={s.mutedSmall}>
+            Le vert et le bleu n’apparaissent que si c’est le seul mot inconnu de la phrase.
+          </p>
 
           <p style={s.mutedSmall}>
             {strong("Mark Known")} rend un mot blanc tout de suite, sans carte. {strong("Ignore")}{" "}
@@ -1844,10 +1841,6 @@ const s: Record<string, React.CSSProperties> = {
     columnGap: 14,
     rowGap: 14,
     margin: "16px 0",
-  },
-  lifecyclePair: {
-    display: "flex",
-    gap: 6,
   },
   lifecycleTitle: {
     color: C.text,

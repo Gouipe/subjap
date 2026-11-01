@@ -9,11 +9,10 @@
    `dist` du dépôt. Après chaque nouvelle compilation,
    cliquer sur **Recharger**.
 4. Suivre l’assistant des Options (dictionnaire, Anki, affichage, mots déjà
-   connus). Après la dernière étape, la page **Le parcours d’un mot** explique
-   les états d’un mot : inconnu ou miné (gris, tant que la carte n’a pas été
-   étudiée), à miner (vert ou bleu, avec la règle de fréquence), puis acquis
-   (blanc) dès que la carte a passé les étapes d’apprentissage d’Anki, en
-   général lors de la première séance. Si Anki n’est pas connecté, un encadré rappelle que
+   connus). Après la dernière étape, la page **Les couleurs des mots** donne la
+   légende des sous-titres : gris (inconnu, y compris un mot miné dont la carte
+   n’a pas encore été étudiée), vert et bleu (à miner, selon le rang de
+   fréquence, seulement si c’est le seul inconnu de la phrase), blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
    **Mine this** ne crée alors pas de carte à réviser. L’écran final liste les
    raccourcis.
 
