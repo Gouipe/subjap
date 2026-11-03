@@ -37,6 +37,8 @@ export class VideoNotice {
   private readonly message: HTMLSpanElement;
   private readonly actions: HTMLSpanElement;
   private readonly closeButton: HTMLButtonElement;
+  /** Empties over the auto-hide delay, so the notice's remaining life shows. */
+  private readonly lifeBar: HTMLDivElement;
   private autoHideMs: number | null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private positionTimer: ReturnType<typeof setInterval> | null = null;
@@ -70,6 +72,8 @@ export class VideoNotice {
       "border:1px solid #343842",
       "border-radius:8px",
       "box-shadow:0 6px 8px rgba(0,0,0,.38)",
+      // Clips the life bar to the rounded corners.
+      "overflow:hidden",
       "pointer-events:auto",
     ].join(";");
 
@@ -83,7 +87,20 @@ export class VideoNotice {
     this.closeButton.addEventListener("click", () => this.close());
     this.renderContent(options);
 
-    this.element.append(this.message, this.actions);
+    this.lifeBar = document.createElement("div");
+    this.lifeBar.setAttribute("aria-hidden", "true");
+    this.lifeBar.style.cssText = [
+      "position:absolute",
+      "left:0",
+      "right:0",
+      "bottom:0",
+      "height:2px",
+      "background:#ff624d",
+      "transform-origin:left center",
+      "display:none",
+    ].join(";");
+
+    this.element.append(this.message, this.actions, this.lifeBar);
     // Keyboard shortcuts of the player must not fire from the notice.
     for (const type of ["keydown", "keyup", "keypress"]) {
       this.element.addEventListener(type, (event) => event.stopPropagation());
@@ -111,6 +128,7 @@ export class VideoNotice {
     this.autoHideMs = content.autoHideMs;
     this.renderContent(content);
     if (!this.element.matches(":hover")) this.scheduleHide();
+    else this.resetLifeBar();
   }
 
   private renderContent(content: VideoNoticeContent): void {
@@ -172,10 +190,32 @@ export class VideoNotice {
     this.clearHideTimer();
     if (this.autoHideMs === null) return;
     this.hideTimer = setTimeout(() => this.close(), this.autoHideMs);
+    this.runLifeBar(this.autoHideMs);
   }
 
+  /** Paused while hovered: the bar shows a full life until the pointer leaves. */
   private clearHideTimer(): void {
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = null;
+    this.resetLifeBar();
+  }
+
+  private resetLifeBar(): void {
+    const bar = this.lifeBar;
+    bar.style.transition = "none";
+    bar.style.transform = "scaleX(1)";
+    const visible = this.autoHideMs !== null &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    bar.style.display = visible ? "block" : "none";
+  }
+
+  private runLifeBar(durationMs: number): void {
+    this.resetLifeBar();
+    const bar = this.lifeBar;
+    if (bar.style.display === "none") return;
+    // Commit the full width before animating to empty.
+    void bar.offsetWidth;
+    bar.style.transition = `transform ${durationMs}ms linear`;
+    bar.style.transform = "scaleX(0)";
   }
 }
