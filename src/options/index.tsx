@@ -2,7 +2,7 @@
 // SubJap — Options page (React)
 //
 // Two modes:
-//   • Onboarding wizard (4 setup steps, 4 explanation slides) when the user hasn't completed setup yet —
+//   • Onboarding wizard (4 setup steps, 5 explanation slides) when the user hasn't completed setup yet —
 //     the service worker opens this page on first install.
 //   • Full settings panel once onboarding is complete: dictionary, Anki,
 //     overlay display options and data management.
@@ -569,13 +569,13 @@ function KnownWordsTriage(props: {
 
 const WIZARD_STEP_GROUPS: ReadonlyArray<{ label: string; steps: number[] }> = [
   { label: "Configuration", steps: [1, 2, 3, 4] },
-  { label: "Découverte", steps: [5, 6, 7, 8] },
+  { label: "Découverte", steps: [5, 6, 7, 8, 9] },
 ];
 
-/** Progress through the 4 setup steps, then the 4 explanation slides. */
+/** Progress through the 4 setup steps, then the 5 explanation slides. */
 function WizardStepper(props: { current: number }): JSX.Element {
   return (
-    <div style={s.stepper} aria-label={`Étape ${props.current} sur 8`}>
+    <div style={s.stepper} aria-label={`Étape ${props.current} sur 9`}>
       {WIZARD_STEP_GROUPS.map((group, groupIndex) => (
         <React.Fragment key={group.label}>
           {groupIndex > 0 && <div style={s.stepGroupSeparator} aria-hidden="true" />}
@@ -759,6 +759,41 @@ function MockKbd(props: { children: React.ReactNode; onAccent?: boolean }): JSX.
   );
 }
 
+/** A player frame: hovering a subtitle word opens its popover with « Miner ». */
+function MinePreview(): JSX.Element {
+  return (
+    <div
+      style={s.minePlayer}
+      role="img"
+      aria-label="Aperçu : survol d’un mot du sous-titre et bouton Miner"
+    >
+      <div style={s.minePopover}>
+        <div style={s.mockRow}>
+          <span style={{ ...s.mockWord, color: C.text, fontSize: 22 }}>怖い</span>
+          <span style={s.mockReading}>こわい</span>
+        </div>
+        <div style={{ ...s.mockTranslation, marginTop: 4 }}>scary · frightening</div>
+        <div style={s.minePopoverActions}>
+          <span style={s.minePopoverBtn}>Connu</span>
+          <span style={s.minePopoverBtn}>Ignorer</span>
+          <span style={{ ...s.minePopoverBtn, ...s.mockSend, padding: "4px 8px" }}>⛏ Miner</span>
+          <span style={{ ...s.minePopoverBtn, borderColor: C.accent }}>Plus tard</span>
+        </div>
+      </div>
+      <div style={s.mineSubtitle}>
+        小雪ちゃん、何が
+        <span style={s.mineTarget}>
+          怖い
+          <span style={s.mineCursor} aria-hidden="true">
+            ↖
+          </span>
+        </span>
+        の？
+      </div>
+    </div>
+  );
+}
+
 /** Static, simplified replica of the « Créer une carte » dialog with numbered callouts. */
 function MiningPreview(): JSX.Element {
   return (
@@ -821,7 +856,7 @@ function MiningPreview(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Onboarding wizard (4 setup steps, then 4 explanation slides)
+// Onboarding wizard (4 setup steps, then 5 explanation slides)
 // ---------------------------------------------------------------------------
 
 function OnboardingWizard(props: {
@@ -837,7 +872,7 @@ function OnboardingWizard(props: {
   const [checkingAnki, setCheckingAnki] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Explanation screens shown once the four steps are done. */
-  const [endScreen, setEndScreen] = useState<"colors" | "mining" | "anki" | "ready" | null>(null);
+  const [endScreen, setEndScreen] = useState<"colors" | "mine" | "mining" | "anki" | "ready" | null>(null);
 
   const step = Math.min(state.currentStep + 1, 4);
 
@@ -1008,6 +1043,33 @@ function OnboardingWizard(props: {
           )}
 
           <div style={s.btnRow}>
+            <Btn onClick={() => setEndScreen("mine")}>Continuer →</Btn>
+          </div>
+        </div>
+      </Page>
+    );
+  }
+
+  if (endScreen === "mine") {
+    return (
+      <Page maxWidth={560}>
+        <Header />
+        <WizardStepper current={6} />
+        <div style={s.card}>
+          <h2 style={s.cardTitle}>6 · Miner un mot</h2>
+          <p style={s.muted}>
+            Survolez un mot du sous-titre, puis cliquez sur {strong("⛏ Miner")}.
+          </p>
+          <MinePreview />
+          <p style={s.mutedSmall}>
+            Pour ne pas couper la scène, {strong("Plus tard")} met le mot de côté avec son image
+            et son audio. Les cartes se créent ensuite à la suite, depuis la popup ou le bandeau
+            au début de la vidéo suivante.
+          </p>
+          <div style={s.btnRow}>
+            <Btn variant="ghost" onClick={() => setEndScreen("colors")}>
+              ← Précédent
+            </Btn>
             <Btn onClick={() => setEndScreen("mining")}>Continuer →</Btn>
           </div>
         </div>
@@ -1019,21 +1081,16 @@ function OnboardingWizard(props: {
     return (
       <Page maxWidth={560}>
         <Header />
-        <WizardStepper current={6} />
+        <WizardStepper current={7} />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>6 · Créer une carte</h2>
+          <h2 style={s.cardTitle}>7 · Créer une carte</h2>
           <p style={s.muted}>
             Après {strong("Miner")}, cet écran prépare la carte Anki à partir de la scène.
           </p>
           <MiningPreview />
           <CalloutList items={MINING_CALLOUTS} />
-          <p style={s.mutedSmall}>
-            Pour ne pas couper la scène, {strong("Plus tard")} met le mot de côté avec son image
-            et son audio. Les cartes se créent ensuite à la suite, depuis la popup ou le bandeau
-            au début de la vidéo suivante.
-          </p>
           <div style={s.btnRow}>
-            <Btn variant="ghost" onClick={() => setEndScreen("colors")}>
+            <Btn variant="ghost" onClick={() => setEndScreen("mine")}>
               ← Précédent
             </Btn>
             <Btn onClick={() => setEndScreen("anki")}>Continuer →</Btn>
@@ -1047,9 +1104,9 @@ function OnboardingWizard(props: {
     return (
       <Page maxWidth={560}>
         <Header />
-        <WizardStepper current={7} />
+        <WizardStepper current={8} />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>7 · Dans Anki</h2>
+          <h2 style={s.cardTitle}>8 · Dans Anki</h2>
           <p style={s.muted}>
             Vos cartes arrivent dans {strong("日本語::Vocabulaire::Compréhension")}.
           </p>
@@ -1070,9 +1127,9 @@ function OnboardingWizard(props: {
     return (
       <Page maxWidth={560}>
         <Header />
-        <WizardStepper current={8} />
+        <WizardStepper current={9} />
         <div style={s.card}>
-          <h2 style={s.cardTitle}>8 · SubJap est prêt</h2>
+          <h2 style={s.cardTitle}>9 · SubJap est prêt</h2>
           <p style={s.muted}>
             Ouvrez une vidéo Re:ANIME, YouTube ou Netflix qui a des sous-titres japonais.
           </p>
@@ -1756,7 +1813,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             </div>
           </div>
         )}
-        <Row label="Assistant" hint="relance les 4 étapes de configuration et les 4 slides de découverte">
+        <Row label="Assistant" hint="relance les 4 étapes de configuration et les 5 slides de découverte">
           <Btn variant="ghost" onClick={props.onStartOnboarding}>
             Recommencer l'onboarding
           </Btn>
@@ -2216,6 +2273,66 @@ const s: Record<string, React.CSSProperties> = {
     position: "absolute",
     top: 8,
     right: 10,
+  },
+  minePlayer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 14,
+    padding: "16px 14px 22px",
+    borderRadius: 8,
+    border: `1px solid ${C.panelBorder}`,
+    background:
+      "radial-gradient(ellipse at 30% 25%, #4b5d73 0%, transparent 55%), linear-gradient(165deg, #2a3442 0%, #151a21 60%, #0b0d10 100%)",
+  },
+  minePopover: {
+    width: 240,
+    padding: "10px 12px",
+    backgroundColor: C.panel,
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 10,
+    fontSize: 12,
+    color: C.text,
+    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
+  },
+  minePopoverActions: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTop: `1px solid ${C.panelBorder}`,
+  },
+  minePopoverBtn: {
+    padding: "4px 8px",
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 6,
+    backgroundColor: C.panelRaised,
+    color: C.muted,
+    textAlign: "center",
+  },
+  mineSubtitle: {
+    fontFamily: "'IBM Plex Sans JP', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+    fontSize: 24,
+    fontWeight: 700,
+    color: "#ffffff",
+    textShadow: "0 0 0.08em #000, 0 0 0.2em rgba(0, 0, 0, 0.85)",
+  },
+  mineTarget: {
+    position: "relative",
+    color: C.green,
+    borderBottom: `2px solid ${C.green}`,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 3,
+  },
+  mineCursor: {
+    position: "absolute",
+    left: "55%",
+    top: "60%",
+    fontSize: 20,
+    color: "#ffffff",
+    fontWeight: 400,
   },
   mockSend: {
     padding: "6px 12px",
