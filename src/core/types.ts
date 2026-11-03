@@ -282,6 +282,43 @@ export interface CreateMineCardPayload extends Omit<
   audioDataUrl?: string;
 }
 
+/**
+ * A word set aside with « Plus tard »: everything the mining dialog needs to
+ * build the card later, captured without interrupting the video.
+ */
+export interface PendingMine {
+  id: string; // uuid
+  createdAt: number;
+  /** Canonical lexical key: the word stays grey while it waits. */
+  key: string;
+  cue: RenderedCue;
+  /** Position of the mined word in `cue.spans`. */
+  targetIndex: number;
+  lemmaReading: string;
+  translation: string;
+  /** Dictionary senses, each with its English translations. */
+  senses: string[][];
+  episodeContext: EpisodeContext;
+  /** Identifies the playing video: its line is replayed only on that video. */
+  videoKey: string;
+  screenshot?: Blob;
+  audio?: Blob;
+  /** The phrase audio is cut once its line has finished playing. */
+  audioStatus: "pending" | "ready" | "unavailable";
+}
+
+/** `PendingMine` as it crosses the messaging bus: media as data URLs. */
+export interface PendingMineData extends Omit<PendingMine, "screenshot" | "audio"> {
+  screenshotDataUrl?: string;
+  audioDataUrl?: string;
+}
+
+/** Wall-clock span (ms since epoch) of tab audio to cut. */
+export interface WallInterval {
+  fromMs: number;
+  toMs: number;
+}
+
 // ── Messaging (MV3) ───────────────────────────────────────────────────────
 
 export type MessageHandler<T = unknown, R = unknown> = (
@@ -313,7 +350,13 @@ export interface MessageMap {
   "word:getResult": { state: WordState | null; ankiNoteCount: number };
   "word:getBatch": { items: Array<{ key: string; aliases?: string[] }> };
   "word:getBatchResult": {
-    items: Array<{ key: string; state: WordState | null; ankiNoteCount: number }>;
+    items: Array<{
+      key: string;
+      state: WordState | null;
+      ankiNoteCount: number;
+      /** Set aside with « Plus tard », card not created yet. */
+      minedLater: boolean;
+    }>;
   };
   "word:set": WordState;
   /** Withdraw a manual Known/Ignore decision so Anki and defaults apply again. */
@@ -344,6 +387,18 @@ export interface MessageMap {
   "mine:createResult": { id: string };
   "mine:updateNotes": { id: string; notes: string };
   "mine:updateNotesResult": void;
+  /** Set a word aside; its audio follows with `mineLater:setAudio`. */
+  "mineLater:add": Omit<PendingMineData, "id" | "createdAt" | "audioDataUrl" | "audioStatus">;
+  "mineLater:addResult": { id: string; count: number };
+  "mineLater:setAudio": { id: string; audioDataUrl: string | null };
+  "mineLater:setAudioResult": void;
+  /** Ids of the words set aside, oldest first. */
+  "mineLater:list": Record<string, never>;
+  "mineLater:listResult": { ids: string[] };
+  "mineLater:get": { id: string };
+  "mineLater:getResult": { item: PendingMineData | null };
+  "mineLater:remove": { id: string };
+  "mineLater:removeResult": { count: number };
   "ai:prepareEnrichment": { targetWord: string };
   "ai:prepareEnrichmentResult": { kanji: AiKanjiCandidates[] };
   "ai:generateEnrichment": {
@@ -390,6 +445,11 @@ export interface MessageMap {
   "tabCapture:offscreenPhraseStartResult": { ready: boolean };
   "tabCapture:offscreenPhraseStop": Record<string, never>;
   "tabCapture:offscreenPhraseStopResult": { dataUrl: string | null };
+  /** Cut already-played tab audio from the rolling buffer, without seeking. */
+  "tabCapture:cut": { intervals: WallInterval[] };
+  "tabCapture:cutResult": { dataUrl: string | null };
+  "tabCapture:offscreenCut": { intervals: WallInterval[] };
+  "tabCapture:offscreenCutResult": { dataUrl: string | null };
   /** The page entered or left HTML5 fullscreen (reported by the top frame). */
   "fullscreen:page": { active: boolean };
   "fullscreen:pageResult": Record<string, never>;
@@ -458,6 +518,8 @@ export interface SpanToken {
   ankiNoteCount?: number;
   /** Rank in the subtitle frequency list (1 = most frequent). */
   frequencyRank?: number;
+  /** Set aside with « Plus tard »: grey like a mined word until its card exists. */
+  minedLater?: boolean;
 }
 
 export interface RenderedCue {

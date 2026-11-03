@@ -55,6 +55,25 @@ type EditableField =
   | "kanji-example"
   | "note-line";
 
+/** Media captured when the word was set aside, before the dialog opened. */
+export interface MiningMedia {
+  screenshotDataUrl?: string;
+  phraseAudioDataUrl?: string;
+  /** The line belongs to the video on screen: its audio can still be replayed. */
+  canRecapture: boolean;
+}
+
+/** Cards created one after the other from the words set aside. */
+export interface MiningBatch {
+  position: number;
+  total: number;
+  /** The card was created: go on with the next word. */
+  onCreated: () => void;
+  onSkip: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}
+
 interface MiningState {
   cue: RenderedCue;
   targetToken: SpanToken;
@@ -81,6 +100,9 @@ interface MiningState {
   localCardId: string | null;
   ankiError: string | null;
   sending: boolean;
+  /** False for a line of another video: never capture from the player then. */
+  liveVideo: boolean;
+  batch: MiningBatch | null;
 }
 
 interface ActiveEdit {
@@ -209,7 +231,13 @@ export class MiningModal {
     translation?: string;
     episodeContext: EpisodeContext;
     senses: string[][];
+    media?: MiningMedia;
+    batch?: MiningBatch;
   }): void {
+    const media = state.media;
+    const audio = media?.phraseAudioDataUrl ?? null;
+    // Without stored audio, a line of the video on screen is replayed as usual.
+    const audioSettled = media !== undefined && (audio !== null || !media.canRecapture);
     this.state = {
       cue: state.cue,
       targetToken: state.targetToken,
@@ -228,14 +256,16 @@ export class MiningModal {
       aiGeneratedOnce: false,
       aiStatus: null,
       aiError: null,
-      phraseAudioDataUrl: null,
-      phraseAudioAttempted: false,
-      phraseAudioStatus: "pending",
-      screenshotDataUrl: null,
-      screenshotStatus: "pending",
+      phraseAudioDataUrl: audio,
+      phraseAudioAttempted: audioSettled,
+      phraseAudioStatus: audioSettled ? (audio ? "ready" : "unavailable") : "pending",
+      screenshotDataUrl: media?.screenshotDataUrl ?? null,
+      screenshotStatus: media ? (media.screenshotDataUrl ? "ready" : "unavailable") : "pending",
       localCardId: null,
       ankiError: null,
       sending: false,
+      liveVideo: media?.canRecapture ?? true,
+      batch: state.batch ?? null,
     };
     const modalState = this.state;
     this.activeEdit = null;
@@ -244,6 +274,13 @@ export class MiningModal {
     this.show();
     this.container.querySelector<HTMLElement>(".subjap-modal-panel")?.focus({ preventScroll: true });
     this.registerKeyboard();
+    if (media) {
+      // Set aside earlier: the scene is already captured.
+      this.phraseAudioPromise = audioSettled
+        ? Promise.resolve(audio ?? undefined)
+        : this.capturePhraseAudio(modalState);
+      return;
+    }
     // Freeze the frame chosen by the learner before phrase replay seeks the
     // Netflix player back to the cue start.
     this.phraseAudioPromise = this.captureScreenshot().then(() => {
@@ -287,7 +324,11 @@ export class MiningModal {
         <div class="subjap-modal-body"></div>
         <div class="subjap-modal-footer">
           <div class="subjap-modal-status" role="status" aria-live="polite"></div>
-          <button class="subjap-modal-btn subjap-modal-btn-send" data-action="send"></button>
+          <div class="subjap-modal-actions">
+            <button type="button" class="subjap-modal-btn subjap-modal-btn-quiet" data-action="delete" hidden>Supprimer</button>
+            <button type="button" class="subjap-modal-btn subjap-modal-btn-quiet" data-action="skip" hidden>Passer</button>
+            <button class="subjap-modal-btn subjap-modal-btn-send" data-action="send"></button>
+          </div>
         </div>
       </div>`;
     return el;
@@ -483,6 +524,10 @@ export class MiningModal {
         transition: background 160ms cubic-bezier(0.22,1,0.36,1), transform 160ms cubic-bezier(0.22,1,0.36,1);
       }
       .subjap-modal-btn:disabled { opacity: 0.6; cursor: default; }
+      .subjap-modal-actions { display: flex; flex-shrink: 0; align-items: center; gap: 8px; }
+      .subjap-modal-btn[hidden] { display: none; }
+      .subjap-modal-btn-quiet { background: var(--sj-raised); color: var(--sj-text); }
+      .subjap-modal-btn-quiet:hover:not(:disabled) { background: #252932; }
       .subjap-modal-btn-send { background: var(--sj-accent); border-color: var(--sj-accent); color: var(--sj-canvas); }
       .subjap-modal-btn-send:hover:not(:disabled) { background: var(--sj-accent-hover); }
       #${MODAL_ID} .subjap-modal-btn-send kbd { border-color: rgba(12,13,16,0.35); color: var(--sj-canvas); }
@@ -514,6 +559,12 @@ export class MiningModal {
 
     const source = this.container.querySelector(".subjap-modal-source");
     if (source) source.textContent = state.episodeContext.title;
+    const title = this.container.querySelector(".subjap-modal-title");
+    if (title) {
+      title.textContent = state.batch
+        ? `Mot mis de côté · ${state.batch.position} / ${state.batch.total}`
+        : "Créer une carte";
+    }
 
     body.innerHTML = `
       <section class="subjap-sheet subjap-word-sheet">
@@ -719,6 +770,12 @@ export class MiningModal {
       send.setAttribute("aria-keyshortcuts", "Control+Enter");
       send.innerHTML = `${label}<kbd aria-hidden="true">Ctrl+Entrée</kbd>`;
     }
+    for (const action of ["skip", "delete"]) {
+      const button = this.container.querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
+      if (!button) continue;
+      button.hidden = state.batch === null;
+      button.disabled = state.sending;
+    }
   }
 
   // ── In-place editing ────────────────────────────────────────────────────
@@ -895,6 +952,13 @@ export class MiningModal {
     switch (button.dataset.action) {
       case "close":
         this.close();
+        state.batch?.onClose();
+        break;
+      case "skip":
+        state.batch?.onSkip();
+        break;
+      case "delete":
+        state.batch?.onDelete();
         break;
       case "send":
         void this.submit();
@@ -1110,12 +1174,13 @@ export class MiningModal {
     if (!phraseAudioDataUrl && this.phraseAudioPromise) {
       phraseAudioDataUrl = await this.phraseAudioPromise;
     }
-    if (!phraseAudioDataUrl && this.audioCapture && !state.phraseAudioAttempted) {
+    if (!phraseAudioDataUrl && state.liveVideo && this.audioCapture && !state.phraseAudioAttempted) {
       phraseAudioDataUrl = await this.capturePhraseAudio(state);
     }
     const resolvedCue = state.cue.cue;
     if (
       !phraseAudioDataUrl &&
+      state.liveVideo &&
       resolvedCue.endConfirmed !== false &&
       resolvedCue.end > resolvedCue.start
     ) {
@@ -1187,7 +1252,8 @@ export class MiningModal {
         return;
       }
 
-      this.close();
+      if (state.batch) state.batch.onCreated();
+      else this.close();
     } catch (err) {
       console.error("[SubJap] Failed to create card:", err);
       state.sending = false;

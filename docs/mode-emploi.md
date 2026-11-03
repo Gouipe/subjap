@@ -66,6 +66,27 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
 7. Réviser les nouvelles cartes dans le deck
    `日本語::Vocabulaire::Compréhension` d’Anki.
 
+### Miner plus tard, sans couper la scène
+
+Dans la popover, **Plus tard** met le mot de côté sans interrompre la vidéo :
+l’image, la phrase, la traduction et le sens sont enregistrés tout de suite,
+puis l’audio de la phrase dès que sa réplique a fini d’être entendue (même
+après une pause). L’audio de l’onglet doit être actif, comme pour **Mine
+this**. Le mot passe au gris et « Mis de côté · N » s’affiche brièvement.
+Tout est gardé dans la base locale : fermer l’onglet ou changer d’épisode ne
+perd rien, sauf l’audio si l’on quitte avant la fin de la réplique.
+
+Le nombre de mots en attente s’affiche sur l’icône SubJap. Pour créer les
+cartes, cliquer sur **Créer les cartes mises de côté (N)** dans la popup, ou
+sur **Créer les cartes** dans le bandeau qui apparaît une fois au début de
+chaque vidéo tant que des mots attendent. La vidéo se met en pause et la
+fenêtre « Créer une carte » présente les mots un par un, du plus ancien au
+plus récent (« Mot mis de côté · 2 / 7 »), avec `Q`, `I` et `Ctrl+Entrée`
+comme d’habitude. **Passer** garde le mot pour la prochaine fois,
+**Supprimer** le retire (il retrouve sa couleur) et ✕ arrête la session. Si
+l’audio manque et que le mot vient de la vidéo affichée, la phrase est
+réenregistrée comme pour **Mine this** ; sinon la carte est créée sans audio.
+
 Le compteur **Mots connus** inclut automatiquement les mots dont une carte
 `Compréhension` dans `日本語` ou ses sous-decks a été étudiée, qu’elle soit
 encore dans ses étapes d’apprentissage ou passée en Révision. Un oubli suivi de réapprentissage ne les

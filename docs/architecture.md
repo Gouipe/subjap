@@ -369,6 +369,8 @@ actuelles sont :
 
 - `wordStates` : état et provenance d’un lemme ;
 - `mineCards` : cartes de phrases, métadonnées de l’épisode et état SRS ;
+- `pendingMines` : mots mis de côté avec **Plus tard**, avec la phrase
+  tokenisée, l’image et l’audio, jusqu’à la création de leur carte ;
 - `dictionaryEntries` : entrées JMdict converties ;
 - `settings` : espace de réglages persistants côté IndexedDB.
 
@@ -378,6 +380,8 @@ Les handlers enregistrés dans le bus couvrent :
 - `word:get`, `word:getBatch`, `word:set`, `word:unset` et `word:batch` ; `word:unset`
   retire une décision manuelle pour que le mot suive de nouveau Anki ;
 - `mine:create` et `stats:get` ;
+- `mineLater:add`, `mineLater:setAudio`, `mineLater:list`, `mineLater:get`
+  et `mineLater:remove` ; le badge de l’action compte les mots en attente ;
 - `data:reset` ;
 - `anki:status`, `anki:syncKnown`, `anki:setup`, `anki:addNote` et
   `anki:dueCount` ;
@@ -437,6 +441,20 @@ peut :
 - capturer une image de la vidéo lorsque le navigateur l’autorise ;
 - créer d’abord une carte locale dans IndexedDB ;
 - pousser ensuite une copie vers AnkiConnect, en best effort.
+
+**Plus tard** ne touche pas au lecteur. Le document offscreen, qui reçoit déjà
+l’audio de l’onglet, en garde en continu les cinq dernières minutes (PCM
+16 bits), horodatées à l’horloge murale. Côté page,
+[`PlaybackClock`](../src/mining/playback-clock.ts) note à chaque
+`timeupdate`, pause ou seek quand chaque instant de la vidéo a été joué. Une
+fois la réplique entièrement entendue, le content script traduit ses bornes
+vidéo en intervalles d’horloge murale (plusieurs si l’on a fait pause au
+milieu) et demande la découpe au document offscreen (`tabCapture:cut`), sans
+seek. Les bornes sont prises avec 0,3 s avant et 0,45 s après, car les
+échantillons sont horodatés un peu après leur lecture. Le mot attend dans
+`pendingMines` ; la session de création rouvre `MiningModal` avec les médias
+enregistrés. Une phrase sans audio n’est rejouée que si elle vient de la même
+vidéo (`videoKey` : source et durée), jamais d’une autre.
 
 L’enrichissement IA est lancé uniquement par le bouton du modal. Le service
 worker construit d’abord, dans

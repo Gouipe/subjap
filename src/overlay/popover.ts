@@ -48,6 +48,8 @@ export interface PopoverCallbacks {
   onToggleIgnored: (lemma: string, currentStatus: WordStatus | null, token: Token) => void;
   /** Called when the user clicks "Mine this" */
   onMine: (token: Token, entry: DictionaryEntry | null) => void;
+  /** Called when the user sets the word aside with « Plus tard ». */
+  onMineLater?: (token: Token, entry: DictionaryEntry | null) => void;
 }
 // ── Class ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +62,7 @@ export class WordPopover {
   private currentFrequencyRank: number | undefined;
   private currentAnkiNoteCount = 0;
   private currentAnkiYoung = false;
+  private currentMinedLater = false;
   private currentToken: Token | null = null;
   private currentEntry: DictionaryEntry | null = null;
   private boundOnKeydown: (e: KeyboardEvent) => void;
@@ -89,9 +92,12 @@ export class WordPopover {
     ankiNoteCount?: number;
     /** Known through a studied Anki card that is not mature yet. */
     ankiYoung?: boolean;
+    /** Already set aside with « Plus tard ». */
+    minedLater?: boolean;
   }): void {
     const { anchor, token, entry, pitchAccent, wordStatus, frequencyRank, ankiNoteCount } = params;
     this.currentAnkiYoung = params.ankiYoung === true;
+    this.currentMinedLater = params.minedLater === true;
 
     this.currentToken = token;
     this.currentEntry = entry ?? null;
@@ -170,6 +176,7 @@ export class WordPopover {
         <button class="subjap-btn subjap-btn--toggle-known"></button>
         <button class="subjap-btn subjap-btn--toggle-ignored"></button>
         <button class="subjap-btn subjap-btn--mine">⛏ Mine this</button>
+        <button class="subjap-btn subjap-btn--later" title="Créer la carte plus tard, sans interrompre la vidéo">Plus tard</button>
       </div>
     `;
 
@@ -182,6 +189,8 @@ export class WordPopover {
         this.handleToggleIgnored();
       } else if (target.classList.contains("subjap-btn--mine")) {
         this.handleMine();
+      } else if (target.classList.contains("subjap-btn--later")) {
+        this.handleMineLater();
       }
     });
 
@@ -295,6 +304,7 @@ export class WordPopover {
       }
       .subjap-popover__actions {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         margin-top: 10px;
         padding-top: 8px;
@@ -322,14 +332,27 @@ export class WordPopover {
       .subjap-btn:active {
         transform: translateY(1px);
       }
-      .subjap-btn--toggle-known {
-        flex: 1;
+      .subjap-btn--toggle-known,
+      .subjap-btn--toggle-ignored,
+      .subjap-btn--mine,
+      .subjap-btn--later {
+        flex: 1 1 calc(50% - 4px);
       }
-      .subjap-btn--toggle-ignored {
-        flex: 1;
+      .subjap-btn--later {
+        border-color: #ff624d;
+      }
+      .subjap-btn--later[hidden] {
+        display: none;
+      }
+      .subjap-btn--later:disabled {
+        border-color: #343842;
+        color: #b2b6bf;
+        cursor: default;
+      }
+      .subjap-btn--later:disabled:hover {
+        background: #1b1e24;
       }
       .subjap-btn--mine {
-        flex: 1;
         background: #ff624d;
         border-color: #ff624d;
         color: #0c0d10;
@@ -428,6 +451,11 @@ export class WordPopover {
     } else {
       pitchEl.textContent = "";
     }
+
+    const laterBtn = this.el.querySelector(".subjap-btn--later") as HTMLButtonElement;
+    laterBtn.hidden = !this.callbacks.onMineLater;
+    laterBtn.disabled = this.currentMinedLater;
+    laterBtn.textContent = this.currentMinedLater ? "✓ Mis de côté" : "Plus tard";
 
     // Toggle button
     const toggleBtn = this.el.querySelector(".subjap-btn--toggle-known") as HTMLButtonElement;
@@ -542,6 +570,13 @@ export class WordPopover {
     // into the captured frame as a translucent popover.
     this.hide({ immediate: true });
     this.callbacks.onMine(this.currentToken, this.currentEntry);
+  }
+
+  private handleMineLater(): void {
+    if (!this.currentToken || this.currentMinedLater) return;
+    // Hidden at once, like Mine this: the scene is captured without it.
+    this.hide({ immediate: true });
+    this.callbacks.onMineLater?.(this.currentToken, this.currentEntry);
   }
 
   private onKeydown(e: KeyboardEvent): void {

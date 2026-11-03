@@ -30,6 +30,8 @@ import {
   isDefaultIgnoredToken,
 } from "@/core/frequency";
 import { MiningModal, VideoAudioCapture } from "@/mining";
+import { captureCleanFrame } from "@/mining/capture";
+import { PlaybackClock } from "@/mining/playback-clock";
 import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
 import {
   markParentheticalTokens,
@@ -113,6 +115,8 @@ let tokenizerPromise: Promise<Tokenizer | null> | null = null;
 let overlay: OverlayRenderer | null = null;
 let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
+/** Maps video time to the wall clock of the offscreen tab-audio buffer. */
+let playbackClock: PlaybackClock | null = null;
 let nativeSubtitlesHidden = false;
 let nativeSubtitleReplacementReady = false;
 let runtimeUnavailable = false;
@@ -262,6 +266,9 @@ const wordStateByLemma = new LRUCache<string, WordState | null>(1_000);
 /** lemma → number of matching notes from the latest successful Anki sync. */
 const ankiNoteCountByLemma = new LRUCache<string, number>(1_000);
 
+/** lemma → set aside with « Plus tard », card not created yet. */
+const minedLaterByLemma = new LRUCache<string, boolean>(1_000);
+
 /** lemma → aliases already resolved into the caches above. */
 const queriedAliasesByLemma = new LRUCache<string, Set<string>>(1_000);
 
@@ -341,6 +348,7 @@ async function getWordStates(
     for (const item of result.items) {
       wordStateByLemma.set(item.key, item.state);
       ankiNoteCountByLemma.set(item.key, item.ankiNoteCount);
+      minedLaterByLemma.set(item.key, item.minedLater === true);
       const aliases = aliasesByLemma.get(item.key);
       if (aliases) queriedAliasesByLemma.set(item.key, aliases);
     }
@@ -390,6 +398,7 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
 
       wordStateByLemma.clear();
       ankiNoteCountByLemma.clear();
+      minedLaterByLemma.clear();
       queriedAliasesByLemma.clear();
       knownWordCountPromise = null;
       lastSignature = "";
@@ -495,6 +504,7 @@ function ensureOverlay(): OverlayRenderer | null {
         : null,
       adapter.id === "youtube" ? () => adapter.getNavigationSessionId?.() : null,
     );
+    playbackClock = new PlaybackClock(video);
     currentVideo = video;
   }
 
@@ -507,6 +517,9 @@ function destroyOverlay(): void {
   overlay = null;
   audioCapture?.destroy();
   audioCapture = null;
+  playbackClock?.destroy();
+  playbackClock = null;
+  mineLaterReview = null;
   currentVideo = null;
   cueNavigator.reset();
   miningModal?.destroy();
@@ -666,16 +679,18 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
         const lexicalKey = tokenCanonicalKey(token);
         const storedState = wordStateByLemma.get(lexicalKey) ?? null;
         const ankiNoteCount = ankiNoteCountByLemma.get(lexicalKey) ?? 0;
+        const minedLater = minedLaterByLemma.get(lexicalKey) === true;
         return {
           index,
           token,
           // Metadata is not loaded yet while pending: wait before defaulting.
           wordState: pending
             ? storedState
-            : effectiveWordState(token, storedState, ankiNoteCount),
+            : effectiveWordState(token, storedState, ankiNoteCount + (minedLater ? 1 : 0)),
           isPending: pending,
           isParenthetical: parentheticalFlags[tokenIndex],
           ankiNoteCount,
+          minedLater,
           frequencyRank:
             frequencyRanks[lexicalKey] ??
             frequencyRanks[tokenDictionaryForm(token)] ??
@@ -1193,6 +1208,7 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
     frequencyRank: renderedSpan?.frequencyRank,
     ankiNoteCount: renderedSpan?.ankiNoteCount ?? 0,
     ankiYoung: wordState?.young === true,
+    minedLater: minedLaterByLemma.get(tokenCanonicalKey(token)) === true,
   });
 }
 
@@ -1284,6 +1300,313 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
     senses: entry?.senses.map((sense) => sense.glosses).filter((glosses) => glosses.length > 0) ?? [],
   });
 }
+
+// ---------------------------------------------------------------------------
+// « Plus tard »: set words aside, create their cards at the end of the episode
+// ---------------------------------------------------------------------------
+
+/** Margin kept around the line, as for a card mined at once. */
+const MINE_LATER_AUDIO_MARGIN_SECONDS = 0.3;
+/**
+ * The offscreen buffer stamps samples when it receives them, a little after
+ * they played: the tail gets more margin so the line's end is never cut.
+ */
+const MINE_LATER_AUDIO_TAIL_SECONDS = 0.45;
+/** Time left to the offscreen document to receive the line's last samples. */
+const MINE_LATER_AUDIO_SETTLE_MS = 500;
+/** Gives up when the end of the line is never heard (seek away, long pause). */
+const MINE_LATER_AUDIO_TIMEOUT_MS = 5 * 60_000;
+const MINE_LATER_FEEDBACK_MS = 1_800;
+const MINE_LATER_REMINDER_MS = 12_000;
+/** Lets the video start before reminding: the Jimaku notice comes first. */
+const MINE_LATER_REMINDER_DELAY_SECONDS = 3;
+
+function currentEpisodeContext(): EpisodeContext {
+  return adapter.getEpisodeContext() ?? {
+    platform: adapter.id,
+    title: document.title || "Unknown",
+    language: "ja",
+    url: window.location.href,
+  };
+}
+
+/** Same video, same load: a set-aside line can then be replayed from it. */
+function videoKey(video: HTMLVideoElement): string {
+  return `${video.currentSrc || window.location.href}|${Math.round(video.duration || 0)}`;
+}
+
+function setMinedLater(lemma: string, minedLater: boolean): void {
+  minedLaterByLemma.set(lemma, minedLater);
+  refreshWordStates();
+}
+
+let mineLaterFeedback: HTMLDivElement | null = null;
+let mineLaterFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Short confirmation under the subtitles, like the copy feedback. */
+function showMineLaterFeedback(message: string, failed = false): void {
+  if (!mineLaterFeedback) {
+    const element = document.createElement("div");
+    element.setAttribute("role", "status");
+    element.setAttribute("aria-live", "polite");
+    Object.assign(element.style, {
+      position: "fixed",
+      left: "50%",
+      bottom: "28px",
+      transform: "translateX(-50%)",
+      zIndex: "2147483647",
+      padding: "8px 14px",
+      borderRadius: "999px",
+      color: "#f4f1ea",
+      font: "600 14px/1.2 'IBM Plex Sans JP', 'Yu Gothic UI', Meiryo, sans-serif",
+      boxShadow: "0 6px 8px rgba(0, 0, 0, 0.35)",
+      pointerEvents: "none",
+    });
+    mineLaterFeedback = element;
+  }
+  const element = mineLaterFeedback;
+  element.textContent = message;
+  element.style.background = failed ? "rgba(92, 35, 42, 0.96)" : "rgba(27, 30, 36, 0.96)";
+  mountVideoSurface(element);
+  if (mineLaterFeedbackTimer !== null) clearTimeout(mineLaterFeedbackTimer);
+  mineLaterFeedbackTimer = setTimeout(() => {
+    forgetVideoSurface(element);
+    element.remove();
+    mineLaterFeedbackTimer = null;
+  }, MINE_LATER_FEEDBACK_MS);
+}
+
+function wordsSetAside(count: number): string {
+  return `${count} mot${count > 1 ? "s" : ""} mis de côté`;
+}
+
+/**
+ * Set a word aside without touching the video: the scene is captured now and
+ * the line's audio is cut from the tab buffer once it has been heard.
+ */
+async function mineLater(token: Token, entry: DictionaryEntry | null): Promise<void> {
+  const video = adapter.getVideoElement();
+  if (!video) return;
+  const rendered = lastRenderedCues.find((rc) => rc.spans.some((st) => st.token === token));
+  const targetIndex = rendered?.spans.findIndex((st) => st.token === token) ?? -1;
+  if (!rendered || targetIndex < 0) return;
+  if (!(await ensureMiningCaptureReady())) return;
+
+  const lemma = tokenCanonicalKey(token);
+  // Grey at once: the word cannot be set aside twice.
+  setMinedLater(lemma, true);
+  const cue = { ...rendered.cue };
+  let screenshotDataUrl: string | undefined;
+  try {
+    screenshotDataUrl = await captureCleanFrame(video, await audioCapture?.getTabVideo());
+  } catch (err: unknown) {
+    console.warn("[SubJap] Scene capture failed for a word set aside:", err);
+  }
+
+  try {
+    const { id, count } = await sendMessage("mineLater:add", {
+      key: lemma,
+      cue: { cue, spans: rendered.spans },
+      targetIndex,
+      lemmaReading: dictionaryReadingForToken(token, entry),
+      translation: miningTranslationText(cue),
+      senses: entry?.senses.map((sense) => sense.glosses).filter((glosses) => glosses.length > 0) ?? [],
+      episodeContext: currentEpisodeContext(),
+      videoKey: videoKey(video),
+      screenshotDataUrl,
+    });
+    showMineLaterFeedback(`Mis de côté · ${count}`);
+    void cutMineLaterAudio(id, cue);
+  } catch (err: unknown) {
+    console.warn("[SubJap] Setting a word aside failed:", err);
+    handleRuntimeError(err);
+    setMinedLater(lemma, false);
+    showMineLaterFeedback("Impossible de mettre ce mot de côté", true);
+  }
+}
+
+/** End of a DOM-only line once it has left the screen, otherwise null. */
+function observedCueEnd(cue: SubtitleCue, lastSeen: { time: number | null }): number | null {
+  const key = subtitleCueKey(cue);
+  const displayed = lastCues.some((candidate) => subtitleCueKey(candidate) === key);
+  const time = currentVideo?.currentTime ?? 0;
+  if (displayed || lastSeen.time === null) {
+    if (time >= cue.start) lastSeen.time = time;
+    return null;
+  }
+  return lastSeen.time;
+}
+
+/** Cut the line from the offscreen buffer as soon as all of it has been heard. */
+async function cutMineLaterAudio(id: string, cue: SubtitleCue): Promise<void> {
+  const clock = playbackClock;
+  const deadline = Date.now() + MINE_LATER_AUDIO_TIMEOUT_MS;
+  const lastSeen = { time: null as number | null };
+  let end: number | null = cue.endConfirmed === false ? null : cue.end;
+  let audioDataUrl: string | null = null;
+  while (clock && playbackClock === clock && Date.now() < deadline) {
+    end ??= observedCueEnd(cue, lastSeen);
+    const intervals = end === null
+      ? null
+      : clock.wallIntervalsFor(
+          Math.max(0, cue.start - MINE_LATER_AUDIO_MARGIN_SECONDS),
+          end + MINE_LATER_AUDIO_TAIL_SECONDS,
+        );
+    const last = intervals?.[intervals.length - 1];
+    if (intervals && last && last.toMs <= Date.now() - MINE_LATER_AUDIO_SETTLE_MS) {
+      try {
+        audioDataUrl = (await sendMessage("tabCapture:cut", { intervals })).dataUrl;
+      } catch (err: unknown) {
+        console.warn("[SubJap] Phrase audio cut failed for a word set aside:", err);
+      }
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  if (!audioDataUrl) console.info("[SubJap] No phrase audio for a word set aside");
+  await sendMessage("mineLater:setAudio", { id, audioDataUrl }).catch(handleRuntimeError);
+}
+
+interface MineLaterReview {
+  ids: string[];
+  index: number;
+  created: number;
+  video: HTMLVideoElement;
+}
+
+let mineLaterReview: MineLaterReview | null = null;
+
+/** Create the cards of the words set aside, one after the other. */
+async function startMineLaterReview(): Promise<boolean> {
+  const video = adapter.getVideoElement();
+  if (!video || !ensureOverlay() || mineLaterReview) return false;
+  const { ids } = await sendMessage("mineLater:list", {});
+  if (ids.length === 0) return false;
+  mineLaterReminder?.close();
+  video.pause();
+  mineLaterReview = { ids, index: 0, created: 0, video };
+  await showMineLaterItem(mineLaterReview);
+  return true;
+}
+
+async function showMineLaterItem(review: MineLaterReview): Promise<void> {
+  while (mineLaterReview === review && review.index < review.ids.length) {
+    const id = review.ids[review.index]!;
+    const { item } = await sendMessage("mineLater:get", { id });
+    if (mineLaterReview !== review) return;
+    const targetToken = item?.cue.spans[item.targetIndex];
+    if (!item || !targetToken) {
+      review.index += 1;
+      continue;
+    }
+    if (!miningModal) miningModal = new MiningModal(review.video, audioCapture);
+    const sameVideo = item.videoKey === videoKey(review.video);
+    miningModal.open({
+      cue: item.cue,
+      targetToken,
+      lemmaReading: item.lemmaReading,
+      translation: item.translation,
+      episodeContext: item.episodeContext,
+      senses: item.senses,
+      media: {
+        screenshotDataUrl: item.screenshotDataUrl,
+        phraseAudioDataUrl: item.audioDataUrl,
+        canRecapture: sameVideo,
+      },
+      batch: {
+        position: review.index + 1,
+        total: review.ids.length,
+        onCreated: () => {
+          review.created += 1;
+          // The word stays grey: it is in Anki now.
+          void sendMessage("mineLater:remove", { id }).catch(handleRuntimeError);
+          advanceMineLaterReview(review);
+        },
+        onSkip: () => advanceMineLaterReview(review),
+        onDelete: () => {
+          void sendMessage("mineLater:remove", { id }).catch(handleRuntimeError);
+          setMinedLater(item.key, false);
+          advanceMineLaterReview(review);
+        },
+        onClose: () => endMineLaterReview(review),
+      },
+    });
+    return;
+  }
+  endMineLaterReview(review);
+}
+
+function advanceMineLaterReview(review: MineLaterReview): void {
+  if (mineLaterReview !== review) return;
+  review.index += 1;
+  void showMineLaterItem(review).catch((err: unknown) => {
+    console.warn("[SubJap] Words set aside unavailable:", err);
+    handleRuntimeError(err);
+    endMineLaterReview(review);
+  });
+}
+
+function endMineLaterReview(review: MineLaterReview): void {
+  if (mineLaterReview !== review) return;
+  mineLaterReview = null;
+  miningModal?.close();
+  if (review.created > 0) {
+    showMineLaterFeedback(`${review.created} carte${review.created > 1 ? "s" : ""} créée${review.created > 1 ? "s" : ""}`);
+    // Anki now holds these words: refresh their colour from it.
+    void syncKnownWordsFromAnki(true);
+  }
+}
+
+let mineLaterReminderTimer: number | null = null;
+let mineLaterReminder: VideoNotice | null = null;
+/** Videos already reminded of, so the reminder appears once per video. */
+const mineLaterReminded = new Set<string>();
+
+/** Once per video, shortly after it starts: offer the cards still waiting. */
+function checkMineLaterReminder(): void {
+  const video = adapter.getVideoElement();
+  if (!video || !overlay || video.paused || video.currentTime < MINE_LATER_REMINDER_DELAY_SECONDS) return;
+  if (mineLaterReview || document.getElementById("subjap-mining-modal")?.style.display === "flex") return;
+  const key = videoKey(video);
+  if (mineLaterReminded.has(key)) return;
+  // Another notice (Jimaku) speaks first; remind once it is gone.
+  if (document.getElementById("subjap-video-notice")) return;
+  mineLaterReminded.add(key);
+  void sendMessage("mineLater:list", {}).then(({ ids }) => {
+    if (ids.length === 0 || !enabled || adapter.getVideoElement() !== video) return;
+    if (document.getElementById("subjap-video-notice")) return;
+    const notice = new VideoNotice(video, {
+      text: wordsSetAside(ids.length),
+      autoHideMs: MINE_LATER_REMINDER_MS,
+      actions: [{
+        label: "Créer les cartes",
+        primary: true,
+        onClick: () => {
+          notice.close();
+          void startMineLaterReview().catch(handleRuntimeError);
+        },
+      }],
+      onClose: () => {
+        if (mineLaterReminder === notice) mineLaterReminder = null;
+      },
+    });
+    mineLaterReminder = notice;
+    notice.show();
+  }, handleRuntimeError);
+}
+
+// The popup's button: only the frame playing the SubJap video answers.
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if ((message as { type?: unknown } | null)?.type !== "mineLater:review" || !enabled || !overlay) return;
+  void startMineLaterReview().then(
+    (started) => sendResponse({ started }),
+    (err: unknown) => {
+      handleRuntimeError(err);
+      sendResponse({ started: false });
+    },
+  );
+  return true;
+});
 
 /**
  * Translation of a mined Japanese line. Tracks split lines independently, so
@@ -1682,6 +2005,9 @@ function enable(): void {
     onMine: (token, entry) => {
       void openMiningModal(token, entry);
     },
+    onMineLater: (token, entry) => {
+      void mineLater(token, entry);
+    },
   });
   removeShortcuts = installShortcuts();
   adapter.setSecondarySubtitleLanguage?.(overlayOptions.secondarySubtitleLanguage);
@@ -1689,6 +2015,7 @@ function enable(): void {
     enqueueCues(cues);
   });
   missingJapaneseTimer = window.setInterval(checkMissingJapanese, 1_000);
+  mineLaterReminderTimer = window.setInterval(checkMineLaterReminder, 1_000);
 }
 
 /** Leave the page as if SubJap were not installed, without reloading it. */
@@ -1704,6 +2031,9 @@ function disable(): void {
   if (missingJapaneseTimer !== null) window.clearInterval(missingJapaneseTimer);
   missingJapaneseTimer = null;
   missingJapaneseNotice?.close();
+  if (mineLaterReminderTimer !== null) window.clearInterval(mineLaterReminderTimer);
+  mineLaterReminderTimer = null;
+  mineLaterReminder?.close();
   // Invalidate cue renders still in flight.
   cueRevision++;
   lastCues = [];

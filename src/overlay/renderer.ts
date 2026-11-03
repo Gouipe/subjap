@@ -604,7 +604,8 @@ export class OverlayRenderer {
         st.wordState,
         st.frequencyRank,
         this.knownWordCount,
-        st.ankiNoteCount,
+        // A word set aside is grey like a mined one until its card exists.
+        (st.ankiNoteCount ?? 0) + (st.minedLater ? 1 : 0),
       );
       if (highlight === "known" || highlight === "ignored") {
         span.classList.add("subjap-known");
@@ -654,7 +655,8 @@ export class OverlayRenderer {
         st.wordState,
         st.frequencyRank,
         this.knownWordCount,
-        st.ankiNoteCount,
+        // A word set aside is grey like a mined one until its card exists.
+        (st.ankiNoteCount ?? 0) + (st.minedLater ? 1 : 0),
       );
     });
     if (!isSingleMiningCandidate(highlights)) return new Map();

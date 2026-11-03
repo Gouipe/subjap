@@ -8,6 +8,7 @@ import type {
   WordState,
   MineCard,
   DictionaryEntry,
+  PendingMine,
 } from "@/core/types";
 import type { FrequencyEntry } from "@/dictionary/frequency";
 
@@ -15,6 +16,7 @@ export class SubJapDb extends Dexie {
   ankiWords!: Table<AnkiWordPresence, string>; // primary key = lemma
   wordStates!: Table<WordState, string>; // primary key = lemma
   mineCards!: Table<MineCard, string>; // primary key = uuid
+  pendingMines!: Table<PendingMine, string>; // primary key = uuid
   dictionaryEntries!: Table<DictionaryEntry, number>; // auto-increment pk
   frequencyEntries!: Table<FrequencyEntry, string>; // primary key = word
   settings!: Table<{ key: string; value: unknown }, string>;
@@ -50,6 +52,17 @@ export class SubJapDb extends Dexie {
       ankiWords: "key,noteCount",
       wordStates: "key,status,source",
       mineCards: "id,createdAt,targetWord,srs.state,srs.due,tags",
+      dictionaryEntries:
+        "++id,headword,reading,*aliases,partOfSpeech,common,frequencyRank",
+      frequencyEntries: "key,rank",
+      settings: "key",
+    });
+
+    this.version(5).stores({
+      ankiWords: "key,noteCount",
+      wordStates: "key,status,source",
+      mineCards: "id,createdAt,targetWord,srs.state,srs.due,tags",
+      pendingMines: "id,createdAt,key",
       dictionaryEntries:
         "++id,headword,reading,*aliases,partOfSpeech,common,frequencyRank",
       frequencyEntries: "key,rank",

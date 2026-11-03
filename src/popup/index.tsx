@@ -196,15 +196,20 @@ const Popup: React.FC = () => {
   const [tabId, setTabId] = useState<number | null>(null);
   /** The other Jimaku files of the episode are listed under the Japanese track. */
   const [jimakuListOpen, setJimakuListOpen] = useState(false);
+  /** Words set aside with « Plus tard », cards not created yet. */
+  const [pendingMineCount, setPendingMineCount] = useState(0);
+  const [pendingMineError, setPendingMineError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [statsResult, dictResult, onboardedResult, optionsResult] = await Promise.all([
+    const [statsResult, dictResult, onboardedResult, optionsResult, pendingMines] = await Promise.all([
       sendMessage("stats:get", {}),
       sendMessage("dict:status", {}),
       isOnboardingComplete(),
       getOptions(),
+      sendMessage("mineLater:list", {}),
     ]);
     setStats(statsResult);
+    setPendingMineCount(pendingMines.ids.length);
     setDict(dictResult);
     setOnboarded(onboardedResult);
     setKnownSentenceSubtitles(optionsResult.knownSentenceSubtitles);
@@ -591,6 +596,23 @@ const Popup: React.FC = () => {
     }
   }, []);
 
+  const reviewPendingMines = useCallback(async () => {
+    setPendingMineError(null);
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id == null) throw new Error("Aucun onglet actif");
+      // Only the frame playing the SubJap video answers.
+      const answer: unknown = await chrome.tabs.sendMessage(tab.id, { type: "mineLater:review" });
+      if ((answer as { started?: unknown } | undefined)?.started === true) {
+        window.close();
+        return;
+      }
+    } catch {
+      // No frame answered: no SubJap video in this tab.
+    }
+    setPendingMineError("Lance la vidéo avec ses sous-titres SubJap, puis réessaie.");
+  }, []);
+
   const installDictionary = useCallback(async () => {
     setDownloading(true);
     setError(null);
@@ -698,6 +720,21 @@ const Popup: React.FC = () => {
                 : "Activer l’audio de l’onglet"}
           </button>
           {captureError && <p style={styles.captureError}>{captureError}</p>}
+        </div>
+      )}
+
+      {pendingMineCount > 0 && (
+        <div style={styles.captureBox}>
+          {hasVideo ? (
+            <button style={styles.pendingMineButton} onClick={() => void reviewPendingMines()}>
+              Créer les cartes mises de côté ({pendingMineCount})
+            </button>
+          ) : (
+            <p style={styles.pendingMineHint}>
+              {pendingMineCount} mot{pendingMineCount > 1 ? "s" : ""} mis de côté · ouvre une vidéo pour créer leurs cartes.
+            </p>
+          )}
+          {pendingMineError && <p style={styles.captureError}>{pendingMineError}</p>}
         </div>
       )}
 
@@ -1213,6 +1250,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",
+  },
+  pendingMineButton: {
+    width: "100%",
+    padding: "8px 12px",
+    border: "1px solid #ff624d",
+    borderRadius: 6,
+    background: "#1b1e24",
+    color: "#f4f1ea",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  pendingMineHint: {
+    margin: 0,
+    fontSize: 12,
+    color: "#b2b6bf",
   },
   captureHint: {
     margin: "6px 0 0",

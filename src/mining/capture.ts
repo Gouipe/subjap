@@ -35,6 +35,26 @@ export function hideVideoChromeForCapture(): () => void {
 }
 
 /**
+ * Capture the picture on screen without player controls nor subtitles, while
+ * the video keeps playing: the card keeps the sentence and translation as text.
+ */
+export async function captureCleanFrame(
+  video: HTMLVideoElement,
+  tabVideo?: HTMLVideoElement | null,
+): Promise<string> {
+  const restoreVideoChrome = hideVideoChromeForCapture();
+  try {
+    // Two frames, then a short interval for Chrome's tab compositor to
+    // publish the repainted page.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return await captureFrame(video, undefined, tabVideo);
+  } finally {
+    restoreVideoChrome();
+  }
+}
+
+/**
  * Capture a frame from a video element and return it as a JPEG data URL.
  *
  * If `time` is provided the video is temporarily seeked to that timestamp,

@@ -66,7 +66,7 @@ import {
   MIGAKU_TEMPLATE_MARKER_V12,
   MIGAKU_TEMPLATE_MARKER_V13,
 } from "./anki-presentation";
-import type { MineCard, SrsState, WordState } from "@/core/types";
+import type { MineCard, PendingMine, PendingMineData, SrsState, WordState } from "@/core/types";
 
 // ---------------------------------------------------------------------------
 // First-install: open the options page so the onboarding wizard can run.
@@ -98,10 +98,19 @@ const DISABLED_BADGE_COLOR = "#343842";
 const DISABLED_BADGE_TEXT_COLOR = "#f4f1ea";
 const CAPTURE_BADGE_COLOR = "#78d6a3";
 
+const PENDING_BADGE_COLOR = "#ff624d";
+const PENDING_BADGE_TEXT_COLOR = "#0c0d10";
+
 async function updateEnabledBadge(enabled: boolean): Promise<void> {
-  await chrome.action.setBadgeText({ text: enabled ? "" : "OFF" });
-  await chrome.action.setBadgeBackgroundColor({ color: DISABLED_BADGE_COLOR });
-  await chrome.action.setBadgeTextColor({ color: DISABLED_BADGE_TEXT_COLOR });
+  // While enabled, the badge counts the words set aside for later; "OFF" wins.
+  const pending = enabled ? await db.pendingMines.count() : 0;
+  await chrome.action.setBadgeText({ text: enabled ? (pending > 0 ? String(pending) : "") : "OFF" });
+  await chrome.action.setBadgeBackgroundColor({
+    color: pending > 0 ? PENDING_BADGE_COLOR : DISABLED_BADGE_COLOR,
+  });
+  await chrome.action.setBadgeTextColor({
+    color: pending > 0 ? PENDING_BADGE_TEXT_COLOR : DISABLED_BADGE_TEXT_COLOR,
+  });
   // The tab audio capture sets an "ON" badge on its tab, which would
   // otherwise hide the global state there.
   const capturedTabs = await new Promise<chrome.tabCapture.CaptureInfo[]>((resolve) => {
@@ -115,6 +124,12 @@ async function updateEnabledBadge(enabled: boolean): Promise<void> {
       color: enabled ? CAPTURE_BADGE_COLOR : DISABLED_BADGE_COLOR,
     });
   }
+}
+
+function refreshBadge(): void {
+  void isSubJapEnabled().then(updateEnabledBadge).catch((err: unknown) => {
+    console.warn("[SubJap] Badge update failed:", err);
+  });
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -365,12 +380,14 @@ onMessage("word:getBatch", async ({ items }) => {
     candidates: lexicalKeyCandidates(key, ...aliases),
   }));
   const candidates = [...new Set(requests.flatMap((request) => request.candidates))];
-  const [states, ankiWords] = await Promise.all([
+  const [states, ankiWords, pendingKeys] = await Promise.all([
     db.wordStates.bulkGet(candidates),
     db.ankiWords.bulkGet(candidates),
+    db.pendingMines.where("key").anyOf(candidates).keys(),
   ]);
   const stateByKey = new Map(candidates.map((candidate, index) => [candidate, states[index]]));
   const ankiByKey = new Map(candidates.map((candidate, index) => [candidate, ankiWords[index]]));
+  const minedLater = new Set(pendingKeys.map(String));
 
   return {
     items: requests.map(({ key, candidates: requestCandidates }) => ({
@@ -380,6 +397,7 @@ onMessage("word:getBatch", async ({ items }) => {
         (total, candidate) => total + (ankiByKey.get(candidate)?.noteCount ?? 0),
         0,
       ),
+      minedLater: requestCandidates.some((candidate) => minedLater.has(candidate)),
     })),
   };
 });
@@ -490,6 +508,64 @@ onMessage("mine:updateNotes", async ({ id, notes }) => {
   await db.mineCards.update(id, { notes });
 });
 
+// ── mineLater:* ───────────────────────────────────────────────────────────
+// Words set aside during the episode. Media are stored as Blobs, like cards.
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return `data:${blob.type || "application/octet-stream"};base64,${btoa(binary)}`;
+}
+
+onMessage("mineLater:add", async (payload) => {
+  const { screenshotDataUrl, ...rest } = payload;
+  const item: PendingMine = {
+    ...rest,
+    key: canonicalizeLexicalKey(rest.key),
+    id: crypto.randomUUID(),
+    createdAt: Date.now(),
+    screenshot: screenshotDataUrl ? dataUrlToBlob(screenshotDataUrl) : undefined,
+    audioStatus: "pending",
+  };
+  await db.pendingMines.put(item);
+  refreshBadge();
+  return { id: item.id, count: await db.pendingMines.count() };
+});
+
+onMessage("mineLater:setAudio", async ({ id, audioDataUrl }) => {
+  const audio = audioDataUrl ? dataUrlToBlob(audioDataUrl) : undefined;
+  // modify(), not update(): Dexie's key-path typing recurses through Token.
+  await db.pendingMines.where("id").equals(id).modify((item) => {
+    item.audio = audio;
+    item.audioStatus = audio ? "ready" : "unavailable";
+  });
+});
+
+onMessage("mineLater:list", async () => ({
+  ids: (await db.pendingMines.orderBy("createdAt").primaryKeys()).map(String),
+}));
+
+onMessage("mineLater:get", async ({ id }) => {
+  const stored = await db.pendingMines.get(id);
+  if (!stored) return { item: null };
+  const { screenshot, audio, ...rest } = stored;
+  const item: PendingMineData = {
+    ...rest,
+    screenshotDataUrl: screenshot ? await blobToDataUrl(screenshot) : undefined,
+    audioDataUrl: audio ? await blobToDataUrl(audio) : undefined,
+  };
+  return { item };
+});
+
+onMessage("mineLater:remove", async ({ id }) => {
+  await db.pendingMines.delete(id);
+  refreshBadge();
+  return { count: await db.pendingMines.count() };
+});
+
 onMessage("ai:prepareEnrichment", async ({ targetWord }) => ({
   kanji: await prepareAiEnrichmentCandidates(targetWord),
 }));
@@ -560,6 +636,8 @@ onMessage("data:reset", async () => {
   await db.ankiWords.clear();
   await db.wordStates.clear();
   await db.mineCards.clear();
+  await db.pendingMines.clear();
+  refreshBadge();
   await db.dictionaryEntries.clear();
   await db.frequencyEntries.clear();
   await db.settings.clear();
@@ -777,6 +855,13 @@ onMessage("tabCapture:phraseStart", async () => {
 onMessage("tabCapture:phraseStop", async () => {
   await ensureAudioOffscreen();
   return chrome.runtime.sendMessage({ type: "tabCapture:offscreenPhraseStop" });
+});
+
+onMessage("tabCapture:cut", async ({ intervals }) => {
+  // Without a document there is no buffer to cut from: do not create one.
+  if (!(await chrome.offscreen.hasDocument())) return { dataUrl: null };
+  const result: unknown = await chrome.runtime.sendMessage({ type: "tabCapture:offscreenCut", intervals });
+  return { dataUrl: (result as { dataUrl?: string | null } | undefined)?.dataUrl ?? null };
 });
 
 // ── anki:status ───────────────────────────────────────────────────────────
