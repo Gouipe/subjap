@@ -76,9 +76,9 @@ const MOCK_TARGET = "#ff7966";
 
 /** Video-tab shortcuts shown at the end of onboarding (see README). */
 const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
-  ["Q", "sous-titre précédent"],
-  ["S", "rejouer le sous-titre"],
-  ["D", "sous-titre suivant"],
+  ["Q", "revenir au sous-titre précédent"],
+  ["S", "rejouer le sous-titre courant"],
+  ["D", "aller au sous-titre suivant"],
   ["C", "copier le japonais"],
   ["X", "révéler la traduction masquée"],
 ];
