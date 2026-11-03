@@ -711,14 +711,15 @@ function AnkiCardPreview(): JSX.Element {
           <span>
             これは<span style={{ color: MOCK_TARGET, fontWeight: 600 }}>大切</span>な本だ
           </span>
-          <span style={{ ...s.mockRow, gap: 4, fontSize: 12, color: C.muted }}>
-            <span style={s.mockPlay}>▶</span>Q
+          <span style={{ ...s.mockButton, gap: 4, padding: "2px 4px", borderRadius: 999, fontSize: 12 }}>
+            <span style={s.mockPlay}>▶</span>
+            <MockKbd>Q</MockKbd>
           </span>
           <Callout n={4} />
         </div>
         <div style={{ ...s.mockRow, marginTop: 4 }}>
           <span style={{ ...s.mockTranslation, filter: "blur(3px)" }}>C’est un livre précieux.</span>
-          <span style={{ fontSize: 12, color: C.muted }}>W</span>
+          <MockKbd>W</MockKbd>
         </div>
       </div>
       <div style={{ ...s.mockSheet, ...s.mockRow }}>
@@ -2162,10 +2163,9 @@ const s: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     width: 18,
     height: 18,
-    border: `1px solid ${C.panelBorder}`,
     borderRadius: "50%",
-    backgroundColor: C.panelRaised,
-    color: C.text,
+    backgroundColor: C.text,
+    color: C.panelRaised,
     fontSize: 8,
   },
   mockButton: {

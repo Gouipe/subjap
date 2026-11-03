@@ -883,7 +883,7 @@ ruby rt {
 }
 
 .translation-veil:hover .translation-shortcut {
-  color: var(--text);
+  background: var(--accent);
 }
 
 .translation-veil:focus-visible {
@@ -906,64 +906,74 @@ ruby rt {
   }
 }
 
-/* Replays beside the word and at the end of the sentence: icon and shortcut, no label. */
+/* Replays beside the word and at the end of the sentence: a rounded pill holding the play
+   disc and its shortcut key, raised enough off the panel to read as a button. */
 .audio-control.audio-inline {
-  gap: 6px;
-  min-height: 0;
+  gap: 7px;
+  min-height: 34px;
   margin-left: 12px;
-  padding: 0;
-  border: 0;
+  padding: 0 6px 0 5px;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: transparent;
+  background: var(--surface-raised);
   line-height: 1;
   vertical-align: middle;
+  transition: border-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.audio-control.audio-inline:hover {
+  border-color: var(--accent);
 }
 
 .audio-control.audio-inline .audio-label {
   display: none;
 }
 
-/* Anki's own replay disc, restyled: a quiet raised circle with a slim triangle. */
 .card .audio-control.audio-inline .replay-button svg,
 .audio-control.audio-inline img.replay-button {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   padding: 0;
 }
 
 .card .audio-control.audio-inline .replay-button svg circle {
-  fill: var(--surface-raised);
-  stroke: var(--border);
-  stroke-width: 2;
-  transition: fill 160ms cubic-bezier(0.22, 1, 0.36, 1), stroke 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  fill: var(--text);
+  stroke: none;
+  transition: fill 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card .audio-control.audio-inline .replay-button svg path {
-  fill: var(--text);
-  transform: scale(0.55);
+  fill: var(--surface-raised);
+  transform: scale(0.7);
   transform-box: view-box;
   transform-origin: 32px 32px;
 }
 
 .card .audio-control.audio-inline:hover .replay-button svg circle {
   fill: var(--accent);
-  stroke: var(--accent);
 }
 
-/* Shortcut reminders beside the replays and the blurred translation: a plain letter, no key cap. */
+.card .audio-control.audio-inline:hover .replay-button svg path {
+  fill: var(--text);
+}
+
+/* Shortcut reminders beside the replays and the blurred translation: a small filled key. */
 .audio-control.audio-inline .audio-shortcut,
 .translation-line .translation-shortcut {
-  padding: 0;
+  min-width: 18px;
+  padding: 3px 5px;
+  box-sizing: border-box;
   border: 0;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.audio-control.audio-inline:hover .audio-shortcut {
+  border-radius: 4px;
+  background: var(--border);
   color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .audio-control.audio-inline,
   .card .audio-control.audio-inline .replay-button svg circle {
     transition: none;
   }
