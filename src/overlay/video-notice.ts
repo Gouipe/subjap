@@ -20,6 +20,8 @@ export interface VideoNoticeContent {
 export interface VideoNoticeOptions extends VideoNoticeContent {
   /** Called once the notice is gone, whatever the reason. */
   onClose?: () => void;
+  /** Short text: keep it on one line with its actions instead of wrapping. */
+  singleLine?: boolean;
 }
 
 const NOTICE_ID = "subjap-video-notice";
@@ -53,7 +55,7 @@ export class VideoNotice {
       "position:fixed",
       "z-index:2147483647",
       "display:flex",
-      "flex-wrap:wrap",
+      options.singleLine ? "flex-wrap:nowrap" : "flex-wrap:wrap",
       "align-items:center",
       "gap:8px 12px",
       // Sized on its content: the centring left offset would otherwise squeeze it to the space left of it.
@@ -112,7 +114,9 @@ export class VideoNotice {
   }
 
   private renderContent(content: VideoNoticeContent): void {
-    this.message.style.cssText = "flex:1 1 180px;min-width:0;white-space:pre-line;text-wrap:pretty";
+    this.message.style.cssText = this.options.singleLine
+      ? "flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:4px"
+      : "flex:1 1 180px;min-width:0;white-space:pre-line;text-wrap:pretty";
     this.message.textContent = content.text;
     this.actions.style.cssText = "display:flex;align-items:center;gap:6px;flex:none";
     this.actions.replaceChildren(...content.actions.map((action) => this.buildAction(action)), this.closeButton);

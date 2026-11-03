@@ -1578,6 +1578,7 @@ function checkMineLaterReminder(): void {
     const notice = new VideoNotice(video, {
       text: wordsSetAside(ids.length),
       autoHideMs: MINE_LATER_REMINDER_MS,
+      singleLine: true,
       actions: [{
         label: "Créer les cartes",
         primary: true,

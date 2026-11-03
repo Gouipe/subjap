@@ -98,7 +98,8 @@ const DISABLED_BADGE_COLOR = "#343842";
 const DISABLED_BADGE_TEXT_COLOR = "#f4f1ea";
 const CAPTURE_BADGE_COLOR = "#78d6a3";
 
-const PENDING_BADGE_COLOR = "#ff624d";
+// Cream on the vermilion icon: an accent badge would melt into it.
+const PENDING_BADGE_COLOR = "#f4f1ea";
 const PENDING_BADGE_TEXT_COLOR = "#0c0d10";
 
 async function updateEnabledBadge(enabled: boolean): Promise<void> {
