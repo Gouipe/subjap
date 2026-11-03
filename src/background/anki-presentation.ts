@@ -850,10 +850,7 @@ ruby rt {
 
 /* Blurred in place under the sentence: its line is reserved, so revealing it moves nothing. */
 .translation-veil {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
+  display: block;
   max-width: 70ch;
   margin: 4px auto 0;
   padding: 2px 12px;
@@ -863,6 +860,20 @@ ruby rt {
   line-height: 1.5;
   text-align: center;
   cursor: pointer;
+}
+
+/* The W hint hangs to the right of the line, outside its width, so the text stays centered. */
+.translation-line {
+  position: relative;
+  display: inline-block;
+}
+
+.translation-line .translation-shortcut {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  margin-left: 10px;
+  transform: translateY(-50%);
 }
 
 .translation-veil .translation-text {
@@ -894,6 +905,20 @@ ruby rt {
   .translation-veil .translation-text {
     transition: none;
   }
+}
+
+/* Replays beside the word and at the end of the sentence: icon and shortcut, no label. */
+.audio-control.audio-inline {
+  gap: 5px;
+  min-height: 30px;
+  margin-left: 10px;
+  padding: 3px 6px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.audio-control.audio-inline .audio-label {
+  display: none;
 }
 
 /* Activating production is a decision about the word: a discreet action beside it, top right. */
@@ -1158,12 +1183,35 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     veil.setAttribute("aria-label", "Afficher la traduction");
     veil.setAttribute("aria-keyshortcuts", "W");
     veil.setAttribute("title", "Afficher la traduction (W)");
-    veil.append(text, hint);
+    // The hint hangs outside the line so the text stays centered once it goes away.
+    const line = document.createElement("span");
+    line.className = "translation-line";
+    line.append(text, hint);
+    veil.appendChild(line);
     const sentence = document.querySelector(".back-card .back-sentence");
     if (sentence) sentence.after(veil);
     else translationReveal.before(veil);
     translationReveal.remove();
   }
+
+  // Each replay sits beside what it plays: the word's after the word, the sentence's at its end.
+  // The controls row then disappears once nothing is left in it.
+  [
+    [".back-card .audio-control.audio-word", ".back-card .back-word"],
+    [".back-card .audio-control.audio-phrase", ".back-card .back-sentence"],
+  ].forEach(([controlSelector, hostSelector]) => {
+    const control = document.querySelector(controlSelector);
+    const host = document.querySelector(hostSelector);
+    if (!control || !host || host.contains(control)) return;
+    control.classList.add("audio-inline");
+    host.appendChild(control);
+  });
+  document.querySelectorAll(".back-card .back-audio-row").forEach((row) => {
+    if (!row.querySelector(".audio-control")) row.remove();
+  });
+  document.querySelectorAll(".back-card .scene-controls").forEach((row) => {
+    if (row.children.length === 0) row.remove();
+  });
 
   // Notes are plain text lines: kanji headings and their examples become tiles; the remaining
   // lines stay as text with emphasized enrichment labels. Unrecognized lines are kept as they are.

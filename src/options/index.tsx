@@ -639,7 +639,7 @@ const ANKI_CALLOUTS: ReadonlyArray<readonly [string, React.ReactNode]> = [
   [
     "Raccourcis",
     <>
-      <MockKbd>Q</MockKbd> rejoue la phrase, <MockKbd>W</MockKbd> (ou un clic) défloute la traduction
+      <MockKbd>Q</MockKbd> rejoue la phrase (▶ au bout de la phrase), <MockKbd>W</MockKbd> (ou un clic) défloute la traduction
     </>,
   ],
   [
@@ -707,18 +707,18 @@ function AnkiCardPreview(): JSX.Element {
       </div>
       <div style={s.mockSheet}>
         <div style={{ ...s.mockImage, aspectRatio: "auto", height: 48 }}>Image de la scène</div>
-        <div style={{ ...s.mockSentence, marginTop: 6 }}>
-          これは<span style={{ color: MOCK_TARGET, fontWeight: 600 }}>大切</span>な本だ
+        <div style={{ ...s.mockRow, ...s.mockSentence, marginTop: 6 }}>
+          <span>
+            これは<span style={{ color: MOCK_TARGET, fontWeight: 600 }}>大切</span>な本だ
+          </span>
+          <span style={{ ...s.mockButton, fontSize: 12 }}>
+            ▶ <MockKbd>Q</MockKbd>
+          </span>
+          <Callout n={4} />
         </div>
         <div style={{ ...s.mockRow, marginTop: 4 }}>
           <span style={{ ...s.mockTranslation, filter: "blur(3px)" }}>C’est un livre précieux.</span>
           <MockKbd>W</MockKbd>
-        </div>
-        <div style={{ ...s.mockRow, marginTop: 6 }}>
-          <span style={s.mockButton}>
-            ▶ Phrase <MockKbd>Q</MockKbd>
-          </span>
-          <Callout n={4} />
         </div>
       </div>
       <div style={{ ...s.mockSheet, ...s.mockRow }}>

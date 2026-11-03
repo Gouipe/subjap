@@ -119,8 +119,10 @@ accélérateur supplémentaire.
 ## Raccourcis audio
 
 Sur les versos de compréhension et de production, `Z` rejoue `AudioMot` et `Q`
-rejoue `AudioPhrase` via leur bouton de lecture natif Anki. Les boutons « Mot »
-et « Phrase » affichent respectivement un rappel `Z` et `Q`. Un raccourci reste
+rejoue `AudioPhrase` via leur bouton de lecture natif Anki. Chaque bouton est
+placé à côté de ce qu'il fait entendre : ▶ `Z` juste après le mot, ▶ `Q` au bout
+de la phrase japonaise. Le script géré les y déplace depuis la ligne de
+contrôles du template, qui disparaît une fois vide. Un raccourci reste
 inactif au recto, sans l'audio correspondant,
 pendant une saisie ou avec une touche modificatrice ; maintenir la touche
 n'entraîne pas de répétitions. `A` est réservé à l'ajout de notes dans Anki et
@@ -168,8 +170,8 @@ Règles du verso :
   suivants passent en dessous, plus petits et en gris ;
 - traduction floutée directement sous la phrase (18 px), sur sa propre ligne
   réservée, avec le rappel `W` ;
-- contrôles audio nommés `Mot` et `Phrase` alignés sur une seule ligne, dans
-  le même style secondaire neutre, chacun avec son raccourci (`Z`, `Q`) ;
+- contrôles audio compacts (icône et raccourci, sans libellé visible) : `Z`
+  après le mot, `Q` au bout de la phrase, dans le style secondaire neutre ;
 - image affichée en entier avec `object-fit: contain` ;
 - image limitée à `min(460px, 60vh)` en hauteur, ce qui laisse une image 16:9
   remplir la largeur de la colonne dans les fenêtres de révision habituelles ;
