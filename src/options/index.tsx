@@ -759,6 +759,21 @@ function MockKbd(props: { children: React.ReactNode; onAccent?: boolean }): JSX.
   );
 }
 
+/** A popover button named in running text, styled like the real one. */
+function UiButton(props: { children: React.ReactNode; variant?: "mine" | "later" }): JSX.Element {
+  return (
+    <span
+      style={{
+        ...s.uiButton,
+        ...(props.variant === "mine" ? s.uiButtonMine : {}),
+        ...(props.variant === "later" ? { borderColor: C.accent } : {}),
+      }}
+    >
+      {props.children}
+    </span>
+  );
+}
+
 /** A player frame: hovering a subtitle word opens its popover with « Miner ». */
 function MinePreview(): JSX.Element {
   return (
@@ -1033,8 +1048,8 @@ function OnboardingWizard(props: {
 
           {!anki?.connected && (
             <div style={s.warningBox}>
-              Anki n’est pas connecté : {strong("Miner")} ne crée pas de carte à réviser, donc
-              aucun mot ne devient acquis par ce chemin. Utilisez {strong("Connu")}, ou
+              Anki n’est pas connecté : <UiButton variant="mine">⛏ Miner</UiButton> ne crée pas de carte à réviser, donc
+              aucun mot ne devient acquis par ce chemin. Utilisez <UiButton>Connu</UiButton>, ou
               connectez Anki dans les réglages.
             </div>
           )}
@@ -1055,11 +1070,11 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>6 · Miner un mot</h2>
           <p style={s.muted}>
-            Survolez un mot du sous-titre, puis cliquez sur {strong("⛏ Miner")}.
+            Survolez un mot du sous-titre, puis cliquez sur <UiButton variant="mine">⛏ Miner</UiButton>.
           </p>
           <MinePreview />
           <p style={s.mutedSmall}>
-            Pour ne pas couper la scène, {strong("Plus tard")} met le mot de côté avec son image
+            Pour ne pas couper la scène, <UiButton variant="later">Plus tard</UiButton> met le mot de côté avec son image
             et son audio. Les cartes se créent ensuite à la suite, depuis la popup ou le bandeau
             au début de la vidéo suivante.
           </p>
@@ -1082,7 +1097,7 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>7 · Créer une carte</h2>
           <p style={s.muted}>
-            Après {strong("Miner")}, cet écran prépare la carte Anki à partir de la scène.
+            Après <UiButton variant="mine">⛏ Miner</UiButton>, cet écran prépare la carte Anki à partir de la scène.
           </p>
           <MiningPreview />
           <CalloutList items={MINING_CALLOUTS} />
@@ -2262,6 +2277,23 @@ const s: Record<string, React.CSSProperties> = {
     position: "absolute",
     top: 8,
     right: 10,
+  },
+  uiButton: {
+    display: "inline-block",
+    padding: "0 6px",
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 5,
+    backgroundColor: C.panelRaised,
+    color: C.text,
+    fontSize: "0.92em",
+    fontWeight: 600,
+    lineHeight: 1.5,
+    whiteSpace: "nowrap",
+  },
+  uiButtonMine: {
+    backgroundColor: C.accent,
+    borderColor: C.accent,
+    color: C.bg,
   },
   minePlayer: {
     display: "flex",
