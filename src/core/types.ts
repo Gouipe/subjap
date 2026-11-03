@@ -246,7 +246,8 @@ export interface MineCard {
   tags: string[];
 }
 
-export type AiWordFamiliarity = "known" | "learning" | "anki";
+/** "frequent" marks a common word the learner has not marked, used to fill a sparse shortlist. */
+export type AiWordFamiliarity = "known" | "learning" | "anki" | "frequent";
 
 export interface AiWordCandidate {
   word: string;

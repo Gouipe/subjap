@@ -24,6 +24,7 @@ Règles impératives :
 - Pour chaque synonyme, explique en une seule phrase française la différence d'usage avec {{targetWord}}.
 - Donne pour chaque kanji du mot cible une définition française en un seul mot.
 - Les exemples de kanji doivent provenir exactement des candidats fournis.
+- Privilégie les candidats dont familiarity vaut known, learning ou anki. N'utilise un candidat frequent que si aucun candidat familier ne convient.
 - Ne retiens un exemple que si le kanji y possède la même lecture que dans le mot cible. En cas de doute, ne le retiens pas.
 - Maximum deux exemples par kanji. Il est parfaitement valide de n'en donner aucun.
 - Si le mot contient plusieurs kanjis, la phrase d'association doit citer chacun d'eux dans l'ordre, rappeler brièvement leur sens et expliquer comment leurs sens se combinent pour produire celui du mot cible. Par exemple : « 全 (« totalité ») + 国 (« pays ») désignent l'ensemble du pays, donc 全国. » Ne donne pas seulement la définition ou la lecture d'un kanji isolé.
