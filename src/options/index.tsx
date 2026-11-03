@@ -83,6 +83,13 @@ const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
   ["X", "révéler la traduction masquée"],
 ];
 
+/** Supported video sites offered at the end of onboarding, the first one highlighted. */
+const VIDEO_SITES: ReadonlyArray<readonly [string, string]> = [
+  ["Re:ANIME", "https://reanime.to/"],
+  ["YouTube", "https://www.youtube.com/"],
+  ["Netflix", "https://www.netflix.com/"],
+];
+
 /** Sample subtitle of the size preview: an unknown name, a word to mine. */
 const PREVIEW_TOKENS: ReadonlyArray<{
   text: string;
@@ -1152,32 +1159,25 @@ function OnboardingWizard(props: {
             ))}
           </div>
 
-          <div style={s.btnRow}>
+          <h3 style={s.guideTitle}>Commencer</h3>
+          <div style={s.siteRow}>
+            {VIDEO_SITES.map(([label, url], index) => (
+              <Btn
+                key={url}
+                variant={index === 0 ? "primary" : "ghost"}
+                style={s.siteBtn}
+                onClick={() => {
+                  void chrome.tabs.create({ url });
+                }}
+              >
+                {label}
+              </Btn>
+            ))}
+          </div>
+
+          <div style={s.navRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("anki")}>
               ← Précédent
-            </Btn>
-            <Btn
-              onClick={() => {
-                void chrome.tabs.create({ url: "https://reanime.to/" });
-              }}
-            >
-              Ouvrir Re:ANIME
-            </Btn>
-            <Btn
-              variant="ghost"
-              onClick={() => {
-                void chrome.tabs.create({ url: "https://www.youtube.com/" });
-              }}
-            >
-              Ouvrir YouTube
-            </Btn>
-            <Btn
-              variant="ghost"
-              onClick={() => {
-                void chrome.tabs.create({ url: "https://www.netflix.com/" });
-              }}
-            >
-              Ouvrir Netflix
             </Btn>
             <Btn variant="ghost" onClick={props.onFinished}>
               Voir les réglages
@@ -1920,6 +1920,22 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 8,
     flexShrink: 0,
+  },
+  siteRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 10,
+  },
+  siteBtn: {
+    width: "100%",
+  },
+  navRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 20,
+    paddingTop: 14,
+    borderTop: `1px solid ${C.panelBorder}`,
   },
   btnRow: {
     display: "flex",
