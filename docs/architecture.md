@@ -444,7 +444,9 @@ peut :
 
 **Plus tard** ne touche pas au lecteur. Le document offscreen, qui reçoit déjà
 l’audio de l’onglet, en garde en continu les cinq dernières minutes (PCM
-16 bits), horodatées à l’horloge murale. Côté page,
+16 bits), horodatées à l’horloge murale. Les blocs y sont posés bout à bout
+selon le nombre d’échantillons, pas selon leur heure d’arrivée, qui varie :
+sinon de petits trous font grésiller la phrase. Côté page,
 [`PlaybackClock`](../src/mining/playback-clock.ts) note à chaque
 `timeupdate`, pause ou seek quand chaque instant de la vidéo a été joué. Une
 fois la réplique entièrement entendue, le content script traduit ses bornes
