@@ -317,6 +317,14 @@ export class OverlayRenderer {
   private revealedSubtitle: { key: string; layers: number } | null = null;
   /** Last all-known decision, reused while the same Japanese text re-renders. */
   private resolvedKnownSentence: { textKey: string; known: boolean } | null = null;
+  /**
+   * Key of the translation last shown with a known Japanese sentence. Shown
+   * alone afterwards (its Japanese line ended first, or the silence before the
+   * next one), it keeps that sentence's hidden state.
+   */
+  private translationOfKnownSentence: string | null = null;
+  /** Translation and X reveals of the last Japanese lines displayed, kept through an empty overlay. */
+  private lastSentenceReveal: { translationKey: string; layers: number } | null = null;
 
   constructor(video: HTMLVideoElement, options?: Partial<OverlayOptions>) {
     this.video = video;
@@ -359,6 +367,7 @@ export class OverlayRenderer {
     const previousKey = this.currentSubtitleKey();
     const previousTextKey = this.currentSubtitleTextKey();
     const revealedPreviousCue = this.revealedSubtitle?.key === previousKey;
+    const previousSentence = this.translationRevealOfSentence();
     this.cues = cues;
     this.pendingCueTexts = null;
     this.translation = translation;
@@ -368,6 +377,7 @@ export class OverlayRenderer {
       previousTextKey,
       this.currentSubtitleTextKey(),
     );
+    this.carryKnownSentenceToTranslationAlone(previousSentence);
     this.render();
   }
 
@@ -380,6 +390,7 @@ export class OverlayRenderer {
     const previousKey = this.currentSubtitleKey();
     const previousTextKey = this.currentSubtitleTextKey();
     const revealedPreviousCue = this.revealedSubtitle?.key === previousKey;
+    const previousSentence = this.translationRevealOfSentence();
     this.cues = [];
     this.pendingCueTexts = cueTexts;
     this.translation = translation;
@@ -389,6 +400,7 @@ export class OverlayRenderer {
       previousTextKey,
       this.currentSubtitleTextKey(),
     );
+    this.carryKnownSentenceToTranslationAlone(previousSentence);
     this.render();
   }
 
@@ -414,8 +426,10 @@ export class OverlayRenderer {
   revealHiddenSubtitle(): void {
     const key = this.currentSubtitleKey();
     const revealed = this.revealedSubtitle?.key === key ? this.revealedSubtitle.layers : 0;
-    if (revealed >= this.hiddenLayerCount()) return;
-    this.revealedSubtitle = { key, layers: revealed + 1 };
+    const count = this.hiddenLayerCount();
+    if (revealed >= count) return;
+    // Shown alone, the translation is the only layer left: reveal it at once.
+    this.revealedSubtitle = { key, layers: this.isTranslationAlone() ? count : revealed + 1 };
     this.render();
   }
 
@@ -684,6 +698,9 @@ export class OverlayRenderer {
     }
     const key = this.currentSubtitleKey();
     const revealed = this.revealedSubtitle?.key === key ? this.revealedSubtitle.layers : 0;
+    if (this.isTranslationAlone()) {
+      return { hideJapanese: false, hideTranslation: revealed < this.translationLayer() };
+    }
     if (mode === "hide-translation") {
       return { hideJapanese: false, hideTranslation: revealed < 1 };
     }
@@ -694,6 +711,7 @@ export class OverlayRenderer {
   private hiddenLayerCount(): number {
     const mode = this.options.knownSentenceSubtitles;
     if (mode === "show" || !this.isKnownSentence()) return 0;
+    if (this.isTranslationAlone()) return this.translationLayer();
     const translation = this.translation ? 1 : 0;
     return mode === "hide-all" ? 1 + translation : translation;
   }
@@ -705,6 +723,8 @@ export class OverlayRenderer {
    */
   private isKnownSentence(): boolean {
     if (this.runtimeUnavailable) return false;
+    const alone = this.aloneTranslation();
+    if (alone) return this.translationOfKnownSentence === this.translationKey(alone);
     if (this.cues.length === 0 && !this.pendingCueTexts?.length) return false;
 
     // Re-rendering the same Japanese text (a seek with S, a new translation
@@ -731,12 +751,8 @@ export class OverlayRenderer {
     if (this.pendingCueTexts?.length) {
       return `pending:${JSON.stringify(this.pendingCueTexts)}`;
     }
-    if (this.cues.length === 0 && this.translation) {
-      return `translation:${this.translation.cueKey ?? JSON.stringify([
-        this.translation.language,
-        normalizeCueText(this.translation.text),
-      ])}`;
-    }
+    const alone = this.aloneTranslation();
+    if (alone) return this.translationKey(alone);
     return `cues:${this.cues.map((cue) => subtitleCueKey(cue.cue)).join("|")}`;
   }
 
@@ -744,12 +760,8 @@ export class OverlayRenderer {
     if (this.pendingCueTexts?.length) {
       return JSON.stringify(this.pendingCueTexts.map((text) => normalizeCueText(text)));
     }
-    if (this.cues.length === 0 && this.translation) {
-      return `translation:${this.translation.cueKey ?? JSON.stringify([
-        this.translation.language,
-        normalizeCueText(this.translation.text),
-      ])}`;
-    }
+    const alone = this.aloneTranslation();
+    if (alone) return this.translationKey(alone);
     const texts = this.cues.map((cue) => cue.cue.text);
     return JSON.stringify(texts.map((text) => normalizeCueText(text)));
   }
@@ -762,6 +774,62 @@ export class OverlayRenderer {
     if (revealedPreviousCue && this.revealedSubtitle && previousTextKey === nextTextKey) {
       this.revealedSubtitle = { ...this.revealedSubtitle, key: this.currentSubtitleKey() };
     }
+  }
+
+  /** The translation, when it is displayed without any Japanese line. */
+  private aloneTranslation(): SubtitleTranslation | null {
+    return this.cues.length === 0 && !this.pendingCueTexts?.length ? this.translation : null;
+  }
+
+  private isTranslationAlone(): boolean {
+    return this.aloneTranslation() !== null;
+  }
+
+  /** 1-based layer of the translation in the X reveal order. */
+  private translationLayer(): number {
+    return this.options.knownSentenceSubtitles === "hide-all" ? 2 : 1;
+  }
+
+  private translationKey(translation: SubtitleTranslation): string {
+    return `translation:${translation.cueKey ?? JSON.stringify([
+      translation.language,
+      normalizeCueText(translation.text),
+    ])}`;
+  }
+
+  /** The translation shown with Japanese lines, and the layers X revealed on them. */
+  private translationRevealOfSentence(): { translationKey: string; layers: number } | null {
+    if (!this.translation || (this.cues.length === 0 && !this.pendingCueTexts?.length)) return null;
+    const key = this.currentSubtitleKey();
+    return {
+      translationKey: this.translationKey(this.translation),
+      layers: this.revealedSubtitle?.key === key ? this.revealedSubtitle.layers : 0,
+    };
+  }
+
+  /**
+   * A translation shown with a known sentence keeps its hidden state when it
+   * stays alone after it, revealed or not. A translation never shown with
+   * Japanese (a translated sign) is not concerned and stays visible.
+   */
+  private carryKnownSentenceToTranslationAlone(
+    previousSentence: { translationKey: string; layers: number } | null,
+  ): void {
+    // The overlay may be emptied briefly before the translation shows alone.
+    if (previousSentence) this.lastSentenceReveal = previousSentence;
+    const sentence = this.lastSentenceReveal;
+    const alone = this.aloneTranslation();
+    if (alone) {
+      const key = this.translationKey(alone);
+      if (sentence?.translationKey === key && sentence.layers > 0 && this.revealedSubtitle?.key !== key) {
+        this.revealedSubtitle = { key, layers: sentence.layers };
+      }
+      return;
+    }
+    if (this.cues.length === 0 && !this.pendingCueTexts?.length) return;
+    this.translationOfKnownSentence = this.translation && this.isKnownSentence()
+      ? this.translationKey(this.translation)
+      : null;
   }
 
   // ── Mounting ──────────────────────────────────────────────────────────
