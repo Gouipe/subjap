@@ -406,7 +406,9 @@ export class WordPopover {
       base &&
       (token.dictionaryCompound ||
         token.grammar?.some((annotation) => annotation.kind === "inflection"))
-      ? `${token.components!.map((component) => component.surface.replace(/\n/gu, "")).join(" + ")}\n`
+      ? `${(token.segments ?? token.components!.map((component) => component.surface))
+          .map((segment) => segment.replace(/\n/gu, ""))
+          .join(" + ")}\n`
       : "";
     grammarEl.textContent = decomposition + annotations;
 

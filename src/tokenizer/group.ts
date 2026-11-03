@@ -218,7 +218,121 @@ function negativeAruEnd(tokens: Token[], start: number): number {
   return tokens.slice(start + 1, end).some(isNegative) ? end : start;
 }
 
-function inflectedPredicateLength(tokens: Token[], start: number): number {
+function isConjunctiveParticle(token: Token | undefined, surfaces: string[]): boolean {
+  return (
+    token != null &&
+    surfaces.includes(token.surface) &&
+    token.partOfSpeech.includes("助詞") &&
+    hasPosDetail(token, "接続助詞")
+  );
+}
+
+const OBLIGATION_VERBS = new Set(["いける", "行ける", "なる", "成る"]);
+const OBLIGATION_ADJECTIVES = new Set(["だめ", "駄目", "ダメ"]);
+
+/** いけない / ならない / だめ(だ), with their polite or past tail. */
+function obligationEnd(tokens: Token[], start: number): number {
+  const head = tokens[start];
+  if (!head) return start;
+  if (OBLIGATION_ADJECTIVES.has(head.surface)) {
+    return start + 1 + copularLength(tokens, start + 1);
+  }
+  if (
+    !head.partOfSpeech.includes("動詞") ||
+    !OBLIGATION_VERBS.has(tokenDictionaryForm(head))
+  )
+    return start;
+  const end = consumeInflectionalTail(tokens, start + 1);
+  return tokens.slice(start + 1, end).some(isNegative) ? end : start;
+}
+
+interface PredicateExpression {
+  /** Index of the first token of the expression block. */
+  start: number;
+  end: number;
+  label: string;
+}
+
+/**
+ * Conditional ば and the negative conditional (なければ, なきゃ, なくては,
+ * なくちゃ, ねば), absorbed with a following いけない / ならない / だめ into
+ * one obligation block.
+ */
+function conditionalExpression(
+  tokens: Token[],
+  headIndex: number,
+  end: number,
+): PredicateExpression | null {
+  const last = tokens[end - 1];
+  const next = tokens[end];
+  if (!last) return null;
+  const negative = end - 1 > headIndex && isNegative(last);
+  const conditionalForm = last.conjugationForm?.includes("仮定") === true;
+  const negativeTe = negative && /^なく/u.test(last.surface);
+
+  let markerEnd: number;
+  // なきゃ / なけりゃ / なくちゃ / なくては usually announce an implied obligation.
+  let impliesObligation = false;
+  // ないと alone stays a plain conditional; only ないといけない is grouped.
+  let requiresObligation = false;
+  if (conditionalForm && isConjunctiveParticle(next, ["ば"])) markerEnd = end + 1;
+  else if (negative && conditionalForm && last.conjugationForm!.includes("融合")) {
+    markerEnd = end;
+    impliesObligation = true;
+  } else if (negativeTe && isConjunctiveParticle(next, ["ちゃ"])) {
+    markerEnd = end + 1;
+    impliesObligation = true;
+  } else if (
+    negativeTe &&
+    next != null &&
+    isTeConjunctiveParticle(next) &&
+    tokens[end + 1]?.surface === "は" &&
+    tokens[end + 1]!.partOfSpeech.includes("助詞")
+  ) {
+    markerEnd = end + 2;
+    impliesObligation = true;
+  } else if (negative && isConjunctiveParticle(next, ["と"])) {
+    markerEnd = end + 1;
+    requiresObligation = true;
+  } else return null;
+
+  if (!negative) return { start: end, end: markerEnd, label: "condition (si …)" };
+
+  const obligation = obligationEnd(tokens, markerEnd);
+  if (obligation > markerEnd) {
+    const tail = tokens.slice(markerEnd, obligation);
+    const polite = tail.some(
+      (token) =>
+        (isAuxiliary(token) && tokenDictionaryForm(token) === "ます") ||
+        (isCopula(token) && tokenDictionaryForm(token) === "です"),
+    );
+    const past = tail.some((token) => isAuxiliary(token) && tokenDictionaryForm(token) === "た");
+    return {
+      start: end - 1,
+      end: obligation,
+      label: [
+        "obligation (devoir …)",
+        ...(polite ? ["forme polie"] : []),
+        ...(past ? ["passé"] : []),
+      ].join(", "),
+    };
+  }
+  if (requiresObligation) return null;
+  return {
+    start: end - 1,
+    end: markerEnd,
+    label: impliesObligation
+      ? "si … ne … pas ; seul : devoir … (suite sous-entendue)"
+      : "condition négative (si … ne … pas)",
+  };
+}
+
+interface PredicateSpan {
+  end: number;
+  expression?: PredicateExpression;
+}
+
+function inflectedPredicateSpan(tokens: Token[], start: number): PredicateSpan | null {
   const head = tokens[start];
   if (
     !head ||
@@ -228,9 +342,11 @@ function inflectedPredicateLength(tokens: Token[], start: number): number {
       head.partOfSpeech.includes("形状詞")
     )
   )
-    return 0;
+    return null;
 
   let end = consumeInflectionalTail(tokens, start + 1);
+  const expression = conditionalExpression(tokens, start, end);
+  if (expression) return { end: expression.end, expression };
   if (canTakeNegativeAdjective(tokens[end - 1])) end = negativeAruEnd(tokens, end);
   // A na-adjective keeps its lexical identity while its copula is inflected.
   if (head.partOfSpeech.includes("形状詞") && tokens[end] && isCopula(tokens[end]!)) {
@@ -240,7 +356,12 @@ function inflectedPredicateLength(tokens: Token[], start: number): number {
   const teChainEnd = consumeTeAuxiliaryChain(tokens, end);
   if (teChainEnd > end) end = teChainEnd;
 
-  return end - start > 1 ? end - start : 0;
+  return end - start > 1 ? { end } : null;
+}
+
+/** Surface of a pedagogical block, without the visual line breaks it spans. */
+function blockSurface(tokens: Token[]): string {
+  return tokens.map((token) => token.surface.replace(/\n/gu, "")).join("");
 }
 
 function hasExplicitLexicalContract(token: Token): boolean {
@@ -261,7 +382,8 @@ function derivedLexicalFields(base: Token): Partial<Token> {
   };
 }
 
-function createInflectedPredicateGroup(tokens: Token[]): Token {
+/** `expression` uses indexes relative to `tokens`. */
+function createInflectedPredicateGroup(tokens: Token[], expression?: PredicateExpression): Token {
   const verb = tokens[0];
   if (!verb) throw new Error("An inflected predicate group requires a lexical head");
   const behavesAsIAdjective = tokens.some(
@@ -278,7 +400,22 @@ function createInflectedPredicateGroup(tokens: Token[]): Token {
       : verb.partOfSpeech,
     ...(verb.partOfSpeechDetails ? { partOfSpeechDetails: verb.partOfSpeechDetails } : undefined),
     components: tokens,
-    grammar: describeInflections(tokens.slice(1)),
+    ...(expression
+      ? {
+          segments: [
+            ...tokens.slice(0, expression.start).map((token) => token.surface),
+            blockSurface(tokens.slice(expression.start, expression.end)),
+          ],
+          grammar: [
+            ...describeInflections(tokens.slice(1, expression.start)),
+            {
+              surface: blockSurface(tokens.slice(expression.start, expression.end)),
+              kind: "inflection" as const,
+              label: expression.label,
+            },
+          ],
+        }
+      : { grammar: describeInflections(tokens.slice(1)) }),
   };
 }
 
@@ -463,10 +600,15 @@ export function groupTokens(tokens: Token[]): Token[] {
       continue;
     }
 
-    const predicateLength = inflectedPredicateLength(tokens, index);
-    if (predicateLength > 0) {
-      result.push(createInflectedPredicateGroup(tokens.slice(index, index + predicateLength)));
-      index += predicateLength;
+    const predicate = inflectedPredicateSpan(tokens, index);
+    if (predicate) {
+      const expression = predicate.expression && {
+        ...predicate.expression,
+        start: predicate.expression.start - index,
+        end: predicate.expression.end - index,
+      };
+      result.push(createInflectedPredicateGroup(tokens.slice(index, predicate.end), expression));
+      index = predicate.end;
       continue;
     }
 

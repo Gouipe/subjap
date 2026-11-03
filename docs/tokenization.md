@@ -56,8 +56,16 @@ restent séparés. Les correspondances trouvées sont conservées en cache dans 
 content script. Ce cache est invalidé et la cue réaffichée lorsqu'un nouveau
 pack est installé.
 
-`components` conserve les morphèmes. `grammar` décrit négation, passé/accompli,
-politesse, souhait, causatif, liaison ou auxiliaire. La popover montre ces
+Le `ば` conditionnel reste attaché à la forme en `仮定形` qui le précède
+(話せば, 高ければ). La condition négative (なければ, ねば, なけりゃ, なきゃ,
+なくては, なくちゃ) forme un bloc ; suivie de いけない / ならない / だめ, avec
+leur fin polie ou passée, elle devient un bloc d'obligation (話さなければいけない).
+`ないと` n'est rattaché que devant une telle fin d'obligation.
+
+`components` conserve les morphèmes. `segments`, quand il existe, regroupe ces
+morphèmes en blocs lisibles (話さ + なければいけない) pour la décomposition
+affichée. `grammar` décrit négation, passé/accompli, politesse, souhait,
+causatif, liaison, auxiliaire, condition ou obligation. La popover montre ces
 informations et la décomposition. Pour les formes fléchies, le statut connu et
 le mining restent attachés au mot de base ; pour les composés reconnus, ils
 utilisent la tête JMdict. Les expressions grammaticales sans tête lexicale

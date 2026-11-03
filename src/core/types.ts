@@ -130,6 +130,8 @@ export interface Token {
   conjugationForm?: string;
   /** Morphological tokens represented by one pedagogical display unit. */
   components?: Token[];
+  /** Learner-facing blocks shown instead of the raw components (話さ + なければいけない). */
+  segments?: string[];
   /** True when adjacent UniDic fragments match one exact JMdict spelling. */
   dictionaryCompound?: boolean;
   /** Explanations attached to a pedagogical unit, not separate click targets. */
