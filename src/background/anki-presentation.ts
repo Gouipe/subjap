@@ -883,7 +883,6 @@ ruby rt {
 }
 
 .translation-veil:hover .translation-shortcut {
-  border-color: var(--accent);
   color: var(--text);
 }
 
@@ -909,16 +908,65 @@ ruby rt {
 
 /* Replays beside the word and at the end of the sentence: icon and shortcut, no label. */
 .audio-control.audio-inline {
-  gap: 5px;
-  min-height: 30px;
-  margin-left: 10px;
-  padding: 3px 6px;
+  gap: 6px;
+  min-height: 0;
+  margin-left: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   line-height: 1;
   vertical-align: middle;
 }
 
 .audio-control.audio-inline .audio-label {
   display: none;
+}
+
+/* Anki's own replay disc, restyled: a quiet raised circle with a slim triangle. */
+.card .audio-control.audio-inline .replay-button svg,
+.audio-control.audio-inline img.replay-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.card .audio-control.audio-inline .replay-button svg circle {
+  fill: var(--surface-raised);
+  stroke: var(--border);
+  stroke-width: 2;
+  transition: fill 160ms cubic-bezier(0.22, 1, 0.36, 1), stroke 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card .audio-control.audio-inline .replay-button svg path {
+  fill: var(--text);
+  transform: scale(0.55);
+  transform-box: view-box;
+  transform-origin: 32px 32px;
+}
+
+.card .audio-control.audio-inline:hover .replay-button svg circle {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+/* Shortcut reminders beside the replays and the blurred translation: a plain letter, no key cap. */
+.audio-control.audio-inline .audio-shortcut,
+.translation-line .translation-shortcut {
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.audio-control.audio-inline:hover .audio-shortcut {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card .audio-control.audio-inline .replay-button svg circle {
+    transition: none;
+  }
 }
 
 /* Activating production is a decision about the word: a discreet action beside it, top right. */

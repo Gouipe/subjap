@@ -170,8 +170,9 @@ Règles du verso :
   suivants passent en dessous, plus petits et en gris ;
 - traduction floutée directement sous la phrase (18 px), sur sa propre ligne
   réservée, avec le rappel `W` ;
-- contrôles audio compacts (icône et raccourci, sans libellé visible) : `Z`
-  après le mot, `Q` au bout de la phrase, dans le style secondaire neutre ;
+- contrôles audio compacts, sans libellé visible : `Z` après le mot, `Q` au
+  bout de la phrase ; un cercle discret au triangle fin, vermillon au survol,
+  suivi de sa lettre de raccourci sans cadre (comme le `W` de la traduction) ;
 - image affichée en entier avec `object-fit: contain` ;
 - image limitée à `min(460px, 60vh)` en hauteur, ce qui laisse une image 16:9
   remplir la largeur de la colonne dans les fenêtres de révision habituelles ;
