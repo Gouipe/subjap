@@ -122,7 +122,11 @@ Sur les versos de compréhension et de production, `Z` rejoue `AudioMot` et `Q`
 rejoue `AudioPhrase` via leur bouton de lecture natif Anki. Chaque bouton est
 placé à côté de ce qu'il fait entendre : ▶ `Z` juste après le mot, ▶ `Q` au bout
 de la phrase japonaise. Le script géré les y déplace depuis la ligne de
-contrôles du template, qui disparaît une fois vide. Un raccourci reste
+contrôles du template, qui disparaît une fois vide. Déclencher un audio au clavier
+fait briller son bouton environ 200 ms comme sous un clic (liseré et disque
+vermillon, enfoncement de 1 px, sans enfoncement si les animations sont
+réduites) ; aucun état « en lecture » n'est affiché, Anki jouant le son hors
+de la carte. Un raccourci reste
 inactif au recto, sans l'audio correspondant,
 pendant une saisie ou avec une touche modificatrice ; maintenir la touche
 n'entraîne pas de répétitions. `A` est réservé à l'ajout de notes dans Anki et

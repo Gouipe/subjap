@@ -921,8 +921,15 @@ ruby rt {
   transition: border-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.audio-control.audio-inline:hover {
+.audio-control.audio-inline:hover,
+.audio-control.is-pressed {
   border-color: var(--accent);
+}
+
+/* Pressed by mouse or by its shortcut: the hover look, sunk by a pixel. */
+.audio-control:active,
+.audio-control.is-pressed {
+  transform: translateY(1px);
 }
 
 .audio-control.audio-inline .audio-label {
@@ -949,11 +956,13 @@ ruby rt {
   transform-origin: 32px 32px;
 }
 
-.card .audio-control.audio-inline:hover .replay-button svg circle {
+.card .audio-control.audio-inline:hover .replay-button svg circle,
+.card .audio-control.audio-inline.is-pressed .replay-button svg circle {
   fill: var(--accent);
 }
 
-.card .audio-control.audio-inline:hover .replay-button svg path {
+.card .audio-control.audio-inline:hover .replay-button svg path,
+.card .audio-control.audio-inline.is-pressed .replay-button svg path {
   fill: var(--text);
 }
 
@@ -976,6 +985,11 @@ ruby rt {
   .audio-control.audio-inline,
   .card .audio-control.audio-inline .replay-button svg circle {
     transition: none;
+  }
+
+  .audio-control:active,
+  .audio-control.is-pressed {
+    transform: none;
   }
 }
 
@@ -1405,6 +1419,13 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     return true;
   };
 
+  // A keyboard activation briefly shows the pressed button, as a mouse click would.
+  const flash = (control) => {
+    clearTimeout(control.__subjapFlashTimer);
+    control.classList.add("is-pressed");
+    control.__subjapFlashTimer = setTimeout(() => control.classList.remove("is-pressed"), 200);
+  };
+
   // Once revealed, the translation stays visible for the rest of the card.
   const revealTranslation = (veil) => {
     if (veil.classList.contains("is-revealed")) return;
@@ -1445,6 +1466,7 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     if (audioSelector) {
       const control = document.querySelector(".back-card .audio-control" + audioSelector);
       if (control && activate(control)) {
+        flash(control);
         event.preventDefault();
         event.stopPropagation();
       }
@@ -1461,7 +1483,7 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     if (!control) return;
     event.preventDefault();
     event.stopPropagation();
-    activate(control);
+    if (activate(control)) flash(control);
   };
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown, true);
