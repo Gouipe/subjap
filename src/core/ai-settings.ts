@@ -5,6 +5,10 @@
 export const AI_SETTINGS_STORAGE_KEY = "subjap_ai_settings";
 export const MAX_ENRICHMENT_PROMPT_LENGTH = 20_000;
 
+/** Shown when Gemini times out: the service is at fault, not the user's setup. */
+export const AI_UNAVAILABLE_MESSAGE =
+  "Gemini ne répond pas pour le moment (service lent ou indisponible). Réessaie dans quelques minutes.";
+
 export const DEFAULT_ENRICHMENT_PROMPT = `Crée une note pédagogique très concise pour un apprenant francophone de japonais.
 
 Mot cible : {{targetWord}}

@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { db } from "@/core/db";
-import { AI_SETTINGS_STORAGE_KEY } from "@/core/ai-settings";
+import { AI_SETTINGS_STORAGE_KEY, AI_UNAVAILABLE_MESSAGE } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { onMessage } from "@/core/messaging";
 import { checkJimakuKey, installFromJimaku } from "./jimaku";
@@ -517,6 +517,8 @@ onMessage("ai:generateEnrichment", async ({ prompt, responseSchema }) => {
       signal: controller.signal,
     });
 
+    // The Worker answers 504 when its own call to Gemini timed out.
+    if (response.status === 504) throw new Error(AI_UNAVAILABLE_MESSAGE);
     const data = (await response.json()) as GeminiEndpointResponse;
     if (!response.ok) {
       const errorMessage = typeof data.error === "string" ? data.error : data.error?.message;
@@ -527,7 +529,7 @@ onMessage("ai:generateEnrichment", async ({ prompt, responseSchema }) => {
     return { text: data.text, model: data.model ?? GEMINI_MODEL };
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error("La génération Gemini a dépassé 15 secondes.");
+      throw new Error(AI_UNAVAILABLE_MESSAGE);
     }
     throw err;
   } finally {

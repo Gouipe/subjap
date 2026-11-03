@@ -15,6 +15,7 @@ import {
   type EpisodeContext,
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
+import { AI_UNAVAILABLE_MESSAGE } from "@/core/ai-settings";
 import { normalizeCueText } from "@/subtitles";
 import { forgetVideoSurface, mountVideoSurface } from "@/overlay/mount";
 import { captureFrame, hideVideoChromeForCapture } from "./capture";
@@ -617,7 +618,7 @@ export class MiningModal {
       ? `<span class="subjap-ai-status">${escapeHtml(state.aiStatus)}</span>`
       : "";
     const error = state.aiError
-      ? `<div class="subjap-error">IA distante : ${escapeHtml(state.aiError)}</div>`
+      ? `<div class="subjap-error">${escapeHtml(state.aiError)}</div>`
       : "";
 
     if (!state.aiGeneratedOnce) {
@@ -974,9 +975,11 @@ export class MiningModal {
     } catch (err) {
       if (this.state !== state) return;
       if (err instanceof DOMException && err.name === "AbortError") {
-        state.aiError = "La génération a dépassé 15 secondes. Tu peux réessayer.";
+        state.aiError = AI_UNAVAILABLE_MESSAGE;
       } else {
-        state.aiError = err instanceof Error ? err.message : String(err);
+        const message = err instanceof Error ? err.message : String(err);
+        state.aiError =
+          message === AI_UNAVAILABLE_MESSAGE ? message : `IA distante : ${message}`;
       }
       state.aiStatus = null;
     } finally {
