@@ -4,6 +4,11 @@ Extension Chrome/Edge (Manifest V3) pour apprendre le japonais à partir des
 sous-titres vidéo et créer des cartes Anki. Installation et usage : voir le
 [README](README.md).
 
+Le cas d’usage principal est désormais Re:ANIME (reanime.to, lecteur
+Artplayer, sous-titres japonais souvent installés depuis Jimaku). Netflix et
+YouTube restent pris en charge, mais une nouvelle fonctionnalité se conçoit et
+se vérifie d’abord sur Re:ANIME.
+
 ## Documentation
 
 Avant de coder, lire les documents liés au sujet traité :
