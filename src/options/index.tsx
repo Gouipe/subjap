@@ -1027,6 +1027,11 @@ function OnboardingWizard(props: {
           </p>
           <MiningPreview />
           <CalloutList items={MINING_CALLOUTS} />
+          <p style={s.mutedSmall}>
+            Pour ne pas couper la scène, {strong("Plus tard")} met le mot de côté avec son image
+            et son audio. Les cartes se créent ensuite à la suite, depuis la popup ou le bandeau
+            au début de la vidéo suivante.
+          </p>
           <div style={s.btnRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("colors")}>
               ← Précédent

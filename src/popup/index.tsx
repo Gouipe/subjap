@@ -587,7 +587,9 @@ const Popup: React.FC = () => {
       // offscreen document for both playback and phrase recording.
       const offscreenStreamId = await getStreamId();
       await sendMessage("tabCapture:offscreen", { streamId: offscreenStreamId });
-      await chrome.action.setBadgeText({ tabId: tab.id, text: "ON" });
+      // Same badge as the service worker: the words set aside, else "ON".
+      const { ids } = await sendMessage("mineLater:list", {});
+      await chrome.action.setBadgeText({ tabId: tab.id, text: ids.length > 0 ? String(ids.length) : "ON" });
       await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: "#78d6a3" });
       setCaptureStatus("active");
     } catch (err: unknown) {

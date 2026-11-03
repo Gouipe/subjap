@@ -118,7 +118,11 @@ async function updateEnabledBadge(enabled: boolean): Promise<void> {
   });
   for (const { tabId, status } of capturedTabs) {
     if (status !== "active") continue;
-    await chrome.action.setBadgeText({ tabId, text: enabled ? "ON" : "OFF" });
+    // Green says the audio is captured; the count of words set aside wins over "ON".
+    await chrome.action.setBadgeText({
+      tabId,
+      text: enabled ? (pending > 0 ? String(pending) : "ON") : "OFF",
+    });
     await chrome.action.setBadgeBackgroundColor({
       tabId,
       color: enabled ? CAPTURE_BADGE_COLOR : DISABLED_BADGE_COLOR,

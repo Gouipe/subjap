@@ -18,7 +18,7 @@
    (en cours) et blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
    **Mine this** ne crée alors pas de carte à réviser. Le slide **Créer une
    carte** montre une maquette annotée de l’écran de minage (correction au clic,
-   sens, scène et `Q`, IA et `I`, `Ctrl+Entrée`). Le slide **Dans Anki** montre
+   sens, scène et `Q`, IA et `I`, `Ctrl+Entrée`) et rappelle **Plus tard**. Le slide **Dans Anki** montre
    le recto et le verso d’une carte de compréhension (production orale
    facultative, `Q`, `W`, notation `&` `é` `"` `'`). L’écran final liste les
    raccourcis.
@@ -76,7 +76,8 @@ this**. Le mot passe au gris et « Mis de côté · N » s’affiche brièvement
 Tout est gardé dans la base locale : fermer l’onglet ou changer d’épisode ne
 perd rien, sauf l’audio si l’on quitte avant la fin de la réplique.
 
-Le nombre de mots en attente s’affiche sur l’icône SubJap. Pour créer les
+Le nombre de mots en attente s’affiche sur l’icône SubJap, sur fond vert dans
+l’onglet dont l’audio est actif (« ON » quand il n’y en a aucun). Pour créer les
 cartes, cliquer sur **Créer les cartes mises de côté (N)** dans la popup, ou
 sur **Créer les cartes** dans le bandeau qui apparaît une fois au début de
 chaque vidéo tant que des mots attendent. La vidéo se met en pause et la
