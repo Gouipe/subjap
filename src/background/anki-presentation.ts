@@ -848,6 +848,54 @@ ruby rt {
   display: none;
 }
 
+/* Blurred in place under the sentence: its line is reserved, so revealing it moves nothing. */
+.translation-veil {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  max-width: 70ch;
+  margin: 4px auto 0;
+  padding: 2px 12px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.5;
+  text-align: center;
+  cursor: pointer;
+}
+
+.translation-veil .translation-text {
+  filter: blur(7px);
+  user-select: none;
+  transition: filter 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.translation-veil:hover .translation-shortcut {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.translation-veil:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.translation-veil.is-revealed {
+  cursor: auto;
+}
+
+.translation-veil.is-revealed .translation-text {
+  filter: none;
+  user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .translation-veil .translation-text {
+    transition: none;
+  }
+}
+
 /* Activating production is a decision about the word: a discreet action beside it, top right. */
 .word-sheet .production-activation {
   grid-area: action;
@@ -1089,17 +1137,32 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     }
   });
 
-  const translationSummary = document.querySelector(".back-card .translation-reveal > summary");
-  if (translationSummary) {
-    translationSummary.setAttribute("aria-keyshortcuts", "W");
-    translationSummary.setAttribute("title", "Afficher la traduction (W)");
-    if (!translationSummary.querySelector(".translation-shortcut")) {
-      const hint = document.createElement("kbd");
-      hint.className = "translation-shortcut";
-      hint.textContent = "W";
-      hint.setAttribute("aria-hidden", "true");
-      translationSummary.appendChild(hint);
-    }
+  // The translation sits blurred right under the sentence, its space already taken, so revealing it
+  // moves nothing. Built from the template's details block, which stays the fallback without script.
+  const translationReveal = document.querySelector(".back-card details.translation-reveal");
+  const translationContent = translationReveal?.querySelector(".translation-content");
+  if (translationReveal && translationContent && !document.querySelector(".back-card .translation-veil")) {
+    translationContent.querySelector(".section-label")?.remove();
+    const text = document.createElement("span");
+    text.className = "translation-text";
+    text.setAttribute("aria-hidden", "true");
+    text.append(...translationContent.childNodes);
+    const hint = document.createElement("kbd");
+    hint.className = "translation-shortcut";
+    hint.textContent = "W";
+    hint.setAttribute("aria-hidden", "true");
+    const veil = document.createElement("div");
+    veil.className = "translation-veil";
+    veil.setAttribute("role", "button");
+    veil.setAttribute("tabindex", "0");
+    veil.setAttribute("aria-label", "Afficher la traduction");
+    veil.setAttribute("aria-keyshortcuts", "W");
+    veil.setAttribute("title", "Afficher la traduction (W)");
+    veil.append(text, hint);
+    const sentence = document.querySelector(".back-card .back-sentence");
+    if (sentence) sentence.after(veil);
+    else translationReveal.before(veil);
+    translationReveal.remove();
   }
 
   // Notes are plain text lines: kanji headings and their examples become tiles; the remaining
@@ -1236,8 +1299,22 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     return true;
   };
 
+  // Once revealed, the translation stays visible for the rest of the card.
+  const revealTranslation = (veil) => {
+    if (veil.classList.contains("is-revealed")) return;
+    veil.classList.add("is-revealed");
+    ["role", "tabindex", "aria-label", "aria-keyshortcuts", "title"].forEach((name) => veil.removeAttribute(name));
+    veil.querySelector(".translation-text")?.removeAttribute("aria-hidden");
+    veil.querySelector(".translation-shortcut")?.remove();
+  };
+
   const onClick = (event) => {
     if (!(event.target instanceof Element)) return;
+    const veil = event.target.closest(".back-card .translation-veil");
+    if (veil) {
+      revealTranslation(veil);
+      return;
+    }
     const control = event.target.closest(".audio-control");
     if (!control || event.target.closest("a.replay-button, button.replay-button, img.replay-button")) return;
     activate(control);
@@ -1247,9 +1324,11 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
     const target = event.target;
     if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
     if (!event.shiftKey && event.key.toLowerCase() === "w") {
+      const veil = document.querySelector(".back-card .translation-veil");
       const translation = document.querySelector(".back-card details.translation-reveal");
-      if (translation instanceof HTMLDetailsElement) {
-        translation.open = true;
+      if (veil) revealTranslation(veil);
+      else if (translation instanceof HTMLDetailsElement) translation.open = true;
+      if (veil || translation) {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -1266,6 +1345,12 @@ export const MIGAKU_AUDIO_CONTROLS_FRAGMENT = `
       return;
     }
     if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.target instanceof Element && event.target.matches(".translation-veil:not(.is-revealed)")) {
+      event.preventDefault();
+      event.stopPropagation();
+      revealTranslation(event.target);
+      return;
+    }
     const control = event.target instanceof Element && event.target.matches(".audio-control") ? event.target : null;
     if (!control) return;
     event.preventDefault();

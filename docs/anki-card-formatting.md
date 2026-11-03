@@ -47,7 +47,7 @@ champs :
 | `Mot` | mot cible japonais | peut contenir du HTML ruby avec les furigana ; affiché en haut du recto et du verso |
 | `Lecture` | lecture en kana | champ texte séparé, utile comme source de prononciation HyperTTS |
 | `Phrase` | phrase japonaise | peut contenir des spans HTML, dont `.target` pour le mot cible |
-| `Traduction` | traduction de la phrase | affichée derrière le bouton « Voir la traduction » |
+| `Traduction` | traduction de la phrase | affichée floutée sous la phrase, défloutée par `W` ou un clic |
 | `Définitions` | définition(s) du mot | un `<div class="sense">` par sens retenu (au plus trois traductions séparées par ` · `, puis `…` s’il en existe d’autres) ; les cartes plus anciennes ou importées gardent un texte séparé par `, ` |
 | `Notes` | explication ou remarque facultative | doit rester visible sur le verso, dans un bloc compact |
 | `Image` | capture ou image contextuelle | généralement un `<div><img ...></div>` |
@@ -133,12 +133,17 @@ lors de leur synchronisation, sans remplacer leurs personnalisations.
 
 ## Raccourci de traduction
 
-Sur les versos de compréhension et de production, `W` affiche la traduction
-de la phrase. Elle reste visible lors des appuis suivants, comme après un clic
-sur « Voir la traduction ». Le bouton affiche le rappel `W`, ajouté par le
-script géré `subjap-anki-audio-controls` pour actualiser aussi les templates
-existants sans remplacer leurs personnalisations. Le raccourci reste inactif
-au recto, sans traduction, pendant une saisie ou avec une touche modificatrice.
+Sur les versos de compréhension et de production, la traduction s'affiche
+floutée juste sous la phrase japonaise, avec le rappel `W`. Sa ligne est
+réservée dès l'affichage du verso : la déflouter ne déplace rien. `W`, un clic
+ou `Entrée`/`Espace` sur la zone la défloutent ; elle reste ensuite nette
+jusqu'à la carte suivante, sans possibilité de la reflouter. Le template garde
+le bloc `details.translation-reveal` ; le script géré
+`subjap-anki-audio-controls` le transforme en zone floutée, ce qui actualise
+aussi les templates existants sans remplacer leurs personnalisations. Sans
+script, le bouton « Voir la traduction » d'origine reste utilisable. Le
+raccourci reste inactif au recto, sans traduction, pendant une saisie ou avec
+une touche modificatrice.
 
 ## Règles visuelles actuelles
 
@@ -161,9 +166,10 @@ Règles du verso :
   étirés au-dessus ;
 - `Définitions` : le premier sens garde la taille de la fiche, les sens
   suivants passent en dessous, plus petits et en gris ;
-- contrôles audio nommés `Mot` et `Phrase` et bouton « Voir la traduction »
-  alignés sur une seule ligne, dans le même style secondaire neutre, chacun
-  avec son raccourci (`Z`, `Q`, `W`) ; la traduction révélée occupe sa propre ligne ;
+- traduction floutée directement sous la phrase (18 px), sur sa propre ligne
+  réservée, avec le rappel `W` ;
+- contrôles audio nommés `Mot` et `Phrase` alignés sur une seule ligne, dans
+  le même style secondaire neutre, chacun avec son raccourci (`Z`, `Q`) ;
 - image affichée en entier avec `object-fit: contain` ;
 - image limitée à `min(460px, 60vh)` en hauteur, ce qui laisse une image 16:9
   remplir la largeur de la colonne dans les fenêtres de révision habituelles ;
@@ -174,8 +180,8 @@ Règles du verso :
   reste affichée telle quelle, et une note sans ligne reconnue n’est pas
   modifiée. Le texte occupe toute la largeur du panneau, la colonne limitant
   déjà la longueur des lignes ;
-- traduction révélée par « Voir la traduction », puis maintenue visible sans
-  contrôle secondaire qui prend de la place ;
+- traduction défloutée sur place, puis maintenue visible sans contrôle
+  secondaire ;
 - pas de règle qui recadre l’image avec `object-fit: cover` ou qui masque Notes.
 
 Le projet cible l’usage ordinateur : l’empilement des zones garde le verso
