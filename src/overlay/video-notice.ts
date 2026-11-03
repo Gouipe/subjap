@@ -41,6 +41,9 @@ export class VideoNotice {
   private readonly lifeBar: HTMLDivElement;
   private autoHideMs: number | null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Life left when the countdown last (re)started, and when that was. */
+  private remainingMs = 0;
+  private countdownStartedAt = 0;
   private positionTimer: ReturnType<typeof setInterval> | null = null;
   private closed = false;
 
@@ -105,8 +108,9 @@ export class VideoNotice {
     for (const type of ["keydown", "keyup", "keypress"]) {
       this.element.addEventListener(type, (event) => event.stopPropagation());
     }
-    this.element.addEventListener("mouseenter", () => this.clearHideTimer());
-    this.element.addEventListener("mouseleave", () => this.scheduleHide());
+    // Hovering pauses the countdown; leaving resumes it where it stopped.
+    this.element.addEventListener("mouseenter", () => this.pauseHide());
+    this.element.addEventListener("mouseleave", () => this.resumeHide());
   }
 
   show(): void {
@@ -127,8 +131,8 @@ export class VideoNotice {
     if (this.closed) return;
     this.autoHideMs = content.autoHideMs;
     this.renderContent(content);
-    if (!this.element.matches(":hover")) this.scheduleHide();
-    else this.resetLifeBar();
+    this.scheduleHide();
+    if (this.element.matches(":hover")) this.pauseHide();
   }
 
   private renderContent(content: VideoNoticeContent): void {
@@ -186,36 +190,52 @@ export class VideoNotice {
     this.element.style.top = `${rect.bottom - bottomInset(rect.height)}px`;
   }
 
+  /** Start the whole auto-hide delay over. */
   private scheduleHide(): void {
     this.clearHideTimer();
-    if (this.autoHideMs === null) return;
-    this.hideTimer = setTimeout(() => this.close(), this.autoHideMs);
-    this.runLifeBar(this.autoHideMs);
+    if (this.autoHideMs === null) {
+      this.setLifeBar(1);
+      return;
+    }
+    this.remainingMs = this.autoHideMs;
+    this.startCountdown(this.autoHideMs);
   }
 
-  /** Paused while hovered: the bar shows a full life until the pointer leaves. */
+  private startCountdown(autoHideMs: number): void {
+    this.countdownStartedAt = performance.now();
+    this.hideTimer = setTimeout(() => this.close(), this.remainingMs);
+    this.setLifeBar(this.remainingMs / autoHideMs, this.remainingMs);
+  }
+
+  private pauseHide(): void {
+    if (this.hideTimer === null || this.autoHideMs === null) return;
+    this.clearHideTimer();
+    this.remainingMs = Math.max(0, this.remainingMs - (performance.now() - this.countdownStartedAt));
+    this.setLifeBar(this.remainingMs / this.autoHideMs);
+  }
+
+  private resumeHide(): void {
+    if (this.hideTimer !== null || this.autoHideMs === null || this.closed) return;
+    this.startCountdown(this.autoHideMs);
+  }
+
   private clearHideTimer(): void {
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = null;
-    this.resetLifeBar();
   }
 
-  private resetLifeBar(): void {
+  /** Show the life left (0–1), then drain it over `drainMs` when given. */
+  private setLifeBar(fraction: number, drainMs?: number): void {
     const bar = this.lifeBar;
-    bar.style.transition = "none";
-    bar.style.transform = "scaleX(1)";
     const visible = this.autoHideMs !== null &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     bar.style.display = visible ? "block" : "none";
-  }
-
-  private runLifeBar(durationMs: number): void {
-    this.resetLifeBar();
-    const bar = this.lifeBar;
-    if (bar.style.display === "none") return;
-    // Commit the full width before animating to empty.
+    bar.style.transition = "none";
+    bar.style.transform = `scaleX(${Math.max(0, Math.min(1, fraction))})`;
+    if (!visible || drainMs === undefined) return;
+    // Commit the starting width before animating to empty.
     void bar.offsetWidth;
-    bar.style.transition = `transform ${durationMs}ms linear`;
+    bar.style.transition = `transform ${drainMs}ms linear`;
     bar.style.transform = "scaleX(0)";
   }
 }
