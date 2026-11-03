@@ -22,7 +22,7 @@ describe("WordPopover", () => {
 
     expect(
       popover.getElement().querySelector(".subjap-popover__defs")?.textContent,
-    ).toBe("Definition not found");
+    ).toBe("Aucune définition dans le dictionnaire");
 
     popover.destroy();
   });

@@ -257,7 +257,7 @@ Le chemin principal est le suivant :
    UniDic (`感動詞`, `フィラー`), ainsi que les expressions grammaticales sans
    tête lexicale (`grammarOnly` : `じゃないです`, `なんだ`), sans état
    enregistré ni carte Anki sont ignorés par défaut au rendu ; cet état dérivé n'est jamais persisté et un choix
-   manuel (Unignore, Mark Known) le remplace.
+   manuel (Ne plus ignorer, Connu) le remplace.
 8. Le content script récupère le nombre de mots connus et un rang pratique par
    lemme. Ce rang vient d’une liste de fréquence issue de sous-titres
    OpenSubtitles (films, séries et anime), préalablement recroisée avec le

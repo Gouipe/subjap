@@ -42,7 +42,7 @@ export function isDefaultIgnoredToken(
 
 /**
  * Apply the default "ignored" status to non-vocabulary units. Any stored state
- * (including an explicit Unignore) or an existing Anki card takes precedence.
+ * (including an explicit « Ne plus ignorer ») or an existing Anki card takes precedence.
  */
 export function effectiveWordState(
   token: Pick<Token, "partOfSpeech" | "grammarOnly" | "canonicalKey" | "lemma">,

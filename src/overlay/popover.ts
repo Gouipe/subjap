@@ -23,30 +23,30 @@ const VIEWPORT_MARGIN = 8;
 const SUBTITLE_GAP = 12;
 const SUBTITLE_SELECTOR = ":scope > .subjap-cue-line, :scope > .subjap-translation-line";
 const POS_LABELS: Record<string, string> = {
-  名詞: "Noun",
-  動詞: "Verb",
-  形容詞: "Adj (i)",
-  形容動詞: "Adj (na)",
-  助詞: "Particle",
-  助動詞: "Aux",
-  副詞: "Adverb",
-  連体詞: "Pre-noun",
-  接続詞: "Conj",
-  感動詞: "Interj",
-  接頭辞: "Prefix",
-  接尾辞: "Suffix",
-  記号: "Symbol",
-  フィラー: "Filler",
+  名詞: "Nom",
+  動詞: "Verbe",
+  形容詞: "Adjectif en -i",
+  形容動詞: "Adjectif en -na",
+  助詞: "Particule",
+  助動詞: "Auxiliaire",
+  副詞: "Adverbe",
+  連体詞: "Déterminant",
+  接続詞: "Conjonction",
+  感動詞: "Interjection",
+  接頭辞: "Préfixe",
+  接尾辞: "Suffixe",
+  記号: "Symbole",
+  フィラー: "Hésitation",
 };
 
 // ── Event interface ───────────────────────────────────────────────────────
 
 export interface PopoverCallbacks {
-  /** Called when the user clicks "Mark Known" / "Mark Unknown" */
+  /** Called when the user clicks « Connu » / « ✓ Connu » */
   onToggleKnown: (lemma: string, currentStatus: WordStatus | null, token: Token) => void;
-  /** Called when the user clicks "Ignore" / "Unignore" */
+  /** Called when the user clicks « Ignorer » / « Ne plus ignorer » */
   onToggleIgnored: (lemma: string, currentStatus: WordStatus | null, token: Token) => void;
-  /** Called when the user clicks "Mine this" */
+  /** Called when the user clicks « Miner » */
   onMine: (token: Token, entry: DictionaryEntry | null) => void;
   /** Called when the user sets the word aside with « Plus tard ». */
   onMineLater?: (token: Token, entry: DictionaryEntry | null) => void;
@@ -175,7 +175,7 @@ export class WordPopover {
       <div class="subjap-popover__actions">
         <button class="subjap-btn subjap-btn--toggle-known"></button>
         <button class="subjap-btn subjap-btn--toggle-ignored"></button>
-        <button class="subjap-btn subjap-btn--mine">⛏ Mine this</button>
+        <button class="subjap-btn subjap-btn--mine">⛏ Miner</button>
         <button class="subjap-btn subjap-btn--later" title="Créer la carte plus tard, sans interrompre la vidéo">Plus tard</button>
       </div>
     `;
@@ -424,13 +424,13 @@ export class WordPopover {
     } else {
       const defDiv = document.createElement("div");
       defDiv.className = "subjap-popover__def";
-      defDiv.textContent = "Definition not found";
+      defDiv.textContent = "Aucune définition dans le dictionnaire";
       defsContainer.appendChild(defDiv);
     }
 
     // Frequency
     const freqEl = this.el.querySelector(".subjap-popover__freq")!;
-    freqEl.textContent = frequencyRank != null ? `Frequency rank: #${frequencyRank}` : "";
+    freqEl.textContent = frequencyRank != null ? `Rang de fréquence : #${frequencyRank}` : "";
 
     const ankiEl = this.el.querySelector<HTMLElement>(".subjap-popover__anki");
     if (ankiEl) {
@@ -445,7 +445,7 @@ export class WordPopover {
     // Pitch accent
     const pitchEl = this.el.querySelector(".subjap-popover__pitch")!;
     if (pitchAccent) {
-      pitchEl.textContent = `Pitch: ${pitchAccent.pattern} (${pitchAccent.moraCount} mora${
+      pitchEl.textContent = `Accent : ${pitchAccent.pattern} (${pitchAccent.moraCount} more${
         pitchAccent.moraCount !== 1 ? "s" : ""
       })`;
     } else {
@@ -460,22 +460,22 @@ export class WordPopover {
     // Toggle button
     const toggleBtn = this.el.querySelector(".subjap-btn--toggle-known") as HTMLButtonElement;
     if (wordStatus === "known") {
-      toggleBtn.textContent = "✓ Known";
+      toggleBtn.textContent = "✓ Connu";
       toggleBtn.style.background = "#2b3a33";
       toggleBtn.style.borderColor = "#78d6a3";
     } else {
-      toggleBtn.textContent = "Mark Known";
+      toggleBtn.textContent = "Connu";
       toggleBtn.style.background = "#1b1e24";
       toggleBtn.style.borderColor = "#343842";
     }
 
     const ignoreBtn = this.el.querySelector(".subjap-btn--toggle-ignored") as HTMLButtonElement;
     if (wordStatus === "ignored") {
-      ignoreBtn.textContent = "Unignore";
+      ignoreBtn.textContent = "Ne plus ignorer";
       ignoreBtn.style.background = "#2b3a33";
       ignoreBtn.style.borderColor = "#78d6a3";
     } else {
-      ignoreBtn.textContent = "Ignore";
+      ignoreBtn.textContent = "Ignorer";
       ignoreBtn.style.background = "#1b1e24";
       ignoreBtn.style.borderColor = "#343842";
     }
@@ -550,7 +550,7 @@ export class WordPopover {
 
   private handleToggleIgnored(): void {
     this.callbacks.onToggleIgnored(this.currentLemma, this.currentStatus, this.currentToken!);
-    // Optimistic: after Unignore the subtitle shows whatever Anki or the
+    // Optimistic: after « Ne plus ignorer » the subtitle shows whatever Anki or the
     // defaults say about the word; the popover shows it as unknown meanwhile.
     this.currentStatus = this.currentStatus === "ignored" ? "unknown" : "ignored";
     this.populateContent(
@@ -574,7 +574,7 @@ export class WordPopover {
 
   private handleMineLater(): void {
     if (!this.currentToken || this.currentMinedLater) return;
-    // Hidden at once, like Mine this: the scene is captured without it.
+    // Hidden at once, like Miner: the scene is captured without it.
     this.hide({ immediate: true });
     this.callbacks.onMineLater?.(this.currentToken, this.currentEntry);
   }

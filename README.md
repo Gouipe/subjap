@@ -83,7 +83,7 @@ au Worker que si l’utilisateur demande l’enrichissement IA.
 ## Utilisation et mises à jour
 
 1. Ouvrir Anki et une vidéo Netflix ou YouTube avec une piste japonaise.
-2. Survoler un mot du sous-titre et cliquer sur **Mine this**.
+2. Survoler un mot du sous-titre et cliquer sur **Miner**.
 3. Vérifier la carte, puis l’envoyer vers Anki.
 
 ### Couleurs des mots

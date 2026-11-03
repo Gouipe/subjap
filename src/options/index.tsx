@@ -995,14 +995,14 @@ function OnboardingWizard(props: {
           </p>
 
           <p style={s.mutedSmall}>
-            {strong("Mark Known")} rend un mot blanc tout de suite, sans carte. {strong("Ignore")}{" "}
+            {strong("Connu")} rend un mot blanc tout de suite, sans carte. {strong("Ignorer")}{" "}
             fait de même pour les noms propres ou les onomatopées.
           </p>
 
           {!anki?.connected && (
             <div style={s.warningBox}>
-              Anki n’est pas connecté : {strong("Mine this")} ne crée pas de carte à réviser, donc
-              aucun mot ne devient acquis par ce chemin. Utilisez {strong("Mark Known")}, ou
+              Anki n’est pas connecté : {strong("Miner")} ne crée pas de carte à réviser, donc
+              aucun mot ne devient acquis par ce chemin. Utilisez {strong("Connu")}, ou
               connectez Anki dans les réglages.
             </div>
           )}
@@ -1023,7 +1023,7 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>6 · Créer une carte</h2>
           <p style={s.muted}>
-            Après {strong("Mine this")}, cet écran prépare la carte Anki à partir de la scène.
+            Après {strong("Miner")}, cet écran prépare la carte Anki à partir de la scène.
           </p>
           <MiningPreview />
           <CalloutList items={MINING_CALLOUTS} />
@@ -1722,7 +1722,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
         {resetConfirmation !== null && (
           <div style={s.resetConfirm}>
             <p style={s.resetConfirmText}>
-              Les décisions manuelles (Mark Known, Ignore, mots déjà connus) et les cartes locales
+              Les décisions manuelles (Connu, Ignorer, mots déjà connus) et les cartes locales
               seront perdues définitivement. Anki n’est pas modifié : ses états reviendront à la
               prochaine synchronisation. Tapez « {RESET_CONFIRMATION_WORD} » pour confirmer.
             </p>

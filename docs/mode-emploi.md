@@ -16,7 +16,7 @@
    n’a pas encore été étudiée), vert et bleu (à miner, selon le rang de
    fréquence, seulement si c’est le seul inconnu de la phrase), blanc pointillé
    (en cours) et blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
-   **Mine this** ne crée alors pas de carte à réviser. Le slide **Créer une
+   **Miner** ne crée alors pas de carte à réviser. Le slide **Créer une
    carte** montre une maquette annotée de l’écran de minage (correction au clic,
    sens, scène et `Q`, IA et `I`, `Ctrl+Entrée`) et rappelle **Plus tard**. Le slide **Dans Anki** montre
    le recto et le verso d’une carte de compréhension (production orale
@@ -47,7 +47,7 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
    **Français** ou **Anglais**. Le japonais reste toujours principal ; si la
    traduction choisie n’existe pas pour l’épisode, SubJap utilise automatiquement
    l’autre, sauf avec **Aucun**, qui désactive toute traduction secondaire.
-3. Survoler un mot du sous-titre et cliquer sur **Mine this**.
+3. Survoler un mot du sous-titre et cliquer sur **Miner**.
 4. La fenêtre « Créer une carte » présente un aperçu du verso Anki. Cliquer sur
    le mot, la lecture, la phrase ou la traduction pour les corriger sur place.
    Chaque sens du dictionnaire est une pastille qui montre au plus trois
@@ -86,7 +86,7 @@ plus récent (« Mot mis de côté · 2 / 7 »), avec `Q`, `I` et `Ctrl+Entrée`
 comme d’habitude. **Passer** garde le mot pour la prochaine fois,
 **Supprimer** le retire (il retrouve sa couleur) et ✕ arrête la session. Si
 l’audio manque et que le mot vient de la vidéo affichée, la phrase est
-réenregistrée comme pour **Mine this** ; sinon la carte est créée sans audio.
+réenregistrée comme pour **Miner** ; sinon la carte est créée sans audio.
 
 Le compteur **Mots connus** inclut automatiquement les mots dont une carte
 `Compréhension` dans `日本語` ou ses sous-decks a été étudiée, qu’elle soit
@@ -105,7 +105,7 @@ Pour ne pas partir de zéro, la dernière étape de l’assistant et la section
 proposent les mots les plus fréquents des sous-titres par lots de 20, un par
 ligne, tous cochés. Décocher ceux qu’on ne connaît pas (le sens apparaît au
 survol), puis **Valider et passer au lot suivant** : les mots cochés deviennent connus
-comme avec **Mark Known**, les décochés restent à miner et ne sont plus
+comme avec **Connu**, les décochés restent à miner et ne sont plus
 proposés. Un radical de la liste est présenté sous son verbe (受け取 →
 受け取る) ; les deux sont marqués connus. Les mots qui ont déjà un état ou une
 carte Anki sont sautés, après une synchronisation Anki si Anki est ouvert.
@@ -276,7 +276,7 @@ lit comme « compris » ; `KNOWN` et `IGNORED` sont blancs sans trait. Un mot
 l’intervalle est inférieur à 21 jours (pas encore mûre) — reste blanc avec un
 fin pointillé, pour le remarquer en contexte ; il compte comme connu et
 n’empêche pas la coloration. Le pointillé disparaît quand la carte devient
-mûre, si le mot est tagué `KNOWN` ou marqué **Mark Known** dans SubJap. Il se
+mûre, si le mot est tagué `KNOWN` ou marqué **Connu** dans SubJap. Il se
 désactive dans les Options, **Affichage des sous-titres** → **Pointiller les
 mots en cours**. La popover affiche toujours le rang disponible et le nombre
 de cartes Anki existantes, suivi de « en cours » le cas échéant.
@@ -288,8 +288,8 @@ Ajouter à une note l’un des tags exacts `KNOWN`, `IGNORED`, `UNKNOWN` ou
 `Mot`. La synchronisation est automatique ; pour la forcer, ouvrir les options
 SubJap et cliquer sur **Synchroniser maintenant**.
 
-Une décision prise manuellement dans SubJap (**Mark Known**, **Ignore**) reste
-prioritaire sur Anki. La retirer (**✓ Known**, **Unignore**) rend la main à
+Une décision prise manuellement dans SubJap (**Connu**, **Ignorer**) reste
+prioritaire sur Anki. La retirer (**✓ Connu**, **Ne plus ignorer**) rend la main à
 Anki : un mot appris plus tard dans Anki redevient connu. Si une
 couleur ne change pas, vérifier le tag, le champ `Mot`, AnkiConnect, puis relancer
 la synchronisation.
