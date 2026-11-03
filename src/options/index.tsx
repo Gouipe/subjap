@@ -1130,10 +1130,6 @@ function OnboardingWizard(props: {
         <WizardStepper current={9} />
         <div style={s.card}>
           <h2 style={s.cardTitle}>9 · SubJap est prêt</h2>
-          <p style={s.muted}>
-            Ouvrez une vidéo Re:ANIME, YouTube ou Netflix qui a des sous-titres japonais.
-          </p>
-
           <h3 style={s.guideTitle}>Raccourcis</h3>
           <div style={s.legend}>
             {SHORTCUTS.map(([key, label]) => (
@@ -1143,10 +1139,6 @@ function OnboardingWizard(props: {
               </React.Fragment>
             ))}
           </div>
-          <p style={s.mutedSmall}>
-            Sur YouTube, cliquez sur « Activer l'audio de l'onglet » dans la popup avant de miner
-            pour capturer l'audio de la phrase.
-          </p>
 
           <div style={s.btnRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("anki")}>
