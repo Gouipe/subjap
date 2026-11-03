@@ -784,9 +784,15 @@ function MinePreview(): JSX.Element {
         小雪ちゃん、何が
         <span style={s.mineTarget}>
           怖い
-          <span style={s.mineCursor} aria-hidden="true">
-            ↖
-          </span>
+          <svg style={s.mineCursor} width="16" height="22" viewBox="0 0 16 22" aria-hidden="true">
+            <path
+              d="M1 1 L1 17 L5 13 L8 20 L11 18.6 L8 12 L14 12 Z"
+              fill="#ffffff"
+              stroke="#0c0d10"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+          </svg>
         </span>
         の？
       </div>
@@ -975,9 +981,6 @@ function OnboardingWizard(props: {
             <span style={{ ...s.legendWord, color: C.unknownGrey }}>単語</span>
             <div>
               <div style={s.lifecycleTitle}>Inconnu</div>
-              <div style={s.legendText}>
-                Y compris un mot miné dont vous n’avez pas encore étudié la carte dans Anki.
-              </div>
             </div>
 
             <span style={{ ...s.legendWord, color: C.green, borderBottomColor: C.green }}>
@@ -1014,8 +1017,7 @@ function OnboardingWizard(props: {
             <div>
               <div style={s.lifecycleTitle}>En cours</div>
               <div style={s.legendText}>
-                Carte Anki étudiée, pas encore mûre (moins de 21 jours). Désactivable dans les
-                réglages.
+                Carte Anki étudiée, pas encore mûre (moins de 21 jours).
               </div>
             </div>
 
@@ -1027,11 +1029,6 @@ function OnboardingWizard(props: {
 
           <p style={s.mutedSmall}>
             Le vert et le bleu n’apparaissent que si c’est le seul mot inconnu de la phrase.
-          </p>
-
-          <p style={s.mutedSmall}>
-            {strong("Connu")} rend un mot blanc tout de suite, sans carte. {strong("Ignorer")}{" "}
-            fait de même pour les noms propres ou les onomatopées.
           </p>
 
           {!anki?.connected && (
@@ -2321,10 +2318,8 @@ const s: Record<string, React.CSSProperties> = {
   mineCursor: {
     position: "absolute",
     left: "55%",
-    top: "60%",
-    fontSize: 20,
-    color: "#ffffff",
-    fontWeight: 400,
+    top: "55%",
+    filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6))",
   },
   mockSend: {
     padding: "6px 12px",

@@ -12,8 +12,7 @@
    en deux groupes. **Configuration** (1–4) : dictionnaire, Anki, affichage,
    mots déjà connus. **Découverte** (5–9), avec **← Précédent** sur les
    slides 6 à 9 : la page **Les couleurs des mots** donne la
-   légende des sous-titres : gris (inconnu, y compris un mot miné dont la carte
-   n’a pas encore été étudiée), vert et bleu (à miner, selon le rang de
+   légende des sous-titres : gris (inconnu), vert et bleu (à miner, selon le rang de
    fréquence, seulement si c’est le seul inconnu de la phrase), blanc pointillé
    (en cours) et blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
    **Miner** ne crée alors pas de carte à réviser. Le slide **Miner un mot**
