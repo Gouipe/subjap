@@ -27,6 +27,8 @@ const BREAK_EVENTS = ["pause", "seeking", "waiting", "ratechange", "ended", "emp
 export class PlaybackClock {
   private runs: PlaybackRun[] = [];
   private open: { wall: number; video: number } | null = null;
+  /** Stopped listening: what was heard stays available for a last cut. */
+  private destroyed = false;
   private readonly onTick = (): void => this.tick();
   private readonly onBreak = (): void => this.closeRun();
 
@@ -38,11 +40,11 @@ export class PlaybackClock {
   }
 
   destroy(): void {
+    this.closeRun();
+    this.destroyed = true;
     this.video.removeEventListener("playing", this.onTick);
     this.video.removeEventListener("timeupdate", this.onTick);
     for (const type of BREAK_EVENTS) this.video.removeEventListener(type, this.onBreak);
-    this.runs = [];
-    this.open = null;
   }
 
   /**
@@ -87,8 +89,11 @@ export class PlaybackClock {
   }
 
   private tick(): void {
+    if (this.destroyed) return;
     const video = this.video;
-    if (video.paused || video.seeking || video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+    // Not readyState: a stream short of data stalls with `waiting`, and a
+    // check on it here dropped moments that did play.
+    if (video.paused || video.seeking) {
       this.closeRun();
       return;
     }
@@ -102,6 +107,7 @@ export class PlaybackClock {
 
   /** Playback stops being continuous: keep what was heard up to now. */
   private closeRun(): void {
+    if (this.destroyed) return;
     const open = this.open;
     this.open = null;
     if (!open) return;

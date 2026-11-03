@@ -451,7 +451,11 @@ fois la réplique entièrement entendue, le content script traduit ses bornes
 vidéo en intervalles d’horloge murale (plusieurs si l’on a fait pause au
 milieu) et demande la découpe au document offscreen (`tabCapture:cut`), sans
 seek. Les bornes sont prises avec 0,3 s avant et 0,45 s après, car les
-échantillons sont horodatés un peu après leur lecture. Le mot attend dans
+échantillons sont horodatés un peu après leur lecture. Ces marges sont
+facultatives : une réplique atteinte par S/D/Q commence pile sur son premier
+mot, et une pause juste après sa fin retarde la marge finale. Au bout de 3 s,
+la réplique est donc découpée avec les seules marges entendues. Un changement
+de vidéo déclenche aussi une dernière découpe avec ce qui a été entendu. Le mot attend dans
 `pendingMines` ; la session de création rouvre `MiningModal` avec les médias
 enregistrés. Une phrase sans audio n’est rejouée que si elle vient de la même
 vidéo (`videoKey` : source et durée), jamais d’une autre.

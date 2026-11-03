@@ -79,6 +79,7 @@ import type {
   SubtitleTranslation,
   Token,
   Tokenizer,
+  WallInterval,
   WordState,
   WordStatus,
 } from "@/core/types";
@@ -1316,6 +1317,13 @@ const MINE_LATER_AUDIO_TAIL_SECONDS = 0.45;
 const MINE_LATER_AUDIO_SETTLE_MS = 500;
 /** Gives up when the end of the line is never heard (seek away, long pause). */
 const MINE_LATER_AUDIO_TIMEOUT_MS = 5 * 60_000;
+/**
+ * Once the whole line has been heard, how long its margins may still be
+ * awaited (paused right at its end) before cutting without them.
+ */
+const MINE_LATER_AUDIO_MARGIN_WAIT_MS = 3_000;
+/** How long a cut refused by the buffer is retried (samples still arriving). */
+const MINE_LATER_AUDIO_CUT_RETRY_MS = 10_000;
 const MINE_LATER_FEEDBACK_MS = 1_800;
 const MINE_LATER_REMINDER_MS = 12_000;
 /** Lets the video start before reminding: the Jimaku notice comes first. */
@@ -1437,30 +1445,50 @@ function observedCueEnd(cue: SubtitleCue, lastSeen: { time: number | null }): nu
   return lastSeen.time;
 }
 
-/** Cut the line from the offscreen buffer as soon as all of it has been heard. */
+/** Wall intervals of a video span once all of it has played and reached the buffer. */
+function settledIntervals(clock: PlaybackClock, start: number, end: number): WallInterval[] | null {
+  const intervals = clock.wallIntervalsFor(start, end);
+  const last = intervals?.[intervals.length - 1];
+  return last && last.toMs <= Date.now() - MINE_LATER_AUDIO_SETTLE_MS ? intervals : null;
+}
+
+/**
+ * Cut the line from the offscreen buffer as soon as all of it has been heard.
+ * The margins around it are only a comfort: a line reached with S/D/Q starts
+ * exactly on its first word, so it is cut without them rather than lost.
+ */
 async function cutMineLaterAudio(id: string, cue: SubtitleCue): Promise<void> {
   const clock = playbackClock;
   const deadline = Date.now() + MINE_LATER_AUDIO_TIMEOUT_MS;
   const lastSeen = { time: null as number | null };
   let end: number | null = cue.endConfirmed === false ? null : cue.end;
+  let heardAt: number | null = null;
   let audioDataUrl: string | null = null;
-  while (clock && playbackClock === clock && Date.now() < deadline) {
-    end ??= observedCueEnd(cue, lastSeen);
-    const intervals = end === null
-      ? null
-      : clock.wallIntervalsFor(
-          Math.max(0, cue.start - MINE_LATER_AUDIO_MARGIN_SECONDS),
-          end + MINE_LATER_AUDIO_TAIL_SECONDS,
-        );
-    const last = intervals?.[intervals.length - 1];
-    if (intervals && last && last.toMs <= Date.now() - MINE_LATER_AUDIO_SETTLE_MS) {
-      try {
-        audioDataUrl = (await sendMessage("tabCapture:cut", { intervals })).dataUrl;
-      } catch (err: unknown) {
-        console.warn("[SubJap] Phrase audio cut failed for a word set aside:", err);
+  while (clock && !audioDataUrl) {
+    // Another video, or too late: one last try with what was heard.
+    const live = playbackClock === clock && Date.now() < deadline;
+    if (live) end ??= observedCueEnd(cue, lastSeen);
+    if (end !== null && settledIntervals(clock, cue.start, end)) {
+      heardAt ??= Date.now();
+      const from = Math.max(0, cue.start - MINE_LATER_AUDIO_MARGIN_SECONDS);
+      const to = end + MINE_LATER_AUDIO_TAIL_SECONDS;
+      const spans: Array<[number, number]> = live && Date.now() - heardAt < MINE_LATER_AUDIO_MARGIN_WAIT_MS
+        ? [[from, to]]
+        : [[from, to], [cue.start, to], [from, end], [cue.start, end]];
+      for (const [start, stop] of spans) {
+        const intervals = settledIntervals(clock, start, stop);
+        if (!intervals) continue;
+        try {
+          audioDataUrl = (await sendMessage("tabCapture:cut", { intervals })).dataUrl;
+        } catch (err: unknown) {
+          console.warn("[SubJap] Phrase audio cut failed for a word set aside:", err);
+        }
+        // Refused by the buffer: its latest samples may still be on their way.
+        if (audioDataUrl) break;
       }
-      break;
+      if (Date.now() - heardAt > MINE_LATER_AUDIO_CUT_RETRY_MS) break;
     }
+    if (!live) break;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   if (!audioDataUrl) console.info("[SubJap] No phrase audio for a word set aside");
