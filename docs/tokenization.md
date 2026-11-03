@@ -60,7 +60,13 @@ Le `ば` conditionnel reste attaché à la forme en `仮定形` qui le précède
 (話せば, 高ければ). La condition négative (なければ, ねば, なけりゃ, なきゃ,
 なくては, なくちゃ) forme un bloc ; suivie de いけない / ならない / だめ, avec
 leur fin polie ou passée, elle devient un bloc d'obligation (話さなければいけない).
-`ないと` n'est rattaché que devant une telle fin d'obligation.
+`ないと` n'est rattaché que devant une telle fin d'obligation. De même,
+ては / ちゃ / じゃ + いけない / だめ forme un bloc d'interdiction, ても + いい /
+大丈夫 / 構わない un bloc de permission (なくても… : « pas besoin de »), et un
+ちゃ / じゃ isolé reste attaché au verbe comme ては contracté. Chaque maillon
+て + auxiliaire (ou contraction ちゃう, てる, とく…) forme un bloc expliqué par
+son sens (てしまう : action accomplie, ている : en cours / état…), suivi de la
+négation, de la politesse ou du passé portés par sa fin.
 
 `components` conserve les morphèmes. `segments`, quand il existe, regroupe ces
 morphèmes en blocs lisibles (話さ + なければいけない) pour la décomposition
