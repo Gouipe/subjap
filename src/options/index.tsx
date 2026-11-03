@@ -634,7 +634,7 @@ const ANKI_CALLOUTS: ReadonlyArray<readonly [string, React.ReactNode]> = [
   ["Verso", "le sens retenu au minage, puis la scène et vos notes"],
   [
     "Production orale (facultatif)",
-    "crée une carte sœur où il faut dire le mot à voix haute à partir de ses définitions ; à réserver aux mots utiles à l’oral, de préférence déjà bien acquis",
+    "crée une carte sœur avec l’anglais au recto et le japonais au verso",
   ],
   [
     "Raccourcis",
