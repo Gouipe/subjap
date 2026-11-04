@@ -6,7 +6,7 @@ import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY, AI_UNAVAILABLE_MESSAGE } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { onMessage } from "@/core/messaging";
-import { checkJimakuKey, installFromJimaku } from "./jimaku";
+import { checkJimakuKey, installFromJimaku, pickSyncedJimakuFile } from "./jimaku";
 import {
   findJimakuEntryUrl,
   JIMAKU_HOME_URL,
@@ -700,6 +700,10 @@ onMessage("jimaku:install", async ({ videoId, choice, tabId: popupTabId }, sende
   const tabId = popupTabId ?? sender.tab?.id;
   return installFromJimaku(videoId, tabId == null ? null : await readTabEpisode(tabId), choice);
 });
+
+onMessage("jimaku:pickSynced", async ({ videoId, referenceStarts }) => ({
+  switched: await pickSyncedJimakuFile(videoId, referenceStarts),
+}));
 
 onMessage("jimaku:check", async ({ key }) => ({ valid: await checkJimakuKey(key) }));
 

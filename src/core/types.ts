@@ -416,6 +416,12 @@ export interface MessageMap {
   /** `tabId` when the popup asks: it is not the video's tab itself. */
   "jimaku:install": { videoId: string; choice?: JimakuChoice; tabId?: number };
   "jimaku:installResult": JimakuInstallResult;
+  /**
+   * The automatically installed Jimaku file does not match the player's
+   * translation: install another file of the episode that does, if any.
+   */
+  "jimaku:pickSynced": { videoId: string; referenceStarts: number[] };
+  "jimaku:pickSyncedResult": { switched: boolean };
   "jimaku:check": { key: string };
   "jimaku:checkResult": { valid: boolean };
   /** Open the options page, scrolled to one of its sections. */

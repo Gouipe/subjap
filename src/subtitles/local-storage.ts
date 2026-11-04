@@ -28,6 +28,11 @@ export interface LocalSubtitleRecord {
   syncSegments?: SyncSegment[];
   /** Installed from Jimaku: every file of the episode, to pick another one. */
   jimakuChoices?: JimakuChoice[];
+  /**
+   * Installed from Jimaku without the user picking it, and not yet compared
+   * to the player's translation: another file of the episode may replace it.
+   */
+  jimakuAutomatic?: boolean;
 }
 
 /** Shift of a line starting at `start` in the file, from the automatic alignment. */

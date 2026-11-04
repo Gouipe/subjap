@@ -4,7 +4,8 @@
 
 import type { PageEpisode } from "@/core/episode";
 import { parseSubtitleFile } from "@/subtitles/parse";
-import { saveLocalSubtitle } from "@/subtitles/local-storage";
+import { getLocalSubtitle, saveLocalSubtitle } from "@/subtitles/local-storage";
+import { estimateSubtitleSync } from "@/subtitles/auto-sync";
 import {
   getJimakuApiKey,
   jimakuArchives,
@@ -101,8 +102,17 @@ async function episodeChoices(entryId: number, episode: number | null, key: stri
   return direct.length ? direct : archiveChoices(files, episode);
 }
 
-async function readChoice(choice: JimakuChoice): Promise<string> {
-  const bytes = await download(choice.url);
+async function readChoice(
+  choice: JimakuChoice,
+  downloads = new Map<string, Promise<Uint8Array>>(),
+): Promise<string> {
+  // Several choices can sit in the same archive: download it once.
+  let pending = downloads.get(choice.url);
+  if (!pending) {
+    pending = download(choice.url);
+    downloads.set(choice.url, pending);
+  }
+  const bytes = await pending;
   if (!choice.inner) return decodeSubtitleText(bytes);
   const entry = readZipEntries(bytes).find((candidate) => candidate.name === choice.inner);
   if (!entry) throw new Error("Fichier absent de l’archive Jimaku.");
@@ -139,6 +149,7 @@ export async function installFromJimaku(
         offsetSeconds: 0,
         updatedAt: Date.now(),
         jimakuChoices: choices,
+        jimakuAutomatic: !choice,
       }, "primary");
       return { status: "installed", fileName: candidate.name, entryUrl, choices };
     }
@@ -147,4 +158,51 @@ export async function installFromJimaku(
     if (error instanceof JimakuError && error.status === 401) return { status: "bad-key" };
     return { status: "error", message: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/** Other files tried when the installed one does not match: each is a download. */
+const MAX_SYNC_ALTERNATIVES = 4;
+
+/**
+ * The automatically installed file does not align on the player's
+ * translation (another cut of the episode): install the first other file of
+ * the episode that does. The installed file stays when none does; either way
+ * the choice is made once.
+ */
+export async function pickSyncedJimakuFile(videoId: string, referenceStarts: number[]): Promise<boolean> {
+  const record = await getLocalSubtitle(videoId, "primary");
+  if (!record?.jimakuAutomatic) return false;
+  const settle = async (): Promise<void> => {
+    const current = await getLocalSubtitle(videoId, "primary");
+    if (current?.updatedAt === record.updatedAt && current.jimakuAutomatic) {
+      await saveLocalSubtitle(videoId, { ...current, jimakuAutomatic: false }, "primary");
+    }
+  };
+  const downloads = new Map<string, Promise<Uint8Array>>();
+  const alternatives = (record.jimakuChoices ?? [])
+    .filter((choice) => choice.name !== record.fileName)
+    .slice(0, MAX_SYNC_ALTERNATIVES);
+  for (const choice of alternatives) {
+    try {
+      const content = await readChoice(choice, downloads);
+      const cues = parseSubtitleFile(choice.name, content);
+      if (estimateSubtitleSync(cues.map((cue) => cue.start), referenceStarts) === null) continue;
+      // The user may have picked or set something meanwhile.
+      const current = await getLocalSubtitle(videoId, "primary");
+      if (current?.updatedAt !== record.updatedAt || !current.jimakuAutomatic) return false;
+      await saveLocalSubtitle(videoId, {
+        fileName: choice.name,
+        content,
+        offsetSeconds: 0,
+        updatedAt: Date.now(),
+        jimakuChoices: record.jimakuChoices,
+      }, "primary");
+      console.info("[SubJap] Fichier Jimaku remplacé par une version alignée sur la traduction:", choice.name);
+      return true;
+    } catch (error) {
+      console.warn("[SubJap] Fichier Jimaku illisible:", choice.name, error);
+    }
+  }
+  await settle();
+  return false;
 }

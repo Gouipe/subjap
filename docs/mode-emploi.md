@@ -251,7 +251,11 @@ l’épisode sur les lecteurs Artplayer : il retrouve l’anime grâce à la pag
 titre de la page, qui suivent les changements d’épisode sans rechargement), choisit le fichier de l’épisode
 en préférant les sources web et en écartant les fichiers mêlant chinois et
 japonais, et ouvre si besoin les archives ZIP de saison. Le fichier devient la
-piste principale locale de la vidéo. Le bandeau propose alors **Désinstaller**, et signale
+piste principale locale de la vidéo. Si ses horaires ne correspondent pas du
+tout à la traduction du lecteur (autre montage de l’épisode), SubJap essaie
+sans le signaler les fichiers suivants de l’épisode (quatre au plus) et
+installe le premier qui s’y aligne ; un fichier choisi dans la popup n’est
+jamais remplacé. Le bandeau propose alors **Désinstaller**, et signale
 quand d’autres fichiers de l’épisode sont proposés dans la popup : une piste désinstallée depuis le
 bandeau n’est plus jamais réinstallée pour cette vidéo. Dans la popup, **Pistes**
 affiche « Jimaku · 4 autres fichiers » sous le fichier japonais installé : la liste

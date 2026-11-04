@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import type { SubtitleCue } from "@/core/types";
+import { sendMessage } from "@/core/messaging";
 import { getLocalSubtitle, saveLocalSubtitle, type SyncSegment } from "./local-storage";
 import { parseSubtitleFile } from "./parse";
 
@@ -265,7 +266,14 @@ export class LocalSubtitleAutoSync {
     const record = await getLocalSubtitle(videoId, "primary");
     if (!record || !untouched(record)) return;
     const japanese = parseSubtitleFile(record.fileName, record.content).map((cue) => cue.start);
-    const segments = estimateSubtitleSync(japanese, reference.map((cue) => cue.start));
+    const referenceStarts = reference.map((cue) => cue.start);
+    const segments = estimateSubtitleSync(japanese, referenceStarts);
+    // A file installed for the user that matches nothing: another file of
+    // the episode may be the version the site streams.
+    if (segments === null && record.jimakuAutomatic && (record.jimakuChoices?.length ?? 0) > 1) {
+      await sendMessage("jimaku:pickSynced", { videoId, referenceStarts });
+      return;
+    }
     if (!Array.isArray(segments)) return;
     // The user may have replaced the file or set an offset meanwhile.
     const current = await getLocalSubtitle(videoId, "primary");
