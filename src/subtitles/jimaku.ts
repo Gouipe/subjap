@@ -29,6 +29,15 @@ export async function isJimakuDeclined(videoId: string): Promise<boolean> {
   return (await getDeclinedVideos()).includes(videoId);
 }
 
+/** The user asks for Jimaku again on a video whose file they removed. */
+export async function undeclineJimaku(videoId: string): Promise<void> {
+  const declined = await getDeclinedVideos();
+  if (!declined.includes(videoId)) return;
+  await chrome.storage.local.set({
+    [JIMAKU_DECLINED_STORAGE_KEY]: declined.filter((item) => item !== videoId),
+  });
+}
+
 export async function declineJimaku(videoId: string): Promise<void> {
   const declined = (await getDeclinedVideos()).filter((item) => item !== videoId);
   declined.push(videoId);

@@ -257,7 +257,9 @@ sans le signaler les fichiers suivants de l’épisode (quatre au plus) et
 installe le premier qui s’y aligne ; un fichier choisi dans la popup n’est
 jamais remplacé. Le bandeau propose alors **Désinstaller**, et signale
 quand d’autres fichiers de l’épisode sont proposés dans la popup : une piste désinstallée depuis le
-bandeau n’est plus jamais réinstallée pour cette vidéo. Dans la popup, **Pistes**
+bandeau n’est plus réinstallée automatiquement pour cette vidéo : le bandeau
+« Pas de sous-titres japonais » et la popup proposent alors **Installer depuis
+Jimaku**, qui relance l’installation automatique. Dans la popup, **Pistes**
 affiche « Jimaku · 4 autres fichiers » sous le fichier japonais installé : la liste
 des fichiers de l’épisode s’y déplie, l’actuel encadré, et un clic installe
 celui choisi. Supprimée depuis la

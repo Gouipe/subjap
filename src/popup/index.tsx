@@ -40,7 +40,7 @@ import {
   type LocalSubtitleRecord,
   type LocalSubtitleRole,
 } from "@/subtitles";
-import type { JimakuChoice } from "@/subtitles/jimaku";
+import { getJimakuApiKey, undeclineJimaku, type JimakuChoice } from "@/subtitles/jimaku";
 
 interface Stats {
   knownWords: number;
@@ -193,6 +193,7 @@ const Popup: React.FC = () => {
   const [translationOffsetAutomatic, setTranslationOffsetAutomatic] = useState(false);
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
+  const [hasJimakuKey, setHasJimakuKey] = useState(false);
   const [tabId, setTabId] = useState<number | null>(null);
   /** The other Jimaku files of the episode are listed under the Japanese track. */
   const [jimakuListOpen, setJimakuListOpen] = useState(false);
@@ -317,6 +318,7 @@ const Popup: React.FC = () => {
       setVideoId(currentVideoId);
       setTabId(tab.id);
       if (!currentVideoId) return;
+      void getJimakuApiKey().then((key) => setHasJimakuKey(!!key), () => undefined);
       // Only the frame playing a video without Japanese subtitles answers.
       void chrome.tabs.sendMessage(tab.id, { type: "subtitles:status" }).then((answer: unknown) => {
         const status = answer as { missing?: unknown; player?: unknown } | undefined;
@@ -499,6 +501,33 @@ const Popup: React.FC = () => {
       setLocalSubtitleBusy(false);
     }
   }, [playerOffsets, tabId, videoId]);
+
+  /** Installs the episode's file as if automatically, even after the user removed one. */
+  const installJimaku = useCallback(async () => {
+    if (!videoId || !missingJapanese) return;
+    setLocalSubtitleBusy(true);
+    setLocalSubtitleError(null);
+    try {
+      await undeclineJimaku(videoId);
+      const result = await sendMessage("jimaku:install", { videoId, tabId: missingJapanese.tabId });
+      if (result.status !== "installed") {
+        throw new Error(
+          result.status === "error" ? result.message
+            : result.status === "no-key" ? "Clé Jimaku absente des options."
+            : result.status === "bad-key" ? "Clé Jimaku refusée."
+            : "Introuvable sur Jimaku pour cet épisode.",
+        );
+      }
+      const primary = await getLocalSubtitle(videoId, "primary");
+      setLocalSubtitles((current) => ({ ...current, primary }));
+      setOffsetInputs((current) => ({ ...current, primary: (primary?.offsetSeconds ?? 0).toFixed(2) }));
+      setMissingJapanese(null);
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLocalSubtitleBusy(false);
+    }
+  }, [missingJapanese, videoId]);
 
   const searchJimaku = useCallback(async () => {
     if (!missingJapanese) return;
@@ -746,8 +775,20 @@ const Popup: React.FC = () => {
           <div style={styles.missingJapanese}>
             <p style={styles.missingJapaneseText}>Pas de sous-titres japonais pour cette vidéo.</p>
             <div style={styles.missingJapaneseActions}>
+              {missingJapanese.player === "artplayer" && hasJimakuKey && (
+                <button
+                  style={styles.missingJapanesePrimary}
+                  disabled={localSubtitleBusy}
+                  onClick={() => void installJimaku()}
+                >
+                  Installer depuis Jimaku
+                </button>
+              )}
               {missingJapanese.player === "artplayer" && (
-                <button style={styles.missingJapanesePrimary} onClick={() => void searchJimaku()}>
+                <button
+                  style={hasJimakuKey ? styles.missingJapaneseButton : styles.missingJapanesePrimary}
+                  onClick={() => void searchJimaku()}
+                >
                   Chercher sur Jimaku
                 </button>
               )}
@@ -1421,11 +1462,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   missingJapaneseActions: {
     display: "flex",
+    flexWrap: "wrap",
     gap: 6,
     marginTop: 8,
   },
   missingJapanesePrimary: {
-    flex: 1,
+    flex: "1 1 auto",
+    whiteSpace: "nowrap",
     padding: "7px 8px",
     border: "1px solid #ff624d",
     borderRadius: 6,
@@ -1436,7 +1479,8 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   missingJapaneseButton: {
-    flex: 1,
+    flex: "1 1 auto",
+    whiteSpace: "nowrap",
     padding: "7px 8px",
     border: "1px solid #343842",
     borderRadius: 6,

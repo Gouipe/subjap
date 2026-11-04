@@ -46,6 +46,7 @@ import {
   getJimakuApiKey,
   isJimakuDeclined,
   JIMAKU_API_KEY_STORAGE_KEY,
+  undeclineJimaku,
   type JimakuInstallResult,
 } from "@/subtitles/jimaku";
 import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
@@ -1801,7 +1802,10 @@ async function handleMissingJapanese(video: HTMLVideoElement, videoId: string | 
   if (!enabled || adapter.getVideoElement() !== video) return;
   const notice = openMissingJapaneseNotice(video);
   if (!videoId || !apiKey || declined) {
-    showMissingJapanese(notice, videoId, { offerSetup: !apiKey && !declined });
+    showMissingJapanese(notice, videoId, {
+      offerSetup: !apiKey && !declined,
+      offerInstall: !!apiKey && declined,
+    });
     return;
   }
   void installFromJimaku(notice, videoId);
@@ -1829,7 +1833,12 @@ function openMissingJapaneseNotice(video: HTMLVideoElement): VideoNotice {
 function showMissingJapanese(
   notice: VideoNotice,
   videoId: string | null,
-  { text = "Pas de sous-titres japonais pour cette vidéo.", offerSetup = false } = {},
+  {
+    text = "Pas de sous-titres japonais pour cette vidéo.",
+    offerSetup = false,
+    /** The user removed this video's Jimaku file before: offer it again. */
+    offerInstall = false,
+  } = {},
 ): void {
   missingJapaneseNoticeReportsMissing = missingJapaneseNotice === notice;
   notice.update({
@@ -1837,7 +1846,10 @@ function showMissingJapanese(
     autoHideMs: MISSING_JAPANESE_NOTICE_MS,
     actions: [
       ...(offerSetup ? [{ label: "Installer automatiquement", primary: true, onClick: openJimakuSettings }] : []),
-      { label: "Chercher sur Jimaku", primary: !offerSetup, onClick: () => searchJimaku(notice) },
+      ...(offerInstall && videoId
+        ? [{ label: "Installer depuis Jimaku", primary: true, onClick: () => reinstallFromJimaku(notice, videoId) }]
+        : []),
+      { label: "Chercher sur Jimaku", primary: !offerSetup && !offerInstall, onClick: () => searchJimaku(notice) },
       ...(videoId ? [{ label: "Importer", onClick: () => importJapaneseFile(videoId, notice) }] : []),
     ],
   });
@@ -1895,6 +1907,13 @@ async function installFromJimaku(notice: VideoNotice, videoId: string): Promise<
     case "error":
       showMissingJapanese(notice, videoId, { text: result.message });
   }
+}
+
+function reinstallFromJimaku(notice: VideoNotice, videoId: string): void {
+  void undeclineJimaku(videoId).then(() => installFromJimaku(notice, videoId), (err: unknown) => {
+    handleRuntimeError(err);
+    notice.setText("Installation impossible. Réessayez via l’icône SubJap.");
+  });
 }
 
 /** Removed for good: the next visit of this video does not install it again. */
