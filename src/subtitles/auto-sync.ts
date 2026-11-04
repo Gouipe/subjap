@@ -45,6 +45,11 @@ const MIN_MATCHED_SHARE_IN_PARTS = 0.4;
  * the voice, and the user finds such files already in time.
  */
 const MIN_SHIFT_SECONDS = 1;
+/**
+ * A Japanese file starting before the reference is ahead of the voice too,
+ * which translations lead or follow closely: shifted from this gap on.
+ */
+const MIN_EARLY_SHIFT_SECONDS = 0.25;
 
 function sorted(values: number[]): number[] {
   return values.filter(Number.isFinite).sort((left, right) => left - right);
@@ -187,7 +192,12 @@ export function estimateSubtitleSync(
 
   const share = segments.length > 1 ? MIN_MATCHED_SHARE_IN_PARTS : MIN_MATCHED_SHARE;
   if (matched < MIN_MATCHED || matched / japanese.length < share) return null;
-  if (segments.every((segment) => Math.abs(segment.offset) < MIN_SHIFT_SECONDS)) return "synced";
+  if (segments.every((segment) => Math.abs(segment.offset) < MIN_SHIFT_SECONDS)) {
+    // One small offset, measured on the matching lines only: the unshifted
+    // file matches almost as many within the tolerance.
+    const ahead = segments.length === 1 && (segments[0]?.offset ?? 0) >= MIN_EARLY_SHIFT_SECONDS;
+    return ahead ? segments : "synced";
+  }
   // The current alignment must be clearly worse than the shifted one.
   const unshifted = countTrue(matchesAt(japanese, reference, 0));
   if (matched < 1.5 * unshifted + 5) return "synced";
