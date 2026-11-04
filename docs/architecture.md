@@ -208,8 +208,11 @@ demande de l’adaptateur de sa frame, les fichiers SRT/VTT/ASS présents dans l
 réglages des instances `Artplayer.instances`. L’adaptateur choisit
 ([`core/artplayer.ts`](../src/core/artplayer.ts)) une piste japonaise sans
 SDH, puis SDH en repli, et des pistes FR/EN selon la préférence habituelle ;
-les pistes partielles (Forced, signes, chansons, doublage IA) sont écartées. Il
-télécharge lui-même les fichiers et redemande la liste tant qu’elle est vide ou
+les pistes partielles (Forced, signes, chansons, doublage IA) sont écartées.
+Sans traduction FR/EN en texte, une traduction en images (PGS `.sup` des
+Blu-ray) est lue par [`pgs.ts`](../src/subtitles/pgs.ts) pour ses seuls
+horaires : jamais affichée, elle sert de référence à la synchronisation et au
+choix du fichier Jimaku. Il télécharge lui-même les fichiers et redemande la liste tant qu’elle est vide ou
 que la source vidéo change. Le japonais est nettoyé par
 [`japanese-cleanup.ts`](../src/subtitles/japanese-cleanup.ts) : furigana
 aplatis `漢字(かな)`, marques de direction et, pour SDH, noms et bruitages

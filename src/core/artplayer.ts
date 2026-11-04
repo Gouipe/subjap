@@ -14,6 +14,8 @@ export interface ArtplayerSubtitleTrack extends ArtplayerSubtitleCandidate {
   language: ArtplayerSubtitleLanguage;
   /** Subtitles for the deaf and hard of hearing: speaker names and sound cues. */
   sdh: boolean;
+  /** Pictures (Blu-ray PGS): only their timing can be read. */
+  image: boolean;
 }
 
 /** Partial tracks are not a translation of the dialogue. */
@@ -50,7 +52,12 @@ export function classifyArtplayerSubtitle(
     LABEL_LANGUAGES.find(([, pattern]) => pattern.test(candidate.label))?.[0] ??
     FILE_LANGUAGES.find(([, pattern]) => pattern.test(fileName))?.[0];
   if (!language) return null;
-  return { ...candidate, language, sdh: SDH.test(candidate.label) };
+  return {
+    ...candidate,
+    language,
+    sdh: SDH.test(candidate.label),
+    image: /\.sup$/i.test(fileName),
+  };
 }
 
 /** Plain text formats carry only dialogue; ASS fansubs also typeset signs and karaoke. */
@@ -67,9 +74,25 @@ export function selectArtplayerSubtitleTracks(
     (track.sdh ? 0 : 2) + (isPlainTextTrack(track) ? 1 : 0);
   for (const candidate of candidates) {
     const track = classifyArtplayerSubtitle(candidate);
-    if (!track) continue;
+    if (!track || track.image) continue;
     const current = selected[track.language];
     if (!current || rank(track) > rank(current)) selected[track.language] = track;
+  }
+  return selected;
+}
+
+/**
+ * Without a translation in text, the player's translation in pictures, whose
+ * timing still tells when its lines start: a reference to align on.
+ */
+export function selectArtplayerTimingTrack(
+  candidates: ArtplayerSubtitleCandidate[],
+): ArtplayerSubtitleTrack | null {
+  let selected: ArtplayerSubtitleTrack | null = null;
+  for (const candidate of candidates) {
+    const track = classifyArtplayerSubtitle(candidate);
+    if (!track?.image || track.language === "ja") continue;
+    if (!selected || (selected.sdh && !track.sdh)) selected = track;
   }
   return selected;
 }

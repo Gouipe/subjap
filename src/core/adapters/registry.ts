@@ -13,6 +13,7 @@ import type {
 import {
   artplayerSubtitleFileName,
   selectArtplayerSubtitleTracks,
+  selectArtplayerTimingTrack,
   type ArtplayerSubtitleCandidate,
   type ArtplayerSubtitleTrack,
 } from "@/core/artplayer";
@@ -25,6 +26,7 @@ import {
   parseLocalSubtitleCues,
 } from "@/subtitles/local-storage";
 import { parseSubtitleFile } from "@/subtitles/parse";
+import { parsePgsDisplays } from "@/subtitles/pgs";
 import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 import { VideoOffsetWatcher } from "@/subtitles/video-offset";
@@ -35,6 +37,8 @@ const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
 const TOP_URL_REFRESH_MS = 2_000;
 /** Fansub ASS files with heavy typesetting reach a dozen megabytes. */
 const MAX_SUBTITLE_FILE_LENGTH = 20_000_000;
+/** Subtitles in pictures weigh about 10 MB an episode. */
+const MAX_IMAGE_SUBTITLE_BYTES = 60_000_000;
 /** A player answering with no usable file this long has no subtitle menu at all. */
 const ARTPLAYER_NO_TRACKS_AFTER_MS = 15_000;
 
@@ -51,6 +55,11 @@ interface ArtplayerSubtitles {
   offersJapanese: boolean;
   japanese: SubtitleCue[];
   translations: Partial<Record<"fr" | "en", SubtitleCue[]>>;
+  /**
+   * Without a translation in text, the times of the translation in pictures:
+   * never shown, only a reference to align Japanese files on.
+   */
+  timing: SubtitleCue[];
 }
 
 // ---------------------------------------------------------------------------
@@ -384,6 +393,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
         offersJapanese: false,
         japanese: [],
         translations: {},
+        timing: [],
       };
       this.lastArtplayerRequestAt = 0;
       this.lastSignature = "";
@@ -414,12 +424,49 @@ export class GenericHtml5Adapter implements PlatformAdapter {
       },
     );
     const tracks = selectArtplayerSubtitleTracks(candidates);
+    const timing = tracks.fr || tracks.en ? null : selectArtplayerTimingTrack(candidates);
     // The subtitle menu can be built after the player: keep asking until it lists a file.
-    if (!tracks.ja && !tracks.fr && !tracks.en) return;
+    if (!tracks.ja && !tracks.fr && !tracks.en && !timing) return;
     artplayer.listed = true;
     artplayer.offersJapanese = !!tracks.ja;
     for (const track of Object.values(tracks)) void this.loadArtplayerTrack(artplayer, track);
+    if (timing) void this.loadArtplayerTiming(artplayer, timing);
   };
+
+  private async loadArtplayerTiming(
+    artplayer: ArtplayerSubtitles,
+    track: ArtplayerSubtitleTrack,
+  ): Promise<void> {
+    try {
+      const response = await fetch(track.url, { credentials: "omit" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const length = Number(response.headers.get("content-length"));
+      if (length > MAX_IMAGE_SUBTITLE_BYTES) throw new Error("fichier trop volumineux");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > MAX_IMAGE_SUBTITLE_BYTES) throw new Error("fichier trop volumineux");
+      if (this.artplayer !== artplayer) return;
+      const sessionId = `${artplayer.session}:timing`;
+      artplayer.timing = parsePgsDisplays(bytes).map((display, index): SubtitleCue => ({
+        id: `${sessionId}:${index}`,
+        start: display.start,
+        end: display.end,
+        text: "",
+        language: track.language,
+        source: {
+          kind: "track",
+          sessionId,
+          trackId: "artplayer-timing",
+          resourceId: track.url,
+          segmentId: String(index),
+          startPrecision: "exact",
+        },
+      }));
+      this.lastSignature = "";
+      this.publish();
+    } catch (error) {
+      console.warn("[SubJap] Horaires de la traduction en images indisponibles:", error);
+    }
+  }
 
   private async loadArtplayerTrack(
     artplayer: ArtplayerSubtitles,
@@ -473,7 +520,11 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.autoSync.run(
       this.videoId,
       this.localPrimaryCues[0]?.source?.sessionId,
-      [translations.fr ?? [], translations.en ?? []].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
+      [
+        ...[translations.fr ?? [], translations.en ?? []].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
+        // Shown by the player itself, never shifted.
+        this.artplayer?.timing ?? [],
+      ],
     );
     if (!this.localSecondaryCues.length) {
       this.offsets.alignTranslation(this.japaneseCues(), this.translationCues());

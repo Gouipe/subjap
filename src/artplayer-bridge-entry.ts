@@ -19,7 +19,7 @@ interface ArtplayerInstance {
   if (page[marker]) return;
   page[marker] = true;
 
-  const SUBTITLE_URL = /\.(?:srt|vtt|webvtt|ass|ssa)(?:[?#]|$)/i;
+  const SUBTITLE_URL = /\.(?:srt|vtt|webvtt|ass|ssa|sup)(?:[?#]|$)/i;
   const plainText = (value: unknown): string =>
     typeof value === "string"
       ? value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)

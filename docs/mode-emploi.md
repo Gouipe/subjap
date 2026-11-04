@@ -254,7 +254,9 @@ japonais, et ouvre si besoin les archives ZIP de saison. Le fichier devient la
 piste principale locale de la vidéo. Si ses horaires ne sont pas en phase avec
 la traduction du lecteur (autre montage de l’épisode), SubJap essaie sans le
 signaler les fichiers suivants de l’épisode (quatre au plus) et installe le
-premier déjà en phase. Sinon, il garde le fichier et le recale ; s’il ne
+premier déjà en phase. Une traduction du lecteur en images (sous-titres
+Blu-ray), illisible comme texte, sert alors de référence par ses horaires.
+Sinon, il garde le fichier et le recale ; s’il ne
 s’aligne pas du tout, il prend le premier qui s’aligne une fois recalé. Un
 fichier choisi dans la popup n’est jamais remplacé. Le bandeau propose alors **Désinstaller**, et signale
 quand d’autres fichiers de l’épisode sont proposés dans la popup : une piste désinstallée depuis le
