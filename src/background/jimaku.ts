@@ -160,49 +160,58 @@ export async function installFromJimaku(
   }
 }
 
-/** Other files tried when the installed one does not match: each is a download. */
+/** Other files tried when the installed one is not in time: each is a download. */
 const MAX_SYNC_ALTERNATIVES = 4;
 
 /**
- * The automatically installed file does not align on the player's
+ * The automatically installed file is not in time with the player's
  * translation (another cut of the episode): install the first other file of
- * the episode that does. The installed file stays when none does; either way
- * the choice is made once.
+ * the episode already in time. When none is, a file that matches nothing is
+ * replaced by the first that aligns once shifted; a file that aligns once
+ * shifted stays. Either way the choice is made once.
  */
-export async function pickSyncedJimakuFile(videoId: string, referenceStarts: number[]): Promise<boolean> {
+export async function pickSyncedJimakuFile(
+  videoId: string,
+  referenceStarts: number[],
+  currentAligns: boolean,
+): Promise<boolean> {
   const record = await getLocalSubtitle(videoId, "primary");
   if (!record?.jimakuAutomatic) return false;
-  const settle = async (): Promise<void> => {
-    const current = await getLocalSubtitle(videoId, "primary");
-    if (current?.updatedAt === record.updatedAt && current.jimakuAutomatic) {
-      await saveLocalSubtitle(videoId, { ...current, jimakuAutomatic: false }, "primary");
-    }
-  };
   const downloads = new Map<string, Promise<Uint8Array>>();
   const alternatives = (record.jimakuChoices ?? [])
     .filter((choice) => choice.name !== record.fileName)
     .slice(0, MAX_SYNC_ALTERNATIVES);
+  let pick: { choice: JimakuChoice; content: string } | null = null;
+  let fallback: { choice: JimakuChoice; content: string } | null = null;
   for (const choice of alternatives) {
     try {
       const content = await readChoice(choice, downloads);
       const cues = parseSubtitleFile(choice.name, content);
-      if (estimateSubtitleSync(cues.map((cue) => cue.start), referenceStarts) === null) continue;
-      // The user may have picked or set something meanwhile.
-      const current = await getLocalSubtitle(videoId, "primary");
-      if (current?.updatedAt !== record.updatedAt || !current.jimakuAutomatic) return false;
-      await saveLocalSubtitle(videoId, {
-        fileName: choice.name,
-        content,
-        offsetSeconds: 0,
-        updatedAt: Date.now(),
-        jimakuChoices: record.jimakuChoices,
-      }, "primary");
-      console.info("[SubJap] Fichier Jimaku remplacé par une version alignée sur la traduction:", choice.name);
-      return true;
+      const sync = estimateSubtitleSync(cues.map((cue) => cue.start), referenceStarts);
+      if (sync === "synced") {
+        pick = { choice, content };
+        break;
+      }
+      if (sync && !currentAligns) fallback ??= { choice, content };
     } catch (error) {
       console.warn("[SubJap] Fichier Jimaku illisible:", choice.name, error);
     }
   }
-  await settle();
-  return false;
+  pick ??= fallback;
+  // The user may have picked or set something meanwhile.
+  const current = await getLocalSubtitle(videoId, "primary");
+  if (current?.updatedAt !== record.updatedAt || !current.jimakuAutomatic) return false;
+  if (!pick) {
+    await saveLocalSubtitle(videoId, { ...current, jimakuAutomatic: false }, "primary");
+    return false;
+  }
+  await saveLocalSubtitle(videoId, {
+    fileName: pick.choice.name,
+    content: pick.content,
+    offsetSeconds: 0,
+    updatedAt: Date.now(),
+    jimakuChoices: record.jimakuChoices,
+  }, "primary");
+  console.info("[SubJap] Fichier Jimaku remplacé par une version en phase avec la traduction:", pick.choice.name);
+  return true;
 }

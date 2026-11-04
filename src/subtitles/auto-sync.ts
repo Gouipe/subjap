@@ -268,11 +268,16 @@ export class LocalSubtitleAutoSync {
     const japanese = parseSubtitleFile(record.fileName, record.content).map((cue) => cue.start);
     const referenceStarts = reference.map((cue) => cue.start);
     const segments = estimateSubtitleSync(japanese, referenceStarts);
-    // A file installed for the user that matches nothing: another file of
-    // the episode may be the version the site streams.
-    if (segments === null && record.jimakuAutomatic && (record.jimakuChoices?.length ?? 0) > 1) {
-      await sendMessage("jimaku:pickSynced", { videoId, referenceStarts });
-      return;
+    // A file installed for the user that needs shifting, or matches
+    // nothing: another file of the episode may be the version the site
+    // streams. Shifting by parts stays approximate near the cuts.
+    if (segments !== "synced" && record.jimakuAutomatic && (record.jimakuChoices?.length ?? 0) > 1) {
+      const { switched } = await sendMessage("jimaku:pickSynced", {
+        videoId,
+        referenceStarts,
+        currentAligns: segments !== null,
+      });
+      if (switched) return;
     }
     if (!Array.isArray(segments)) return;
     // The user may have replaced the file or set an offset meanwhile.

@@ -417,10 +417,11 @@ export interface MessageMap {
   "jimaku:install": { videoId: string; choice?: JimakuChoice; tabId?: number };
   "jimaku:installResult": JimakuInstallResult;
   /**
-   * The automatically installed Jimaku file does not match the player's
-   * translation: install another file of the episode that does, if any.
+   * The automatically installed Jimaku file is not in time with the player's
+   * translation: install another file of the episode that is, if any.
+   * `currentAligns` when the installed file only needs shifting.
    */
-  "jimaku:pickSynced": { videoId: string; referenceStarts: number[] };
+  "jimaku:pickSynced": { videoId: string; referenceStarts: number[]; currentAligns: boolean };
   "jimaku:pickSyncedResult": { switched: boolean };
   "jimaku:check": { key: string };
   "jimaku:checkResult": { valid: boolean };

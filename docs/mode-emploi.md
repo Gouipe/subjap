@@ -251,11 +251,12 @@ l’épisode sur les lecteurs Artplayer : il retrouve l’anime grâce à la pag
 titre de la page, qui suivent les changements d’épisode sans rechargement), choisit le fichier de l’épisode
 en préférant les sources web et en écartant les fichiers mêlant chinois et
 japonais, et ouvre si besoin les archives ZIP de saison. Le fichier devient la
-piste principale locale de la vidéo. Si ses horaires ne correspondent pas du
-tout à la traduction du lecteur (autre montage de l’épisode), SubJap essaie
-sans le signaler les fichiers suivants de l’épisode (quatre au plus) et
-installe le premier qui s’y aligne ; un fichier choisi dans la popup n’est
-jamais remplacé. Le bandeau propose alors **Désinstaller**, et signale
+piste principale locale de la vidéo. Si ses horaires ne sont pas en phase avec
+la traduction du lecteur (autre montage de l’épisode), SubJap essaie sans le
+signaler les fichiers suivants de l’épisode (quatre au plus) et installe le
+premier déjà en phase. Sinon, il garde le fichier et le recale ; s’il ne
+s’aligne pas du tout, il prend le premier qui s’aligne une fois recalé. Un
+fichier choisi dans la popup n’est jamais remplacé. Le bandeau propose alors **Désinstaller**, et signale
 quand d’autres fichiers de l’épisode sont proposés dans la popup : une piste désinstallée depuis le
 bandeau n’est plus réinstallée automatiquement pour cette vidéo : le bandeau
 « Pas de sous-titres japonais » et la popup proposent alors **Installer depuis

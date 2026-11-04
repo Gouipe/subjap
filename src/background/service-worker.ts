@@ -701,8 +701,8 @@ onMessage("jimaku:install", async ({ videoId, choice, tabId: popupTabId }, sende
   return installFromJimaku(videoId, tabId == null ? null : await readTabEpisode(tabId), choice);
 });
 
-onMessage("jimaku:pickSynced", async ({ videoId, referenceStarts }) => ({
-  switched: await pickSyncedJimakuFile(videoId, referenceStarts),
+onMessage("jimaku:pickSynced", async ({ videoId, referenceStarts, currentAligns }) => ({
+  switched: await pickSyncedJimakuFile(videoId, referenceStarts, currentAligns),
 }));
 
 onMessage("jimaku:check", async ({ key }) => ({ valid: await checkJimakuKey(key) }));
