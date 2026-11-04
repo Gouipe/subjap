@@ -11,9 +11,11 @@ sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
 Les pistes japonaise et de traduction gardent leurs propres horaires. Chaque
 segment japonais est affiché avec sa propre traduction : celle qu’il recouvre
 le plus dans le temps. Les traductions commencent souvent un peu avant la voix,
-que suit le japonais : une fois par vidéo, l’avance de la traduction du
-lecteur (au plus 2 s) est mesurée sur l’épisode, tel qu’affiché, et ajoutée à
-son décalage, visible et modifiable dans le popup. Un décalage de traduction
+que suit le japonais : une fois par piste japonaise, l’avance de la
+traduction du lecteur (au plus 2 s) est mesurée sur l’épisode, tel qu’affiché,
+et devient son décalage, visible et modifiable dans le popup. Choisir un autre
+fichier japonais (import, autre fichier Jimaku) relance la mesure, depuis les
+horaires d’origine de la traduction. Un décalage de traduction
 réglé par l’utilisateur n’est jamais remplacé ; une traduction importée garde
 ses horaires. La synchronisation d’un fichier japonais importé compare ses
 horaires à ceux de la traduction affichée, décalage compris. Une traduction

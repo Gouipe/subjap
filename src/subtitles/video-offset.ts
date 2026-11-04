@@ -4,8 +4,9 @@
 // An imported file keeps its offset in its own record. The player's Japanese
 // track and translation have no record: their offsets are stored per video
 // here. Whether the popup shifts both tracks together is a global choice.
-// The translation's offset is first set automatically, once per video, to
-// start its lines with the Japanese ones.
+// The translation's offset is set automatically to start its lines with the
+// Japanese ones, once per Japanese track: choosing another Japanese file
+// measures it again.
 // ---------------------------------------------------------------------------
 
 import type { SubtitleCue } from "@/core/types";
@@ -13,6 +14,7 @@ import { estimateTranslationShift } from "./auto-sync";
 
 const TRANSLATION_PREFIX = "subjap_translation_offset_";
 const TRANSLATION_CHECKED_PREFIX = "subjap_translation_offset_checked_";
+const TRANSLATION_MEASURED_TRACK_PREFIX = "subjap_translation_offset_track_";
 const JAPANESE_PREFIX = "subjap_japanese_offset_";
 const LINKED_KEY = "subjap_linked_offsets";
 /** Smaller automatic shifts are not worth changing the user's value. */
@@ -24,6 +26,22 @@ export function translationOffsetStorageKey(videoId: string): string {
 
 function translationOffsetCheckedStorageKey(videoId: string): string {
   return `${TRANSLATION_CHECKED_PREFIX}${videoId}`;
+}
+
+function translationMeasuredTrackStorageKey(videoId: string): string {
+  return `${TRANSLATION_MEASURED_TRACK_PREFIX}${videoId}`;
+}
+
+/**
+ * The Japanese track the cues come from: an imported file (a new import or
+ * another Jimaku file is a new track), or the player's own track.
+ */
+function japaneseTrackIdentity(cues: SubtitleCue[]): string | null {
+  const source = cues[0]?.source;
+  if (!source) return null;
+  return source.trackId?.startsWith("local-")
+    ? source.sessionId
+    : `${source.trackId ?? ""}\u0000${source.resourceId ?? ""}`;
 }
 
 export function japaneseOffsetStorageKey(videoId: string): string {
@@ -56,10 +74,27 @@ export function saveTranslationOffset(videoId: string, seconds: number): Promise
  */
 type TranslationOffsetOrigin = "auto" | "user" | "measured";
 
+function asOrigin(value: unknown): TranslationOffsetOrigin | null {
+  return value === "auto" || value === "user" || value === "measured" ? value : null;
+}
+
 async function translationOffsetOrigin(videoId: string): Promise<TranslationOffsetOrigin | null> {
   const key = translationOffsetCheckedStorageKey(videoId);
-  const value = (await chrome.storage.local.get(key))[key] as unknown;
-  return value === "auto" || value === "user" || value === "measured" ? value : null;
+  return asOrigin((await chrome.storage.local.get(key))[key]);
+}
+
+interface TranslationAlignment {
+  origin: TranslationOffsetOrigin | null;
+  /** The Japanese track the offset was last measured on. */
+  track: string | null;
+}
+
+async function translationAlignment(videoId: string): Promise<TranslationAlignment> {
+  const originKey = translationOffsetCheckedStorageKey(videoId);
+  const trackKey = translationMeasuredTrackStorageKey(videoId);
+  const stored = await chrome.storage.local.get([originKey, trackKey]);
+  const track = stored[trackKey] as unknown;
+  return { origin: asOrigin(stored[originKey]), track: typeof track === "string" ? track : null };
 }
 
 /** True while the translation's offset is the one set automatically. */
@@ -106,8 +141,8 @@ export class VideoOffsetWatcher {
   private videoId: string | null = null;
   private japanese = 0;
   private translation = 0;
-  /** Null until known for the current video. */
-  private translationChecked: boolean | null = null;
+  /** Undefined until known for the current video. */
+  private alignment: TranslationAlignment | undefined;
   private aligning = false;
   private lastMeasured: { japanese: SubtitleCue[]; translation: SubtitleCue[] } | null = null;
   private revision = 0;
@@ -125,7 +160,8 @@ export class VideoOffsetWatcher {
     if (
       changes[translationOffsetStorageKey(this.videoId)] ||
       changes[japaneseOffsetStorageKey(this.videoId)] ||
-      changes[translationOffsetCheckedStorageKey(this.videoId)]
+      changes[translationOffsetCheckedStorageKey(this.videoId)] ||
+      changes[translationMeasuredTrackStorageKey(this.videoId)]
     ) {
       this.load();
     }
@@ -138,7 +174,7 @@ export class VideoOffsetWatcher {
     }
     if (videoId === this.videoId) return;
     this.videoId = videoId;
-    this.translationChecked = null;
+    this.alignment = undefined;
     this.lastMeasured = null;
     if (this.japanese !== 0 || this.translation !== 0) {
       this.japanese = 0;
@@ -157,36 +193,50 @@ export class VideoOffsetWatcher {
   }
 
   /**
-   * Once per video, sets the player's translation offset so that its lines
-   * start with the Japanese ones. Both lists are the cues as shown, offsets
-   * included; the measured gap adds to the current offset. An offset the
-   * user set on the translation is never replaced.
+   * Once per Japanese track, sets the player's translation offset so that its
+   * lines start with the Japanese ones. Both lists are the cues as shown,
+   * offsets included; the measured gap adds to the current offset. An offset
+   * the user set on the translation is never replaced.
    */
   alignTranslation(japanese: SubtitleCue[], translation: SubtitleCue[]): void {
     const videoId = this.videoId;
-    if (!videoId || this.translationChecked !== false || this.aligning) return;
+    const alignment = this.alignment;
+    if (!videoId || !alignment || alignment.origin === "user" || this.aligning) return;
+    const track = japaneseTrackIdentity(japanese);
+    if (!track || (alignment.origin && alignment.track === track)) return;
     // Shifted copies are reused: the same tracks need no new measure.
     if (this.lastMeasured?.japanese === japanese && this.lastMeasured.translation === translation) return;
     this.lastMeasured = { japanese, translation };
-    const shift = estimateTranslationShift(
+    // An automatic offset measured on another Japanese track is measured
+    // again from the translation's own timing, not added to.
+    const base = alignment.origin === "auto" ? 0 : this.translation;
+    const measured = estimateTranslationShift(
       japanese.filter((cue) => cue.endConfirmed !== false).map((cue) => cue.start),
-      translation.map((cue) => cue.start),
+      translation.map((cue) => cue.start - this.translation + base),
     );
     // Without a clear measure, try again as the tracks complete.
-    if (shift === null) return;
-    const offset = Math.round((this.translation + shift) * 100) / 100;
+    if (measured === null) return;
+    const offset = Math.round((base + measured) * 100) / 100;
+    const shift = offset - this.translation;
     this.aligning = true;
     void (async () => {
-      if (await translationOffsetOrigin(videoId)) return;
+      const stored = await translationAlignment(videoId);
+      if (stored.origin === "user" || (stored.origin && stored.track === track)) return;
       const originKey = translationOffsetCheckedStorageKey(videoId);
+      const trackKey = translationMeasuredTrackStorageKey(videoId);
       if (Math.abs(shift) < MIN_AUTOMATIC_SHIFT_SECONDS) {
-        await chrome.storage.local.set({ [originKey]: "measured" });
+        // Already aligned: an automatic offset stays automatic.
+        await chrome.storage.local.set({
+          [originKey]: stored.origin === "auto" ? "auto" : "measured",
+          [trackKey]: track,
+        });
         return;
       }
       // Offset and origin together, so the popup never shows one without the other.
       if (offset === 0) await chrome.storage.local.remove(translationOffsetStorageKey(videoId));
       await chrome.storage.local.set({
         [originKey]: "auto",
+        [trackKey]: track,
         ...(offset === 0 ? {} : { [translationOffsetStorageKey(videoId)]: offset }),
       });
       console.info(`[SubJap] Traduction synchronisée sur le japonais : ${offset.toFixed(2)} s`);
@@ -194,7 +244,7 @@ export class VideoOffsetWatcher {
       console.warn("[SubJap] Synchronisation de la traduction impossible:", error);
     }).finally(() => {
       this.aligning = false;
-      if (this.videoId === videoId) this.translationChecked = true;
+      if (this.videoId === videoId) this.load();
     });
   }
 
@@ -204,7 +254,7 @@ export class VideoOffsetWatcher {
     this.videoId = null;
     this.japanese = 0;
     this.translation = 0;
-    this.translationChecked = null;
+    this.alignment = undefined;
     this.lastMeasured = null;
     this.revision += 1;
   }
@@ -225,10 +275,10 @@ export class VideoOffsetWatcher {
     void Promise.all([
       getJapaneseOffset(videoId),
       getTranslationOffset(videoId),
-      translationOffsetOrigin(videoId),
-    ]).then(([japanese, translation, origin]) => {
+      translationAlignment(videoId),
+    ]).then(([japanese, translation, alignment]) => {
       if (revision !== this.revision) return;
-      this.translationChecked = origin !== null;
+      this.alignment = alignment;
       if (japanese === this.japanese && translation === this.translation) return;
       this.japanese = japanese;
       this.translation = translation;
