@@ -217,7 +217,11 @@ que la source vidéo change. Le japonais est nettoyé par
 [`japanese-cleanup.ts`](../src/subtitles/japanese-cleanup.ts) : furigana
 aplatis `漢字(かな)`, marques de direction et, pour SDH, noms et bruitages
 entre parenthèses ou crochets. Les imports locaux restent prioritaires rôle par
-rôle. Le masquage natif cible `.art-subtitle` et le canvas libass.
+rôle. Le masquage natif cible `.art-subtitle` et le canvas libass ; il n’a
+lieu que si les sous-titres du lecteur doublonnent ceux de SubJap (piste
+japonaise proposée, traduction affichée par SubJap ou préférence **Aucun**).
+Sinon, le lecteur affiche une traduction que SubJap ne sait pas lire
+(transcription IA du doublage, images) et elle reste visible.
 
 ## Pipeline de rendu
 

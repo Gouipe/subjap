@@ -504,9 +504,17 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   }
 
   private applyNativeVisibility(): void {
+    // The player's own subtitles would repeat SubJap's lines. When SubJap
+    // shows no translation although one is wanted, and the player has no
+    // Japanese track, they are a translation SubJap cannot read (AI dub
+    // transcript, pictures): left visible, or the user would get none.
+    const repeated = !!this.artplayer?.offersJapanese ||
+      this.preferredSecondaryLanguage === "none" ||
+      this.translationCues().length > 0;
     document.documentElement.classList.toggle(
       ARTPLAYER_HIDE_CLASS,
       this.hideNative &&
+        repeated &&
         this.japaneseCues().length > 0 &&
         !!document.querySelector(".art-video-player"),
     );
