@@ -177,27 +177,40 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       overflow-wrap: break-word;
       text-shadow: var(--sj-shadow);
     }
-    /* A known sentence's hidden layers: the next one X reveals is blurred,
-       those after it invisible. Each stays readable on hover, or with X. */
+    /* A known sentence's hidden layers: the next one X reveals is blurred
+       over a dark band that shows it on any scene, those after it invisible.
+       Each stays readable on hover, or with X. The band sits on the line and
+       the blur on its content, so the band keeps sharp edges. */
     #${CONTAINER_ID} .subjap-translation-line--hidden {
       opacity: 0;
       cursor: default;
       pointer-events: auto;
-      transition: opacity 0.12s ease, filter 0.12s ease;
+      transition: opacity 0.12s ease, background-color 0.12s ease;
     }
     #${CONTAINER_ID} .subjap-translation-line--hidden.subjap-translation-line--blurred {
       opacity: 1;
-      filter: blur(0.3em);
     }
     #${CONTAINER_ID} .subjap-translation-line--hidden:hover {
       opacity: 1;
-      filter: none;
     }
-    #${CONTAINER_ID} .subjap-cue-line--hidden {
-      filter: blur(0.3em);
+    #${CONTAINER_ID} .subjap-cue-line--hidden,
+    #${CONTAINER_ID} .subjap-translation-line--blurred {
+      background-color: rgba(0, 0, 0, 0.45);
+      border-radius: 0.3em;
+      transition: opacity 0.12s ease, background-color 0.12s ease;
+    }
+    /* Doubled classes outrank the token's own transition. */
+    #${CONTAINER_ID} .subjap-cue-line.subjap-cue-line--hidden > *,
+    #${CONTAINER_ID} .subjap-translation-line.subjap-translation-line--blurred > * {
+      filter: blur(0.15em);
       transition: filter 0.12s ease;
     }
-    #${CONTAINER_ID} .subjap-cue-line--hidden:hover {
+    #${CONTAINER_ID} .subjap-cue-line--hidden:hover,
+    #${CONTAINER_ID} .subjap-translation-line--blurred:hover {
+      background-color: transparent;
+    }
+    #${CONTAINER_ID} .subjap-cue-line--hidden:hover > *,
+    #${CONTAINER_ID} .subjap-translation-line--blurred:hover > * {
       filter: none;
     }
     #${CONTAINER_ID} .subjap-token {
@@ -297,6 +310,9 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       #${CONTAINER_ID} .subjap-token,
       #${CONTAINER_ID} .subjap-translation-line--hidden,
       #${CONTAINER_ID} .subjap-cue-line--hidden,
+      #${CONTAINER_ID} .subjap-translation-line--blurred,
+      #${CONTAINER_ID} .subjap-cue-line.subjap-cue-line--hidden > *,
+      #${CONTAINER_ID} .subjap-translation-line.subjap-translation-line--blurred > *,
       #${CONTAINER_ID} .subjap-runtime-notice__button {
         transition: none;
       }
@@ -502,7 +518,7 @@ export class OverlayRenderer {
       for (const text of this.pendingCueTexts) {
         const line = document.createElement("div");
         line.className = "subjap-cue-line subjap-cue-line--pending";
-        line.textContent = text;
+        line.appendChild(lineText(text));
         if (hideJapanese) line.classList.add("subjap-cue-line--hidden");
         this.container.appendChild(line);
       }
@@ -526,7 +542,7 @@ export class OverlayRenderer {
       // A timed-text track may split one translated sentence over several
       // source lines. Keep the sentence on one visual line whenever it fits,
       // while still allowing the browser to wrap it on narrow players.
-      line.textContent = this.translation.text.replace(/\s+/gu, " ").trim();
+      line.appendChild(lineText(this.translation.text.replace(/\s+/gu, " ").trim()));
       this.container.appendChild(line);
     }
 
@@ -920,6 +936,13 @@ export class OverlayRenderer {
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────
+
+/** Plain line text in its own element, so a hidden line blurs it without its band. */
+function lineText(text: string): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.textContent = text;
+  return span;
+}
 
 /**
  * Quick helper: create an overlay for a set of raw cues (no token data).
