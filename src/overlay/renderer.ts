@@ -177,22 +177,28 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
       overflow-wrap: break-word;
       text-shadow: var(--sj-shadow);
     }
+    /* A known sentence's hidden layers: the next one X reveals is blurred,
+       those after it invisible. Each stays readable on hover, or with X. */
     #${CONTAINER_ID} .subjap-translation-line--hidden {
       opacity: 0;
       cursor: default;
       pointer-events: auto;
-      transition: opacity 0.12s ease;
+      transition: opacity 0.12s ease, filter 0.12s ease;
+    }
+    #${CONTAINER_ID} .subjap-translation-line--hidden.subjap-translation-line--blurred {
+      opacity: 1;
+      filter: blur(0.3em);
     }
     #${CONTAINER_ID} .subjap-translation-line--hidden:hover {
       opacity: 1;
+      filter: none;
     }
-    /* Listen first: a known sentence stays readable on hover, or with X. */
     #${CONTAINER_ID} .subjap-cue-line--hidden {
-      opacity: 0;
-      transition: opacity 0.12s ease;
+      filter: blur(0.3em);
+      transition: filter 0.12s ease;
     }
     #${CONTAINER_ID} .subjap-cue-line--hidden:hover {
-      opacity: 1;
+      filter: none;
     }
     #${CONTAINER_ID} .subjap-token {
       display: inline-flex;
@@ -510,7 +516,11 @@ export class OverlayRenderer {
     if (this.translation) {
       const line = document.createElement("div");
       line.className = "subjap-translation-line";
-      if (hideTranslation) line.classList.add("subjap-translation-line--hidden");
+      if (hideTranslation) {
+        line.classList.add("subjap-translation-line--hidden");
+        // Blurred when it is the next layer X reveals, invisible behind hidden Japanese.
+        if (!hideJapanese) line.classList.add("subjap-translation-line--blurred");
+      }
       line.lang = this.translation.language;
       line.dataset.language = this.translation.language;
       // A timed-text track may split one translated sentence over several
