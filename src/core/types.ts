@@ -77,6 +77,11 @@ export interface PlatformAdapter {
   getCurrentTime(): number;
   isPaused(): boolean;
   getPlaybackRate(): number;
+  /**
+   * Share of the picture height, from its bottom, kept clear for the player's
+   * own subtitles while it shows them over SubJap's; 0 when none.
+   */
+  getPlayerSubtitleRoom?(): number;
   /** Complete timed cues available for navigation, without rendering them all. */
   getNavigationCues?(): SubtitleCue[];
   /** Translation that would be shown next if it starts after `after`, up to `until` included. */

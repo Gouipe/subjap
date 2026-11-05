@@ -258,7 +258,9 @@ piste principale locale de la vidéo. Si ses horaires ne sont pas en phase avec
 la traduction du lecteur (autre montage de l’épisode), SubJap essaie sans le
 signaler les fichiers suivants de l’épisode (quatre au plus) et installe le
 premier déjà en phase. Une traduction du lecteur en images (sous-titres
-Blu-ray), illisible comme texte, sert alors de référence par ses horaires.
+Blu-ray), illisible comme texte, sert alors de référence par ses horaires ;
+restée affichée par le lecteur, elle passe sous le japonais de SubJap, qui
+se tient à hauteur fixe au-dessus de ses lignes.
 Sinon, il garde le fichier et le recale ; s’il ne
 s’aligne pas du tout, il prend le premier qui s’aligne une fois recalé. Un
 fichier choisi dans la popup n’est jamais remplacé. Le bandeau propose alors **Désinstaller**, et signale

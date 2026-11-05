@@ -21,7 +21,11 @@ import {
 } from "@/core/frequency";
 import { normalizeCueText } from "@/subtitles";
 import { subtitleCueKey } from "@/subtitles/timeline";
+import { videoPictureRect } from "@/core/video-picture";
 import { forgetVideoSurface, mountVideoSurface } from "./mount";
+
+/** Space between the player's subtitles and SubJap's, as a share of the picture height. */
+const PLAYER_SUBTITLE_GAP = 0.02;
 
 const CONTAINER_ID = "subjap-overlay-container";
 const STYLE_ID = "subjap-overlay-styles";
@@ -325,6 +329,7 @@ export class OverlayRenderer {
   private translationOfKnownSentence: string | null = null;
   /** Translation and X reveals of the last Japanese lines displayed, kept through an empty overlay. */
   private lastSentenceReveal: { translationKey: string; layers: number } | null = null;
+  private playerSubtitleRoom: () => number = () => 0;
 
   constructor(video: HTMLVideoElement, options?: Partial<OverlayOptions>) {
     this.video = video;
@@ -342,6 +347,12 @@ export class OverlayRenderer {
   }
 
   // ── Public API ────────────────────────────────────────────────────────
+
+  /** Room to leave at the bottom of the picture for the player's own subtitles. */
+  setPlayerSubtitleRoom(provider: () => number): void {
+    this.playerSubtitleRoom = provider;
+    if (this.visible) this.syncPosition();
+  }
 
   /** Show the overlay (make it visible). */
   show(): void {
@@ -865,7 +876,15 @@ export class OverlayRenderer {
     // the bottom ~10-13% of the player — while growing upward for taller text.
     this.container.style.height = `${rect.height}px`;
     this.container.style.paddingTop = "0";
-    this.container.style.paddingBottom = `${Math.max(120, rect.height * 0.13)}px`;
+    let inset = Math.max(120, rect.height * 0.13);
+    const room = this.playerSubtitleRoom();
+    if (room > 0) {
+      // Stay above the player's own lines at a steady height, whatever the
+      // size of the player: they scale with the picture, not with the inset.
+      const picture = videoPictureRect(this.video);
+      inset = Math.max(inset, rect.bottom - picture.bottom + picture.height * (room + PLAYER_SUBTITLE_GAP));
+    }
+    this.container.style.paddingBottom = `${inset}px`;
   }
 
   private startRepositionLoop(): void {

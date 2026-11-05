@@ -26,7 +26,7 @@ import {
   parseLocalSubtitleCues,
 } from "@/subtitles/local-storage";
 import { parseSubtitleFile } from "@/subtitles/parse";
-import { parsePgsDisplays } from "@/subtitles/pgs";
+import { parsePgsDisplays, pgsDialogueRoom } from "@/subtitles/pgs";
 import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn } from "@/subtitles/timeline";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 import { VideoOffsetWatcher } from "@/subtitles/video-offset";
@@ -60,6 +60,11 @@ interface ArtplayerSubtitles {
    * never shown, only a reference to align Japanese files on.
    */
   timing: SubtitleCue[];
+  /**
+   * Share of the picture height, from its bottom, that the player's lines in
+   * pictures take up while it shows them; 0 when unknown.
+   */
+  pictureRoom: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +161,11 @@ export class GenericHtml5Adapter implements PlatformAdapter {
 
   getPlaybackRate(): number {
     return this.getVideoElement()?.playbackRate ?? 1;
+  }
+
+  getPlayerSubtitleRoom(): number {
+    if (document.documentElement.classList.contains(ARTPLAYER_HIDE_CLASS)) return 0;
+    return this.artplayer?.pictureRoom ?? 0;
   }
 
   getNavigationCues(): SubtitleCue[] {
@@ -394,6 +404,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
         japanese: [],
         translations: {},
         timing: [],
+        pictureRoom: 0,
       };
       this.lastArtplayerRequestAt = 0;
       this.lastSignature = "";
@@ -446,7 +457,9 @@ export class GenericHtml5Adapter implements PlatformAdapter {
       if (bytes.byteLength > MAX_IMAGE_SUBTITLE_BYTES) throw new Error("fichier trop volumineux");
       if (this.artplayer !== artplayer) return;
       const sessionId = `${artplayer.session}:timing`;
-      artplayer.timing = parsePgsDisplays(bytes).map((display, index): SubtitleCue => ({
+      const displays = parsePgsDisplays(bytes);
+      artplayer.pictureRoom = pgsDialogueRoom(displays);
+      artplayer.timing = displays.map((display, index): SubtitleCue => ({
         id: `${sessionId}:${index}`,
         start: display.start,
         end: display.end,

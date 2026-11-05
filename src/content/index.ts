@@ -498,6 +498,7 @@ function ensureOverlay(): OverlayRenderer | null {
     registerPlexLatinFont();
     overlay = new OverlayRenderer(video, overlayOptions);
     overlay.setRuntimeUnavailable(runtimeUnavailable);
+    overlay.setPlayerSubtitleRoom(() => adapter.getPlayerSubtitleRoom?.() ?? 0);
     audioCapture = new VideoAudioCapture(
       video,
       (timeSeconds, resume) => adapter.seekTo(timeSeconds, resume),

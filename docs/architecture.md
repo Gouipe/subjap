@@ -221,7 +221,11 @@ rôle. Le masquage natif cible `.art-subtitle` et le canvas libass ; il n’a
 lieu que si les sous-titres du lecteur doublonnent ceux de SubJap (piste
 japonaise proposée, traduction affichée par SubJap ou préférence **Aucun**).
 Sinon, le lecteur affiche une traduction que SubJap ne sait pas lire
-(transcription IA du doublage, images) et elle reste visible.
+(transcription IA du doublage, images) et elle reste visible. Pour une
+traduction en images ainsi visible, `pgs.ts` lit aussi la place des lignes
+sur l’image : l’overlay garde le japonais à hauteur fixe au-dessus de la
+hauteur qu’atteignent presque toutes les lignes du bas (95ᵉ centile), en
+fenêtre comme en plein écran.
 
 ## Pipeline de rendu
 
