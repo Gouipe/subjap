@@ -93,7 +93,7 @@ que la vidéo (24 ↔ 23,976 ou 25 i/s) : elles dérivent linéairement, d’env
 retard. La piste de traduction officielle (FR, sinon EN) sert alors de
 référence : lorsqu’un de ces rapports aligne nettement plus de débuts de
 segments que les horaires d’origine, les segments japonais sont recalés sur
-elle, sans indication visible. Sans traduction chargée (préférence **Aucun**),
+elle, sans indication visible. Sans traduction chargée (préférence **Aucune**),
 aucun recalage n’est possible. L’élection de piste par texte visible compare
 toujours les horaires d’origine, ceux que le lecteur affiche.
 
@@ -101,7 +101,7 @@ Les fichiers locaux sont indépendants par rôle. La piste principale est
 étiquetée japonais et remplace la piste japonaise native lorsqu’elle est
 disponible ; son décalage est ajouté aux bornes de chaque cue. La piste
 secondaire utilise le même calcul et est désactivée avec la préférence
-**Aucun**. Les clés Netflix et YouTube existantes sont conservées pour préserver
+**Aucune**. Les clés Netflix et YouTube existantes sont conservées pour préserver
 les imports secondaires déjà mémorisés. Les autres pages utilisent une clé
 dérivée de leur URL sans fragment ni paramètres de suivi.
 

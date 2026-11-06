@@ -16,7 +16,7 @@
    fréquence, seulement si c’est le seul inconnu de la phrase), blanc pointillé
    (en cours) et blanc (connu). Si Anki n’est pas connecté, un encadré rappelle que
    **Miner** ne crée alors pas de carte à réviser. Le slide **Miner un mot**
-   montre le survol d’un mot du sous-titre puis le bouton **⛏ Miner**, et
+   montre le survol d’un mot du sous-titre puis le bouton **Miner**, et
    explique **Plus tard**. Le slide **Créer une
    carte** montre une maquette annotée de l’écran de minage (correction au clic,
    sens, scène et `Q`, IA et `I`, `Ctrl+Entrée`). Le slide **Dans Anki** montre
@@ -44,10 +44,10 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
 ## Usage quotidien de SubJap
 
 1. Ouvrir Anki, puis la vidéo dans Chrome.
-2. Dans la popup SubJap, choisir la langue secondaire : **Aucun**,
+2. Dans la popup SubJap, choisir la langue secondaire : **Aucune**,
    **Français** ou **Anglais**. Le japonais reste toujours principal ; si la
    traduction choisie n’existe pas pour l’épisode, SubJap utilise automatiquement
-   l’autre, sauf avec **Aucun**, qui désactive toute traduction secondaire.
+   l’autre, sauf avec **Aucune**, qui désactive toute traduction secondaire.
 3. Survoler un mot du sous-titre et cliquer sur **Miner**.
 4. La fenêtre « Créer une carte » présente un aperçu du verso Anki. Cliquer sur
    le mot, la lecture, la phrase ou la traduction pour les corriger sur place.
@@ -72,14 +72,14 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
 Dans la popover, **Plus tard** met le mot de côté sans interrompre la vidéo :
 l’image, la phrase, la traduction et le sens sont enregistrés tout de suite,
 puis l’audio de la phrase dès que sa réplique a fini d’être entendue (même
-après une pause). L’audio de l’onglet doit être actif, comme pour **Mine
-this**. Le mot passe au gris et « Mis de côté · N » s’affiche brièvement.
+après une pause). L’audio de l’onglet doit être actif, comme pour **Miner**.
+Le mot passe au gris et « Mis de côté · N » s’affiche brièvement.
 Tout est gardé dans la base locale : fermer l’onglet ou changer d’épisode ne
 perd rien, sauf l’audio si l’on quitte avant la fin de la réplique.
 
 Le nombre de mots en attente s’affiche sur l’icône SubJap, sur fond vert dans
 l’onglet dont l’audio est actif (« ON » quand il n’y en a aucun). Pour créer les
-cartes, cliquer sur **Créer les cartes mises de côté (N)** dans la popup, ou
+cartes, cliquer sur **Créer les N cartes mises de côté** dans la popup, ou
 sur **Créer les cartes** dans le bandeau qui apparaît une fois au début de
 chaque vidéo tant que des mots attendent. La vidéo se met en pause et la
 fenêtre « Créer une carte » présente les mots un par un, du plus ancien au
@@ -132,7 +132,7 @@ entre parenthèses ne comptent pas :
 
 - **Tout afficher** : comportement normal ;
 - **Masquer la traduction** : seul le japonais reste affiché ;
-- **Masquer tout (écoute)** : japonais et traduction sont masqués, la vidéo
+- **Tout masquer (écoute)** : japonais et traduction sont masqués, la vidéo
   continue. On écoute d’abord une phrase dont on connaît déjà tous les mots,
   pour entraîner l’oreille plutôt que la lecture. **S** la rejoue.
 
@@ -165,11 +165,11 @@ bouton « Restaurer le défaut » remet les instructions d’origine.
    **Q/S/D**, **C** et **X**. Les modes normal, cinéma et plein écran
    utilisent le même overlay ; celui-ci se suspend pendant les publicités.
 4. Avant de miner avec l’audio, ouvrir la popup et cliquer sur
-   **Activer l’audio de l’onglet**, puis miner comme sur Netflix. Le titre et
+   **Activer** sur la ligne **Audio de l’onglet**, puis miner comme sur Netflix. Le titre et
    le lien de la vidéo sont conservés dans la carte.
 
 La traduction FR/EN apparaît si une piste du créateur est disponible dans la
-langue choisie, avec l’autre langue en repli. Le choix **Aucun** désactive les
+langue choisie, avec l’autre langue en repli. Le choix **Aucune** désactive les
 sous-titres secondaires. Les pistes générées automatiquement et la traduction
 automatique YouTube sont exclues des sous-titres secondaires.
 Les réglages de masquage et la révélation avec **X** restent ceux de Netflix.
@@ -185,12 +185,12 @@ dans ce cas, SubJap conserve l’accès aux sous-titres natifs.
 ### Importer des sous-titres locaux
 
 1. Ouvrir une page web avec un lecteur vidéo HTML5 visible, puis la popup SubJap.
-2. Dans le menu **Pistes** de la popup, importer le fichier japonais
+2. Dans le menu **Pistes et décalage** de la popup, importer le fichier japonais
    sur la ligne **Japonais**. SubJap le traite comme du japonais pour l’overlay,
    la navigation et le mining.
 3. Facultativement, importer une traduction sur la ligne **Traduction**.
 
-Dans le menu **Décalage**, chaque piste a son propre décalage au centième de seconde,
+Dans ce même menu, sous **Décalage**, chaque piste a son propre décalage au centième de seconde,
 qu’elle vienne d’un fichier ou du lecteur (Re:ANIME, Netflix, YouTube) ; une
 valeur positive l’affiche plus tard, les boutons ajustent de 0,1 s et ↺ remet
 à zéro. Le décalage d’une piste du lecteur est mémorisé par vidéo ; celui d’un
@@ -209,7 +209,7 @@ Les fichiers SRT, VTT et ASS sont acceptés et mémorisés séparément pour cha
 vidéo : par identifiant de lecture Netflix ou YouTube, ou par adresse de page
 sur les autres sites. Les anciennes traductions locales restent dans la piste
 secondaire. Sur Netflix et YouTube, une piste locale remplace la piste native de
-son rôle ; le choix **Aucun** masque la piste secondaire locale comme native.
+son rôle ; le choix **Aucune** masque la piste secondaire locale comme native.
 
 Un fichier japonais local (importé ou installé depuis Jimaku) est synchronisé une
 fois automatiquement sur la traduction native du lecteur (FR, sinon EN) : SubJap
@@ -220,7 +220,7 @@ corrigé dès 0,25 s quand le japonais la précède : il est alors en avance sur
 la voix. Quand le fichier vient d’un autre montage
 de l’épisode (générique d’une autre longueur, coupure), il est synchronisé par
 parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler la
-synchro** ; la popup le rappelle dans **Pistes** (« Synchronisé · Annuler ») et permet aussi de
+synchro** ; la popup le rappelle dans **Pistes et décalage** (« Synchronisé · Annuler ») et permet aussi de
 l’annuler. Le décalage réglé à la main s’ajoute à cette synchronisation. Un fichier dont
 le décalage a été réglé à la main avant toute synchronisation (y compris
 ↺) n’est jamais synchronisé.
@@ -267,7 +267,7 @@ fichier choisi dans la popup n’est jamais remplacé. Le bandeau propose alors 
 quand d’autres fichiers de l’épisode sont proposés dans la popup : une piste désinstallée depuis le
 bandeau n’est plus réinstallée automatiquement pour cette vidéo : le bandeau
 « Pas de sous-titres japonais » et la popup proposent alors **Installer depuis
-Jimaku**, qui relance l’installation automatique. Dans la popup, **Pistes**
+Jimaku**, qui relance l’installation automatique. Dans la popup, **Pistes et décalage**
 affiche « Jimaku · 4 autres fichiers » sous le fichier japonais installé : la liste
 des fichiers de l’épisode s’y déplie, l’actuel encadré, et un clic installe
 celui choisi. Supprimée depuis la
@@ -304,7 +304,7 @@ Ajouter à une note l’un des tags exacts `KNOWN`, `IGNORED`, `UNKNOWN` ou
 SubJap et cliquer sur **Synchroniser maintenant**.
 
 Une décision prise manuellement dans SubJap (**Connu**, **Ignorer**) reste
-prioritaire sur Anki. La retirer (**✓ Connu**, **Ne plus ignorer**) rend la main à
+prioritaire sur Anki. La retirer (en cliquant à nouveau sur **✓ Connu** ou **✓ Ignoré**) rend la main à
 Anki : un mot appris plus tard dans Anki redevient connu. Si une
 couleur ne change pas, vérifier le tag, le champ `Mot`, AnkiConnect, puis relancer
 la synchronisation.

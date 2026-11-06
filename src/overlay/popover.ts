@@ -42,9 +42,9 @@ const POS_LABELS: Record<string, string> = {
 // ── Event interface ───────────────────────────────────────────────────────
 
 export interface PopoverCallbacks {
-  /** Called when the user clicks « Connu » / « ✓ Connu » */
+  /** Called when the user presses or releases « Connu » */
   onToggleKnown: (lemma: string, currentStatus: WordStatus | null, token: Token) => void;
-  /** Called when the user clicks « Ignorer » / « Ne plus ignorer » */
+  /** Called when the user presses or releases « Ignorer » */
   onToggleIgnored: (lemma: string, currentStatus: WordStatus | null, token: Token) => void;
   /** Called when the user clicks « Miner » */
   onMine: (token: Token, entry: DictionaryEntry | null) => void;
@@ -173,10 +173,10 @@ export class WordPopover {
         <div class="subjap-popover__pitch"></div>
       </div>
       <div class="subjap-popover__actions">
-        <button class="subjap-btn subjap-btn--toggle-known"></button>
-        <button class="subjap-btn subjap-btn--toggle-ignored"></button>
-        <button class="subjap-btn subjap-btn--mine">⛏ Miner</button>
+        <button class="subjap-btn subjap-btn--mine">Miner</button>
         <button class="subjap-btn subjap-btn--later" title="Créer la carte plus tard, sans interrompre la vidéo">Plus tard</button>
+        <button class="subjap-btn subjap-btn--state subjap-btn--toggle-known" aria-pressed="false"></button>
+        <button class="subjap-btn subjap-btn--state subjap-btn--toggle-ignored" aria-pressed="false"></button>
       </div>
     `;
 
@@ -258,7 +258,7 @@ export class WordPopover {
         margin-top: 3px;
       }
       .subjap-popover__pos {
-        font-size: 10px;
+        font-size: 11px;
         color: #b2b6bf;
         margin-top: 4px;
       }
@@ -298,9 +298,8 @@ export class WordPopover {
       }
       .subjap-popover__pitch {
         font-size: 12px;
-        color: #f1b46d;
+        color: #b2b6bf;
         margin-top: 4px;
-        font-family: monospace;
       }
       .subjap-popover__actions {
         display: flex;
@@ -338,9 +337,6 @@ export class WordPopover {
       .subjap-btn--later {
         flex: 1 1 calc(50% - 4px);
       }
-      .subjap-btn--later {
-        border-color: #ff624d;
-      }
       .subjap-btn--later[hidden] {
         display: none;
       }
@@ -356,6 +352,21 @@ export class WordPopover {
         background: #ff624d;
         border-color: #ff624d;
         color: #0c0d10;
+        font-weight: 600;
+      }
+      /* Word states: quiet until pressed, then a check and a raised fill. */
+      .subjap-btn--state {
+        background: transparent;
+        color: #b2b6bf;
+      }
+      .subjap-btn--state:hover {
+        background: #1b1e24;
+        color: #f4f1ea;
+      }
+      .subjap-btn--state[aria-pressed="true"] {
+        background: #252932;
+        border-color: #f4f1ea;
+        color: #f4f1ea;
       }
       .subjap-btn--mine:hover {
         background: #ff7966;
@@ -432,7 +443,7 @@ export class WordPopover {
 
     // Frequency
     const freqEl = this.el.querySelector(".subjap-popover__freq")!;
-    freqEl.textContent = frequencyRank != null ? `Rang de fréquence : #${frequencyRank}` : "";
+    freqEl.textContent = frequencyRank != null ? frequencyRankLabel(frequencyRank) : "";
 
     const ankiEl = this.el.querySelector<HTMLElement>(".subjap-popover__anki");
     if (ankiEl) {
@@ -447,9 +458,7 @@ export class WordPopover {
     // Pitch accent
     const pitchEl = this.el.querySelector(".subjap-popover__pitch")!;
     if (pitchAccent) {
-      pitchEl.textContent = `Accent : ${pitchAccent.pattern} (${pitchAccent.moraCount} more${
-        pitchAccent.moraCount !== 1 ? "s" : ""
-      })`;
+      pitchEl.textContent = pitchAccentLabel(pitchAccent);
     } else {
       pitchEl.textContent = "";
     }
@@ -461,26 +470,12 @@ export class WordPopover {
 
     // Toggle button
     const toggleBtn = this.el.querySelector(".subjap-btn--toggle-known") as HTMLButtonElement;
-    if (wordStatus === "known") {
-      toggleBtn.textContent = "✓ Connu";
-      toggleBtn.style.background = "#2b3a33";
-      toggleBtn.style.borderColor = "#78d6a3";
-    } else {
-      toggleBtn.textContent = "Connu";
-      toggleBtn.style.background = "#1b1e24";
-      toggleBtn.style.borderColor = "#343842";
-    }
+    toggleBtn.textContent = wordStatus === "known" ? "✓ Connu" : "Connu";
+    toggleBtn.setAttribute("aria-pressed", String(wordStatus === "known"));
 
     const ignoreBtn = this.el.querySelector(".subjap-btn--toggle-ignored") as HTMLButtonElement;
-    if (wordStatus === "ignored") {
-      ignoreBtn.textContent = "Ne plus ignorer";
-      ignoreBtn.style.background = "#2b3a33";
-      ignoreBtn.style.borderColor = "#78d6a3";
-    } else {
-      ignoreBtn.textContent = "Ignorer";
-      ignoreBtn.style.background = "#1b1e24";
-      ignoreBtn.style.borderColor = "#343842";
-    }
+    ignoreBtn.textContent = wordStatus === "ignored" ? "✓ Ignoré" : "Ignorer";
+    ignoreBtn.setAttribute("aria-pressed", String(wordStatus === "ignored"));
   }
 
   // ── Positioning ────────────────────────────────────────────────────────
@@ -552,7 +547,7 @@ export class WordPopover {
 
   private handleToggleIgnored(): void {
     this.callbacks.onToggleIgnored(this.currentLemma, this.currentStatus, this.currentToken!);
-    // Optimistic: after « Ne plus ignorer » the subtitle shows whatever Anki or the
+    // Optimistic: after releasing « Ignorer » the subtitle shows whatever Anki or the
     // defaults say about the word; the popover shows it as unknown meanwhile.
     this.currentStatus = this.currentStatus === "ignored" ? "unknown" : "ignored";
     this.populateContent(
@@ -629,4 +624,27 @@ export function destroyPopover(): void {
     singleton.destroy();
     singleton = null;
   }
+}
+
+/** Frequency rank in words: 1 is the most frequent word of the subtitles. */
+export function frequencyRankLabel(rank: number): string {
+  return rank <= 1 ? "Le mot le plus fréquent" : `${rank.toLocaleString("fr-FR")}ᵉ mot le plus fréquent`;
+}
+
+/** Pitch accent named by its pattern, with the downstep number learners look up. */
+function pitchAccentLabel(pitchAccent: PitchAccent): string {
+  const downstep = Number(pitchAccent.pattern);
+  const name = !Number.isFinite(downstep)
+    ? null
+    : downstep === 0
+      ? "plat"
+      : downstep === 1
+        ? "haut en tête"
+        : downstep >= pitchAccent.moraCount
+          ? "haut jusqu’à la fin"
+          : "haut au milieu";
+  const mora = `${pitchAccent.moraCount} more${pitchAccent.moraCount > 1 ? "s" : ""}`;
+  return name
+    ? `Accent : ${name} [${pitchAccent.pattern}], ${mora}`
+    : `Accent : ${pitchAccent.pattern}, ${mora}`;
 }

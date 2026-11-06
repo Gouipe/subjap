@@ -216,7 +216,7 @@ textes français et japonais humains et lisibles.
 
 ### Hierarchy
 
-- **Caption** (500, `10px`, `1.35`) : micro-états et aide compacte uniquement lorsqu'un libellé plus grand ne tient pas.
+- **Caption** (500, `10px`, `1.35`) : réservé aux micro-états des cartes Anki ; les surfaces de l'extension descendent au plus à `11px`.
 - **Small label** (500, `11px`, `1.35`) : repères compacts des cartes Anki.
 - **Compact** (400, `13px`, `1.5`) : popover et contrôles très denses superposés à la vidéo.
 - **Display** (600, `64px`, `1.25`) : mot japonais principal sur le recto Anki ; la taille descend lorsque la longueur l'exige.
@@ -259,6 +259,9 @@ reste identique dans la popup, les options, la popover, le mining et Anki.
 - **Hover / Focus:** éclaircissement bref, focus visible de `2px`, translation maximale de `1px` à la pression ; transition de `160ms` avec sortie rapide.
 - **Secondary / Ghost:** encre relevée ou fond transparent ; ils ne concurrencent jamais l'action primaire.
 - **Disabled / Loading:** baisse de contraste accompagnée d'un libellé explicite ; aucun changement ne repose uniquement sur l'opacité.
+- **One Primary Rule:** une surface n'a qu'une action vermillon à la fois, celle de l'apprentissage (miner, créer les cartes mises de côté). Les prérequis techniques (audio de l'onglet, vérifications) restent secondaires.
+- **Toggles d'état:** un état de mot activable (Connu, Ignoré) est un bouton pressé (`aria-pressed`) : coche et fond relevé, jamais une couleur de vocabulaire.
+- **Libellés:** verbe ou nom simple, sans emoji ni flèche décorative ; le vouvoiement est la voix de l'interface.
 
 ### Chips
 
@@ -282,7 +285,13 @@ reste identique dans la popup, les options, la popover, le mining et Anki.
 ### Navigation
 
 - **Style:** hiérarchie textuelle simple, sans barre décorative. L'état actif associe contraste, graisse et repère vermillon discret.
-- **Treatment:** la popup privilégie une seule colonne ; les Options structurent les réglages en sections continues plutôt qu'en grille de cartes identiques.
+- **Treatment:** la popup privilégie une seule colonne ; les Options structurent les réglages en sections continues séparées par un trait de montage, avec un sommaire collant à gauche, plutôt qu'en grille de cartes identiques. Les sections suivent l'usage : affichage d'abord, installation et données en dernier.
+
+### Status & Feedback
+
+- **Status:** un réglage en ordre se lit avec une coche et le blanc de sous-titre ; un problème prend le signal d'erreur. Vert, bleu et ambre restent réservés au vocabulaire.
+- **Feedback:** une confirmation ou une erreur apparaît près de l'action ou dans un dock fixe en bas de page, jamais seulement en haut d'une page longue.
+- **Taille minimale:** aucun texte d'interface sous `11px`.
 
 ### Subtitle Token
 

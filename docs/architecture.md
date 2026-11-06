@@ -219,7 +219,7 @@ aplatis `漢字(かな)`, marques de direction et, pour SDH, noms et bruitages
 entre parenthèses ou crochets. Les imports locaux restent prioritaires rôle par
 rôle. Le masquage natif cible `.art-subtitle` et le canvas libass ; il n’a
 lieu que si les sous-titres du lecteur doublonnent ceux de SubJap (piste
-japonaise proposée, traduction affichée par SubJap ou préférence **Aucun**).
+japonaise proposée, traduction affichée par SubJap ou préférence **Aucune**).
 Sinon, le lecteur affiche une traduction que SubJap ne sait pas lire
 (transcription IA du doublage, images) et elle reste visible. Pour une
 traduction en images ainsi visible, `pgs.ts` lit aussi la place des lignes
@@ -268,7 +268,7 @@ Le chemin principal est le suivant :
    UniDic (`感動詞`, `フィラー`), ainsi que les expressions grammaticales sans
    tête lexicale (`grammarOnly` : `じゃないです`, `なんだ`), sans état
    enregistré ni carte Anki sont ignorés par défaut au rendu ; cet état dérivé n'est jamais persisté et un choix
-   manuel (Ne plus ignorer, Connu) le remplace.
+   manuel (Connu, Ignorer, ou leur retrait) le remplace.
 8. Le content script récupère le nombre de mots connus et un rang pratique par
    lemme. Ce rang vient d’une liste de fréquence issue de sous-titres
    OpenSubtitles (films, séries et anime), préalablement recroisée avec le

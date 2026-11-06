@@ -343,7 +343,7 @@ export class MiningModal {
         --sj-canvas: #0c0d10; --sj-surface: #14161b; --sj-raised: #1b1e24;
         --sj-input: #101216; --sj-hairline: #343842; --sj-text: #f4f1ea;
         --sj-muted: #b2b6bf; --sj-accent: #ff624d; --sj-accent-hover: #ff7966;
-        --sj-success: #78d6a3; --sj-warning: #f1b46d; --sj-danger: #ff8490;
+        --sj-danger: #ff8490;
         position: fixed; inset: 0; z-index: 2147483647;
         display: flex; align-items: center; justify-content: center;
       }
@@ -515,7 +515,7 @@ export class MiningModal {
         margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sj-hairline);
       }
       .subjap-modal-status { min-width: 0; font-size: 13px; }
-      .subjap-local-info { color: var(--sj-warning); }
+      .subjap-local-info { color: var(--sj-muted); }
       .subjap-error { color: var(--sj-danger); }
       .subjap-modal-btn {
         display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -677,7 +677,7 @@ export class MiningModal {
       section.innerHTML = `
         <div class="subjap-ai-intro">
           <button type="button" class="subjap-ai-button subjap-modal-btn-ai" data-action="ai" data-testid="mining-ai-enrich" aria-keyshortcuts="I" ${disabled}>
-            ${state.aiGenerating ? "Analyse en cours…" : "✨ Enrichir avec l’IA"}<kbd aria-hidden="true">I</kbd>
+            ${state.aiGenerating ? "Analyse en cours…" : "Enrichir avec l’IA"}<kbd aria-hidden="true">I</kbd>
           </button>
           ${status || '<span class="subjap-ai-status">Kanjis, synonymes et association</span>'}
         </div>

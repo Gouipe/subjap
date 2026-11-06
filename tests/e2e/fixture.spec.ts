@@ -407,7 +407,7 @@ test.describe("SubJap UX fixture", () => {
     // UNKNOWN colours do not hide the frequency rank.
     await tokens.nth(0).hover();
     await expect(page.locator("#subjap-popover")).toBeVisible({ timeout: 1_000 });
-    await expect(frequency).toHaveText("Rang de fréquence : #1");
+    await expect(frequency).toHaveText("Le mot le plus fréquent");
     const infoOrder = await page.locator(".subjap-popover__freq").evaluate((frequency) => {
       const header = frequency.closest(".subjap-popover__header");
       const content = frequency.closest(".subjap-popover__content");
@@ -418,16 +418,16 @@ test.describe("SubJap UX fixture", () => {
     await expect(frequency).toHaveCSS("font-size", "13px");
 
     await hoverAnotherToken(page, tokens.nth(2));
-    await expect(frequency).toHaveText("Rang de fréquence : #1");
+    await expect(frequency).toHaveText("Le mot le plus fréquent");
 
     await hoverAnotherToken(page, tokens.nth(1));
-    await expect(frequency).toHaveText("Rang de fréquence : #2");
+    await expect(frequency).toHaveText("2ᵉ mot le plus fréquent");
 
     await hoverAnotherToken(page, tokens.nth(3));
-    await expect(frequency).toHaveText("Rang de fréquence : #3");
+    await expect(frequency).toHaveText("3ᵉ mot le plus fréquent");
 
     await hoverAnotherToken(page, tokens.nth(4));
-    await expect(frequency).toHaveText("Rang de fréquence : #500");
+    await expect(frequency).toHaveText("500ᵉ mot le plus fréquent");
   });
 
   test("avertit dans la popover quand des cartes existent déjà dans Anki", async ({ page }) => {
@@ -577,7 +577,7 @@ test.describe("SubJap UX fixture", () => {
     await expect(ignoredToken).toHaveClass(/subjap-known/);
     await expect(ignoredToken).toHaveCSS("color", "rgb(255, 255, 255)");
     await expect(page.getByTestId("status")).toHaveAttribute("data-known-count", "1");
-    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText("Ne plus ignorer");
+    await expect(page.locator(".subjap-btn--toggle-ignored")).toHaveText("✓ Ignoré");
 
     await page.locator(".subjap-btn--toggle-ignored").click();
     await expect(ignoredToken).toHaveClass(/subjap-learning/);
