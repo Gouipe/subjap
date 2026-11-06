@@ -63,7 +63,11 @@ ce que l’utilisatrice recevra, pas l’historique des commits (vérifier avec
 `git diff origin/master -- CHANGELOG.md`). Un hook Claude Code
 ([`scripts/check-changelog.mjs`](scripts/check-changelog.mjs)) refuse un commit
 qui modifie `src/` sans toucher `CHANGELOG.md`, sauf si son message contient
-`[sans changelog]` (refactor, lint, tests, documentation).
+`[sans changelog]` (refactor, lint, tests, documentation). Ce marqueur sert
+aussi quand la ligne non publiée décrit déjà le changement (retouche, essai,
+annulation) : ne pas modifier le journal juste pour satisfaire le hook. Le hook
+lit l’état des fichiers avant la commande : modifier `CHANGELOG.md` dans une
+commande séparée, avant `git commit`.
 
 ## Correction de bugs
 
