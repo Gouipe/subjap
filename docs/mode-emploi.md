@@ -43,7 +43,9 @@ puis ajouter sa balise realtime au modèle. La procédure détaillée est dans
 
 ## Usage quotidien de SubJap
 
-1. Ouvrir Anki, puis la vidéo dans Chrome.
+1. Ouvrir Anki, puis la vidéo dans Chrome. Les annotations pour malentendants
+   du japonais (noms de locuteur, bruitages entre parenthèses ou crochets,
+   comme `（看護師A）`) ne sont jamais affichées, copiées ni minées.
 2. Dans la popup SubJap, choisir la langue secondaire : **Aucune**,
    **Français** ou **Anglais**. Le japonais reste toujours principal ; si la
    traduction choisie n’existe pas pour l’épisode, SubJap utilise automatiquement
@@ -127,8 +129,7 @@ partagées. Les états provenant d’Anki peuvent être réimportés dans chaque
 lors d’une synchronisation, si AnkiConnect y est accessible.
 
 Le réglage **Phrases connues** (popup et Options) agit sur les phrases dont
-tous les mots sont connus ou ignorés ; les noms de locuteur et indications
-entre parenthèses ne comptent pas :
+tous les mots sont connus ou ignorés :
 
 - **Tout afficher** : comportement normal ;
 - **Masquer la traduction** : seul le japonais reste affiché ;

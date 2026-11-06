@@ -55,6 +55,7 @@ import type { SyncSegment } from "@/subtitles/local-storage";
 import { compactSubtitleText, primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
+import { japaneseDialogueCue, japaneseDialogueCues } from "@/subtitles/japanese-cleanup";
 import { tokenizeCue } from "@/tokenizer/cue";
 import { registerPlexLatinFont } from "@/ui/plex-latin";
 import {
@@ -101,7 +102,36 @@ if (isTopFrame && /(^|\.)youtube\.com$/i.test(location.hostname)) {
   adapterRegistry.register(GENERIC_HTML5_ADAPTER);
 }
 
-const adapter: PlatformAdapter = adapterRegistry.findActive(document, window.location.href);
+const adapter: PlatformAdapter = withJapaneseDialogueOnly(
+  adapterRegistry.findActive(document, window.location.href),
+);
+
+/**
+ * Every source of Japanese reaches SubJap through the adapter: removing the
+ * hearing-impaired annotations here keeps them out of the overlay, the C copy,
+ * Q/S/D navigation and the mined sentence alike.
+ */
+function withJapaneseDialogueOnly(target: PlatformAdapter): PlatformAdapter {
+  return new Proxy(target, {
+    get(object, property) {
+      if (property === "subscribeCues") {
+        return (callback: (cues: SubtitleCue[]) => void) =>
+          object.subscribeCues((cues) =>
+            callback(cues.flatMap((cue) =>
+              isJapaneseTrack(cue.language) ? japaneseDialogueCue(cue) ?? [] : [cue])),
+          );
+      }
+      if (property === "getNavigationCues") {
+        const getNavigationCues = object.getNavigationCues;
+        return getNavigationCues
+          ? () => japaneseDialogueCues(getNavigationCues.call(object))
+          : undefined;
+      }
+      const value: unknown = Reflect.get(object, property, object);
+      return typeof value === "function" ? value.bind(object) : value;
+    },
+  });
+}
 
 const cueNavigator = new CueNavigator();
 let cueNavigationSessionId: string | null = null;
