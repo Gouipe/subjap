@@ -20,6 +20,7 @@ elle serait annoncée à nouveau.
 
 ### Corrections
 
+- La popup repère une nouvelle version en 10 minutes au plus, au lieu d'une heure.
 - Le premier mot mis de côté juste après l'activation de l'audio de l'onglet est bien enregistré avec sa phrase.
 - La fenêtre de minage et la popover de mot gardent leurs barres de défilement, quel que soit le site.
 

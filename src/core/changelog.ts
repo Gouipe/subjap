@@ -15,7 +15,8 @@ export const REMOTE_CHANGELOG_URL =
   "https://raw.githubusercontent.com/Gouipe/subjap/master/CHANGELOG.md";
 const REMOTE_CACHE_KEY = "subjap_changelog_remote";
 const SEEN_KEY = "subjap_changelog_seen";
-const REMOTE_MAX_AGE_MS = 60 * 60 * 1000;
+/** raw.githubusercontent.com caches about 5 minutes: checking more often gains nothing. */
+const REMOTE_MAX_AGE_MS = 10 * 60 * 1000;
 
 /** Display order; a category unknown to this build follows them. */
 const CATEGORY_ORDER = ["Fonctionnalités", "Corrections", "Refonte"];
@@ -75,7 +76,7 @@ interface RemoteCache {
   text: string;
 }
 
-/** GitHub's CHANGELOG.md, fetched at most once an hour; null when unreachable. */
+/** GitHub's CHANGELOG.md, fetched at most every 10 minutes; null when unreachable. */
 async function remoteChangelog(): Promise<string | null> {
   const stored = await chrome.storage.local.get(REMOTE_CACHE_KEY);
   const cached = stored[REMOTE_CACHE_KEY] as RemoteCache | undefined;
