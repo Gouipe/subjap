@@ -52,6 +52,17 @@ try {
     Write-Host "  1. Dans chrome://extensions, cliquer sur Recharger sous SubJap."
     Write-Host "  2. Recharger les onglets vidéo déjà ouverts."
     Write-Host "  3. Si la page Options de SubJap est ouverte, la rafraîchir (F5)."
+
+    # Vite lit l'endpoint IA dans ces fichiers (mode production) ou dans l'environnement.
+    $envFiles = @(@(".env", ".env.local", ".env.production", ".env.production.local") |
+        Where-Object { Test-Path $_ })
+    $aiConfigured = [bool]$env:VITE_SUBJAP_AI_ENDPOINT -or ($envFiles.Count -gt 0 -and
+        [bool](Select-String -Path $envFiles -Pattern '^\s*VITE_SUBJAP_AI_ENDPOINT\s*=\s*\S' -Quiet))
+    if (-not $aiConfigured) {
+        Write-Host ""
+        Write-Host ("IA non configurée : le bouton « Enrichir avec l'IA » ne fonctionnera pas. " +
+            "Créer .env.local (voir la section « IA facultative » du README).") -ForegroundColor Yellow
+    }
 }
 finally {
     Pop-Location

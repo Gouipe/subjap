@@ -126,7 +126,8 @@ Pour récupérer la dernière version et la compiler en une fois, double-cliquer
 sur `mettre-a-jour.cmd` à la racine du dépôt, ou lancer `npm.cmd run update`.
 Le script fait un `git pull`, réinstalle les dépendances si elles ont changé,
 compile, puis liste les nouveautés et les étapes de rechargement. Il s’arrête
-sans rien écraser si des fichiers ont été modifiés localement.
+sans rien écraser si des fichiers ont été modifiés localement, et signale
+quand l’IA n’est pas configurée (pas de `.env.local`).
 
 Le guide détaillé est dans [`docs/mode-emploi.md`](docs/mode-emploi.md). Le
 contrat audio et la configuration HyperTTS sont décrits dans
