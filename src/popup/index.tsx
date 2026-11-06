@@ -41,6 +41,7 @@ import {
   type LocalSubtitleRole,
 } from "@/subtitles";
 import { getJimakuApiKey, undeclineJimaku, type JimakuChoice } from "@/subtitles/jimaku";
+import { KNOWN_SENTENCE_CHOICES, SECONDARY_LANGUAGE_CHOICES } from "@/ui/labels";
 
 interface Stats {
   knownWords: number;
@@ -172,7 +173,6 @@ const Popup: React.FC = () => {
   const [videoId, setVideoId] = useState<string | null>(null);
   const [hasVideo, setHasVideo] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [tracksOpen, setTracksOpen] = useState(false);
   const [offsetOpen, setOffsetOpen] = useState(false);
   const [display, setDisplay] = useState<DisplayOptions | null>(null);
   const [localSubtitles, setLocalSubtitles] = useState(EMPTY_LOCAL_SUBTITLES);
@@ -403,6 +403,14 @@ const Popup: React.FC = () => {
   );
 
   const showTranslationOffset = !!localSubtitles.secondary || secondarySubtitleLanguage !== "none";
+
+  /** What the folded « Pistes et décalage » row hides, when it departs from the player. */
+  const trackSummary = [
+    localSubtitles.primary ? "Fichier japonais" : null,
+    trackOffset("primary") !== 0 || (showTranslationOffset && trackOffset("secondary") !== 0)
+      ? "Décalé"
+      : null,
+  ].filter(Boolean).join(", ");
 
   /** Sets one track's offset; linked, the other moves by as much unless `alone`. */
   const changeOffset = useCallback(
@@ -641,7 +649,7 @@ const Popup: React.FC = () => {
     } catch {
       // No frame answered: no SubJap video in this tab.
     }
-    setPendingMineError("Lance la vidéo avec ses sous-titres SubJap, puis réessaie.");
+    setPendingMineError("Lancez la vidéo avec ses sous-titres SubJap, puis réessayez.");
   }, []);
 
   const installDictionary = useCallback(async () => {
@@ -665,70 +673,54 @@ const Popup: React.FC = () => {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
+      <header style={styles.header}>
         <div style={styles.brandLockup}>
           <span style={styles.brandMark} aria-hidden="true">字</span>
           <h1 style={styles.title}>SubJap</h1>
         </div>
-        {/* Only a problem is worth a status: a ready extension stays quiet. */}
-        {connected === false && (
-          <span style={styles.connectionStatus}>
-            <span style={{ ...styles.dot, backgroundColor: "#ff8490" }} />
-            Hors ligne
-          </span>
-        )}
-      </div>
-
-      {enabled !== null && (
-        <div style={styles.enabledBox}>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            style={styles.enabledSwitch}
-            disabled={savingEnabled}
-            onClick={() => void toggleEnabled(!enabled)}
-          >
-            <span>{enabled ? "SubJap activé" : "SubJap désactivé"}</span>
-            <span
-              aria-hidden="true"
-              style={{
-                ...styles.switchTrack,
-                background: enabled ? "#ff624d" : "#343842",
-              }}
-            >
-              <span
-                style={{
-                  ...styles.switchKnob,
-                  transform: enabled ? "translateX(14px)" : "none",
-                }}
-              />
+        <div style={styles.headerEnd}>
+          {/* Only a problem is worth a status: a ready extension stays quiet. */}
+          {connected === false && (
+            <span style={styles.connectionStatus}>
+              <span style={styles.offlineDot} aria-hidden="true" />
+              Hors ligne
             </span>
-          </button>
-          {!enabled && (
-            <p style={styles.captureHint}>
-              Aucun sous-titre ni raccourci SubJap sur les vidéos jusqu’à la réactivation.
-            </p>
+          )}
+          {enabled !== null && (
+            <Switch
+              checked={enabled}
+              disabled={savingEnabled}
+              label={enabled ? "Activé" : "Désactivé"}
+              ariaLabel="Activer SubJap"
+              onChange={(next) => void toggleEnabled(next)}
+            />
           )}
         </div>
+      </header>
+
+      {enabled === false && (
+        <p style={styles.disabledNote}>
+          SubJap est en pause : sous-titres natifs, aucun raccourci, sur tous les sites.
+        </p>
       )}
 
       {error && <p style={styles.error}>{error}</p>}
 
       {enabled !== false && (<>
       {!onboarded ? (
-        <div style={styles.onboardingBox}>
-          <p style={styles.onboardingText}>
+        <div style={styles.setupBox}>
+          <p style={styles.setupText}>
             Configuration non terminée : le dictionnaire est nécessaire aux définitions.
           </p>
-          <button style={styles.button} onClick={() => void chrome.runtime.openOptionsPage()}>
-            Terminer la configuration →
+          <button style={styles.primaryButton} onClick={() => void chrome.runtime.openOptionsPage()}>
+            Terminer la configuration
           </button>
         </div>
       ) : dict !== null && !dict.installed && (
-        <div style={styles.onboardingBox}>
+        <div style={styles.setupBox}>
+          <p style={styles.setupText}>Sans dictionnaire, les mots n’ont pas de définition.</p>
           <button
-            style={styles.button}
+            style={styles.primaryButton}
             onClick={() => void installDictionary()}
             disabled={downloading}
           >
@@ -737,37 +729,47 @@ const Popup: React.FC = () => {
         </div>
       )}
 
-      {hasVideo && (
-        <div style={styles.captureBox}>
-          <button
-            style={styles.captureButton}
-            onClick={() => void activateCapture()}
-            disabled={captureStatus !== "idle"}
-          >
-            {captureStatus === "activating"
-              ? "Activation…"
-              : captureStatus === "active"
-                ? "✓ Audio de l’onglet actif"
-                : "Activer l’audio de l’onglet"}
-          </button>
-          {captureError && <p style={styles.captureError}>{captureError}</p>}
+      {/* The learning gesture of the session leads; the audio capture it needs follows. */}
+      {pendingMineCount > 0 && (
+        <div style={styles.sessionBlock}>
+          {hasVideo ? (
+            <button style={styles.primaryButton} onClick={() => void reviewPendingMines()}>
+              Créer {pendingMineCount > 1 ? `les ${pendingMineCount} cartes mises de côté` : "la carte mise de côté"}
+            </button>
+          ) : (
+            <p style={styles.pendingHint}>
+              {pendingMineCount} mot{pendingMineCount > 1 ? "s" : ""} mis de côté : ouvrez une vidéo
+              pour créer {pendingMineCount > 1 ? "leurs cartes" : "sa carte"}.
+            </p>
+          )}
+          {pendingMineError && <p style={styles.inlineError}>{pendingMineError}</p>}
         </div>
       )}
 
-      {pendingMineCount > 0 && (
-        <div style={styles.captureBox}>
-          {hasVideo ? (
-            <button style={styles.pendingMineButton} onClick={() => void reviewPendingMines()}>
-              Créer les cartes mises de côté ({pendingMineCount})
-            </button>
+      {hasVideo && (
+        <div style={styles.audioRow}>
+          <div style={styles.audioText}>
+            <span style={styles.audioLabel}>Audio de l’onglet</span>
+            <span style={styles.audioHint}>
+              {captureStatus === "active"
+                ? "Les phrases minées sont enregistrées."
+                : "Nécessaire pour enregistrer la phrase d’un mot miné."}
+            </span>
+          </div>
+          {captureStatus === "active" ? (
+            <span style={styles.audioActive}>✓ Actif</span>
           ) : (
-            <p style={styles.pendingMineHint}>
-              {pendingMineCount} mot{pendingMineCount > 1 ? "s" : ""} mis de côté · ouvre une vidéo pour créer leurs cartes.
-            </p>
+            <button
+              style={styles.secondaryButton}
+              onClick={() => void activateCapture()}
+              disabled={captureStatus !== "idle"}
+            >
+              {captureStatus === "activating" ? "Activation…" : "Activer"}
+            </button>
           )}
-          {pendingMineError && <p style={styles.captureError}>{pendingMineError}</p>}
         </div>
       )}
+      {captureError && <p style={styles.inlineError}>{captureError}</p>}
 
       <h2 style={styles.groupLabel}>Sous-titres</h2>
       <div style={styles.card}>
@@ -777,7 +779,7 @@ const Popup: React.FC = () => {
             <div style={styles.missingJapaneseActions}>
               {missingJapanese.player === "artplayer" && hasJimakuKey && (
                 <button
-                  style={styles.missingJapanesePrimary}
+                  style={styles.compactPrimary}
                   disabled={localSubtitleBusy}
                   onClick={() => void installJimaku()}
                 >
@@ -786,13 +788,13 @@ const Popup: React.FC = () => {
               )}
               {missingJapanese.player === "artplayer" && (
                 <button
-                  style={hasJimakuKey ? styles.missingJapaneseButton : styles.missingJapanesePrimary}
+                  style={hasJimakuKey ? styles.compactButton : styles.compactPrimary}
                   onClick={() => void searchJimaku()}
                 >
                   Chercher sur Jimaku
                 </button>
               )}
-              <label style={styles.missingJapaneseButton}>
+              <label style={styles.compactButton}>
                 {localSubtitleBusy ? "Chargement…" : "Importer un fichier"}
                 <input
                   type="file"
@@ -806,9 +808,6 @@ const Popup: React.FC = () => {
                 />
               </label>
             </div>
-            {localSubtitleError && !tracksOpen && !offsetOpen && (
-              <p style={styles.captureError}>{localSubtitleError}</p>
-            )}
           </div>
         )}
         <label style={{
@@ -817,7 +816,7 @@ const Popup: React.FC = () => {
         }}>
           <span>Traduction</span>
           <select
-            style={styles.languageSelect}
+            style={styles.select}
             value={secondarySubtitleLanguage}
             disabled={savingSubtitlePreference}
             onChange={(event) =>
@@ -826,15 +825,15 @@ const Popup: React.FC = () => {
               )
             }
           >
-            <option value="none">Aucune</option>
-            <option value="fr">Français</option>
-            <option value="en">Anglais</option>
+            {SECONDARY_LANGUAGE_CHOICES.map((choice) => (
+              <option key={choice.value} value={choice.value}>{choice.label}</option>
+            ))}
           </select>
         </label>
         <label style={{ ...styles.cardRow, ...styles.cardRowDivided }}>
           <span>Phrases connues</span>
           <select
-            style={styles.languageSelect}
+            style={styles.select}
             value={knownSentenceSubtitles}
             disabled={savingSubtitlePreference}
             onChange={(event) =>
@@ -843,132 +842,17 @@ const Popup: React.FC = () => {
               )
             }
           >
-            <option value="show">Tout afficher</option>
-            <option value="hide-translation">Masquer la traduction</option>
-            <option value="hide-all">Masquer tout (écoute)</option>
+            {KNOWN_SENTENCE_CHOICES.map((choice) => (
+              <option key={choice.value} value={choice.value}>{choice.label}</option>
+            ))}
           </select>
         </label>
         {videoId && (
-          <>
-            <details onToggle={(event) => setTracksOpen(event.currentTarget.open)}>
-              <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
-                <span>Pistes</span>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    ...styles.chevron,
-                    transform: tracksOpen ? "rotate(90deg)" : "none",
-                  }}
-                >
-                  ›
-                </span>
-              </summary>
-              <div style={styles.localSubtitleContent}>
-                {LOCAL_SUBTITLE_ROLES.map((role) => {
-                  const localSubtitle = localSubtitles[role];
-                  const playerTrack = role === "primary"
-                    ? "Piste du lecteur"
-                    : secondarySubtitleLanguage === "none" ? "Aucune" : "Traduction du lecteur";
-                  return (
-                    <div key={role} style={role === "secondary" ? undefined : styles.fileRow}>
-                      <div style={styles.fileRowHead}>
-                        <span
-                          style={styles.offsetRowLabel}
-                          title={role === "primary"
-                            ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
-                            : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native."}
-                        >
-                          {role === "primary" ? "Japonais" : "Traduction"}
-                        </span>
-                        <span
-                          style={localSubtitle ? styles.fileName : styles.playerTrackName}
-                          title={localSubtitle?.fileName}
-                        >
-                          {localSubtitle?.fileName ?? playerTrack}
-                        </span>
-                      </div>
-                      <div style={styles.fileDetails}>
-                        {role === "primary" && localSubtitle?.jimakuChoices && localSubtitle.jimakuChoices.length > 1 ? (
-                          <p style={styles.localSubtitleHint}>
-                            Jimaku{" · "}
-                            <button
-                              style={styles.inlineLink}
-                              disabled={localSubtitleBusy}
-                              aria-expanded={jimakuListOpen}
-                              onClick={() => setJimakuListOpen((open) => !open)}
-                            >
-                              {localSubtitle.jimakuChoices.length - 1}{" "}
-                              {localSubtitle.jimakuChoices.length > 2 ? "autres fichiers" : "autre fichier"}
-                            </button>
-                          </p>
-                        ) : null}
-                        {role === "primary" && jimakuListOpen && localSubtitle?.jimakuChoices ? (
-                          <div style={styles.jimakuChoices}>
-                            {localSubtitle.jimakuChoices.slice(0, 8).map((choice) => {
-                              const current = choice.name === localSubtitle.fileName;
-                              return (
-                                <button
-                                  key={`${choice.url}|${choice.inner ?? ""}`}
-                                  style={current ? { ...styles.jimakuChoice, ...styles.jimakuChoiceCurrent } : styles.jimakuChoice}
-                                  title={choice.name}
-                                  disabled={localSubtitleBusy || current}
-                                  onClick={() => void chooseJimakuVersion(choice)}
-                                >
-                                  {choice.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-                        {localSubtitle?.syncSegments?.length ? (
-                          <p style={styles.localSubtitleHint}>
-                            Synchronisé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
-                            {" · "}
-                            <button
-                              style={styles.inlineLink}
-                              disabled={localSubtitleBusy}
-                              onClick={() => void removeAutoSync(role)}
-                            >
-                              Annuler
-                            </button>
-                          </p>
-                        ) : null}
-                        <div style={styles.fileActions}>
-                          <label style={styles.fileButton}>
-                            {localSubtitleBusy
-                              ? "Chargement…"
-                              : localSubtitle ? "Remplacer" : "Importer un fichier"}
-                            <input
-                              type="file"
-                              accept=".srt,.vtt,.webvtt,.ass,.ssa"
-                              hidden
-                              disabled={localSubtitleBusy}
-                              onChange={(event) => {
-                                void importLocalSubtitle(role, event.target.files?.[0]);
-                                event.target.value = "";
-                              }}
-                            />
-                          </label>
-                          {localSubtitle && (
-                            <button
-                              style={styles.deleteButton}
-                              disabled={localSubtitleBusy}
-                              onClick={() => void deleteLocalSubtitle(role)}
-                            >
-                              Supprimer
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {localSubtitleError && <p style={styles.captureError}>{localSubtitleError}</p>}
-              </div>
-            </details>
-            <details open={offsetOpen} onToggle={(event) => toggleOffsetMenu(event.currentTarget.open)}>
-              <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
-                <span>Décalage</span>
+          <details open={offsetOpen} onToggle={(event) => toggleOffsetMenu(event.currentTarget.open)}>
+            <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>
+              <span>Pistes et décalage</span>
+              <span style={styles.summaryEnd}>
+                {!offsetOpen && trackSummary && <span style={styles.summaryValue}>{trackSummary}</span>}
                 <span
                   aria-hidden="true"
                   style={{
@@ -978,48 +862,148 @@ const Popup: React.FC = () => {
                 >
                   ›
                 </span>
-              </summary>
-              <div style={styles.localSubtitleContent}>
-                {/* Linked offsets share one outlined panel, so the link is visible. */}
-                <div style={{
-                  ...styles.offsetPanel,
-                  ...(linkedOffsets && showTranslationOffset ? styles.offsetPanelLinked : {}),
-                }}>
-                  {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
-                    <OffsetRow
-                      key={role}
-                      label={role === "primary" ? "Japonais" : "Traduction"}
-                      input={offsetInputs[role]}
-                      value={trackOffset(role)}
-                      disabled={localSubtitleBusy}
-                      onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
-                      onCommit={(value) => void changeOffset(role, value)}
-                      onReset={() => void changeOffset(role, 0, true)}
+              </span>
+            </summary>
+            <div style={styles.disclosureContent}>
+              {LOCAL_SUBTITLE_ROLES.map((role) => {
+                const localSubtitle = localSubtitles[role];
+                const playerTrack = role === "primary"
+                  ? "Piste du lecteur"
+                  : secondarySubtitleLanguage === "none" ? "Aucune" : "Traduction du lecteur";
+                return (
+                  <div key={role} style={styles.trackRow}>
+                    <span
+                      style={styles.trackLabel}
+                      title={role === "primary"
+                        ? "Traitée comme du japonais ; sur Netflix et YouTube, elle remplace la piste japonaise native."
+                        : "Affichée avec le japonais ; sur Netflix et YouTube, elle remplace la traduction native."}
+                    >
+                      {role === "primary" ? "Japonais" : "Traduction"}
+                    </span>
+                    <div style={styles.trackBody}>
+                      <span
+                        style={localSubtitle ? styles.fileName : styles.playerTrackName}
+                        title={localSubtitle?.fileName}
+                      >
+                        {localSubtitle?.fileName ?? playerTrack}
+                      </span>
+                      {role === "primary" && localSubtitle?.jimakuChoices && localSubtitle.jimakuChoices.length > 1 ? (
+                        <p style={styles.trackHint}>
+                          Jimaku{" · "}
+                          <button
+                            style={styles.inlineLink}
+                            disabled={localSubtitleBusy}
+                            aria-expanded={jimakuListOpen}
+                            onClick={() => setJimakuListOpen((open) => !open)}
+                          >
+                            {localSubtitle.jimakuChoices.length - 1}{" "}
+                            {localSubtitle.jimakuChoices.length > 2 ? "autres fichiers" : "autre fichier"}
+                          </button>
+                        </p>
+                      ) : null}
+                      {role === "primary" && jimakuListOpen && localSubtitle?.jimakuChoices ? (
+                        <div style={styles.jimakuChoices}>
+                          {localSubtitle.jimakuChoices.slice(0, 8).map((choice) => {
+                            const current = choice.name === localSubtitle.fileName;
+                            return (
+                              <button
+                                key={`${choice.url}|${choice.inner ?? ""}`}
+                                style={current ? { ...styles.jimakuChoice, ...styles.jimakuChoiceCurrent } : styles.jimakuChoice}
+                                title={choice.name}
+                                aria-current={current ? "true" : undefined}
+                                disabled={localSubtitleBusy || current}
+                                onClick={() => void chooseJimakuVersion(choice)}
+                              >
+                                {current ? `✓ ${choice.name}` : choice.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      {localSubtitle?.syncSegments?.length ? (
+                        <p style={styles.trackHint}>
+                          Synchronisé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                          {" · "}
+                          <button
+                            style={styles.inlineLink}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void removeAutoSync(role)}
+                          >
+                            Annuler
+                          </button>
+                        </p>
+                      ) : null}
+                      <div style={styles.fileActions}>
+                        <label style={styles.compactButton}>
+                          {localSubtitleBusy
+                            ? "Chargement…"
+                            : localSubtitle ? "Remplacer" : "Importer un fichier"}
+                          <input
+                            type="file"
+                            accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                            hidden
+                            disabled={localSubtitleBusy}
+                            onChange={(event) => {
+                              void importLocalSubtitle(role, event.target.files?.[0]);
+                              event.target.value = "";
+                            }}
+                          />
+                        </label>
+                        {localSubtitle && (
+                          <button
+                            style={styles.dangerButton}
+                            disabled={localSubtitleBusy}
+                            onClick={() => void deleteLocalSubtitle(role)}
+                          >
+                            Supprimer
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <h3 style={styles.subheading}>Décalage</h3>
+              {/* Linked offsets share one outlined panel, so the link is visible. */}
+              <div style={{
+                ...styles.offsetPanel,
+                ...(linkedOffsets && showTranslationOffset ? styles.offsetPanelLinked : {}),
+              }}>
+                {(showTranslationOffset ? LOCAL_SUBTITLE_ROLES : ["primary" as const]).map((role) => (
+                  <OffsetRow
+                    key={role}
+                    label={role === "primary" ? "Japonais" : "Traduction"}
+                    input={offsetInputs[role]}
+                    value={trackOffset(role)}
+                    disabled={localSubtitleBusy}
+                    onInput={(value) => setOffsetInputs((current) => ({ ...current, [role]: value }))}
+                    onCommit={(value) => void changeOffset(role, value)}
+                    onReset={() => void changeOffset(role, 0, true)}
+                  />
+                ))}
+                {showTranslationOffset && (
+                  <label style={styles.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      checked={linkedOffsets}
+                      onChange={(event) => void chooseLinkedOffsets(event.target.checked)}
                     />
-                  ))}
-                  {showTranslationOffset && (
-                    <label style={styles.checkboxRow}>
-                      <input
-                        type="checkbox"
-                        checked={linkedOffsets}
-                        onChange={(event) => void chooseLinkedOffsets(event.target.checked)}
-                      />
-                      <span>Décaler les deux ensemble</span>
-                    </label>
-                  )}
-                </div>
-                {showTranslationOffset && translationOffsetAutomatic && !localSubtitles.secondary && (
-                  <p style={styles.offsetHint}>Traduction synchronisée automatiquement.</p>
+                    <span>Décaler les deux ensemble</span>
+                  </label>
                 )}
-                <p style={styles.offsetHint}>
-                  Valeur positive : le sous-titre s’affiche plus tard.
-                </p>
-                {localSubtitleError && !tracksOpen && <p style={styles.captureError}>{localSubtitleError}</p>}
               </div>
-            </details>
-          </>
+              {showTranslationOffset && translationOffsetAutomatic && !localSubtitles.secondary && (
+                <p style={styles.offsetHint}>Traduction synchronisée automatiquement.</p>
+              )}
+              <p style={styles.offsetHint}>
+                Valeur positive : le sous-titre s’affiche plus tard.
+              </p>
+            </div>
+          </details>
         )}
       </div>
+      {localSubtitleError && <p style={styles.inlineError}>{localSubtitleError}</p>}
 
       {display && (
         <>
@@ -1063,29 +1047,14 @@ const Popup: React.FC = () => {
                 </button>
               </div>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={display.showFurigana}
-              style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSwitchRow }}
-              onClick={() => void updateDisplay({ showFurigana: !display.showFurigana })}
-            >
+            <div style={{ ...styles.cardRow, ...styles.cardRowDivided }}>
               <span>Furigana</span>
-              <span
-                aria-hidden="true"
-                style={{
-                  ...styles.switchTrack,
-                  background: display.showFurigana ? "#ff624d" : "#343842",
-                }}
-              >
-                <span
-                  style={{
-                    ...styles.switchKnob,
-                    transform: display.showFurigana ? "translateX(14px)" : "none",
-                  }}
-                />
-              </span>
-            </button>
+              <Switch
+                checked={display.showFurigana}
+                ariaLabel="Furigana"
+                onChange={(next) => void updateDisplay({ showFurigana: next })}
+              />
+            </div>
           </div>
         </>
       )}
@@ -1098,28 +1067,39 @@ const Popup: React.FC = () => {
             void sendMessage("options:open", { section: "mots-connus" }).then(() => window.close());
           }}
         >
-          Indiquer les mots que je connais déjà →
+          Indiquer les mots que je connais déjà
         </button>
       )}
 
-      <div style={styles.footer}>
+      <footer style={styles.footer}>
         <span style={styles.footerStat}>
-          {stats ? `${stats.knownWords.toLocaleString("fr-FR")} mots connus` : ""}
+          {stats && (
+            <>
+              <strong style={styles.footerFigure}>{stats.knownWords.toLocaleString("fr-FR")}</strong>{" "}
+              mot{stats.knownWords > 1 ? "s" : ""} connu{stats.knownWords > 1 ? "s" : ""}
+              {stats.totalCards > 0 && (
+                <>
+                  {", "}
+                  <strong style={styles.footerFigure}>{stats.totalCards.toLocaleString("fr-FR")}</strong>{" "}
+                  carte{stats.totalCards > 1 ? "s" : ""} créée{stats.totalCards > 1 ? "s" : ""}
+                </>
+              )}
+            </>
+          )}
         </span>
         <span style={styles.footerLinks}>
           <button
-            style={styles.footerLink}
+            style={{ ...styles.footerLink, ...(showHelp ? styles.footerLinkActive : {}) }}
             aria-expanded={showHelp}
             onClick={() => setShowHelp((visible) => !visible)}
           >
             Aide
           </button>
-          <span aria-hidden="true">·</span>
           <button style={styles.footerLink} onClick={() => void chrome.runtime.openOptionsPage()}>
             Réglages
           </button>
         </span>
-      </div>
+      </footer>
 
       {showHelp && (
         <div style={styles.guideContent}>
@@ -1161,21 +1141,23 @@ const Popup: React.FC = () => {
 
           <section style={styles.guideSection}>
             <h2 style={styles.guideHeading}>Sous-titres</h2>
-            <p style={styles.guideHint}>
-              <strong>Traduction</strong> : l’autre langue sert de repli, sauf avec « Aucune ».
-            </p>
-            <p style={styles.guideHint}>
-              <strong>Phrases connues</strong> : phrase dont tous les mots sont connus ou ignorés.
-              Survol ou X pour révéler : le japonais d’abord, puis la traduction.
-            </p>
-            <p style={styles.guideHint}>
-              <strong>YouTube</strong> : sous-titres japonais du créateur en priorité, automatiques
-              en repli.
-            </p>
-            <p style={styles.guideHint}>
-              <strong>Audio de l’onglet</strong> : à activer une fois par onglet vidéo pour
-              capturer l’audio des phrases minées.
-            </p>
+            <dl style={styles.guideTerms}>
+              <dt style={styles.guideTerm}>Traduction</dt>
+              <dd style={styles.guideDefinition}>l’autre langue sert de repli, sauf avec « Aucune ».</dd>
+              <dt style={styles.guideTerm}>Phrases connues</dt>
+              <dd style={styles.guideDefinition}>
+                tous leurs mots sont connus ou ignorés. Survol ou X pour révéler : le japonais
+                d’abord, puis la traduction.
+              </dd>
+              <dt style={styles.guideTerm}>YouTube</dt>
+              <dd style={styles.guideDefinition}>
+                sous-titres japonais du créateur en priorité, automatiques en repli.
+              </dd>
+              <dt style={styles.guideTerm}>Audio de l’onglet</dt>
+              <dd style={styles.guideDefinition}>
+                à activer une fois par onglet vidéo pour enregistrer les phrases minées.
+              </dd>
+            </dl>
           </section>
         </div>
       )}
@@ -1183,23 +1165,78 @@ const Popup: React.FC = () => {
   );
 };
 
+/** On/off control: a labelled button with the `switch` role. */
+function Switch(props: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  ariaLabel: string;
+  label?: string;
+  disabled?: boolean;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={props.checked}
+      aria-label={props.ariaLabel}
+      disabled={props.disabled}
+      style={styles.switchButton}
+      onClick={() => props.onChange(!props.checked)}
+    >
+      {props.label && (
+        <span style={{ ...styles.switchLabel, color: props.checked ? "var(--sj-text)" : "var(--sj-muted)" }}>
+          {props.label}
+        </span>
+      )}
+      <span
+        aria-hidden="true"
+        style={{
+          ...styles.switchTrack,
+          background: props.checked ? "var(--sj-accent)" : "var(--sj-hairline)",
+        }}
+      >
+        <span
+          style={{
+            ...styles.switchKnob,
+            background: props.checked ? "var(--sj-canvas)" : "var(--sj-text)",
+            transform: props.checked ? "translateX(14px)" : "none",
+          }}
+        />
+      </span>
+    </button>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Styles
+// Styles — colours, sizes and radii come from the tokens of src/ui/theme.css.
 // ---------------------------------------------------------------------------
+
+const control: React.CSSProperties = {
+  border: "1px solid var(--sj-hairline)",
+  borderRadius: "var(--sj-radius-control)",
+  background: "var(--sj-surface-raised)",
+  color: "var(--sj-text)",
+  fontFamily: "inherit",
+  fontSize: "var(--sj-size-label)",
+  fontWeight: 500,
+  cursor: "pointer",
+};
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    width: 312,
-    padding: 18,
+    width: 320,
+    padding: "16px 16px 14px",
+    boxSizing: "border-box",
     fontFamily: "var(--sj-font)",
-    backgroundColor: "#0c0d10",
-    color: "#f4f1ea",
+    backgroundColor: "var(--sj-canvas)",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-compact)",
   },
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 16,
+    gap: 12,
     marginBottom: 14,
   },
   brandLockup: {
@@ -1210,57 +1247,56 @@ const styles: Record<string, React.CSSProperties> = {
   brandMark: {
     display: "grid",
     placeItems: "center",
-    width: 34,
-    height: 28,
-    borderRadius: 6,
-    background: "#ff624d",
-    color: "#0c0d10",
-    fontSize: 17,
+    width: 30,
+    height: 26,
+    borderRadius: "var(--sj-radius-control)",
+    background: "var(--sj-accent)",
+    color: "var(--sj-canvas)",
+    fontSize: 15,
     fontWeight: 700,
   },
   title: {
     margin: 0,
-    fontSize: 18,
+    fontSize: "var(--sj-size-title)",
     lineHeight: 1.1,
     fontWeight: 600,
-    color: "#f4f1ea",
+  },
+  headerEnd: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
   },
   connectionStatus: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "4px 8px",
+    padding: "3px 8px",
     borderRadius: 999,
-    background: "#1b1e24",
-    color: "#b2b6bf",
-    fontSize: 10,
+    background: "var(--sj-surface-raised)",
+    color: "var(--sj-danger)",
+    fontSize: "var(--sj-size-small)",
+    fontWeight: 500,
     whiteSpace: "nowrap",
   },
-  dot: {
-    width: 7,
-    height: 7,
+  offlineDot: {
+    width: 6,
+    height: 6,
     borderRadius: "50%",
-    display: "inline-block",
-    flexShrink: 0,
+    background: "var(--sj-danger)",
   },
-  enabledBox: {
-    marginBottom: 10,
-  },
-  enabledSwitch: {
-    display: "flex",
+  switchButton: {
+    display: "inline-flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    width: "100%",
-    padding: "10px 12px",
-    border: "1px solid #343842",
-    borderRadius: 8,
-    background: "#14161b",
-    color: "#f4f1ea",
+    gap: 8,
+    padding: 0,
+    border: "none",
+    background: "transparent",
     fontFamily: "inherit",
-    fontSize: 13,
-    fontWeight: 600,
     cursor: "pointer",
+  },
+  switchLabel: {
+    fontSize: "var(--sj-size-label)",
+    fontWeight: 500,
   },
   switchTrack: {
     position: "relative",
@@ -1268,7 +1304,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 32,
     height: 18,
     borderRadius: 999,
-    transition: "background-color 150ms ease",
+    transition: "background-color 160ms var(--sj-ease)",
   },
   switchKnob: {
     position: "absolute",
@@ -1277,65 +1313,106 @@ const styles: Record<string, React.CSSProperties> = {
     width: 14,
     height: 14,
     borderRadius: "50%",
-    background: "#f4f1ea",
-    transition: "transform 150ms ease",
+    transition: "transform 160ms var(--sj-ease), background-color 160ms var(--sj-ease)",
   },
-  captureBox: {
-    marginTop: 10,
+  disabledNote: {
+    margin: "0 0 4px",
+    padding: "10px 12px",
+    border: "1px solid var(--sj-hairline)",
+    borderRadius: "var(--sj-radius-dense)",
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-label)",
+    lineHeight: 1.45,
   },
-  captureButton: {
+  setupBox: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: "var(--sj-radius-dense)",
+    background: "var(--sj-surface)",
+    border: "1px solid var(--sj-hairline)",
+  },
+  setupText: {
+    margin: "0 0 10px",
+    fontSize: "var(--sj-size-label)",
+    lineHeight: 1.45,
+  },
+  sessionBlock: {
+    marginBottom: 10,
+  },
+  primaryButton: {
     width: "100%",
+    minHeight: 36,
     padding: "8px 12px",
     border: "none",
-    borderRadius: 6,
-    background: "#ff624d",
-    color: "#0c0d10",
-    fontSize: 12,
+    borderRadius: "var(--sj-radius-control)",
+    background: "var(--sj-accent)",
+    color: "var(--sj-canvas)",
+    fontFamily: "inherit",
+    fontSize: "var(--sj-size-compact)",
     fontWeight: 600,
     cursor: "pointer",
   },
-  pendingMineButton: {
-    width: "100%",
-    padding: "8px 12px",
-    border: "1px solid #ff624d",
-    borderRadius: 6,
-    background: "#1b1e24",
-    color: "#f4f1ea",
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
+  secondaryButton: {
+    ...control,
+    flex: "0 0 auto",
+    minHeight: 30,
+    padding: "5px 12px",
   },
-  pendingMineHint: {
+  pendingHint: {
     margin: 0,
-    fontSize: 12,
-    color: "#b2b6bf",
+    padding: "10px 12px",
+    borderRadius: "var(--sj-radius-dense)",
+    background: "var(--sj-surface)",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
+    lineHeight: 1.45,
   },
-  captureHint: {
-    margin: "6px 0 0",
-    fontSize: 10,
-    color: "#b2b6bf",
+  audioRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "10px 12px",
+    border: "1px solid var(--sj-hairline)",
+    borderRadius: "var(--sj-radius-dense)",
+    background: "var(--sj-surface)",
   },
-  captureError: {
-    margin: "6px 0 0",
-    fontSize: 10,
-    color: "#ff8490",
+  audioText: {
+    display: "grid",
+    gap: 2,
+    minWidth: 0,
+  },
+  audioLabel: {
+    fontSize: "var(--sj-size-compact)",
+  },
+  audioHint: {
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-small)",
+    lineHeight: 1.35,
+  },
+  audioActive: {
+    flex: "0 0 auto",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
+    fontWeight: 500,
+  },
+  inlineError: {
+    margin: "6px 2px 0",
+    fontSize: "var(--sj-size-small)",
+    lineHeight: 1.4,
+    color: "var(--sj-danger)",
     wordBreak: "break-word",
-  },
-  localSubtitleContent: {
-    padding: "4px 12px 12px",
   },
   groupLabel: {
     margin: "18px 2px 6px",
-    color: "#b2b6bf",
-    fontSize: 10,
-    fontWeight: 600,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-label)",
+    fontWeight: 500,
   },
   card: {
-    border: "1px solid #343842",
-    borderRadius: 8,
-    background: "#14161b",
+    border: "1px solid var(--sj-hairline)",
+    borderRadius: "var(--sj-radius-dense)",
+    background: "var(--sj-surface)",
     overflow: "hidden",
   },
   cardRow: {
@@ -1343,37 +1420,49 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
-    minHeight: 40,
+    minHeight: 42,
     padding: "0 12px",
     boxSizing: "border-box",
-    color: "#f4f1ea",
-    fontSize: 13,
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-compact)",
   },
   cardRowDivided: {
-    borderTop: "1px solid #343842",
+    borderTop: "1px solid var(--sj-hairline-soft)",
   },
   cardSummary: {
     cursor: "pointer",
     listStyle: "none",
   },
-  cardSwitchRow: {
-    width: "100%",
-    // Longhands only: a `border` shorthand would erase the row divider.
-    borderRight: "none",
-    borderBottom: "none",
-    borderLeft: "none",
-    background: "transparent",
-    fontFamily: "inherit",
-    textAlign: "left",
-    cursor: "pointer",
+  summaryEnd: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
+  summaryValue: {
+    overflow: "hidden",
+    maxWidth: 150,
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-label)",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  select: {
+    width: 156,
+    padding: "5px 6px",
+    border: "1px solid var(--sj-hairline)",
+    borderRadius: "var(--sj-radius-control)",
+    background: "var(--sj-input)",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
   },
   stepper: {
     display: "flex",
     alignItems: "center",
-    width: 150,
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "#101216",
+    width: 156,
+    border: "1px solid var(--sj-hairline)",
+    borderRadius: "var(--sj-radius-control)",
+    background: "var(--sj-input)",
     overflow: "hidden",
   },
   stepperButton: {
@@ -1381,7 +1470,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: 28,
     border: "none",
     background: "transparent",
-    color: "#f4f1ea",
+    color: "var(--sj-text)",
     fontFamily: "inherit",
     fontSize: 15,
     cursor: "pointer",
@@ -1389,17 +1478,110 @@ const styles: Record<string, React.CSSProperties> = {
   stepperValue: {
     flex: 1,
     textAlign: "center",
-    fontSize: 12,
+    fontSize: "var(--sj-size-label)",
     fontVariantNumeric: "tabular-nums",
   },
   chevron: {
     display: "inline-block",
     width: 12,
-    color: "#b2b6bf",
+    color: "var(--sj-muted)",
     fontSize: 16,
     lineHeight: 1,
     textAlign: "center",
-    transition: "transform 160ms cubic-bezier(0.22, 1, 0.36, 1)",
+    transition: "transform 160ms var(--sj-ease)",
+  },
+  disclosureContent: {
+    padding: "4px 12px 12px",
+  },
+  trackRow: {
+    display: "flex",
+    gap: 8,
+    padding: "8px 0",
+  },
+  trackLabel: {
+    flex: "0 0 70px",
+    paddingTop: 1,
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-label)",
+  },
+  trackBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fileName: {
+    display: "block",
+    overflow: "hidden",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
+    fontWeight: 500,
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  playerTrackName: {
+    display: "block",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
+  },
+  trackHint: {
+    margin: "4px 0 0",
+    fontSize: "var(--sj-size-small)",
+    lineHeight: 1.35,
+    color: "var(--sj-muted)",
+  },
+  fileActions: {
+    display: "flex",
+    gap: 6,
+    marginTop: 8,
+  },
+  compactButton: {
+    ...control,
+    flex: "1 1 auto",
+    padding: "6px 8px",
+    whiteSpace: "nowrap",
+    textAlign: "center",
+  },
+  compactPrimary: {
+    ...control,
+    flex: "1 1 auto",
+    padding: "6px 8px",
+    border: "1px solid var(--sj-accent)",
+    background: "var(--sj-accent)",
+    color: "var(--sj-canvas)",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
+  dangerButton: {
+    ...control,
+    flex: "0 0 auto",
+    padding: "6px 10px",
+    // Outlined in the danger colour: recognisable without competing with the main actions.
+    border: "1px solid var(--sj-danger)",
+    background: "transparent",
+    color: "var(--sj-danger)",
+  },
+  missingJapanese: {
+    padding: 12,
+  },
+  missingJapaneseText: {
+    margin: 0,
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-compact)",
+    fontWeight: 500,
+    lineHeight: 1.4,
+  },
+  missingJapaneseActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 10,
+  },
+  subheading: {
+    margin: "10px 0 6px",
+    paddingTop: 10,
+    borderTop: "1px solid var(--sj-hairline-soft)",
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-label)",
+    fontWeight: 500,
   },
   offsetRow: {
     display: "flex",
@@ -1409,168 +1591,69 @@ const styles: Record<string, React.CSSProperties> = {
   },
   offsetRowLabel: {
     flex: "0 0 70px",
-    color: "#f4f1ea",
-    fontWeight: 500,
-    fontSize: 12,
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
+  },
+  offsetInput: {
+    width: 60,
+    flex: "0 0 auto",
+    minHeight: 28,
+    padding: "4px 6px",
+    boxSizing: "border-box",
+    border: "1px solid var(--sj-hairline)",
+    borderRadius: "var(--sj-radius-control)",
+    background: "var(--sj-input)",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-compact)",
+    fontVariantNumeric: "tabular-nums",
+    textAlign: "right",
+  },
+  smallButton: {
+    ...control,
+    flex: 1,
+    minHeight: 28,
+    padding: "4px 3px",
+    fontWeight: 400,
+    fontVariantNumeric: "tabular-nums",
+  },
+  resetGlyph: {
+    fontSize: 15,
+    lineHeight: 1,
+  },
+  offsetPanel: {
+    padding: "8px 8px 6px",
+    border: "1px solid var(--sj-hairline)",
+    borderRadius: "var(--sj-radius-dense)",
+    background: "var(--sj-input)",
+  },
+  offsetPanelLinked: {
+    borderColor: "rgb(255 98 77 / 60%)",
   },
   checkboxRow: {
     display: "flex",
     alignItems: "center",
     gap: 6,
     paddingTop: 6,
-    borderTop: "1px solid #262a32",
-    color: "#f4f1ea",
-    fontSize: 12,
+    borderTop: "1px solid var(--sj-hairline-soft)",
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
     cursor: "pointer",
-  },
-  fileRow: {
-    marginBottom: 12,
-  },
-  fileRowHead: {
-    display: "flex",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  fileActions: {
-    display: "flex",
-    gap: 6,
-    marginTop: 8,
-  },
-  playerTrackName: {
-    flex: 1,
-    minWidth: 0,
-    color: "#b2b6bf",
-    fontSize: 12,
-  },
-  languageSelect: {
-    width: 150,
-    padding: "5px 6px",
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "#101216",
-    color: "#f4f1ea",
-    fontSize: 12,
-  },
-  missingJapanese: {
-    padding: "10px 12px",
-  },
-  missingJapaneseText: {
-    margin: 0,
-    color: "#f1b46d",
-    fontSize: 12,
-    lineHeight: 1.4,
-  },
-  missingJapaneseActions: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 8,
-  },
-  missingJapanesePrimary: {
-    flex: "1 1 auto",
-    whiteSpace: "nowrap",
-    padding: "7px 8px",
-    border: "1px solid #ff624d",
-    borderRadius: 6,
-    background: "#ff624d",
-    color: "#0c0d10",
-    fontSize: 11,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  missingJapaneseButton: {
-    flex: "1 1 auto",
-    whiteSpace: "nowrap",
-    padding: "7px 8px",
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "#1b1e24",
-    color: "#f4f1ea",
-    fontSize: 11,
-    textAlign: "center",
-    cursor: "pointer",
-  },
-  fileButton: {
-    flex: 1,
-    padding: "7px 10px",
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "#1b1e24",
-    color: "#f4f1ea",
-    fontSize: 12,
-    textAlign: "center",
-    cursor: "pointer",
-  },
-  fileName: {
-    flex: 1,
-    minWidth: 0,
-    color: "#f4f1ea",
-    fontSize: 12,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  offsetInput: {
-    width: 64,
-    textAlign: "right",
-    flex: "0 0 auto",
-    minHeight: 28,
-    padding: "4px 6px",
-    boxSizing: "border-box",
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "#101216",
-    color: "#f4f1ea",
-    fontSize: 13,
-    fontVariantNumeric: "tabular-nums",
-  },
-  offsetPanel: {
-    padding: "8px 8px 6px",
-    border: "1px solid #343842",
-    borderRadius: 8,
-    background: "#101216",
-  },
-  offsetPanelLinked: {
-    borderColor: "rgba(255, 98, 77, 0.6)",
-  },
-  fileDetails: {
-    marginLeft: 74,
   },
   offsetHint: {
     margin: "6px 2px 0",
-    color: "#b2b6bf",
-    fontSize: 11,
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-small)",
     lineHeight: 1.35,
-  },
-  resetGlyph: {
-    fontSize: 15,
-    lineHeight: 1,
-  },
-  localSubtitleHint: {
-    margin: "6px 0 0",
-    fontSize: 11,
-    lineHeight: 1.35,
-    color: "#b2b6bf",
-  },
-  smallButton: {
-    flex: 1,
-    minHeight: 28,
-    padding: "4px 3px",
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "#1b1e24",
-    color: "#f4f1ea",
-    fontSize: 12,
-    cursor: "pointer",
   },
   inlineLink: {
     padding: 0,
     border: "none",
     background: "transparent",
-    color: "#f4f1ea",
+    color: "var(--sj-text)",
     fontFamily: "inherit",
-    fontSize: 11,
+    fontSize: "var(--sj-size-small)",
     textDecoration: "underline",
+    textUnderlineOffset: 2,
     cursor: "pointer",
   },
   jimakuChoices: {
@@ -1580,78 +1663,119 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 6,
   },
   jimakuChoice: {
+    ...control,
     padding: "5px 8px",
-    border: "1px solid #343842",
-    borderRadius: 6,
-    background: "#1b1e24",
-    color: "#f4f1ea",
-    fontFamily: "inherit",
-    fontSize: 11,
+    fontSize: "var(--sj-size-small)",
+    fontWeight: 400,
     textAlign: "left",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    cursor: "pointer",
   },
   /** Added to `jimakuChoice` for the installed file. */
   jimakuChoiceCurrent: {
-    borderColor: "#ff624d",
+    borderColor: "var(--sj-accent)",
     cursor: "default",
   },
-  deleteButton: {
-    flex: "0 0 auto",
-    padding: "6px 10px",
-    // Outlined in the danger colour, like the options' danger buttons:
-    // recognisable as a button without competing with the main actions.
-    border: "1px solid #ff8490",
-    borderRadius: 6,
+  knownWordsLink: {
+    display: "block",
+    marginTop: 12,
+    padding: 0,
+    border: "none",
     background: "transparent",
-    color: "#ff8490",
-    fontSize: 12,
+    color: "var(--sj-text)",
+    fontFamily: "inherit",
+    fontSize: "var(--sj-size-label)",
+    textAlign: "left",
+    textDecoration: "underline",
+    textDecorationColor: "var(--sj-accent)",
+    textUnderlineOffset: 3,
     cursor: "pointer",
+  },
+  error: {
+    margin: "0 0 10px",
+    fontSize: "var(--sj-size-small)",
+    color: "var(--sj-danger)",
+    wordBreak: "break-word",
+  },
+  footer: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 10,
+    borderTop: "1px solid var(--sj-hairline-soft)",
+    fontSize: "var(--sj-size-label)",
+  },
+  footerStat: {
+    color: "var(--sj-muted)",
+  },
+  footerFigure: {
+    color: "var(--sj-text)",
+    fontWeight: 600,
+    fontVariantNumeric: "tabular-nums",
+  },
+  footerLinks: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexShrink: 0,
+  },
+  footerLink: {
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    color: "var(--sj-text)",
+    fontFamily: "inherit",
+    fontSize: "var(--sj-size-label)",
+    cursor: "pointer",
+  },
+  footerLinkActive: {
+    textDecoration: "underline",
+    textDecorationColor: "var(--sj-accent)",
+    textUnderlineOffset: 3,
   },
   guideContent: {
     paddingTop: 12,
   },
   guideSection: {
-    paddingBottom: 12,
+    paddingBottom: 14,
   },
   guideHeading: {
     margin: "0 0 4px",
-    color: "#f4f1ea",
-    fontSize: 11,
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
     fontWeight: 600,
   },
   guideHint: {
-    display: "block",
     margin: 0,
-    color: "#b2b6bf",
-    fontSize: 10,
-    lineHeight: 1.4,
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-small)",
+    lineHeight: 1.45,
   },
   guideColorList: {
     display: "grid",
-    gap: 7,
-    marginTop: 9,
+    gap: 6,
+    marginTop: 8,
   },
   guideColorRow: {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    minHeight: 25,
+    minHeight: 24,
   },
   guideWord: {
     display: "inline-block",
     minWidth: 46,
     paddingBottom: 1,
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 700,
     textAlign: "center",
   },
   guideColorLabel: {
-    color: "#f4f1ea",
-    fontSize: 12,
-    fontWeight: 500,
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
     lineHeight: 1.35,
   },
   guideShortcutList: {
@@ -1662,94 +1786,45 @@ const styles: Record<string, React.CSSProperties> = {
   guideShortcutRow: {
     display: "flex",
     alignItems: "center",
-    gap: 9,
+    gap: 10,
     minHeight: 20,
   },
   guideKey: {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 24,
+    minWidth: 22,
     padding: "2px 5px",
-    border: "1px solid #343842",
+    border: "1px solid var(--sj-hairline)",
     borderRadius: 4,
-    background: "#1b1e24",
-    color: "#f4f1ea",
+    background: "var(--sj-surface-raised)",
+    color: "var(--sj-text)",
     fontFamily: "var(--sj-font)",
-    fontSize: 10,
+    fontSize: "var(--sj-size-small)",
     fontWeight: 600,
     lineHeight: 1.2,
-    whiteSpace: "nowrap",
   },
   guideShortcutAction: {
-    color: "#b2b6bf",
-    fontSize: 10,
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-label)",
     lineHeight: 1.35,
   },
-  button: {
-    width: "100%",
-    padding: "8px 12px",
-    border: "none",
-    borderRadius: 6,
-    background: "#ff624d",
-    color: "#0c0d10",
-    fontSize: 12,
+  guideTerms: {
+    display: "grid",
+    gap: 2,
+    margin: "6px 0 0",
+  },
+  guideTerm: {
+    marginTop: 4,
+    color: "var(--sj-text)",
+    fontSize: "var(--sj-size-small)",
     fontWeight: 600,
-    cursor: "pointer",
   },
-  error: {
-    marginTop: 8,
-    fontSize: 11,
-    color: "#ff8490",
-    wordBreak: "break-all",
-  },
-  onboardingBox: {
-    marginTop: 10,
-    padding: "10px 12px",
-    borderRadius: 8,
-    backgroundColor: "#14161b",
-    border: "1px solid #343842",
-  },
-  footer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 10,
-    fontSize: 12,
-  },
-  footerStat: {
-    color: "#b2b6bf",
-  },
-  footerLinks: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    color: "#b2b6bf",
-  },
-  knownWordsLink: {
-    display: "block",
-    marginTop: 10,
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    color: "#ff624d",
-    fontSize: 12,
-    textAlign: "left",
-    cursor: "pointer",
-  },
-  footerLink: {
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    color: "#f4f1ea",
-    fontSize: 12,
-    cursor: "pointer",
-  },
-  onboardingText: {
-    margin: "0 0 8px",
-    fontSize: 11,
-    lineHeight: 1.4,
-    color: "#f4f1ea",
+  guideDefinition: {
+    margin: 0,
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-small)",
+    lineHeight: 1.45,
   },
 };
 

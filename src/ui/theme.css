@@ -50,6 +50,8 @@
   --sj-surface-raised: #1b1e24;
   --sj-input: #101216;
   --sj-hairline: #343842;
+  /* Divider inside a panel, quieter than its outline. */
+  --sj-hairline-soft: #262a32;
   --sj-text: #f4f1ea;
   --sj-muted: #b2b6bf;
   --sj-accent: #ff624d;
@@ -59,6 +61,17 @@
   --sj-priority-mid: #55b8ff;
   --sj-priority-low: #f1b46d;
   --sj-danger: #ff8490;
+  --sj-unknown: #9ca1aa;
+  /* Type scale of DESIGN.md; nothing smaller than 11px on an extension page. */
+  --sj-size-small: 11px;
+  --sj-size-label: 12px;
+  --sj-size-compact: 13px;
+  --sj-size-body: 14px;
+  --sj-size-title: 17px;
+  --sj-size-headline: 24px;
+  --sj-radius-control: 6px;
+  --sj-radius-dense: 8px;
+  --sj-radius-panel: 10px;
   --sj-font: "IBM Plex Sans JP", "Yu Gothic UI", "Hiragino Kaku Gothic ProN",
     Meiryo, sans-serif;
   --sj-ease: cubic-bezier(0.22, 1, 0.36, 1);
