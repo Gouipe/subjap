@@ -23,6 +23,18 @@ export function subtitleFontSize(scale: number, playerHeight: number): number {
   return Math.max(SUBTITLE_MIN_FONT_PX, playerHeight * SUBTITLE_HEIGHT_RATIO * (scale / 100));
 }
 
+/** Bounds of « Pause à la fin »'s « À partir de N mots ». */
+export const PAUSE_MIN_MEANINGFUL_WORDS_MIN = 1;
+export const PAUSE_MIN_MEANINGFUL_WORDS_MAX = 10;
+
+/** A whole number of words within the allowed bounds. */
+export function clampPauseMinMeaningfulWords(value: number): number {
+  return Math.min(
+    PAUSE_MIN_MEANINGFUL_WORDS_MAX,
+    Math.max(PAUSE_MIN_MEANINGFUL_WORDS_MIN, Math.round(value)),
+  );
+}
+
 export const DEFAULT_OPTIONS: OverlayOptions = {
   // The former fixed `fontSize` (px) has no player-independent equivalent and
   // is dropped by sanitizeOptions, so existing installs start at 100 %.
@@ -31,6 +43,7 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   secondarySubtitleLanguage: "fr",
   knownSentenceSubtitles: "show",
   pauseAfterHiddenSentence: false,
+  pauseMinMeaningfulWords: 3,
   markYoungWords: true,
 };
 
@@ -66,6 +79,12 @@ export function sanitizeOptions(
   }
   if (typeof raw.pauseAfterHiddenSentence === "boolean") {
     out.pauseAfterHiddenSentence = raw.pauseAfterHiddenSentence;
+  }
+  if (
+    typeof raw.pauseMinMeaningfulWords === "number" &&
+    Number.isFinite(raw.pauseMinMeaningfulWords)
+  ) {
+    out.pauseMinMeaningfulWords = clampPauseMinMeaningfulWords(raw.pauseMinMeaningfulWords);
   }
   if (typeof raw.markYoungWords === "boolean") {
     out.markYoungWords = raw.markYoungWords;

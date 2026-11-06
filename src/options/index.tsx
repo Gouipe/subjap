@@ -16,6 +16,8 @@ import {
   getOptions,
   saveOptions,
   DEFAULT_OPTIONS,
+  PAUSE_MIN_MEANINGFUL_WORDS_MAX,
+  PAUSE_MIN_MEANINGFUL_WORDS_MIN,
   SUBTITLE_HEIGHT_RATIO,
   SUBTITLE_SCALE_MAX,
   SUBTITLE_SCALE_MIN,
@@ -44,7 +46,10 @@ import { getJimakuApiKey, saveJimakuApiKey } from "@/subtitles/jimaku";
 import {
   KNOWN_SENTENCE_CHOICES,
   PAUSE_AFTER_HIDDEN_SENTENCE_LABEL,
+  PAUSE_MIN_WORDS_HINT,
+  PAUSE_MIN_WORDS_LABEL,
   SECONDARY_LANGUAGE_CHOICES,
+  wordCountLabel,
 } from "@/ui/labels";
 
 interface DictStatus {
@@ -1752,13 +1757,48 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 {options.knownSentenceSubtitles !== "show" && (
                   <Row
                     label={PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}
-                    hint="La vidéo s’arrête à la fin d’une phrase masquée : X révèle, S rejoue. Les phrases de deux mots ou moins (interjections, particules non comprises) continuent."
+                    hint="La vidéo s’arrête à la fin d’une phrase masquée : X révèle, S rejoue."
                   >
                     <Toggle
                       label={PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}
                       checked={options.pauseAfterHiddenSentence}
                       onChange={(v) => void updateOptions({ pauseAfterHiddenSentence: v })}
                     />
+                  </Row>
+                )}
+                {options.knownSentenceSubtitles !== "show" && options.pauseAfterHiddenSentence && (
+                  <Row label={PAUSE_MIN_WORDS_LABEL} hint={PAUSE_MIN_WORDS_HINT}>
+                    <div style={s.countStepper}>
+                      <button
+                        type="button"
+                        style={s.countStepperButton}
+                        aria-label="Moins de mots"
+                        disabled={options.pauseMinMeaningfulWords <= PAUSE_MIN_MEANINGFUL_WORDS_MIN}
+                        onClick={() =>
+                          void updateOptions({
+                            pauseMinMeaningfulWords: options.pauseMinMeaningfulWords - 1,
+                          })
+                        }
+                      >
+                        −
+                      </button>
+                      <span style={s.countStepperValue}>
+                        {wordCountLabel(options.pauseMinMeaningfulWords)}
+                      </span>
+                      <button
+                        type="button"
+                        style={s.countStepperButton}
+                        aria-label="Plus de mots"
+                        disabled={options.pauseMinMeaningfulWords >= PAUSE_MIN_MEANINGFUL_WORDS_MAX}
+                        onClick={() =>
+                          void updateOptions({
+                            pauseMinMeaningfulWords: options.pauseMinMeaningfulWords + 1,
+                          })
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
                   </Row>
                 )}
               </>
@@ -2323,6 +2363,33 @@ const s: Record<string, React.CSSProperties> = {
     padding: "6px 8px",
     fontSize: 13,
     minWidth: 200,
+  },
+  /** − value + control, like the popup's. */
+  countStepper: {
+    display: "flex",
+    alignItems: "center",
+    width: 200,
+    border: `1px solid ${C.panelBorder}`,
+    borderRadius: 6,
+    backgroundColor: C.input,
+    overflow: "hidden",
+  },
+  countStepperButton: {
+    width: 40,
+    height: 30,
+    border: "none",
+    background: "transparent",
+    color: C.text,
+    fontFamily: "inherit",
+    fontSize: 15,
+    cursor: "pointer",
+  },
+  countStepperValue: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 13,
+    color: C.text,
+    fontVariantNumeric: "tabular-nums",
   },
   inputGroup: {
     display: "flex",

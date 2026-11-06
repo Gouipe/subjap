@@ -9,8 +9,6 @@
 import { isDefaultIgnoredToken, isNonLexicalToken } from "@/core/frequency";
 import type { SpanToken } from "@/core/types";
 
-/** Sentences with at most this many meaningful words play through. */
-export const TRIVIAL_SENTENCE_MAX_WORDS = 2;
 /** Pause slightly before the line's end, while it is still displayed. */
 const PAUSE_LEAD_SECONDS = 0.1;
 /** A threshold passed by a larger jump (a seek, a throttled tab) does not pause. */

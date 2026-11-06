@@ -69,7 +69,6 @@ import {
 import {
   HiddenSentenceAutoPause,
   meaningfulWordCount,
-  TRIVIAL_SENTENCE_MAX_WORDS,
 } from "./auto-pause";
 import {
   tokenCanonicalKey,
@@ -591,7 +590,7 @@ function hiddenSentencePauseEnd(): number | null {
   const cues = lastRenderedCues.map((rendered) => rendered.cue);
   if (cues.some((cue) => cue.endConfirmed === false || !(cue.end > cue.start))) return null;
   const words = meaningfulWordCount(lastRenderedCues.flatMap((rendered) => rendered.spans));
-  if (words <= TRIVIAL_SENTENCE_MAX_WORDS) return null;
+  if (words < overlayOptions.pauseMinMeaningfulWords) return null;
   return Math.min(...cues.map((cue) => cue.end));
 }
 

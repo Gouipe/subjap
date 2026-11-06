@@ -146,8 +146,9 @@ et Options, désactivé par défaut) met la vidéo en pause juste avant la fin
 d’une phrase masquée, pour vérifier ce qu’on a compris : **X** révèle, **S**
 rejoue la phrase, qui s’arrête à nouveau à sa fin. **Q**, **S** et **D**
 relancent la lecture depuis cette pause ; sinon Espace reprend. Pas de pause
-quand X a déjà tout révélé, ni pour une phrase de deux mots ou moins
-(interjections, hésitations, particules et auxiliaires non comptés), ni
+quand X a déjà tout révélé, ni pour une phrase plus courte que le réglage
+**À partir de N mots** affiché sous l’interrupteur (de 1 à 10, 3 par défaut ;
+interjections, hésitations, particules et auxiliaires non comptés), ni
 lorsque la fin du sous-titre n’est pas connue d’avance (sous-titres lus
 uniquement à l’écran).
 

@@ -576,6 +576,8 @@ export interface OverlayOptions {
   knownSentenceSubtitles: KnownSentenceSubtitles;
   /** Pause at the end of a sentence still hidden by `knownSentenceSubtitles`. */
   pauseAfterHiddenSentence: boolean;
+  /** Hidden sentences with fewer meaningful words than this play through. */
+  pauseMinMeaningfulWords: number;
   /** Dot-underline known words whose Anki card is studied but not mature yet. */
   markYoungWords: boolean;
 }

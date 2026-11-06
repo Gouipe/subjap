@@ -24,3 +24,12 @@ export const KNOWN_SENTENCE_CHOICES: ReadonlyArray<{
 
 /** Pause at the end of a sentence hidden by « Phrases connues ». */
 export const PAUSE_AFTER_HIDDEN_SENTENCE_LABEL = "Pause à la fin";
+
+/** Minimum number of meaningful words for « Pause à la fin » to stop. */
+export const PAUSE_MIN_WORDS_LABEL = "À partir de";
+export const PAUSE_MIN_WORDS_HINT = "Interjections et particules non comptées.";
+
+/** « 1 mot », « 3 mots ». */
+export function wordCountLabel(count: number): string {
+  return `${count} ${count > 1 ? "mots" : "mot"}`;
+}

@@ -9,6 +9,8 @@ import { sendMessage } from "@/core/messaging";
 import {
   getOptions,
   saveOptions,
+  PAUSE_MIN_MEANINGFUL_WORDS_MAX,
+  PAUSE_MIN_MEANINGFUL_WORDS_MIN,
   SUBTITLE_SCALE_MAX,
   SUBTITLE_SCALE_MIN,
 } from "@/core/options";
@@ -45,7 +47,10 @@ import { getJimakuApiKey, undeclineJimaku, type JimakuChoice } from "@/subtitles
 import {
   KNOWN_SENTENCE_CHOICES,
   PAUSE_AFTER_HIDDEN_SENTENCE_LABEL,
+  PAUSE_MIN_WORDS_HINT,
+  PAUSE_MIN_WORDS_LABEL,
   SECONDARY_LANGUAGE_CHOICES,
+  wordCountLabel,
 } from "@/ui/labels";
 
 interface Stats {
@@ -175,6 +180,7 @@ const Popup: React.FC = () => {
   const [knownSentenceSubtitles, setKnownSentenceSubtitles] =
     useState<KnownSentenceSubtitles>("show");
   const [pauseAfterHiddenSentence, setPauseAfterHiddenSentence] = useState(false);
+  const [pauseMinMeaningfulWords, setPauseMinMeaningfulWords] = useState(3);
   const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
   const [videoId, setVideoId] = useState<string | null>(null);
   const [hasVideo, setHasVideo] = useState(false);
@@ -221,6 +227,7 @@ const Popup: React.FC = () => {
     setOnboarded(onboardedResult);
     setKnownSentenceSubtitles(optionsResult.knownSentenceSubtitles);
     setPauseAfterHiddenSentence(optionsResult.pauseAfterHiddenSentence);
+    setPauseMinMeaningfulWords(optionsResult.pauseMinMeaningfulWords);
     setSecondarySubtitleLanguage(optionsResult.secondarySubtitleLanguage);
     setDisplay({
       subtitleScale: optionsResult.subtitleScale,
@@ -605,6 +612,24 @@ const Popup: React.FC = () => {
     [],
   );
 
+  const choosePauseMinMeaningfulWords = useCallback(
+    async (next: number) => {
+      const previous = pauseMinMeaningfulWords;
+      setPauseMinMeaningfulWords(next);
+      setSavingSubtitlePreference(true);
+      setError(null);
+      try {
+        await saveOptions({ pauseMinMeaningfulWords: next });
+      } catch (err: unknown) {
+        setPauseMinMeaningfulWords(previous);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSavingSubtitlePreference(false);
+      }
+    },
+    [pauseMinMeaningfulWords],
+  );
+
   const chooseSecondarySubtitleLanguage = useCallback(
     async (language: SecondarySubtitleLanguage) => {
       const previous = secondarySubtitleLanguage;
@@ -876,7 +901,7 @@ const Popup: React.FC = () => {
         {knownSentenceSubtitles !== "show" && (
           <div
             style={{ ...styles.cardRow, ...styles.cardRowDivided }}
-            title="À la fin d’une phrase masquée : X révèle, S rejoue. Les phrases de deux mots ou moins ne s’arrêtent pas."
+            title="À la fin d’une phrase masquée : X révèle, S rejoue."
           >
             <span>{PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}</span>
             <Switch
@@ -885,6 +910,41 @@ const Popup: React.FC = () => {
               ariaLabel={PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}
               onChange={(next) => void choosePauseAfterHiddenSentence(next)}
             />
+          </div>
+        )}
+        {knownSentenceSubtitles !== "show" && pauseAfterHiddenSentence && (
+          <div
+            style={{ ...styles.cardRow, ...styles.cardRowDivided }}
+            title={PAUSE_MIN_WORDS_HINT}
+          >
+            <span>{PAUSE_MIN_WORDS_LABEL}</span>
+            <div style={styles.stepper}>
+              <button
+                type="button"
+                style={styles.stepperButton}
+                aria-label="Moins de mots"
+                disabled={
+                  savingSubtitlePreference ||
+                  pauseMinMeaningfulWords <= PAUSE_MIN_MEANINGFUL_WORDS_MIN
+                }
+                onClick={() => void choosePauseMinMeaningfulWords(pauseMinMeaningfulWords - 1)}
+              >
+                −
+              </button>
+              <span style={styles.stepperValue}>{wordCountLabel(pauseMinMeaningfulWords)}</span>
+              <button
+                type="button"
+                style={styles.stepperButton}
+                aria-label="Plus de mots"
+                disabled={
+                  savingSubtitlePreference ||
+                  pauseMinMeaningfulWords >= PAUSE_MIN_MEANINGFUL_WORDS_MAX
+                }
+                onClick={() => void choosePauseMinMeaningfulWords(pauseMinMeaningfulWords + 1)}
+              >
+                +
+              </button>
+            </div>
           </div>
         )}
         {videoId && (
