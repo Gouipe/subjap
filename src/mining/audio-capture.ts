@@ -84,6 +84,7 @@ export class VideoAudioCapture {
   private tabStream: MediaStream | null = null;
   private tabCapturePromise: Promise<void> | null = null;
   private phraseCaptureQueue: Promise<void> = Promise.resolve();
+  private pendingPhraseCaptures = 0;
   private captureGeneration = 0;
 
   constructor(
@@ -272,10 +273,18 @@ export class VideoAudioCapture {
     }
   }
 
+  /** A phrase capture is queued or replaying the video. */
+  isCapturingPhrase(): boolean {
+    return this.pendingPhraseCaptures > 0;
+  }
+
   private enqueuePhraseCapture(
     capture: () => Promise<string | undefined>,
   ): Promise<string | undefined> {
-    const result = this.phraseCaptureQueue.then(capture, capture);
+    this.pendingPhraseCaptures++;
+    const result = this.phraseCaptureQueue.then(capture, capture).finally(() => {
+      this.pendingPhraseCaptures--;
+    });
     this.phraseCaptureQueue = result.then(
       () => undefined,
       () => undefined,

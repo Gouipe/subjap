@@ -66,6 +66,11 @@ import {
   subtitleTextForClipboard,
 } from "./shortcuts";
 import {
+  HiddenSentenceAutoPause,
+  meaningfulWordCount,
+  TRIVIAL_SENTENCE_MAX_WORDS,
+} from "./auto-pause";
+import {
   tokenCanonicalKey,
   tokenDictionaryForm,
   tokenStateLookupTerms,
@@ -150,6 +155,7 @@ let currentVideo: HTMLVideoElement | null = null;
 let audioCapture: VideoAudioCapture | null = null;
 /** Maps video time to the wall clock of the offscreen tab-audio buffer. */
 let playbackClock: PlaybackClock | null = null;
+const hiddenSentenceAutoPause = new HiddenSentenceAutoPause(hiddenSentencePauseEnd);
 let nativeSubtitlesHidden = false;
 let nativeSubtitleReplacementReady = false;
 let runtimeUnavailable = false;
@@ -539,6 +545,7 @@ function ensureOverlay(): OverlayRenderer | null {
       adapter.id === "youtube" ? () => adapter.getNavigationSessionId?.() : null,
     );
     playbackClock = new PlaybackClock(video);
+    hiddenSentenceAutoPause.attach(video);
     currentVideo = video;
   }
 
@@ -553,6 +560,7 @@ function destroyOverlay(): void {
   audioCapture = null;
   playbackClock?.destroy();
   playbackClock = null;
+  hiddenSentenceAutoPause.detach();
   mineLaterReview = null;
   currentVideo = null;
   cueNavigator.reset();
@@ -562,6 +570,23 @@ function destroyOverlay(): void {
   applyNativeSubtitleVisibility();
   // Force the next cue set through the pipeline after a player swap.
   lastSignature = "";
+}
+
+/**
+ * Media time to pause at: the end of the displayed sentence while « Pause à
+ * la fin » applies to it. Lines whose end is unknown (DOM only) play through.
+ */
+function hiddenSentencePauseEnd(): number | null {
+  if (!enabled || !overlayOptions.pauseAfterHiddenSentence) return null;
+  if (overlayOptions.knownSentenceSubtitles === "show") return null;
+  // A replay that records the line's audio must play through.
+  if (audioCapture?.isCapturingPhrase()) return null;
+  if (!overlay?.hasHiddenSentenceLayer() || lastRenderedCues.length === 0) return null;
+  const cues = lastRenderedCues.map((rendered) => rendered.cue);
+  if (cues.some((cue) => cue.endConfirmed === false || !(cue.end > cue.start))) return null;
+  const words = meaningfulWordCount(lastRenderedCues.flatMap((rendered) => rendered.spans));
+  if (words <= TRIVIAL_SENTENCE_MAX_WORDS) return null;
+  return Math.min(...cues.map((cue) => cue.end));
 }
 
 async function ensureTokenizerReady(): Promise<Tokenizer | null> {
@@ -1815,7 +1840,12 @@ let removeShortcuts: (() => void) | null = null;
 let ankiSyncTimer: number | null = null;
 
 function installShortcuts(): () => void {
-  const removePlaybackShortcuts = installPlaybackShortcuts(document, adapter, cueNavigator);
+  const removePlaybackShortcuts = installPlaybackShortcuts(
+    document,
+    adapter,
+    cueNavigator,
+    () => hiddenSentenceAutoPause.isHolding(),
+  );
   const removeSubtitleCopyShortcut = installSubtitleCopyShortcut(document, {
     getText: () => {
       const renderedCues = lastRenderedCues.map((rendered) => rendered.cue);

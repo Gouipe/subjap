@@ -40,7 +40,11 @@ import {
 import type { OnboardingState } from "@/onboarding";
 import type { KnownTriageBatch, OverlayOptions } from "@/core/types";
 import { getJimakuApiKey, saveJimakuApiKey } from "@/subtitles/jimaku";
-import { KNOWN_SENTENCE_CHOICES, SECONDARY_LANGUAGE_CHOICES } from "@/ui/labels";
+import {
+  KNOWN_SENTENCE_CHOICES,
+  PAUSE_AFTER_HIDDEN_SENTENCE_LABEL,
+  SECONDARY_LANGUAGE_CHOICES,
+} from "@/ui/labels";
 
 interface DictStatus {
   count: number;
@@ -1722,6 +1726,18 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                     ))}
                   </select>
                 </Row>
+                {options.knownSentenceSubtitles !== "show" && (
+                  <Row
+                    label={PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}
+                    hint="La vidéo s’arrête à la fin d’une phrase masquée : X révèle, S rejoue. Les phrases de deux mots ou moins (interjections, particules non comprises) continuent."
+                  >
+                    <Toggle
+                      label={PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}
+                      checked={options.pauseAfterHiddenSentence}
+                      onChange={(v) => void updateOptions({ pauseAfterHiddenSentence: v })}
+                    />
+                  </Row>
+                )}
               </>
             )}
           </Section>

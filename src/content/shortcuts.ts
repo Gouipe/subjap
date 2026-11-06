@@ -260,6 +260,8 @@ export function installPlaybackShortcuts(
   adapter: Pick<PlatformAdapter, "getCurrentTime" | "isPaused" | "seekTo" | "getNavigationSessionId"> &
     Partial<Pick<PlatformAdapter, "getVideoElement">>,
   navigator: CueNavigator,
+  /** A pause SubJap made itself: navigating resumes playback. */
+  resumeWhenPaused: () => boolean = () => false,
 ): () => void {
   let removed = false;
   let seekQueue: Promise<void> = Promise.resolve();
@@ -280,7 +282,7 @@ export function installPlaybackShortcuts(
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    const resume = !adapter.isPaused();
+    const resume = !adapter.isPaused() || resumeWhenPaused();
     const pressedAt = adapter.getCurrentTime();
     // Resolve at keydown, against the displayed snapshot the user acted on.
     // Queuing transport must not change the meaning of a queued key press.

@@ -555,6 +555,8 @@ export interface OverlayOptions {
   secondarySubtitleLanguage: SecondarySubtitleLanguage;
   /** What to hide when every lexical word of the displayed sentence is known/ignored. */
   knownSentenceSubtitles: KnownSentenceSubtitles;
+  /** Pause at the end of a sentence still hidden by `knownSentenceSubtitles`. */
+  pauseAfterHiddenSentence: boolean;
   /** Dot-underline known words whose Anki card is studied but not mature yet. */
   markYoungWords: boolean;
 }

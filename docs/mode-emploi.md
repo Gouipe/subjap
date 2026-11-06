@@ -141,6 +141,16 @@ Une ligne masquée réapparaît au survol. **X** révèle la phrase courante par
 étapes : le japonais d’abord, puis la traduction. Tout est à nouveau masqué au
 changement de sous-titre.
 
+Avec l’un des deux modes de masquage, l’interrupteur **Pause à la fin** (popup
+et Options, désactivé par défaut) met la vidéo en pause juste avant la fin
+d’une phrase masquée, pour vérifier ce qu’on a compris : **X** révèle, **S**
+rejoue la phrase, qui s’arrête à nouveau à sa fin. **Q**, **S** et **D**
+relancent la lecture depuis cette pause ; sinon Espace reprend. Pas de pause
+quand X a déjà tout révélé, ni pour une phrase de deux mots ou moins
+(interjections, hésitations, particules et auxiliaires non comptés), ni
+lorsque la fin du sous-titre n’est pas connue d’avance (sous-titres lus
+uniquement à l’écran).
+
 L’enrichissement utilise Gemini 3.5 Flash-Lite via le Worker Cloudflare configuré
 pour SubJap. La phrase, le mot et une courte liste d’exemples familiers sont
 envoyés à ce service pour générer la note. La clé Gemini reste côté serveur.

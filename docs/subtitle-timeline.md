@@ -51,7 +51,9 @@ mining.
 respectivement le début distinct précédent et suivant dans la même chronologie.
 Des segments commençant ensemble partagent donc une seule position de navigation.
 Dans un silence, `Q` et `S` reprennent le dernier segment commencé, et `D` le
-prochain. La pause ou la lecture sont conservées.
+prochain. La pause ou la lecture sont conservées, sauf depuis une pause
+automatique de fin de phrase masquée (**Pause à la fin**), que la navigation
+relance.
 
 ## Sources et identité
 

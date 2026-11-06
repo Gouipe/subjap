@@ -467,6 +467,18 @@ export class OverlayRenderer {
   }
 
   /**
+   * True while the displayed Japanese lines are a known sentence with a layer
+   * still hidden: X has not revealed everything yet.
+   */
+  hasHiddenSentenceLayer(): boolean {
+    if (this.cues.length === 0 || this.pendingCueTexts?.length) return false;
+    if (this.cues.some((cue) => cue.spans.some((span) => span.isPending))) return false;
+    const key = this.currentSubtitleKey();
+    const revealed = this.revealedSubtitle?.key === key ? this.revealedSubtitle.layers : 0;
+    return revealed < this.hiddenLayerCount();
+  }
+
+  /**
    * Update styling options and re-render.
    */
   setOptions(opts: Partial<OverlayOptions>): void {

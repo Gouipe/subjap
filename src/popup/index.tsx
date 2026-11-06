@@ -41,7 +41,11 @@ import {
   type LocalSubtitleRole,
 } from "@/subtitles";
 import { getJimakuApiKey, undeclineJimaku, type JimakuChoice } from "@/subtitles/jimaku";
-import { KNOWN_SENTENCE_CHOICES, SECONDARY_LANGUAGE_CHOICES } from "@/ui/labels";
+import {
+  KNOWN_SENTENCE_CHOICES,
+  PAUSE_AFTER_HIDDEN_SENTENCE_LABEL,
+  SECONDARY_LANGUAGE_CHOICES,
+} from "@/ui/labels";
 
 interface Stats {
   knownWords: number;
@@ -169,6 +173,7 @@ const Popup: React.FC = () => {
     useState<SecondarySubtitleLanguage>("fr");
   const [knownSentenceSubtitles, setKnownSentenceSubtitles] =
     useState<KnownSentenceSubtitles>("show");
+  const [pauseAfterHiddenSentence, setPauseAfterHiddenSentence] = useState(false);
   const [savingSubtitlePreference, setSavingSubtitlePreference] = useState(false);
   const [videoId, setVideoId] = useState<string | null>(null);
   const [hasVideo, setHasVideo] = useState(false);
@@ -214,6 +219,7 @@ const Popup: React.FC = () => {
     setDict(dictResult);
     setOnboarded(onboardedResult);
     setKnownSentenceSubtitles(optionsResult.knownSentenceSubtitles);
+    setPauseAfterHiddenSentence(optionsResult.pauseAfterHiddenSentence);
     setSecondarySubtitleLanguage(optionsResult.secondarySubtitleLanguage);
     setDisplay({
       subtitleScale: optionsResult.subtitleScale,
@@ -581,6 +587,23 @@ const Popup: React.FC = () => {
     [knownSentenceSubtitles],
   );
 
+  const choosePauseAfterHiddenSentence = useCallback(
+    async (next: boolean) => {
+      setPauseAfterHiddenSentence(next);
+      setSavingSubtitlePreference(true);
+      setError(null);
+      try {
+        await saveOptions({ pauseAfterHiddenSentence: next });
+      } catch (err: unknown) {
+        setPauseAfterHiddenSentence(!next);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSavingSubtitlePreference(false);
+      }
+    },
+    [],
+  );
+
   const chooseSecondarySubtitleLanguage = useCallback(
     async (language: SecondarySubtitleLanguage) => {
       const previous = secondarySubtitleLanguage;
@@ -847,6 +870,20 @@ const Popup: React.FC = () => {
             ))}
           </select>
         </label>
+        {knownSentenceSubtitles !== "show" && (
+          <div
+            style={{ ...styles.cardRow, ...styles.cardRowDivided }}
+            title="À la fin d’une phrase masquée : X révèle, S rejoue. Les phrases de deux mots ou moins ne s’arrêtent pas."
+          >
+            <span>{PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}</span>
+            <Switch
+              checked={pauseAfterHiddenSentence}
+              disabled={savingSubtitlePreference}
+              ariaLabel={PAUSE_AFTER_HIDDEN_SENTENCE_LABEL}
+              onChange={(next) => void choosePauseAfterHiddenSentence(next)}
+            />
+          </div>
+        )}
         {videoId && (
           <details open={offsetOpen} onToggle={(event) => toggleOffsetMenu(event.currentTarget.open)}>
             <summary style={{ ...styles.cardRow, ...styles.cardRowDivided, ...styles.cardSummary }}>

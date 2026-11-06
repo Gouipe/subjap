@@ -21,3 +21,6 @@ export const KNOWN_SENTENCE_CHOICES: ReadonlyArray<{
   { value: "hide-translation", label: "Masquer la traduction" },
   { value: "hide-all", label: "Tout masquer (écoute)" },
 ];
+
+/** Pause at the end of a sentence hidden by « Phrases connues ». */
+export const PAUSE_AFTER_HIDDEN_SENTENCE_LABEL = "Pause à la fin";
