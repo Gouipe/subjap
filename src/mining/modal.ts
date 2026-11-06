@@ -339,6 +339,11 @@ export class MiningModal {
     const style = document.createElement("style");
     style.id = "subjap-mining-styles";
     style.textContent = `
+      /* The host page may style scrollbars (Re:ANIME paints them violet): keep the theme ones. */
+      #${MODAL_ID}, #${MODAL_ID} * {
+        scrollbar-color: #4a4f5a transparent !important;
+        scrollbar-width: thin !important;
+      }
       #${MODAL_ID} {
         --sj-canvas: #0c0d10; --sj-surface: #14161b; --sj-raised: #1b1e24;
         --sj-input: #101216; --sj-hairline: #343842; --sj-text: #f4f1ea;

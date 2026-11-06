@@ -205,6 +205,11 @@ export class WordPopover {
     const s = document.createElement("style");
     s.id = "subjap-popover-styles";
     s.textContent = `
+      /* The host page may style scrollbars (Re:ANIME paints them violet): keep the theme ones. */
+      #${POPOVER_ID}, #${POPOVER_ID} * {
+        scrollbar-color: #4a4f5a transparent !important;
+        scrollbar-width: thin !important;
+      }
       .subjap-popover {
         position: fixed;
         z-index: 2147483647;
