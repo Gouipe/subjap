@@ -213,27 +213,26 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-translation-line--blurred:hover > * {
       filter: none;
     }
-    /* « Pause à la fin » will stop on this hidden sentence: a slim pause sign
-       just past the band's end, in the subtitle's white with its soft glow.
-       A pseudo-element, so the blur on the line's children leaves it sharp
-       and the band keeps its centred width. */
+    /* « Pause à la fin » will stop on this hidden sentence: a pause sign in
+       the band's top-right corner, like a badge, in the subtitle's white.
+       Classic proportions: two bars as wide as the gap between them, each
+       about a quarter of their height. A pseudo-element, so the blur on the
+       line's children leaves it sharp; the band widens to make room. */
     #${CONTAINER_ID} .subjap-pause-marker {
       position: relative;
+      padding-right: 0.9em;
     }
     #${CONTAINER_ID} .subjap-pause-marker::after {
       content: "";
       position: absolute;
-      left: 100%;
-      top: 50%;
-      width: 0.085em;
-      height: 0.46em;
-      margin-left: 0.32em;
-      border-radius: 0.05em;
+      top: 0.32em;
+      right: 0.53em;
+      width: 0.11em;
+      height: 0.4em;
+      border-radius: 0.025em;
       background: var(--sj-subtitle);
-      box-shadow: 0.19em 0 0 var(--sj-subtitle);
-      filter: drop-shadow(0 0 0.1em rgba(0, 0, 0, 0.9));
-      opacity: 0.7;
-      transform: translateY(-50%);
+      box-shadow: 0.22em 0 0 var(--sj-subtitle);
+      opacity: 0.75;
       pointer-events: none;
     }
     #${CONTAINER_ID} .subjap-token {

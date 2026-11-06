@@ -151,8 +151,8 @@ quand X a déjà tout révélé, ni pour une phrase plus courte que le réglage
 interjections, hésitations, particules et auxiliaires non comptés), ni
 lorsque la fin du sous-titre n’est pas connue d’avance (sous-titres lus
 uniquement à l’écran).
-Une phrase masquée qui va s’arrêter porte un petit signe pause ⏸ au bout de
-sa bande floutée ; sans ce signe, elle continue.
+Une phrase masquée qui va s’arrêter porte un petit signe pause ⏸ dans le coin
+de sa bande floutée ; sans ce signe, elle continue.
 
 L’enrichissement utilise Gemini 3.5 Flash-Lite via le Worker Cloudflare configuré
 pour SubJap. La phrase, le mot et une courte liste d’exemples familiers sont

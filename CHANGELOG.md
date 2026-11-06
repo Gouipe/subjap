@@ -17,7 +17,7 @@ elle serait annoncée à nouveau.
 - Installation en une ligne PowerShell, Git et Node.js compris (voir le README).
 - Réglage « Pause à la fin » : la vidéo s'arrête à la fin d'une phrase connue masquée ; X la révèle, S la rejoue.
 - « Pause à la fin » : choisissez à partir de combien de mots (1 à 10) une phrase masquée s'arrête, dans la popup ou les Options.
-- Un petit signe pause au bout d'une phrase floutée annonce que la vidéo s'arrêtera à sa fin.
+- Un petit signe pause dans le coin d'une phrase floutée annonce que la vidéo s'arrêtera à sa fin.
 - Les noms de locuteurs et les bruitages entre parenthèses n'apparaissent plus dans les sous-titres japonais.
 
 ### Corrections
