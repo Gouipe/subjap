@@ -171,9 +171,9 @@ export class VideoNotice {
       "border-radius:6px",
       "cursor:pointer",
       "white-space:nowrap",
-      `font:600 12px/1.35 ${FONT}`,
+      `font:${primary ? 600 : 500} 12px/1.35 ${FONT}`,
       primary ? "color:#0c0d10" : "color:#f4f1ea",
-      primary ? "background:#ff624d" : "background:#1c1f26",
+      primary ? "background:#ff624d" : "background:#1b1e24",
       primary ? "border:1px solid #ff624d" : "border:1px solid #343842",
     ].join(";");
   }
