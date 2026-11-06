@@ -56,7 +56,11 @@ disponible » et encart « Nouveautés » après une mise à jour. Tout commit q
 change ce que voit l’utilisatrice y ajoute une ligne courte en français, sous la
 date du jour, dans `### Fonctionnalités`, `### Corrections` ou `### Refonte`. Une
 ligne est identifiée par son texte : ne jamais reformuler une ligne publiée, elle
-serait annoncée de nouveau. Un hook Claude Code
+serait annoncée de nouveau. Une ligne pas encore poussée sur `origin`, elle, se
+corrige ou se retire au lieu d’en empiler une autre : retouche d’un changement
+encore non publié, correctif annulé, tentative abandonnée. Le journal décrit
+ce que l’utilisatrice recevra, pas l’historique des commits (vérifier avec
+`git diff origin/master -- CHANGELOG.md`). Un hook Claude Code
 ([`scripts/check-changelog.mjs`](scripts/check-changelog.mjs)) refuse un commit
 qui modifie `src/` sans toucher `CHANGELOG.md`, sauf si son message contient
 `[sans changelog]` (refactor, lint, tests, documentation).
