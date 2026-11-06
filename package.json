@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
     "build": "vite build --mode production && node scripts/verify-netflix-bridge.mjs",
+    "update": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update.ps1",
     "lint": "eslint src/ --ext .ts,.tsx",
     "format": "prettier --write src/",
     "frequency:update": "node scripts/update-frequency-data.mjs",

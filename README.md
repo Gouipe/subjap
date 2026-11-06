@@ -122,6 +122,12 @@ Après une mise à jour du dépôt, reconstruire l’extension avec
 `npm.cmd run build`, cliquer sur **Recharger** dans la page des extensions,
 puis recharger les onglets vidéo déjà ouverts.
 
+Pour récupérer la dernière version et la compiler en une fois, double-cliquer
+sur `mettre-a-jour.cmd` à la racine du dépôt, ou lancer `npm.cmd run update`.
+Le script fait un `git pull`, réinstalle les dépendances si elles ont changé,
+compile, puis liste les nouveautés et les étapes de rechargement. Il s’arrête
+sans rien écraser si des fichiers ont été modifiés localement.
+
 Le guide détaillé est dans [`docs/mode-emploi.md`](docs/mode-emploi.md). Le
 contrat audio et la configuration HyperTTS sont décrits dans
 [`docs/anki-card-formatting.md`](docs/anki-card-formatting.md).
