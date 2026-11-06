@@ -29,7 +29,8 @@ l’installation manuelle.
 ### Prérequis
 
 - Chrome ou Edge sur ordinateur ;
-- Git, Node.js et npm pour compiler l’extension depuis le dépôt ;
+- Git, Node.js et npm pour compiler l’extension depuis le dépôt (installés par
+  le script en une ligne s’ils manquent) ;
 - Anki Desktop et le module [AnkiConnect](https://ankiweb.net/shared/info/2055492159)
   pour envoyer des cartes ;
 - [HyperTTS](https://ankiweb.net/shared/info/111623432) dans Anki si tu veux
