@@ -285,7 +285,7 @@ reste identique dans la popup, les options, la popover, le mining et Anki.
 ### Navigation
 
 - **Style:** hiérarchie textuelle simple, sans barre décorative. L'état actif associe contraste, graisse et repère vermillon discret.
-- **Treatment:** la popup privilégie une seule colonne ; les Options structurent les réglages en sections continues séparées par un trait de montage, avec un sommaire collant à gauche, plutôt qu'en grille de cartes identiques. Les sections suivent l'usage : affichage d'abord, installation et données en dernier.
+- **Treatment:** la popup privilégie une seule colonne ; les Options regroupent les lignes de chaque section sur un panneau tonal sous son titre, avec un sommaire collant à gauche qui marque la section lue ; l'espace sépare les sections, le trait doux sépare les lignes. Les sections suivent l'usage : affichage d'abord, installation et données en dernier.
 
 ### Status & Feedback
 
