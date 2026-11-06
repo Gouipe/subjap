@@ -465,6 +465,11 @@ export interface MessageMap {
   "tabCapture:cutResult": { dataUrl: string | null };
   "tabCapture:offscreenCut": { intervals: WallInterval[] };
   "tabCapture:offscreenCutResult": { dataUrl: string | null };
+  /** Wall time (ms) of the oldest tab audio still buffered, null without any. */
+  "tabCapture:bufferStart": Record<string, never>;
+  "tabCapture:bufferStartResult": { fromMs: number | null };
+  "tabCapture:offscreenBufferStart": Record<string, never>;
+  "tabCapture:offscreenBufferStartResult": { fromMs: number | null };
   /** The page entered or left HTML5 fullscreen (reported by the top frame). */
   "fullscreen:page": { active: boolean };
   "fullscreen:pageResult": Record<string, never>;

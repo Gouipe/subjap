@@ -873,6 +873,12 @@ onMessage("tabCapture:cut", async ({ intervals }) => {
   return { dataUrl: (result as { dataUrl?: string | null } | undefined)?.dataUrl ?? null };
 });
 
+onMessage("tabCapture:bufferStart", async () => {
+  if (!(await chrome.offscreen.hasDocument())) return { fromMs: null };
+  const result: unknown = await chrome.runtime.sendMessage({ type: "tabCapture:offscreenBufferStart" });
+  return { fromMs: (result as { fromMs?: number | null } | undefined)?.fromMs ?? null };
+});
+
 // ── anki:status ───────────────────────────────────────────────────────────
 
 onMessage("anki:status", async () => {

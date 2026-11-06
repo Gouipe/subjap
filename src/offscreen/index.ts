@@ -210,6 +210,17 @@ onMessage("tabCapture:offscreenPhraseStop", () => {
   return { dataUrl: encodeWavDataUrl(samples, context.sampleRate) };
 });
 
+onMessage("tabCapture:offscreenBufferStart", () => {
+  const first = rollingBlocks[0];
+  if (!context || !first) return { fromMs: null };
+  // Same timing as a cut: the least late arrival of the segment.
+  let originMs = first.originMs;
+  for (const block of rollingBlocks) {
+    if (block.segment === first.segment) originMs = Math.min(originMs, block.originMs);
+  }
+  return { fromMs: originMs + (first.startSample / context.sampleRate) * 1000 };
+});
+
 onMessage("tabCapture:offscreenCut", ({ intervals }) => {
   if (!context || intervals.length === 0) return { dataUrl: null };
   const sampleRate = context.sampleRate;

@@ -1326,6 +1326,8 @@ const MINE_LATER_AUDIO_TIMEOUT_MS = 5 * 60_000;
 const MINE_LATER_AUDIO_MARGIN_WAIT_MS = 3_000;
 /** How long a cut refused by the buffer is retried (samples still arriving). */
 const MINE_LATER_AUDIO_CUT_RETRY_MS = 10_000;
+/** Hole accepted before the line's start, as a cut does. */
+const MINE_LATER_BUFFER_TOLERANCE_MS = 200;
 const MINE_LATER_FEEDBACK_MS = 1_800;
 const MINE_LATER_REMINDER_MS = 12_000;
 /** Lets the video start before reminding: the Jimaku notice comes first. */
@@ -1426,13 +1428,53 @@ async function mineLater(token: Token, entry: DictionaryEntry | null): Promise<v
       screenshotDataUrl,
     });
     showMineLaterFeedback(`Mis de côté · ${count}`);
-    void cutMineLaterAudio(id, cue);
+    void recordMineLaterAudio(id, cue, video);
   } catch (err: unknown) {
     console.warn("[SubJap] Setting a word aside failed:", err);
     handleRuntimeError(err);
     setMinedLater(lemma, false);
     showMineLaterFeedback("Impossible de mettre ce mot de côté", true);
   }
+}
+
+/**
+ * The tab audio buffer only starts when the capture is activated: a line
+ * already under way then (typically the first word set aside, right after
+ * activating it) can never be cut from it.
+ */
+async function mineLaterLineStartMissed(cue: SubtitleCue, video: HTMLVideoElement): Promise<boolean> {
+  const clock = playbackClock;
+  if (!clock) return false;
+  const heardUntil = Math.min(cue.end, video.currentTime);
+  // Only just started: it is being recorded right now.
+  if (heardUntil <= cue.start + 0.1) return false;
+  const intervals = clock.wallIntervalsFor(cue.start, heardUntil);
+  if (!intervals) return true;
+  const { fromMs } = await sendMessage("tabCapture:bufferStart", {});
+  return fromMs === null || fromMs > intervals[0]!.fromMs + MINE_LATER_BUFFER_TOLERANCE_MS;
+}
+
+/**
+ * Store the line's audio: cut from the buffer once heard, or replayed at
+ * once when the buffer started after the line did.
+ */
+async function recordMineLaterAudio(id: string, cue: SubtitleCue, video: HTMLVideoElement): Promise<void> {
+  let missed = false;
+  try {
+    missed = await mineLaterLineStartMissed(cue, video);
+  } catch (err: unknown) {
+    console.warn("[SubJap] Tab audio buffer unavailable for a word set aside:", err);
+  }
+  if (missed && audioCapture) {
+    console.info("[SubJap] Line started before the tab capture: replaying it for a word set aside");
+    const audioDataUrl = await audioCapture.captureCue(cue, MINE_LATER_AUDIO_MARGIN_SECONDS);
+    if (audioDataUrl) {
+      await sendMessage("mineLater:setAudio", { id, audioDataUrl }).catch(handleRuntimeError);
+      return;
+    }
+  }
+  // The replay, even unrecorded, is now the line's latest playback in the buffer.
+  await cutMineLaterAudio(id, cue);
 }
 
 /** End of a DOM-only line once it has left the screen, otherwise null. */
