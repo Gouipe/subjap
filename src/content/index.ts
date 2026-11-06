@@ -541,6 +541,7 @@ function ensureOverlay(): OverlayRenderer | null {
     overlay = new OverlayRenderer(video, overlayOptions);
     overlay.setRuntimeUnavailable(runtimeUnavailable);
     overlay.setPlayerSubtitleRoom(() => adapter.getPlayerSubtitleRoom?.() ?? 0);
+    overlay.setPauseMarker(() => hiddenSentencePauseEnd() !== null);
     audioCapture = new VideoAudioCapture(
       video,
       (timeSeconds, resume) => adapter.seekTo(timeSeconds, resume),

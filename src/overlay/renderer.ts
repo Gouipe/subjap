@@ -213,6 +213,29 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
     #${CONTAINER_ID} .subjap-translation-line--blurred:hover > * {
       filter: none;
     }
+    /* « Pause à la fin » will stop on this hidden sentence: a slim pause sign
+       just past the band's end, in the subtitle's white with its soft glow.
+       A pseudo-element, so the blur on the line's children leaves it sharp
+       and the band keeps its centred width. */
+    #${CONTAINER_ID} .subjap-pause-marker {
+      position: relative;
+    }
+    #${CONTAINER_ID} .subjap-pause-marker::after {
+      content: "";
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      width: 0.085em;
+      height: 0.46em;
+      margin-left: 0.32em;
+      border-radius: 0.05em;
+      background: var(--sj-subtitle);
+      box-shadow: 0.19em 0 0 var(--sj-subtitle);
+      filter: drop-shadow(0 0 0.1em rgba(0, 0, 0, 0.9));
+      opacity: 0.7;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
     #${CONTAINER_ID} .subjap-token {
       display: inline-flex;
       flex-direction: column;
@@ -352,6 +375,8 @@ export class OverlayRenderer {
   /** Translation and X reveals of the last Japanese lines displayed, kept through an empty overlay. */
   private lastSentenceReveal: { translationKey: string; layers: number } | null = null;
   private playerSubtitleRoom: () => number = () => 0;
+  /** True when « Pause à la fin » will stop at the end of the displayed sentence. */
+  private willPauseAtEnd: () => boolean = () => false;
 
   constructor(video: HTMLVideoElement, options?: Partial<OverlayOptions>) {
     this.video = video;
@@ -374,6 +399,12 @@ export class OverlayRenderer {
   setPlayerSubtitleRoom(provider: () => number): void {
     this.playerSubtitleRoom = provider;
     if (this.visible) this.syncPosition();
+  }
+
+  /** Mark the hidden sentence « Pause à la fin » will stop on. */
+  setPauseMarker(provider: () => boolean): void {
+    this.willPauseAtEnd = provider;
+    this.render();
   }
 
   /** Show the overlay (make it visible). */
@@ -526,6 +557,8 @@ export class OverlayRenderer {
     ) return;
 
     const { hideJapanese, hideTranslation } = this.hiddenLayers();
+    /** The last line X reveals next: it carries the pause marker. */
+    let blurredLine: HTMLElement | null = null;
     if (this.pendingCueTexts?.length) {
       for (const text of this.pendingCueTexts) {
         const line = document.createElement("div");
@@ -539,6 +572,7 @@ export class OverlayRenderer {
         const line = this.buildCueLine(rc);
         if (hideJapanese) line.classList.add("subjap-cue-line--hidden");
         this.container.appendChild(line);
+        if (hideJapanese) blurredLine = line;
       }
     }
     if (this.translation) {
@@ -547,7 +581,10 @@ export class OverlayRenderer {
       if (hideTranslation) {
         line.classList.add("subjap-translation-line--hidden");
         // Blurred when it is the next layer X reveals, invisible behind hidden Japanese.
-        if (!hideJapanese) line.classList.add("subjap-translation-line--blurred");
+        if (!hideJapanese) {
+          line.classList.add("subjap-translation-line--blurred");
+          blurredLine = line;
+        }
       }
       line.lang = this.translation.language;
       line.dataset.language = this.translation.language;
@@ -557,6 +594,8 @@ export class OverlayRenderer {
       line.appendChild(lineText(this.translation.text.replace(/\s+/gu, " ").trim()));
       this.container.appendChild(line);
     }
+
+    if (blurredLine && this.willPauseAtEnd()) blurredLine.classList.add("subjap-pause-marker");
 
     // Re-sync position after render
     if (this.visible) this.syncPosition();
