@@ -307,6 +307,24 @@ désactive dans les Options, **Affichage des sous-titres** → **Pointiller les
 mots en cours**. La popover affiche toujours le rang disponible et le nombre
 de cartes Anki existantes, suivi de « en cours » le cas échéant.
 
+### Utiliser SubJap sur plusieurs PC
+
+Les décisions **Connu** et **Ignorer**, la progression de **Trier les mots
+fréquents** et les réglages d’affichage suivent le compte Google de Chrome :
+il suffit d’être connecté au même compte sur chaque PC, avec la
+synchronisation des extensions activée. Les mots déjà marqués sur chaque PC
+avant cette fonction sont fusionnés ; en cas de désaccord, la décision la plus
+récente l’emporte. Un changement arrive sur l’autre PC en quelques secondes à
+quelques minutes. Les états venus d’Anki n’ont pas besoin d’être partagés :
+chaque PC les relit dans Anki (synchronisé par AnkiWeb). Les cartes « Plus
+tard », la clé Jimaku et les instructions IA restent propres à chaque PC.
+
+Options → **Données** → **Synchronisation entre PC** indique le nombre de mots
+partagés et l’espace utilisé (environ quelques milliers de mots au total).
+**Réinitialiser ce PC** efface les données de ce PC puis récupère celles du
+compte ; **Tout effacer, y compris dans mon compte Google** les efface aussi
+sur les autres PC.
+
 ### Mettre à jour SubJap
 
 Quand une nouvelle version est publiée, la popup affiche **Mise à jour

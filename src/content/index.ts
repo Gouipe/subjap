@@ -23,6 +23,7 @@ import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/ena
 import { lookupCandidates } from "@/dictionary";
 import { dictionaryCompoundLookupTerms, mergeDictionaryCompounds } from "@/dictionary/compound";
 import { DICTIONARY_REVISION_STORAGE_KEY } from "@/dictionary/revision";
+import { WORD_STATES_REVISION_STORAGE_KEY } from "@/core/cloud-sync";
 import { dictionaryReadingForToken } from "@/dictionary/match";
 import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import {
@@ -419,6 +420,17 @@ function getKnownWordCount(): Promise<number> {
   return knownWordCountPromise;
 }
 
+/** Word states changed outside this tab (Anki, another PC): read them again. */
+function reloadWordStates(): void {
+  wordStateByLemma.clear();
+  ankiNoteCountByLemma.clear();
+  minedLaterByLemma.clear();
+  queriedAliasesByLemma.clear();
+  knownWordCountPromise = null;
+  lastSignature = "";
+  if (lastCues.length > 0) enqueueCues(lastCues);
+}
+
 let lastAnkiSyncAt = 0;
 let ankiSyncPromise: Promise<void> | null = null;
 
@@ -435,13 +447,7 @@ async function syncKnownWordsFromAnki(force = false): Promise<void> {
         result.presenceChanged === 0
       ) return;
 
-      wordStateByLemma.clear();
-      ankiNoteCountByLemma.clear();
-      minedLaterByLemma.clear();
-      queriedAliasesByLemma.clear();
-      knownWordCountPromise = null;
-      lastSignature = "";
-      if (lastCues.length > 0) enqueueCues(lastCues);
+      reloadWordStates();
     } catch (err: unknown) {
       // Anki is optional; a missing AnkiConnect must not affect subtitle use.
       console.info("[SubJap] Anki known-word sync unavailable:", err);
@@ -2231,6 +2237,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   // A key just saved from the options: try the video that was missing subtitles.
   if (changes[JIMAKU_API_KEY_STORAGE_KEY]?.newValue) missingJapaneseNotified.clear();
+
+  // Decisions made on another PC arrived through the Google account.
+  if (changes[WORD_STATES_REVISION_STORAGE_KEY]) reloadWordStates();
 
   if (changes[DICTIONARY_REVISION_STORAGE_KEY]) {
     dictionaryCompoundByTerm.clear();

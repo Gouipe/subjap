@@ -197,6 +197,8 @@ export interface WordState {
   key: string; // canonical lexeme identity
   status: WordStatus;
   knownAt?: number;
+  /** Last manual change, used to settle a conflict between two PCs. */
+  updatedAt?: number;
   /** "default" is derived at render time and never persisted. */
   source: "manual" | "frequency-list" | "import" | "default";
   /** Known through a studied Anki card that is not mature yet (interval under 21 days). */
@@ -483,8 +485,20 @@ export interface MessageMap {
   };
 
   // Data management
-  "data:reset": Record<string, never>;
+  /** "device" wipes this PC then reloads the account copy; "everywhere" also wipes the account. */
+  "data:reset": { scope: "device" | "everywhere" };
   "data:resetResult": void;
+
+  // Google account sync (chrome.storage.sync)
+  "sync:status": Record<string, never>;
+  "sync:statusResult": {
+    /** Manual word decisions stored in the account. */
+    words: number;
+    bytesInUse: number;
+    quotaBytes: number;
+    /** Last failed send, already worded for the user. */
+    error: string | null;
+  };
 
   // TTS
   "tts:speak": { text: string };

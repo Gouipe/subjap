@@ -9,6 +9,8 @@ elle serait annoncée à nouveau.
 
 ### Fonctionnalités
 
+- Vos mots Connu/Ignorer, le tri des mots fréquents et l'affichage se synchronisent entre vos PC via votre compte Google ; les mots déjà marqués sont conservés.
+- Options › Données : « Réinitialiser ce PC » récupère vos décisions depuis le compte Google, « Tout effacer » les efface aussi sur vos autres PC.
 - La popup signale quand une mise à jour est disponible et présente les nouveautés après chaque mise à jour.
 - Mise à jour en un double-clic avec `mettre-a-jour.cmd`, à la racine du dossier de SubJap.
 - Bouton « Mettre à jour » dans la popup : SubJap se met à jour et se recharge tout seul.

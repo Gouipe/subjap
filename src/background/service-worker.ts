@@ -35,6 +35,7 @@ import {
 import { prepareAiEnrichmentCandidates } from "./ai-enrichment";
 import { commitKnownTriage, nextKnownTriageBatch } from "./known-triage";
 import { registerSelfUpdate } from "./self-update";
+import { queueTriageSync, queueWordSync, registerCloudSync, resetSyncedData, syncStatus } from "./cloud-sync";
 import {
   ANKI_COMPREHENSION_DECK,
   ANKI_PRODUCTION_DECK,
@@ -83,6 +84,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 registerSelfUpdate();
+registerCloudSync();
 
 chrome.runtime.onStartup.addListener(() => {
   void isSubJapEnabled().then(updateEnabledBadge);
@@ -413,7 +415,13 @@ onMessage("word:getBatch", async ({ items }) => {
 // ── word:set ──────────────────────────────────────────────────────────────
 
 onMessage("word:set", async (payload) => {
-  await db.wordStates.put({ ...payload, key: canonicalizeLexicalKey(payload.key) });
+  const key = canonicalizeLexicalKey(payload.key);
+  await db.wordStates.put({
+    ...payload,
+    key,
+    ...(payload.source === "manual" ? { updatedAt: Date.now() } : {}),
+  });
+  if (payload.source === "manual") queueWordSync([key]);
 });
 
 // ── word:unset ────────────────────────────────────────────────────────────
@@ -426,6 +434,7 @@ onMessage("word:unset", async ({ key, aliases = [], status, defaultStatus }) => 
   const keys = lexicalKeyCandidates(key, ...aliases);
   const states = await db.wordStates.bulkGet(keys);
   await db.wordStates.bulkDelete(keys.filter((_, index) => states[index]?.source === "manual"));
+  queueWordSync([...keys, canonicalizeLexicalKey(key)]);
 
   const fallback = chooseWordState(states.filter((state) => state?.source !== "manual"));
   if ((fallback?.status ?? defaultStatus) !== status) return { state: fallback };
@@ -434,6 +443,7 @@ onMessage("word:unset", async ({ key, aliases = [], status, defaultStatus }) => 
     key: canonicalizeLexicalKey(key),
     status: "unknown",
     source: "manual",
+    updatedAt: Date.now(),
   };
   await db.wordStates.put(override);
   return { state: override };
@@ -442,9 +452,9 @@ onMessage("word:unset", async ({ key, aliases = [], status, defaultStatus }) => 
 // ── word:batch ────────────────────────────────────────────────────────────
 
 onMessage("word:batch", async (payload) => {
-  await db.wordStates.bulkPut(
-    payload.map((state) => ({ ...state, key: canonicalizeLexicalKey(state.key) })),
-  );
+  const states = payload.map((state) => ({ ...state, key: canonicalizeLexicalKey(state.key) }));
+  await db.wordStates.bulkPut(states);
+  queueWordSync(states.filter((state) => state.source === "manual").map((state) => state.key));
 });
 
 // ── frequency:batch ──────────────────────────────────────────────────────
@@ -472,6 +482,8 @@ onMessage("knownTriage:batch", async () => {
 
 onMessage("knownTriage:commit", async ({ keys, throughRank }) => {
   await commitKnownTriage(keys, throughRank);
+  queueWordSync(keys.map(canonicalizeLexicalKey).filter(Boolean));
+  queueTriageSync();
 });
 
 // ── mine:create ───────────────────────────────────────────────────────────
@@ -638,21 +650,28 @@ onMessage("stats:get", async () => {
 // Wipe all local learning data (word states, mine cards, dictionary) plus the
 // overlay options. Keeps the onboarding state so the user isn't forced back
 // through the wizard; the options page exposes a separate "re-run onboarding"
-// control for that.
+// control for that. "device" then reloads what the Google account holds;
+// "everywhere" erases that copy too, so the other PCs lose it as well.
 
-onMessage("data:reset", async () => {
+onMessage("data:reset", async ({ scope }) => {
+  await resetSyncedData(scope === "everywhere" ? "everywhere" : "device", wipeLocalData);
+  refreshBadge();
+});
+
+onMessage("sync:status", () => syncStatus());
+
+async function wipeLocalData(): Promise<void> {
   await db.ankiWords.clear();
   await db.wordStates.clear();
   await db.mineCards.clear();
   await db.pendingMines.clear();
-  refreshBadge();
   await db.dictionaryEntries.clear();
   await db.frequencyEntries.clear();
   await db.settings.clear();
   await chrome.storage.local.remove("subjap_options");
   await chrome.storage.local.remove(AI_SETTINGS_STORAGE_KEY);
   await chrome.storage.local.remove("subjap_dictionary_loaded");
-});
+}
 
 // ── tts:speak ─────────────────────────────────────────────────────────────
 

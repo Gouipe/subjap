@@ -38,7 +38,8 @@ import {
   resetOnboarding,
 } from "@/onboarding";
 import type { OnboardingState } from "@/onboarding";
-import type { KnownTriageBatch, OverlayOptions } from "@/core/types";
+import type { KnownTriageBatch, MessageResult, OverlayOptions } from "@/core/types";
+import { SYNC_ERROR_STORAGE_KEY, SYNC_QUOTA_WARNING_RATIO } from "@/core/cloud-sync";
 import { getJimakuApiKey, saveJimakuApiKey } from "@/subtitles/jimaku";
 import {
   KNOWN_SENTENCE_CHOICES,
@@ -1468,8 +1469,11 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [aiPrompt, setAiPrompt] = useState<string | null>(null);
   const [savingAiPrompt, setSavingAiPrompt] = useState(false);
   const [resetting, setResetting] = useState(false);
+  /** « Réinitialiser ce PC » waits for its confirmation. */
+  const [deviceResetArmed, setDeviceResetArmed] = useState(false);
   /** Typed confirmation of "Tout effacer"; null while the button is not armed. */
   const [resetConfirmation, setResetConfirmation] = useState<string | null>(null);
+  const [accountSync, setAccountSync] = useState<MessageResult<"sync:status"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   /** « Réglage enregistré » shows briefly after each save. */
@@ -1539,6 +1543,24 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // The account copy changes as words are marked here or on another PC.
+  useEffect(() => {
+    const load = (): void => {
+      void sendMessage("sync:status", {})
+        .then(setAccountSync)
+        .catch(() => setAccountSync(null));
+    };
+    load();
+    const onChange = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      area: string,
+    ): void => {
+      if (area === "sync" || changes[SYNC_ERROR_STORAGE_KEY]) load();
+    };
+    chrome.storage.onChanged.addListener(onChange);
+    return () => chrome.storage.onChanged.removeListener(onChange);
+  }, []);
 
   /** Save a partial options update and refresh the local state. */
   const updateOptions = useCallback(async (partial: Partial<OverlayOptions>) => {
@@ -1612,12 +1634,13 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
     }
   }, []);
 
-  const resetData = useCallback(async () => {
+  const resetData = useCallback(async (scope: "device" | "everywhere") => {
     setResetting(true);
     setError(null);
     try {
-      await sendMessage("data:reset", {});
+      await sendMessage("data:reset", { scope });
       setResetConfirmation(null);
+      setDeviceResetArmed(false);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1873,6 +1896,12 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
 
           <Section title="Données" id="donnees">
             <Row
+              label="Synchronisation entre PC"
+              hint="Connu, Ignorer, le tri des mots fréquents et l’affichage suivent votre compte Google. Chrome doit y être connecté, avec la synchronisation des extensions activée."
+            >
+              <AccountSyncStatus status={accountSync} />
+            </Row>
+            <Row
               label="Assistant de configuration"
               hint="Reprend les 4 étapes de configuration et les 5 écrans de découverte."
             >
@@ -1880,11 +1909,49 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                 Relancer l’assistant
               </Btn>
             </Row>
-            <Row label="Tout effacer" hint="États des mots, cartes locales, dictionnaire et réglages.">
+            <Row
+              label="Réinitialiser ce PC"
+              hint="Efface ce qui est stocké sur ce PC (cartes locales, « Plus tard », dictionnaire, instructions IA), puis récupère vos décisions et l’affichage depuis votre compte Google."
+            >
+              <Btn
+                variant="ghost"
+                onClick={() => {
+                  setResetConfirmation(null);
+                  setDeviceResetArmed(true);
+                }}
+                disabled={deviceResetArmed || resetting}
+              >
+                Réinitialiser ce PC
+              </Btn>
+            </Row>
+            {deviceResetArmed && (
+              <div style={s.resetConfirm}>
+                <p style={s.resetConfirmText}>
+                  Les cartes locales, la liste « Plus tard », le dictionnaire et les instructions IA
+                  de ce PC seront perdus. Vos décisions Connu/Ignorer, le tri des mots fréquents et
+                  l’affichage reviendront depuis votre compte Google. Vos autres PC ne changent pas.
+                </p>
+                <div style={s.btnRow}>
+                  <Btn variant="danger" onClick={() => void resetData("device")} disabled={resetting}>
+                    {resetting ? "Réinitialisation…" : "Réinitialiser"}
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => setDeviceResetArmed(false)} disabled={resetting}>
+                    Annuler
+                  </Btn>
+                </div>
+              </div>
+            )}
+            <Row
+              label="Tout effacer, y compris dans mon compte Google"
+              hint="Comme la réinitialisation, et efface aussi du compte Google vos décisions, le tri et l’affichage : vos autres PC les perdent aussi."
+            >
               <Btn
                 variant="danger"
-                onClick={() => setResetConfirmation("")}
-                disabled={resetConfirmation !== null}
+                onClick={() => {
+                  setDeviceResetArmed(false);
+                  setResetConfirmation("");
+                }}
+                disabled={resetConfirmation !== null || resetting}
               >
                 Tout effacer
               </Btn>
@@ -1892,9 +1959,11 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
             {resetConfirmation !== null && (
               <div style={s.resetConfirm}>
                 <p style={s.resetConfirmText}>
-                  Les décisions manuelles (Connu, Ignorer, mots déjà connus) et les cartes locales
-                  seront perdues définitivement. Anki n’est pas modifié : ses états reviendront à la
-                  prochaine synchronisation. Tapez « {RESET_CONFIRMATION_WORD} » pour confirmer.
+                  Les décisions manuelles (Connu, Ignorer, mots déjà connus), le tri et l’affichage
+                  seront effacés de votre compte Google : vos autres PC les perdront aussi. Les
+                  cartes locales de ce PC seront perdues définitivement. Anki n’est pas modifié : ses
+                  états reviendront à la prochaine synchronisation. Tapez
+                  « {RESET_CONFIRMATION_WORD} » pour confirmer.
                 </p>
                 <div style={s.btnRow}>
                   <input
@@ -1909,13 +1978,13 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
                     onKeyDown={(e) => {
                       if (e.key === "Escape") setResetConfirmation(null);
                       if (e.key === "Enter" && isResetConfirmed(resetConfirmation) && !resetting) {
-                        void resetData();
+                        void resetData("everywhere");
                       }
                     }}
                   />
                   <Btn
                     variant="danger"
-                    onClick={() => void resetData()}
+                    onClick={() => void resetData("everywhere")}
                     disabled={!isResetConfirmed(resetConfirmation) || resetting}
                   >
                     {resetting ? "Effacement…" : "Effacer définitivement"}
@@ -1945,6 +2014,21 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
       </div>
     </Page>
   );
+}
+
+/** What the Google account holds, and whether sending to it still works. */
+function AccountSyncStatus(props: { status: MessageResult<"sync:status"> | null }): JSX.Element {
+  const { status } = props;
+  if (status === null) return <span style={s.muted}>…</span>;
+  if (status.error) return <Status ok={false}>{status.error}</Status>;
+  const ratio = status.quotaBytes > 0 ? status.bytesInUse / status.quotaBytes : 0;
+  const percent = Math.round(ratio * 100);
+  const space = status.bytesInUse > 0 && percent === 0 ? "moins de 1 %" : `${percent} %`;
+  const words = `${status.words.toLocaleString("fr-FR")} ${status.words > 1 ? "mots" : "mot"}`;
+  if (ratio >= SYNC_QUOTA_WARNING_RATIO) {
+    return <Status ok={false}>{`${words}, ${space} de l’espace utilisé : bientôt plein`}</Status>;
+  }
+  return <Status ok>{`Synchronisé, ${words}, ${space} de l’espace utilisé`}</Status>;
 }
 
 /** A setting's state, readable without its colour: ✓ when fine, the danger tone otherwise. */

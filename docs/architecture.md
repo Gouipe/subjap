@@ -420,6 +420,36 @@ Les réglages légers sont séparés dans `chrome.storage.local`, sous la clé
 unique des valeurs par défaut et les changements sont appliqués en direct au
 content script via `chrome.storage.onChanged`.
 
+### Synchronisation entre PC (compte Google)
+
+[`src/background/cloud-sync.ts`](../src/background/cloud-sync.ts) partage via
+`chrome.storage.sync` les décisions manuelles (`source: "manual"` : Connu,
+Ignorer, « inconnu » imposé contre Anki), le rang atteint dans « Mots déjà
+connus » et `subjap_options`. Les états Anki ne sont pas partagés : chaque PC
+les reconstruit depuis son Anki. Le prompt IA, la clé Jimaku et « Plus tard »
+restent locaux.
+
+- Format ([`src/core/cloud-sync.ts`](../src/core/cloud-sync.ts)) : 32 items
+  `sjw_00`…`sjw_31` choisis par hachage FNV-1a de la clé lexicale ; une entrée
+  par ligne, `<statut><jour base 36 sur 3 chiffres><clé>`. Le quota Chrome
+  (≈ 100 Ko, 8 Ko par item) tient quelques milliers de mots ; les Options
+  affichent l’espace utilisé et avertissent dès 80 %.
+- Après la première fusion d’un PC, la copie du compte fait foi. Les
+  changements locaux passent par une file persistée
+  (`subjap_sync_pending`) envoyée 2 s plus tard ; un échec (quota, limite
+  d’écritures) est conservé dans `subjap_sync_error` et réessayé.
+- Première fusion (`subjap_sync_merged` absent) : union des décisions locales
+  et partagées, la plus récente gagne (jour de `updatedAt` ou `knownAt`,
+  égalité au profit du compte). C’est ce qui garde les mots marqués avant la
+  synchronisation. Pour l’affichage, le compte gagne ; un PC seul partage le
+  sien.
+- Les changements venus d’un autre PC sont écrits dans IndexedDB, puis
+  `subjap_word_states_revision` fait relire les états aux content scripts.
+- « Réinitialiser ce PC » efface les données locales puis refait la fusion ;
+  « Tout effacer, y compris dans mon compte Google » vide aussi le compte. Une
+  suppression locale de `subjap_options` (relance de l’assistant) n’est pas
+  propagée.
+
 ## Dictionnaire et installation
 
 Le dictionnaire est JMdict-simplified, converti en `DictionaryEntry` par

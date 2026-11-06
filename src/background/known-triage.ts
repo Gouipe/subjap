@@ -32,7 +32,7 @@ const GODAN_STEM_ENDINGS: Readonly<Record<string, string>> = {
   り: "る",
 };
 
-async function triagedRank(): Promise<number> {
+export async function triagedRank(): Promise<number> {
   const setting = await db.settings.get(KNOWN_TRIAGE_RANK_SETTING_KEY);
   return typeof setting?.value === "number" ? setting.value : 0;
 }
@@ -163,6 +163,12 @@ export async function nextKnownTriageBatch(): Promise<KnownTriageBatch> {
   }
 
   return { items, fromRank, throughRank: scannedRank, totalRanks };
+}
+
+/** Adopt the sorting progress made on another PC (0 forgets it). */
+export async function setTriagedRank(rank: number): Promise<void> {
+  if (rank > 0) await db.settings.put({ key: KNOWN_TRIAGE_RANK_SETTING_KEY, value: rank });
+  else await db.settings.delete(KNOWN_TRIAGE_RANK_SETTING_KEY);
 }
 
 /** Mark the checked words known, as a manual decision, and move the cursor. */
