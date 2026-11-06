@@ -1224,7 +1224,7 @@ const control: React.CSSProperties = {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    width: 320,
+    width: 360,
     padding: "16px 16px 14px",
     boxSizing: "border-box",
     fontFamily: "var(--sj-font)",
@@ -1441,14 +1441,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   summaryValue: {
     overflow: "hidden",
-    maxWidth: 150,
+    maxWidth: 180,
     color: "var(--sj-muted)",
     fontSize: "var(--sj-size-label)",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   select: {
-    width: 156,
+    width: 176,
     padding: "5px 6px",
     border: "1px solid var(--sj-hairline)",
     borderRadius: "var(--sj-radius-control)",
@@ -1459,7 +1459,7 @@ const styles: Record<string, React.CSSProperties> = {
   stepper: {
     display: "flex",
     alignItems: "center",
-    width: 156,
+    width: 176,
     border: "1px solid var(--sj-hairline)",
     borderRadius: "var(--sj-radius-control)",
     background: "var(--sj-input)",

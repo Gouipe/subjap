@@ -84,6 +84,8 @@ const SETTINGS_SECTIONS: ReadonlyArray<{ id: string; title: string }> = [
   { id: "donnees", title: "Données" },
 ];
 
+const SETTINGS_SECTION_IDS = SETTINGS_SECTIONS.map((section) => section.id);
+
 /** How long « Réglage enregistré » stays on screen. */
 const SAVED_TOAST_MS = 2400;
 
@@ -155,13 +157,46 @@ function SubtitlePreview(props: { scale: number; showFurigana: boolean }): JSX.E
   );
 }
 
+/** A settings section: its title above one tonal panel holding its rows. */
 function Section(props: { title: string; children: React.ReactNode; id?: string }): JSX.Element {
   return (
-    <section style={s.section} id={props.id}>
+    <section style={s.section} id={props.id} className="sj-section">
       <h2 style={s.sectionTitle}>{props.title}</h2>
-      {props.children}
+      <div style={s.sectionBody} className="sj-section-body">{props.children}</div>
     </section>
   );
+}
+
+/**
+ * Id of the section under the top of the window, for the table of contents.
+ * A section counts once its title has passed the upper fifth of the window.
+ */
+function useVisibleSection(ids: ReadonlyArray<string>, ready: boolean): string | null {
+  const [visible, setVisible] = useState<string | null>(ids[0] ?? null);
+  useEffect(() => {
+    if (!ready) return;
+    const update = (): void => {
+      const line = window.innerHeight * 0.2;
+      let current = ids[0] ?? null;
+      for (const id of ids) {
+        const element = document.getElementById(id);
+        if (element && element.getBoundingClientRect().top <= line) current = id;
+      }
+      // The last sections are short: at the bottom of the page, the last one is read.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        current = ids[ids.length - 1] ?? current;
+      }
+      setVisible(current);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [ids, ready]);
+  return visible;
 }
 
 /**
@@ -1437,6 +1472,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [savedVisible, setSavedVisible] = useState(false);
   /** The triage list is long: unfolded on demand, or when opened from the popup. */
   const [triageOpen, setTriageOpen] = useState(() => location.hash === "#mots-connus");
+  const visibleSection = useVisibleSection(SETTINGS_SECTION_IDS, options !== null);
 
   useEffect(() => {
     if (savedAt === null) return;
@@ -1591,11 +1627,19 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
       <Header />
       <div className="sj-settings">
         <nav className="sj-settings-nav" aria-label="Sections des réglages">
-          {SETTINGS_SECTIONS.map((section) => (
-            <a key={section.id} href={`#${section.id}`} style={s.navLink}>
-              {section.title}
-            </a>
-          ))}
+          {SETTINGS_SECTIONS.map((section) => {
+            const current = section.id === visibleSection;
+            return (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                aria-current={current ? "location" : undefined}
+                style={current ? { ...s.navLink, ...s.navLinkCurrent } : s.navLink}
+              >
+                {section.title}
+              </a>
+            );
+          })}
         </nav>
         <main style={s.settingsMain}>
           <Section title="Affichage des sous-titres" id="affichage">
@@ -1955,17 +1999,23 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   // Continuous sections separated by a rule, not a stack of identical cards.
+  // Title on the canvas, rows on one tonal panel: the space between two
+  // panels marks a new section, the soft rule inside a panel a new row.
   section: {
-    padding: "28px 0 32px",
-    borderTop: `1px solid ${C.panelBorder}`,
+    marginBottom: 44,
     scrollMarginTop: 24,
   },
   sectionTitle: {
-    margin: "0 0 14px",
-    fontSize: "var(--sj-size-title)",
+    margin: "0 0 10px 2px",
+    fontSize: 20,
     fontWeight: 600,
     lineHeight: 1.4,
     color: C.text,
+  },
+  sectionBody: {
+    padding: "18px 22px",
+    borderRadius: "var(--sj-radius-panel)",
+    background: C.panel,
   },
   sectionLead: {
     maxWidth: "62ch",
@@ -1979,11 +2029,18 @@ const s: Record<string, React.CSSProperties> = {
   },
   navLink: {
     display: "block",
-    padding: "5px 10px",
+    padding: "6px 12px",
     borderRadius: "var(--sj-radius-control)",
     color: C.muted,
     fontSize: "var(--sj-size-compact)",
     textDecoration: "none",
+  },
+  /** The section being read: contrast, weight and a discreet vermilion mark. */
+  navLinkCurrent: {
+    background: C.panel,
+    boxShadow: "inset 2px 0 0 var(--sj-accent)",
+    color: C.text,
+    fontWeight: 500,
   },
   row: {
     display: "flex",

@@ -29,7 +29,7 @@
         display: grid;
         gap: 2px;
         margin-left: -10px;
-        padding-top: 22px;
+        padding-top: 2px;
       }
       .sj-settings-nav a:hover,
       .sj-settings-nav a:focus-visible {
@@ -39,6 +39,17 @@
       .sj-settings-nav a:focus-visible {
         outline: 2px solid var(--sj-accent);
         outline-offset: 0;
+      }
+      /* Rows fill their panel edge to edge in height: no rule after the last. */
+      .sj-section-body > .sj-row:first-child {
+        padding-top: 0 !important;
+      }
+      .sj-section-body > .sj-row:last-child {
+        padding-bottom: 0 !important;
+        border-bottom: none !important;
+      }
+      .sj-section-body > :last-child {
+        margin-bottom: 0 !important;
       }
       .sj-toggle:has(input:focus-visible) > span {
         outline: 2px solid var(--sj-accent);
