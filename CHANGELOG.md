@@ -11,6 +11,8 @@ elle serait annoncée à nouveau.
 
 - La popup signale quand une mise à jour est disponible et présente les nouveautés après chaque mise à jour.
 - Mise à jour en un double-clic avec `mettre-a-jour.cmd`, à la racine du dossier de SubJap.
+- Bouton « Mettre à jour » dans la popup : SubJap se met à jour et se recharge tout seul.
+- Installation en une ligne PowerShell, Git et Node.js compris (voir le README).
 - Réglage « Pause à la fin » : la vidéo s'arrête à la fin d'une phrase connue masquée ; X la révèle, S la rejoue.
 - Les noms de locuteurs et les bruitages entre parenthèses n'apparaissent plus dans les sous-titres japonais.
 

@@ -17,6 +17,8 @@ const manifest: ManifestV3Export = {
     "tabCapture",
     "offscreen",
     "clipboardWrite",
+    // Lets the popup's « Mettre à jour » run the local updater (git pull + build).
+    "nativeMessaging",
   ],
   host_permissions: [
     // Required by tabs.captureVisibleTab; the extension only captures the

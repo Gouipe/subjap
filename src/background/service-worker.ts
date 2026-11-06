@@ -34,6 +34,7 @@ import {
 } from "./anki-known";
 import { prepareAiEnrichmentCandidates } from "./ai-enrichment";
 import { commitKnownTriage, nextKnownTriageBatch } from "./known-triage";
+import { registerSelfUpdate } from "./self-update";
 import {
   ANKI_COMPREHENSION_DECK,
   ANKI_PRODUCTION_DECK,
@@ -80,6 +81,8 @@ chrome.runtime.onInstalled.addListener((details) => {
   void scheduleProductionReleaseAlarm();
   void isSubJapEnabled().then(updateEnabledBadge);
 });
+
+registerSelfUpdate();
 
 chrome.runtime.onStartup.addListener(() => {
   void isSubJapEnabled().then(updateEnabledBadge);

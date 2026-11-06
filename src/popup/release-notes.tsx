@@ -3,7 +3,8 @@
 // ---------------------------------------------------------------------------
 //
 // After an update, what it brought, shown once. Before one, a folded notice
-// that GitHub holds a newer version, with what it would bring.
+// that GitHub holds a newer version, with what it would bring and the
+// « Mettre à jour » button when the local updater is registered.
 
 import React, { useEffect, useState } from "react";
 import {
@@ -13,16 +14,48 @@ import {
   unseenReleaseNotes,
   type ChangelogGroup,
 } from "@/core/changelog";
+import { sendMessage } from "@/core/messaging";
+import {
+  UPDATE_STATE_KEY,
+  UPDATE_STEP_LABELS,
+  readUpdateState,
+  type UpdateState,
+} from "@/core/self-update";
 
 export function ReleaseNotes(): JSX.Element | null {
   const [installed, setInstalled] = useState<ChangelogGroup[]>([]);
   const [available, setAvailable] = useState<ChangelogGroup[]>([]);
   const [updateOpen, setUpdateOpen] = useState(false);
+  /** Whether the local updater answers; null until asked. */
+  const [updaterAvailable, setUpdaterAvailable] = useState<boolean | null>(null);
+  const [updateState, setUpdateState] = useState<UpdateState | null>(null);
 
   useEffect(() => {
     void unseenReleaseNotes().then(setInstalled, () => undefined);
     void availableUpdateNotes().then(setAvailable, () => undefined);
+    void chrome.storage.local.get(UPDATE_STATE_KEY).then((stored) => {
+      const state = readUpdateState(stored[UPDATE_STATE_KEY]);
+      setUpdateState(state);
+      if (state) setUpdateOpen(true);
+    }, () => undefined);
+    const onChange = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
+      if (area === "local" && changes[UPDATE_STATE_KEY]) {
+        setUpdateState(readUpdateState(changes[UPDATE_STATE_KEY].newValue));
+      }
+    };
+    chrome.storage.onChanged.addListener(onChange);
+    return () => chrome.storage.onChanged.removeListener(onChange);
   }, []);
+
+  const showUpdate = available.length > 0 || updateState !== null;
+
+  useEffect(() => {
+    if (!showUpdate || updaterAvailable !== null) return;
+    void sendMessage("update:probe", {}).then(
+      (result) => setUpdaterAvailable(result.available),
+      () => setUpdaterAvailable(false),
+    );
+  }, [showUpdate, updaterAvailable]);
 
   const dismiss = (): void => {
     setInstalled([]);
@@ -31,8 +64,17 @@ export function ReleaseNotes(): JSX.Element | null {
     });
   };
 
-  if (installed.length === 0 && available.length === 0) return null;
+  const startUpdate = (): void => {
+    setUpdateState({ status: "running", step: "pull", startedAt: Date.now() });
+    void sendMessage("update:start", {}).catch((err: unknown) => {
+      setUpdateState({ status: "error", message: err instanceof Error ? err.message : String(err) });
+    });
+  };
+
+  if (installed.length === 0 && !showUpdate) return null;
   const availableCount = countChangelogItems(available);
+  const running = updateState?.status === "running";
+  const failure = updateState?.status === "error" ? updateState.message : null;
 
   return (
     <>
@@ -42,15 +84,18 @@ export function ReleaseNotes(): JSX.Element | null {
             <h2 id="sj-release-notes-title" style={styles.panelTitle}>
               Nouveautés de cette version
             </h2>
-            <button type="button" style={styles.okButton} onClick={dismiss}>
+            <button type="button" style={styles.secondaryButton} onClick={dismiss}>
               OK
             </button>
           </div>
           <NoteGroups groups={installed} />
+          <p style={styles.footnote}>
+            Rechargez les onglets vidéo déjà ouverts pour y retrouver SubJap.
+          </p>
         </section>
       )}
 
-      {available.length > 0 && (
+      {showUpdate && (
         <details
           style={styles.panel}
           open={updateOpen}
@@ -59,12 +104,14 @@ export function ReleaseNotes(): JSX.Element | null {
           <summary style={styles.updateSummary}>
             <span style={styles.updateLabel}>
               <span style={styles.updateDot} aria-hidden="true" />
-              Mise à jour disponible
+              {running ? "Mise à jour en cours" : "Mise à jour disponible"}
             </span>
             <span style={styles.summaryEnd}>
-              <span style={styles.count}>
-                {availableCount} nouveauté{availableCount > 1 ? "s" : ""}
-              </span>
+              {availableCount > 0 && (
+                <span style={styles.count}>
+                  {availableCount} nouveauté{availableCount > 1 ? "s" : ""}
+                </span>
+              )}
               <span
                 aria-hidden="true"
                 style={{ ...styles.chevron, transform: updateOpen ? "rotate(90deg)" : "none" }}
@@ -74,16 +121,50 @@ export function ReleaseNotes(): JSX.Element | null {
             </span>
           </summary>
           <div style={styles.updateBody}>
-            <NoteGroups groups={available} />
-            <p style={styles.howTo}>
-              Pour l’installer, double-cliquez sur <code style={styles.code}>mettre-a-jour.cmd</code>{" "}
-              dans le dossier de SubJap, puis rechargez l’extension depuis{" "}
-              <code style={styles.code}>chrome://extensions</code>.
-            </p>
+            {available.length > 0 && <NoteGroups groups={available} />}
+            {(updaterAvailable !== null || running) && (
+              <div style={styles.updateFooter} aria-live="polite">
+                {(updaterAvailable || running) && (
+                  <button
+                    type="button"
+                    style={styles.secondaryButton}
+                    disabled={running}
+                    onClick={startUpdate}
+                  >
+                    {updateState?.status === "running"
+                      ? UPDATE_STEP_LABELS[updateState.step]
+                      : failure
+                        ? "Réessayer"
+                        : "Mettre à jour"}
+                  </button>
+                )}
+                {running && (
+                  <p style={styles.footerNote}>
+                    Vous pouvez fermer cette fenêtre : SubJap se rechargera tout seul à la fin.
+                  </p>
+                )}
+                {failure && (
+                  <p style={styles.error} role="alert">
+                    {failure}
+                  </p>
+                )}
+                {!running && (failure || updaterAvailable === false) && <ManualUpdate />}
+              </div>
+            )}
           </div>
         </details>
       )}
     </>
+  );
+}
+
+function ManualUpdate(): JSX.Element {
+  return (
+    <p style={styles.footerNote}>
+      Pour l’installer à la main, double-cliquez sur{" "}
+      <code style={styles.code}>mettre-a-jour.cmd</code> dans le dossier de SubJap, puis
+      rechargez l’extension depuis <code style={styles.code}>chrome://extensions</code>.
+    </p>
   );
 }
 
@@ -146,8 +227,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     lineHeight: 1.4,
   },
-  okButton: {
+  secondaryButton: {
     flex: "0 0 auto",
+    justifySelf: "start",
     minHeight: 28,
     padding: "4px 14px",
     border: "1px solid var(--sj-hairline)",
@@ -241,13 +323,31 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--sj-muted)",
     transform: "translateY(-2px)",
   },
-  howTo: {
-    margin: 0,
+  updateFooter: {
+    display: "grid",
+    gap: 8,
     padding: "10px 12px 12px",
     borderTop: "1px solid var(--sj-hairline-soft)",
+  },
+  footerNote: {
+    margin: 0,
     color: "var(--sj-muted)",
     fontSize: "var(--sj-size-small)",
     lineHeight: 1.45,
+  },
+  footnote: {
+    margin: 0,
+    padding: "0 12px 12px",
+    color: "var(--sj-muted)",
+    fontSize: "var(--sj-size-small)",
+    lineHeight: 1.45,
+  },
+  error: {
+    margin: 0,
+    color: "var(--sj-danger)",
+    fontSize: "var(--sj-size-small)",
+    lineHeight: 1.45,
+    wordBreak: "break-word",
   },
   code: {
     padding: "0 4px",

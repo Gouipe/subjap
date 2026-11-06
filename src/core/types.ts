@@ -512,6 +512,11 @@ export interface MessageMap {
   "anki:setupResult": { deckName: string; modelName: string };
   "anki:dueCount": Record<string, never>;
   "anki:dueCountResult": { count: number };
+  /** Whether the local updater (native messaging host) answers. */
+  "update:probe": Record<string, never>;
+  "update:probeResult": { available: boolean };
+  /** Starts git pull + build through the local updater; progress goes to storage. */
+  "update:start": Record<string, never>;
 }
 
 export type MessageType = keyof MessageMap;

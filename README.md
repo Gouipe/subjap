@@ -6,10 +6,30 @@ cartes de vocabulaire dans Anki.
 
 ## Première installation
 
+### Installation en une ligne (Windows)
+
+1. Ouvrir PowerShell : touche Windows, taper `PowerShell`, puis Entrée.
+2. Coller cette ligne, puis appuyer sur Entrée :
+
+   ```powershell
+   irm https://raw.githubusercontent.com/Gouipe/subjap/master/scripts/install.ps1 | iex
+   ```
+
+Le script installe Git et Node.js s’ils manquent (Windows peut demander une
+autorisation), télécharge SubJap dans `C:\Users\<nom>\SubJap` et le compile. Il
+propose de saisir l’adresse d’un Worker IA, facultative. Il ouvre ensuite le
+dossier `dist` et copie `chrome://extensions` dans le presse-papiers : coller
+cette adresse dans un nouvel onglet, activer le **Mode développeur**, puis
+**Charger l’extension non empaquetée** et choisir ce dossier `dist`. Relancer
+la même ligne sur un PC déjà équipé met SubJap à jour.
+
+Il reste à configurer Anki (voir plus bas). Les sections suivantes décrivent
+l’installation manuelle.
+
 ### Prérequis
 
 - Chrome ou Edge sur ordinateur ;
-- Node.js et npm pour compiler l’extension depuis le dépôt ;
+- Git, Node.js et npm pour compiler l’extension depuis le dépôt ;
 - Anki Desktop et le module [AnkiConnect](https://ankiweb.net/shared/info/2055492159)
   pour envoyer des cartes ;
 - [HyperTTS](https://ankiweb.net/shared/info/111623432) dans Anki si tu veux
@@ -91,4 +111,8 @@ sans rien écraser si des fichiers ont été modifiés localement, et signale
 quand l’IA n’est pas configurée (pas de `.env.local`).
 
 La popup signale d’elle-même qu’une mise à jour est disponible, avec la liste
-des nouveautés, puis les présente une fois après la mise à jour.
+des nouveautés. Son bouton **Mettre à jour** lance ce même script, puis
+recharge l’extension ; les nouveautés s’affichent une fois après la mise à
+jour. Le bouton passe par un petit programme local (native messaging)
+enregistré pour Chrome et Edge par `scripts/register-native-host.ps1`, que
+l’installation et chaque mise à jour par le script relancent.

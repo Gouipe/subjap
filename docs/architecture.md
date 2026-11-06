@@ -590,6 +590,19 @@ apparues depuis le journal enregistré dans `subjap_changelog_seen` forment
 l’encart « Nouveautés », affiché jusqu’au clic sur OK ; le premier lancement
 enregistre le journal sans rien afficher.
 
+Le bouton « Mettre à jour » passe par le native messaging host
+`com.subjap.updater` : `scripts/register-native-host.ps1` écrit, dans
+`%LOCALAPPDATA%\SubJap\native-host`, un lanceur qui fixe le `PATH` de Node et
+Git et son manifeste limité à l’identifiant de SubJap, puis le déclare dans le
+registre utilisateur de Chrome et d’Edge. Le service worker
+([`src/background/self-update.ts`](../src/background/self-update.ts)) tient le
+port, ce qui le garde actif même popup fermée. L’hôte
+([`scripts/native-host.mjs`](../scripts/native-host.mjs)) exécute
+`scripts/update.ps1` et relaie ses étapes (`::subjap-step`) et son erreur
+(`::subjap-error`). L’état est écrit dans `subjap_update_state` ; à la réussite,
+le service worker l’efface puis appelle `chrome.runtime.reload()`. Un état « en
+cours » trouvé par un nouveau service worker devient une erreur d’interruption.
+
 Les pages React ne contiennent pas la logique de lecture : elles utilisent le
 bus de messages et les modules partagés pour lire ou modifier l’état.
 

@@ -310,10 +310,14 @@ de cartes Anki existantes, suivi de « en cours » le cas échéant.
 ### Mettre à jour SubJap
 
 Quand une nouvelle version est publiée, la popup affiche **Mise à jour
-disponible** ; le bandeau se déplie pour lister les nouveautés. Double-cliquer
-sur `mettre-a-jour.cmd` dans le dossier de SubJap, puis cliquer sur
-**Recharger** dans `chrome://extensions`. À l’ouverture suivante, la popup
-présente les **Nouveautés de cette version** jusqu’au clic sur **OK**.
+disponible** ; le bandeau se déplie pour lister les nouveautés. Cliquer sur
+**Mettre à jour** : la popup affiche l’étape en cours, peut être fermée, et
+SubJap se recharge tout seul à la fin. Recharger ensuite les onglets vidéo déjà
+ouverts. À l’ouverture suivante, la popup présente les **Nouveautés de cette
+version** jusqu’au clic sur **OK**. Sans le bouton (installation depuis un zip,
+ou programme de mise à jour pas encore enregistré), double-cliquer sur
+`mettre-a-jour.cmd` dans le dossier de SubJap, puis cliquer sur **Recharger**
+dans `chrome://extensions`.
 
 ## Piloter les couleurs depuis Anki
 
