@@ -40,6 +40,7 @@ import {
 import type { OnboardingState } from "@/onboarding";
 import type { KnownTriageBatch, OverlayOptions } from "@/core/types";
 import { getJimakuApiKey, saveJimakuApiKey } from "@/subtitles/jimaku";
+import { KNOWN_SENTENCE_CHOICES, SECONDARY_LANGUAGE_CHOICES } from "@/ui/labels";
 
 interface DictStatus {
   count: number;
@@ -55,21 +56,36 @@ interface AnkiStatus {
 // Small presentational helpers
 // ---------------------------------------------------------------------------
 
+/** Theme tokens of src/ui/theme.css. Green and blue only ever describe a word to mine. */
 const C = {
-  bg: "#0c0d10",
-  panel: "#14161b",
-  panelRaised: "#1b1e24",
-  panelBorder: "#343842",
-  text: "#f4f1ea",
-  muted: "#b2b6bf",
-  accent: "#ff624d",
-  blue: "#ff624d",
-  green: "#78d6a3",
-  red: "#ff8490",
-  amber: "#f1b46d",
-  priorityBlue: "#55b8ff",
-  unknownGrey: "#9ca1aa",
+  bg: "var(--sj-canvas)",
+  panel: "var(--sj-surface)",
+  panelRaised: "var(--sj-surface-raised)",
+  panelBorder: "var(--sj-hairline)",
+  hairlineSoft: "var(--sj-hairline-soft)",
+  input: "var(--sj-input)",
+  text: "var(--sj-text)",
+  muted: "var(--sj-muted)",
+  accent: "var(--sj-accent)",
+  green: "var(--sj-priority-high)",
+  red: "var(--sj-danger)",
+  priorityBlue: "var(--sj-priority-mid)",
+  unknownGrey: "var(--sj-unknown)",
 };
+
+/** Sections of the settings page, in the order of the page and its navigation. */
+const SETTINGS_SECTIONS: ReadonlyArray<{ id: string; title: string }> = [
+  { id: "affichage", title: "Affichage" },
+  { id: "mots-connus", title: "Mots déjà connus" },
+  { id: "anki", title: "Anki" },
+  { id: "jimaku", title: "Sous-titres japonais" },
+  { id: "dictionnaire", title: "Dictionnaire" },
+  { id: "ia", title: "Intelligence artificielle" },
+  { id: "donnees", title: "Données" },
+];
+
+/** How long « Réglage enregistré » stays on screen. */
+const SAVED_TOAST_MS = 2400;
 
 /** Target word colour of the mining dialog (its accent hover tone). */
 const MOCK_TARGET = "#ff7966";
@@ -200,7 +216,7 @@ function JimakuSettings(): JSX.Element {
 
   return (
     <Section title="Sous-titres japonais (Jimaku)" id="jimaku">
-      <p style={s.muted}>
+      <p style={s.sectionLead}>
         Quand une vidéo d’anime (Re:ANIME…) n’a pas de sous-titres japonais, SubJap
         peut les installer depuis Jimaku. Créez un compte gratuit sur{" "}
         <a href="https://jimaku.cc/login" target="_blank" rel="noreferrer" style={s.link}>jimaku.cc</a>,
@@ -225,28 +241,44 @@ function JimakuSettings(): JSX.Element {
           {busy ? "Vérification…" : "Enregistrer"}
         </Btn>
       </Row>
-      {note && <p style={{ ...s.mutedSmall, color: note.ok ? C.green : C.red }}>{note.text}</p>}
+      {note && <p style={note.ok ? s.rowNoteBlock : s.errorNote}>{note.ok ? "✓ " : ""}{note.text}</p>}
     </Section>
   );
 }
 
-function Row(props: { label: string; children: React.ReactNode; hint?: string }): JSX.Element {
+/**
+ * One setting: its name and explanation on the left, its control on the right.
+ * `note` reports the outcome of the row's action right under it.
+ */
+function Row(props: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+  note?: string;
+}): JSX.Element {
   return (
-    <div style={s.row}>
+    <div style={s.row} className="sj-row">
       <div style={s.rowLabel}>
         <span>{props.label}</span>
         {props.hint && <span style={s.rowHint}>{props.hint}</span>}
+        {props.note && <span style={s.rowNote}>{props.note}</span>}
       </div>
       <div style={s.rowControl}>{props.children}</div>
     </div>
   );
 }
 
-function Toggle(props: { checked: boolean; onChange: (v: boolean) => void }): JSX.Element {
+function Toggle(props: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label?: string;
+}): JSX.Element {
   return (
-    <label style={s.toggleWrap}>
+    <label style={s.toggleWrap} className="sj-toggle">
       <input
         type="checkbox"
+        role="switch"
+        aria-label={props.label}
         style={s.toggle}
         checked={props.checked}
         onChange={(e) => props.onChange(e.target.checked)}
@@ -260,6 +292,7 @@ function Toggle(props: { checked: boolean; onChange: (v: boolean) => void }): JS
         <span
           style={{
             ...s.toggleThumb,
+            backgroundColor: props.checked ? C.bg : C.text,
             transform: props.checked ? "translateX(18px)" : "translateX(2px)",
           }}
         />
@@ -536,7 +569,7 @@ function KnownWordsTriage(props: {
                 }
                 disabled={busy}
               >
-                {status === "saving" ? "Enregistrement…" : "Valider et passer au lot suivant →"}
+                {status === "saving" ? "Enregistrement…" : "Valider et passer au lot suivant"}
               </Btn>
             )}
             {props.onFinish && (
@@ -796,10 +829,10 @@ function MinePreview(): JSX.Element {
         </div>
         <div style={{ ...s.mockTranslation, marginTop: 4 }}>scary · frightening</div>
         <div style={s.minePopoverActions}>
-          <span style={s.minePopoverBtn}>Connu</span>
-          <span style={s.minePopoverBtn}>Ignorer</span>
-          <span style={{ ...s.minePopoverBtn, ...s.mockSend, padding: "4px 8px" }}>⛏ Miner</span>
-          <span style={{ ...s.minePopoverBtn, borderColor: C.accent }}>Plus tard</span>
+          <span style={{ ...s.minePopoverBtn, ...s.mockSend, padding: "4px 8px" }}>Miner</span>
+          <span style={s.minePopoverBtn}>Plus tard</span>
+          <span style={{ ...s.minePopoverBtn, ...s.minePopoverQuiet }}>Connu</span>
+          <span style={{ ...s.minePopoverBtn, ...s.minePopoverQuiet }}>Ignorer</span>
         </div>
       </div>
       <div style={s.mineSubtitle}>
@@ -867,7 +900,7 @@ function MiningPreview(): JSX.Element {
         <span style={s.mockLabel}>Notes</span>
         <span style={s.mockRow}>
           <span style={s.mockButton}>
-            ✨ Enrichir avec l’IA <MockKbd>I</MockKbd>
+            Enrichir avec l’IA <MockKbd>I</MockKbd>
           </span>
           <Callout n={4} />
         </span>
@@ -1055,14 +1088,14 @@ function OnboardingWizard(props: {
 
           {!anki?.connected && (
             <div style={s.warningBox}>
-              Anki n’est pas connecté : <UiButton variant="mine">⛏ Miner</UiButton> ne crée pas de carte à réviser, donc
+              Anki n’est pas connecté : <UiButton variant="mine">Miner</UiButton> ne crée pas de carte à réviser, donc
               aucun mot ne devient acquis par ce chemin. Utilisez <UiButton>Connu</UiButton>, ou
               connectez Anki dans les réglages.
             </div>
           )}
 
           <div style={s.btnRow}>
-            <Btn onClick={() => setEndScreen("mine")}>Continuer →</Btn>
+            <Btn onClick={() => setEndScreen("mine")}>Continuer</Btn>
           </div>
         </div>
       </Page>
@@ -1077,7 +1110,7 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>6 · Miner un mot</h2>
           <p style={s.muted}>
-            Survolez un mot du sous-titre, puis cliquez sur <UiButton variant="mine">⛏ Miner</UiButton>.
+            Survolez un mot du sous-titre, puis cliquez sur <UiButton variant="mine">Miner</UiButton>.
           </p>
           <MinePreview />
           <p style={s.mutedSmall}>
@@ -1087,9 +1120,9 @@ function OnboardingWizard(props: {
           </p>
           <div style={s.btnRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("colors")}>
-              ← Précédent
+              Précédent
             </Btn>
-            <Btn onClick={() => setEndScreen("mining")}>Continuer →</Btn>
+            <Btn onClick={() => setEndScreen("mining")}>Continuer</Btn>
           </div>
         </div>
       </Page>
@@ -1104,15 +1137,15 @@ function OnboardingWizard(props: {
         <div style={s.card}>
           <h2 style={s.cardTitle}>7 · Créer une carte</h2>
           <p style={s.muted}>
-            Après <UiButton variant="mine">⛏ Miner</UiButton>, cet écran prépare la carte Anki à partir de la scène.
+            Après <UiButton variant="mine">Miner</UiButton>, cet écran prépare la carte Anki à partir de la scène.
           </p>
           <MiningPreview />
           <CalloutList items={MINING_CALLOUTS} />
           <div style={s.btnRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("mine")}>
-              ← Précédent
+              Précédent
             </Btn>
-            <Btn onClick={() => setEndScreen("anki")}>Continuer →</Btn>
+            <Btn onClick={() => setEndScreen("anki")}>Continuer</Btn>
           </div>
         </div>
       </Page>
@@ -1133,9 +1166,9 @@ function OnboardingWizard(props: {
           <CalloutList items={ANKI_CALLOUTS} />
           <div style={s.btnRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("mining")}>
-              ← Précédent
+              Précédent
             </Btn>
-            <Btn onClick={() => setEndScreen("ready")}>Continuer →</Btn>
+            <Btn onClick={() => setEndScreen("ready")}>Continuer</Btn>
           </div>
         </div>
       </Page>
@@ -1177,7 +1210,7 @@ function OnboardingWizard(props: {
 
           <div style={s.navRow}>
             <Btn variant="ghost" onClick={() => setEndScreen("anki")}>
-              ← Précédent
+              Précédent
             </Btn>
             <Btn variant="ghost" onClick={props.onFinished}>
               Voir les réglages
@@ -1203,7 +1236,7 @@ function OnboardingWizard(props: {
             clic (~22 000 mots courants).
           </p>
           {dict?.installed ? (
-            <p style={{ color: C.green }}>
+            <p style={s.statusOk}>
               ✓ Dictionnaire installé : {dict.count.toLocaleString()} entrées
             </p>
           ) : (
@@ -1223,7 +1256,7 @@ function OnboardingWizard(props: {
                   void completeDictionaryStep().then(() => advanceTo(1));
                 }}
               >
-                Continuer →
+                Continuer
               </Btn>
             ) : (
               <Btn
@@ -1250,8 +1283,8 @@ function OnboardingWizard(props: {
             <p style={s.muted}>Vérification…</p>
           ) : anki.connected ? (
             <>
-              <p style={{ color: C.green }}>
-                ✓ AnkiConnect détecté — {anki.deckNames.length}{" "}
+              <p style={s.statusOk}>
+                ✓ AnkiConnect détecté, {anki.deckNames.length}{" "}
                 {anki.deckNames.length > 1 ? "decks" : "deck"}
               </p>
               <p style={s.mutedSmall}>
@@ -1259,14 +1292,14 @@ function OnboardingWizard(props: {
               </p>
             </>
           ) : (
-            <p style={{ color: C.amber }}>
-              AnkiConnect introuvable. Ouvrez Anki (avec le plugin AnkiConnect), puis vérifiez à
+            <p style={s.statusProblem}>
+              AnkiConnect introuvable. Ouvrez Anki (avec le module AnkiConnect), puis vérifiez à
               nouveau, ou passez cette étape.
             </p>
           )}
           <div style={s.btnRow}>
             {anki?.connected ? (
-              <Btn onClick={() => void checkAnki()}>Continuer →</Btn>
+              <Btn onClick={() => void checkAnki()}>Continuer</Btn>
             ) : (
               <Btn onClick={() => void checkAnki()} disabled={checkingAnki}>
                 {checkingAnki ? "Vérification…" : "Vérifier la connexion"}
@@ -1351,7 +1384,7 @@ function OnboardingWizard(props: {
             </div>
           </div>
           <div style={s.btnRow}>
-            <Btn onClick={() => void saveDisplayOptions()}>Continuer →</Btn>
+            <Btn onClick={() => void saveDisplayOptions()}>Continuer</Btn>
           </div>
         </div>
       )}
@@ -1400,8 +1433,17 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   const [resetConfirmation, setResetConfirmation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  /** « Réglage enregistré » shows briefly after each save. */
+  const [savedVisible, setSavedVisible] = useState(false);
   /** The triage list is long: unfolded on demand, or when opened from the popup. */
   const [triageOpen, setTriageOpen] = useState(() => location.hash === "#mots-connus");
+
+  useEffect(() => {
+    if (savedAt === null) return;
+    setSavedVisible(true);
+    const timer = setTimeout(() => setSavedVisible(false), SAVED_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [savedAt]);
 
   const refresh = useCallback(async () => {
     try {
@@ -1545,285 +1587,313 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
   }, [refresh]);
 
   return (
-    <Page>
+    <Page maxWidth={980}>
       <Header />
-      {error && <div style={s.errorBox}>{error}</div>}
-      {savedAt && <div style={s.noticeBox}>Réglages enregistrés ✓</div>}
+      <div className="sj-settings">
+        <nav className="sj-settings-nav" aria-label="Sections des réglages">
+          {SETTINGS_SECTIONS.map((section) => (
+            <a key={section.id} href={`#${section.id}`} style={s.navLink}>
+              {section.title}
+            </a>
+          ))}
+        </nav>
+        <main style={s.settingsMain}>
+          <Section title="Affichage des sous-titres" id="affichage">
+            {options && (
+              <>
+                <SubtitlePreview scale={options.subtitleScale} showFurigana={options.showFurigana} />
+                <Row label="Taille" hint="Proportionnelle à la taille du lecteur.">
+                  <div style={s.inputGroup}>
+                    <input
+                      type="range"
+                      min={SUBTITLE_SCALE_MIN}
+                      max={SUBTITLE_SCALE_MAX}
+                      step={10}
+                      value={options.subtitleScale}
+                      aria-label="Taille des sous-titres"
+                      style={s.range}
+                      onChange={(e) => void updateOptions({ subtitleScale: Number(e.target.value) })}
+                    />
+                    <span style={s.inputSuffix}>{options.subtitleScale} %</span>
+                  </div>
+                </Row>
+                <Row label="Furigana">
+                  <Toggle
+                    label="Furigana"
+                    checked={options.showFurigana}
+                    onChange={(v) => void updateOptions({ showFurigana: v })}
+                  />
+                </Row>
+                <Row
+                  label="Pointiller les mots en cours"
+                  hint="Mots dont la carte Anki est étudiée mais pas encore mûre (intervalle de moins de 21 jours)."
+                >
+                  <Toggle
+                    label="Pointiller les mots en cours"
+                    checked={options.markYoungWords}
+                    onChange={(v) => void updateOptions({ markYoungWords: v })}
+                  />
+                </Row>
+                <Row
+                  label="Traduction"
+                  hint="Le japonais reste principal. Si la langue choisie manque, l’autre sert de repli."
+                >
+                  <select
+                    value={options.secondarySubtitleLanguage}
+                    aria-label="Traduction"
+                    style={s.select}
+                    onChange={(e) =>
+                      void updateOptions({
+                        secondarySubtitleLanguage:
+                          e.target.value === "en" || e.target.value === "none"
+                            ? e.target.value
+                            : "fr",
+                      })
+                    }
+                  >
+                    {SECONDARY_LANGUAGE_CHOICES.map((choice) => (
+                      <option key={choice.value} value={choice.value}>{choice.label}</option>
+                    ))}
+                  </select>
+                </Row>
+                <Row
+                  label="Phrases connues"
+                  hint="Phrases dont tous les mots sont connus ou ignorés. Survol ou X : le japonais d’abord, puis la traduction."
+                >
+                  <select
+                    value={options.knownSentenceSubtitles}
+                    aria-label="Phrases connues"
+                    style={s.select}
+                    onChange={(e) =>
+                      void updateOptions({
+                        knownSentenceSubtitles:
+                          e.target.value === "hide-translation" || e.target.value === "hide-all"
+                            ? e.target.value
+                            : "show",
+                      })
+                    }
+                  >
+                    {KNOWN_SENTENCE_CHOICES.map((choice) => (
+                      <option key={choice.value} value={choice.value}>{choice.label}</option>
+                    ))}
+                  </select>
+                </Row>
+              </>
+            )}
+          </Section>
 
-      <Section title="Dictionnaire">
-        <Row label="Statut">
-          {dict === null ? (
-            <span style={s.muted}>…</span>
-          ) : dict.installed ? (
-            <span style={{ color: C.green }}>Installé — {dict.count.toLocaleString()} entrées</span>
-          ) : (
-            <span style={{ color: C.amber }}>Non installé</span>
-          )}
-        </Row>
-        <Row label="Pack">
-          <select
-            value={pack.id}
-            style={s.select}
-            onChange={(e) => {
-              const found = JMDICT_PACKS.find((p) => p.id === e.target.value);
-              if (found) setPack(found);
-            }}
-          >
-            {JMDICT_PACKS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </Row>
-        <Row label="Description">
-          <span style={s.mutedSmall}>{pack.description}</span>
-        </Row>
-        <Row label="Action">
-          <div style={s.btnRow}>
-            <Btn onClick={() => void installDictionary()} disabled={downloading}>
-              {downloading
-                ? "Téléchargement…"
-                : dict?.installed
-                  ? `Réinstaller (${pack.id === "full" ? "pack complet" : "pack courant"})`
-                  : "Installer le dictionnaire"}
-            </Btn>
-          </div>
-        </Row>
-      </Section>
-
-      <Section title="Anki">
-        <Row label="AnkiConnect">
-          {anki === null ? (
-            <span style={s.muted}>…</span>
-          ) : anki.connected ? (
-            <span style={{ color: C.green }}>
-              Connecté — {anki.deckNames.length} {anki.deckNames.length > 1 ? "decks" : "deck"}
-            </span>
-          ) : (
-            <span style={{ color: C.amber }}>Déconnecté (port 8765)</span>
-          )}
-        </Row>
-        <Row label="Vérification">
-          <Btn variant="ghost" onClick={() => void checkAnki()} disabled={checkingAnki}>
-            {checkingAnki ? "Vérification…" : "Vérifier la connexion"}
-          </Btn>
-        </Row>
-        <Row
-          label="Decks de vocabulaire"
-          hint="crée Compréhension et Production sous 日本語::Vocabulaire, puis met à jour le modèle Migaku Memory"
-        >
-          <div style={s.btnRow}>
-            <Btn onClick={() => void setupAnki()} disabled={settingUpAnki || !anki?.connected}>
-              {settingUpAnki ? "Configuration…" : "Configurer les decks Anki"}
-            </Btn>
-          </div>
-        </Row>
-        {ankiNote && (
-          <Row label="Prêt">
-            <span style={{ color: C.green }}>
-              Deck « {ankiNote.deckName} » + modèle « {ankiNote.modelName} »
-            </span>
-          </Row>
-        )}
-        <Row
-          label="Statuts des mots"
-          hint="synchronise KNOWN, IGNORED, UNKNOWN et LEARNING dans tous les decks"
-        >
-          <div style={s.btnRow}>
-            <Btn
-              variant="ghost"
-              onClick={() => void syncAnki()}
-              disabled={syncingAnki || !anki?.connected}
-            >
-              {syncingAnki ? "Synchronisation…" : "Synchroniser maintenant"}
-            </Btn>
-            {ankiSyncNote && <span style={{ color: C.green }}>{ankiSyncNote}</span>}
-          </div>
-        </Row>
-      </Section>
-
-      <Section title="Mots déjà connus" id="mots-connus">
-        <p style={s.muted}>Indiquez les mots fréquents que vous connaissez déjà.</p>
-        {triageOpen ? (
-          <KnownWordsTriage />
-        ) : (
-          <Btn variant="ghost" onClick={() => setTriageOpen(true)}>
-            Trier les mots fréquents →
-          </Btn>
-        )}
-      </Section>
-
-      <Section title="Affichage des sous-titres">
-        {options && (
-          <>
-            <Row label="Taille des sous-titres" hint="suit la taille du lecteur">
-              <div style={s.inputGroup}>
-                <input
-                  type="range"
-                  min={SUBTITLE_SCALE_MIN}
-                  max={SUBTITLE_SCALE_MAX}
-                  step={10}
-                  value={options.subtitleScale}
-                  style={s.range}
-                  onChange={(e) => void updateOptions({ subtitleScale: Number(e.target.value) })}
-                />
-                <span style={s.inputSuffix}>{options.subtitleScale} %</span>
-              </div>
-            </Row>
-            <SubtitlePreview scale={options.subtitleScale} showFurigana={options.showFurigana} />
-            <Row label="Furigana">
-              <Toggle
-                checked={options.showFurigana}
-                onChange={(v) => void updateOptions({ showFurigana: v })}
-              />
-            </Row>
-            <Row
-              label="Pointiller les mots en cours"
-              hint="carte Anki étudiée mais pas encore mûre (intervalle de moins de 21 jours)"
-            >
-              <Toggle
-                checked={options.markYoungWords}
-                onChange={(v) => void updateOptions({ markYoungWords: v })}
-              />
-            </Row>
-            <Row
-              label="Langues des sous-titres"
-              hint="principal : japonais · l'autre traduction sert de repli · ou aucune traduction"
-            >
-              <select
-                value={options.secondarySubtitleLanguage}
-                style={s.select}
-                onChange={(e) =>
-                  void updateOptions({
-                    secondarySubtitleLanguage:
-                      e.target.value === "en" || e.target.value === "none"
-                        ? e.target.value
-                        : "fr",
-                  })
-                }
-              >
-                <option value="none">Secondaire : aucun</option>
-                <option value="fr">Secondaire : français</option>
-                <option value="en">Secondaire : anglais</option>
-              </select>
-            </Row>
-            <Row
-              label="Phrases connues"
-              hint="tous les mots connus ou ignorés · survol ou X : japonais d'abord, puis traduction"
-            >
-              <select
-                value={options.knownSentenceSubtitles}
-                style={s.select}
-                onChange={(e) =>
-                  void updateOptions({
-                    knownSentenceSubtitles:
-                      e.target.value === "hide-translation" || e.target.value === "hide-all"
-                        ? e.target.value
-                        : "show",
-                  })
-                }
-              >
-                <option value="show">Tout afficher</option>
-                <option value="hide-translation">Masquer la traduction</option>
-                <option value="hide-all">Masquer japonais et traduction (écoute)</option>
-              </select>
-            </Row>
-          </>
-        )}
-      </Section>
-
-      <JimakuSettings />
-
-      <Section title="Intelligence artificielle">
-        <p style={s.muted}>
-          Modifie les instructions utilisées pour enrichir les Notes. Les
-          variables entre doubles accolades sont remplacées automatiquement.
-        </p>
-        {aiPrompt !== null && (
-          <>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              spellCheck={false}
-              aria-label="Prompt global d’enrichissement IA"
-              style={s.promptInput}
-            />
-            <div style={s.btnRow}>
-              <Btn onClick={() => void saveAiPrompt()} disabled={savingAiPrompt}>
-                {savingAiPrompt ? "Enregistrement…" : "Enregistrer le prompt"}
+          <Section title="Mots déjà connus" id="mots-connus">
+            <p style={s.sectionLead}>
+              Indiquez les mots fréquents que vous connaissez déjà : SubJap ne grisera que les vrais inconnus.
+            </p>
+            {triageOpen ? (
+              <KnownWordsTriage />
+            ) : (
+              <Btn variant="ghost" onClick={() => setTriageOpen(true)}>
+                Trier les mots fréquents
               </Btn>
+            )}
+          </Section>
+
+          <Section title="Anki" id="anki">
+            <Row label="AnkiConnect" hint="Anki doit rester ouvert, avec le module AnkiConnect (port 8765).">
+              {anki === null ? (
+                <span style={s.muted}>…</span>
+              ) : (
+                <Status ok={anki.connected}>
+                  {anki.connected
+                    ? `Connecté, ${anki.deckNames.length} ${anki.deckNames.length > 1 ? "decks" : "deck"}`
+                    : "Déconnecté"}
+                </Status>
+              )}
+              <Btn variant="ghost" onClick={() => void checkAnki()} disabled={checkingAnki}>
+                {checkingAnki ? "Vérification…" : "Vérifier"}
+              </Btn>
+            </Row>
+            <Row
+              label="Decks de vocabulaire"
+              hint="Crée Compréhension et Production sous 日本語::Vocabulaire, puis met à jour le type de note Migaku Memory."
+              note={ankiNote ? `✓ Deck « ${ankiNote.deckName} » et type de note « ${ankiNote.modelName} » prêts.` : undefined}
+            >
+              <Btn onClick={() => void setupAnki()} disabled={settingUpAnki || !anki?.connected}>
+                {settingUpAnki ? "Configuration…" : "Configurer les decks"}
+              </Btn>
+            </Row>
+            <Row
+              label="États des mots depuis Anki"
+              hint="Lit les tags KNOWN, IGNORED, UNKNOWN et LEARNING dans tous les decks. Automatique toutes les deux minutes pendant une vidéo."
+              note={ankiSyncNote ? `✓ ${ankiSyncNote}` : undefined}
+            >
               <Btn
                 variant="ghost"
-                onClick={() => void resetAiPrompt()}
-                disabled={savingAiPrompt}
+                onClick={() => void syncAnki()}
+                disabled={syncingAnki || !anki?.connected}
               >
-                Restaurer le défaut
+                {syncingAnki ? "Synchronisation…" : "Synchroniser maintenant"}
               </Btn>
-            </div>
-            <p style={s.mutedSmall}>
-              Variables disponibles : <code>{"{{targetWord}}"}</code>,{" "}
-              <code>{"{{targetReading}}"}</code>, <code>{"{{sentence}}"}</code>,{" "}
-              <code>{"{{definitions}}"}</code> et <code>{"{{kanjiCandidates}}"}</code>.
-            </p>
-          </>
-        )}
-      </Section>
+            </Row>
+          </Section>
 
-      <Section title="Données">
-        <Row label="Effacer" hint="états de mots, cartes, dictionnaire et réglages">
-          <Btn
-            variant="danger"
-            onClick={() => setResetConfirmation("")}
-            disabled={resetConfirmation !== null}
-          >
-            Tout effacer
-          </Btn>
-        </Row>
-        {resetConfirmation !== null && (
-          <div style={s.resetConfirm}>
-            <p style={s.resetConfirmText}>
-              Les décisions manuelles (Connu, Ignorer, mots déjà connus) et les cartes locales
-              seront perdues définitivement. Anki n’est pas modifié : ses états reviendront à la
-              prochaine synchronisation. Tapez « {RESET_CONFIRMATION_WORD} » pour confirmer.
-            </p>
-            <div style={s.btnRow}>
-              <input
-                autoFocus
-                value={resetConfirmation}
-                placeholder={RESET_CONFIRMATION_WORD}
-                aria-label={`Tapez « ${RESET_CONFIRMATION_WORD} » pour confirmer`}
-                autoComplete="off"
-                spellCheck={false}
-                style={s.input}
-                onChange={(e) => setResetConfirmation(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setResetConfirmation(null);
-                  if (e.key === "Enter" && isResetConfirmed(resetConfirmation) && !resetting) {
-                    void resetData();
-                  }
+          <JimakuSettings />
+
+          <Section title="Dictionnaire" id="dictionnaire">
+            <Row label="État">
+              {dict === null ? (
+                <span style={s.muted}>…</span>
+              ) : (
+                <Status ok={dict.installed}>
+                  {dict.installed
+                    ? `Installé, ${dict.count.toLocaleString("fr-FR")} entrées`
+                    : "Non installé : les mots n’ont pas de définition"}
+                </Status>
+              )}
+            </Row>
+            <Row label="Pack" hint={pack.description}>
+              <select
+                value={pack.id}
+                aria-label="Pack du dictionnaire"
+                style={s.select}
+                onChange={(e) => {
+                  const found = JMDICT_PACKS.find((p) => p.id === e.target.value);
+                  if (found) setPack(found);
                 }}
-              />
+              >
+                {JMDICT_PACKS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <Btn
+                variant={dict?.installed ? "ghost" : "primary"}
+                onClick={() => void installDictionary()}
+                disabled={downloading}
+              >
+                {downloading ? "Téléchargement…" : dict?.installed ? "Réinstaller" : "Installer"}
+              </Btn>
+            </Row>
+          </Section>
+
+          <Section title="Intelligence artificielle" id="ia">
+            <p style={s.sectionLead}>
+              Instructions utilisées par « Enrichir avec l’IA » pour rédiger les Notes d’une carte.
+              Les variables entre doubles accolades sont remplacées pour chaque mot.
+            </p>
+            {aiPrompt !== null && (
+              <>
+                <textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  spellCheck={false}
+                  aria-label="Instructions d’enrichissement IA"
+                  style={s.promptInput}
+                />
+                <p style={s.mutedSmall}>
+                  Variables : <code style={s.code}>{"{{targetWord}}"}</code>{" "}
+                  <code style={s.code}>{"{{targetReading}}"}</code>{" "}
+                  <code style={s.code}>{"{{sentence}}"}</code>{" "}
+                  <code style={s.code}>{"{{definitions}}"}</code>{" "}
+                  <code style={s.code}>{"{{kanjiCandidates}}"}</code>
+                </p>
+                <div style={s.btnRow}>
+                  <Btn onClick={() => void saveAiPrompt()} disabled={savingAiPrompt}>
+                    {savingAiPrompt ? "Enregistrement…" : "Enregistrer les instructions"}
+                  </Btn>
+                  <Btn
+                    variant="ghost"
+                    onClick={() => void resetAiPrompt()}
+                    disabled={savingAiPrompt}
+                  >
+                    Restaurer le texte d’origine
+                  </Btn>
+                </div>
+              </>
+            )}
+          </Section>
+
+          <Section title="Données" id="donnees">
+            <Row
+              label="Assistant de configuration"
+              hint="Reprend les 4 étapes de configuration et les 5 écrans de découverte."
+            >
+              <Btn variant="ghost" onClick={props.onStartOnboarding}>
+                Relancer l’assistant
+              </Btn>
+            </Row>
+            <Row label="Tout effacer" hint="États des mots, cartes locales, dictionnaire et réglages.">
               <Btn
                 variant="danger"
-                onClick={() => void resetData()}
-                disabled={!isResetConfirmed(resetConfirmation) || resetting}
+                onClick={() => setResetConfirmation("")}
+                disabled={resetConfirmation !== null}
               >
-                {resetting ? "Effacement…" : "Effacer définitivement"}
+                Tout effacer
               </Btn>
-              <Btn variant="ghost" onClick={() => setResetConfirmation(null)} disabled={resetting}>
-                Annuler
-              </Btn>
-            </div>
+            </Row>
+            {resetConfirmation !== null && (
+              <div style={s.resetConfirm}>
+                <p style={s.resetConfirmText}>
+                  Les décisions manuelles (Connu, Ignorer, mots déjà connus) et les cartes locales
+                  seront perdues définitivement. Anki n’est pas modifié : ses états reviendront à la
+                  prochaine synchronisation. Tapez « {RESET_CONFIRMATION_WORD} » pour confirmer.
+                </p>
+                <div style={s.btnRow}>
+                  <input
+                    autoFocus
+                    value={resetConfirmation}
+                    placeholder={RESET_CONFIRMATION_WORD}
+                    aria-label={`Tapez « ${RESET_CONFIRMATION_WORD} » pour confirmer`}
+                    autoComplete="off"
+                    spellCheck={false}
+                    style={s.input}
+                    onChange={(e) => setResetConfirmation(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setResetConfirmation(null);
+                      if (e.key === "Enter" && isResetConfirmed(resetConfirmation) && !resetting) {
+                        void resetData();
+                      }
+                    }}
+                  />
+                  <Btn
+                    variant="danger"
+                    onClick={() => void resetData()}
+                    disabled={!isResetConfirmed(resetConfirmation) || resetting}
+                  >
+                    {resetting ? "Effacement…" : "Effacer définitivement"}
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => setResetConfirmation(null)} disabled={resetting}>
+                    Annuler
+                  </Btn>
+                </div>
+              </div>
+            )}
+          </Section>
+        </main>
+      </div>
+
+      {/* Feedback stays in view wherever the change was made on this long page. */}
+      <div style={s.feedbackDock} aria-live="polite">
+        {error ? (
+          <div style={s.errorToast} role="alert">
+            <span>{error}</span>
+            <button style={s.toastClose} aria-label="Fermer le message" onClick={() => setError(null)}>
+              ✕
+            </button>
           </div>
-        )}
-        <Row label="Assistant" hint="relance les 4 étapes de configuration et les 5 slides de découverte">
-          <Btn variant="ghost" onClick={props.onStartOnboarding}>
-            Recommencer l'onboarding
-          </Btn>
-        </Row>
-      </Section>
+        ) : savedVisible ? (
+          <div style={s.savedToast}>✓ Réglage enregistré</div>
+        ) : null}
+      </div>
     </Page>
+  );
+}
+
+/** A setting's state, readable without its colour: ✓ when fine, the danger tone otherwise. */
+function Status(props: { ok: boolean; children: React.ReactNode }): JSX.Element {
+  return (
+    <span style={props.ok ? s.statusOk : s.statusProblem}>
+      {props.ok ? "✓ " : ""}
+      {props.children}
+    </span>
   );
 }
 
@@ -1834,7 +1904,7 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
 const s: Record<string, React.CSSProperties> = {
   page: {
     margin: "0 auto",
-    padding: "40px 24px 64px",
+    padding: "40px 24px 96px",
     maxWidth: 720,
     color: C.text,
     fontFamily: "var(--sj-font)",
@@ -1884,42 +1954,138 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 18,
     fontWeight: 600,
   },
+  // Continuous sections separated by a rule, not a stack of identical cards.
   section: {
-    backgroundColor: C.panel,
-    border: `1px solid ${C.panelBorder}`,
-    borderRadius: 12,
-    padding: "16px 20px",
-    marginBottom: 20,
+    padding: "28px 0 32px",
+    borderTop: `1px solid ${C.panelBorder}`,
+    scrollMarginTop: 24,
   },
   sectionTitle: {
-    margin: "0 0 12px",
-    fontSize: 15,
+    margin: "0 0 14px",
+    fontSize: "var(--sj-size-title)",
     fontWeight: 600,
+    lineHeight: 1.4,
     color: C.text,
+  },
+  sectionLead: {
+    maxWidth: "62ch",
+    margin: "0 0 16px",
+    color: C.muted,
+    fontSize: "var(--sj-size-body)",
+    lineHeight: 1.55,
+  },
+  settingsMain: {
+    minWidth: 0,
+  },
+  navLink: {
+    display: "block",
+    padding: "5px 10px",
+    borderRadius: "var(--sj-radius-control)",
+    color: C.muted,
+    fontSize: "var(--sj-size-compact)",
+    textDecoration: "none",
   },
   row: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 16,
-    padding: "10px 0",
-    borderBottom: `1px solid ${C.panelBorder}`,
+    gap: 24,
+    padding: "14px 0",
+    borderBottom: `1px solid ${C.hairlineSoft}`,
   },
   rowLabel: {
     display: "flex",
     flexDirection: "column",
-    gap: 2,
-    fontSize: 14,
+    gap: 3,
+    minWidth: 0,
+    maxWidth: "46ch",
+    fontSize: "var(--sj-size-body)",
   },
   rowHint: {
-    fontSize: 12,
+    fontSize: "var(--sj-size-label)",
+    lineHeight: 1.45,
     color: C.muted,
+  },
+  rowNote: {
+    marginTop: 2,
+    fontSize: "var(--sj-size-label)",
+    lineHeight: 1.45,
+    color: C.text,
+  },
+  rowNoteBlock: {
+    margin: "8px 0 0",
+    fontSize: "var(--sj-size-label)",
+    lineHeight: 1.45,
+    color: C.text,
+  },
+  errorNote: {
+    margin: "8px 0 0",
+    fontSize: "var(--sj-size-label)",
+    lineHeight: 1.45,
+    color: C.red,
   },
   rowControl: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
     gap: 8,
     flexShrink: 0,
+  },
+  statusOk: {
+    color: C.text,
+    fontSize: "var(--sj-size-compact)",
+  },
+  statusProblem: {
+    color: C.red,
+    fontSize: "var(--sj-size-compact)",
+  },
+  code: {
+    padding: "1px 5px",
+    borderRadius: 4,
+    background: C.panelRaised,
+    color: C.text,
+    fontSize: "var(--sj-size-small)",
+  },
+  feedbackDock: {
+    position: "fixed",
+    left: "50%",
+    bottom: 24,
+    zIndex: 10,
+    transform: "translateX(-50%)",
+    maxWidth: "min(560px, calc(100vw - 32px))",
+  },
+  savedToast: {
+    padding: "8px 14px",
+    borderRadius: "var(--sj-radius-dense)",
+    border: `1px solid ${C.panelBorder}`,
+    background: C.panelRaised,
+    color: C.text,
+    fontSize: "var(--sj-size-compact)",
+    boxShadow: "0 6px 8px rgba(0, 0, 0, 0.38)",
+  },
+  errorToast: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: "10px 12px 10px 14px",
+    borderRadius: "var(--sj-radius-dense)",
+    border: `1px solid ${C.red}`,
+    background: C.panelRaised,
+    color: C.red,
+    fontSize: "var(--sj-size-compact)",
+    lineHeight: 1.45,
+    wordBreak: "break-word",
+    boxShadow: "0 6px 8px rgba(0, 0, 0, 0.38)",
+  },
+  toastClose: {
+    flex: "0 0 auto",
+    padding: "0 2px",
+    border: "none",
+    background: "transparent",
+    color: C.text,
+    fontFamily: "inherit",
+    cursor: "pointer",
   },
   siteRow: {
     display: "grid",
@@ -1945,9 +2111,11 @@ const s: Record<string, React.CSSProperties> = {
   },
   btn: {
     padding: "8px 14px",
-    borderRadius: 6,
-    fontSize: 13,
-    fontWeight: 600,
+    borderRadius: "var(--sj-radius-control)",
+    fontFamily: "inherit",
+    fontSize: "var(--sj-size-compact)",
+    fontWeight: 500,
+    whiteSpace: "nowrap",
     cursor: "pointer",
     border: "1px solid transparent",
   },
@@ -1967,7 +2135,7 @@ const s: Record<string, React.CSSProperties> = {
     borderColor: C.red,
   },
   input: {
-    backgroundColor: "#101216",
+    backgroundColor: C.input,
     color: C.text,
     border: `1px solid ${C.panelBorder}`,
     borderRadius: 6,
@@ -1981,7 +2149,7 @@ const s: Record<string, React.CSSProperties> = {
     minHeight: 360,
     boxSizing: "border-box",
     resize: "vertical",
-    backgroundColor: "#101216",
+    backgroundColor: C.input,
     color: C.text,
     border: `1px solid ${C.panelBorder}`,
     borderRadius: 6,
@@ -1991,7 +2159,7 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
   },
   select: {
-    backgroundColor: "#101216",
+    backgroundColor: C.input,
     color: C.text,
     border: `1px solid ${C.panelBorder}`,
     borderRadius: 6,
@@ -2072,19 +2240,25 @@ const s: Record<string, React.CSSProperties> = {
     textAlign: "center",
   },
   toggleWrap: {
+    position: "relative",
     display: "inline-flex",
     alignItems: "center",
     cursor: "pointer",
   },
+  // Visually hidden but focusable: the track shows its focus (see index.html).
   toggle: {
-    display: "none",
+    position: "absolute",
+    width: 1,
+    height: 1,
+    margin: 0,
+    opacity: 0,
   },
   toggleTrack: {
     width: 40,
     height: 22,
     borderRadius: 11,
     position: "relative",
-    transition: "background-color 0.15s",
+    transition: "background-color 160ms var(--sj-ease)",
   },
   toggleThumb: {
     position: "absolute",
@@ -2092,8 +2266,7 @@ const s: Record<string, React.CSSProperties> = {
     width: 18,
     height: 18,
     borderRadius: "50%",
-    backgroundColor: C.text,
-    transition: "transform 0.15s",
+    transition: "transform 160ms var(--sj-ease), background-color 160ms var(--sj-ease)",
   },
   stepper: {
     display: "flex",
@@ -2341,6 +2514,9 @@ const s: Record<string, React.CSSProperties> = {
     paddingTop: 8,
     borderTop: `1px solid ${C.panelBorder}`,
   },
+  minePopoverQuiet: {
+    backgroundColor: "transparent",
+  },
   minePopoverBtn: {
     padding: "4px 8px",
     border: `1px solid ${C.panelBorder}`,
@@ -2528,9 +2704,10 @@ const s: Record<string, React.CSSProperties> = {
     marginBottom: 2,
   },
   warningBox: {
-    backgroundColor: "rgba(241,180,109,0.10)",
-    border: `1px solid ${C.amber}`,
-    color: C.amber,
+    backgroundColor: C.panelRaised,
+    border: `1px solid ${C.panelBorder}`,
+    color: C.text,
+    lineHeight: 1.5,
     borderRadius: 8,
     padding: "10px 12px",
     fontSize: 13,
@@ -2572,9 +2749,9 @@ const s: Record<string, React.CSSProperties> = {
     color: C.text,
   },
   noticeBox: {
-    backgroundColor: "rgba(120,214,163,0.10)",
-    border: `1px solid ${C.green}`,
-    color: C.green,
+    backgroundColor: C.panelRaised,
+    border: `1px solid ${C.panelBorder}`,
+    color: C.text,
     borderRadius: 8,
     padding: "10px 12px",
     fontSize: 13,

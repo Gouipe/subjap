@@ -4,14 +4,64 @@
     <meta charset="UTF-8" />
     <title>SubJap — Options</title>
     <style>
+      /* Same ink as src/ui/theme.css, so the page does not flash before it loads. */
       body {
         margin: 0;
-        background: #11111b;
-        color: #cdd6f4;
-        font-family: system-ui, -apple-system, sans-serif;
+        background: #0c0d10;
+        color: #f4f1ea;
       }
       * {
         box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      /* Settings: a sticky table of contents beside continuous sections. */
+      .sj-settings {
+        display: grid;
+        grid-template-columns: 188px minmax(0, 1fr);
+        gap: 40px;
+        align-items: start;
+      }
+      .sj-settings-nav {
+        position: sticky;
+        top: 24px;
+        display: grid;
+        gap: 2px;
+        margin-left: -10px;
+        padding-top: 22px;
+      }
+      .sj-settings-nav a:hover,
+      .sj-settings-nav a:focus-visible {
+        background: var(--sj-surface-raised);
+        color: var(--sj-text) !important;
+      }
+      .sj-settings-nav a:focus-visible {
+        outline: 2px solid var(--sj-accent);
+        outline-offset: 0;
+      }
+      .sj-toggle:has(input:focus-visible) > span {
+        outline: 2px solid var(--sj-accent);
+        outline-offset: 2px;
+      }
+      @media (max-width: 760px) {
+        .sj-settings {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
+        }
+        .sj-settings-nav {
+          display: none;
+        }
+        .sj-row {
+          flex-direction: column;
+          align-items: stretch !important;
+          gap: 10px !important;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
       }
     </style>
   </head>
