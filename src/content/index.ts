@@ -122,13 +122,14 @@ function withJapaneseDialogueOnly(target: PlatformAdapter): PlatformAdapter {
           );
       }
       if (property === "getNavigationCues") {
-        const getNavigationCues = object.getNavigationCues;
-        return getNavigationCues
-          ? () => japaneseDialogueCues(getNavigationCues.call(object))
+        return object.getNavigationCues
+          ? () => japaneseDialogueCues(object.getNavigationCues?.() ?? [])
           : undefined;
       }
       const value: unknown = Reflect.get(object, property, object);
-      return typeof value === "function" ? value.bind(object) : value;
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(object)
+        : value;
     },
   });
 }
