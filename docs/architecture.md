@@ -580,6 +580,16 @@ ne changent plus de piste dans le lecteur, et Netflix ne sonde la traduction
 qu’après une première requête d’un adaptateur abonné. Le service worker affiche
 le badge **OFF**.
 
+La popup compare le `CHANGELOG.md` compilé dans l’extension
+([`src/core/changelog.ts`](../src/core/changelog.ts)) à celui de la branche
+`master` sur GitHub, lu au plus une fois par heure depuis
+`raw.githubusercontent.com` et mis en cache dans
+`chrome.storage.local["subjap_changelog_remote"]`. Les lignes absentes de la
+version installée forment le bandeau « Mise à jour disponible ». Les lignes
+apparues depuis le journal enregistré dans `subjap_changelog_seen` forment
+l’encart « Nouveautés », affiché jusqu’au clic sur OK ; le premier lancement
+enregistre le journal sans rien afficher.
+
 Les pages React ne contiennent pas la logique de lecture : elles utilisent le
 bus de messages et les modules partagés pour lire ou modifier l’état.
 

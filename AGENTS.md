@@ -49,6 +49,18 @@ mécaniques, évidentes, internes ou temporaires.
   utilisé, une fois l’implémentation terminée et vérifiée, merger son commit
   dans `master` et lancer `npm run build`.
 
+## Journal des nouveautés
+
+[`CHANGELOG.md`](CHANGELOG.md) alimente la popup : bandeau « Mise à jour
+disponible » et encart « Nouveautés » après une mise à jour. Tout commit qui
+change ce que voit l’utilisatrice y ajoute une ligne courte en français, sous la
+date du jour, dans `### Fonctionnalités`, `### Corrections` ou `### Refonte`. Une
+ligne est identifiée par son texte : ne jamais reformuler une ligne publiée, elle
+serait annoncée de nouveau. Un hook Claude Code
+([`scripts/check-changelog.mjs`](scripts/check-changelog.mjs)) refuse un commit
+qui modifie `src/` sans toucher `CHANGELOG.md`, sauf si son message contient
+`[sans changelog]` (refactor, lint, tests, documentation).
+
 ## Correction de bugs
 
 Ne pas se contenter de corriger le cas remonté : comprendre la vraie source du

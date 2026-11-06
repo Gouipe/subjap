@@ -291,6 +291,7 @@ reste identique dans la popup, les options, la popover, le mining et Anki.
 
 - **Status:** un réglage en ordre se lit avec une coche et le blanc de sous-titre ; un problème prend le signal d'erreur. Vert, bleu et ambre restent réservés au vocabulaire.
 - **Feedback:** une confirmation ou une erreur apparaît près de l'action ou dans un dock fixe en bas de page, jamais seulement en haut d'une page longue.
+- **Annonce de version:** sous l'en-tête de la popup, un panneau tonal replié « Mise à jour disponible », marqué d'un point vermillon et du nombre de nouveautés ; l'encart « Nouveautés de cette version » se ferme par un bouton secondaire « OK ». Ni l'un ni l'autre ne prend l'action vermillon.
 - **Taille minimale:** aucun texte d'interface sous `11px`.
 
 ### Subtitle Token

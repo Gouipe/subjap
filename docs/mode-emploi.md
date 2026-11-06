@@ -307,6 +307,14 @@ désactive dans les Options, **Affichage des sous-titres** → **Pointiller les
 mots en cours**. La popover affiche toujours le rang disponible et le nombre
 de cartes Anki existantes, suivi de « en cours » le cas échéant.
 
+### Mettre à jour SubJap
+
+Quand une nouvelle version est publiée, la popup affiche **Mise à jour
+disponible** ; le bandeau se déplie pour lister les nouveautés. Double-cliquer
+sur `mettre-a-jour.cmd` dans le dossier de SubJap, puis cliquer sur
+**Recharger** dans `chrome://extensions`. À l’ouverture suivante, la popup
+présente les **Nouveautés de cette version** jusqu’au clic sur **OK**.
+
 ## Piloter les couleurs depuis Anki
 
 Ajouter à une note l’un des tags exacts `KNOWN`, `IGNORED`, `UNKNOWN` ou

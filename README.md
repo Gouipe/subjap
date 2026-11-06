@@ -78,7 +78,8 @@ Le manifeste demande l’accès à tous les sites pour pouvoir capturer l’ongl
 les scripts de sous-titres ne s’exécutent que sur les plateformes prises en
 charge. La capture de l’image a lieu quand l’utilisateur mine un mot. Les états
 de vocabulaire restent dans le navigateur et Anki local ; le texte n’est envoyé
-au Worker que si l’utilisateur demande l’enrichissement IA.
+au Worker que si l’utilisateur demande l’enrichissement IA. La popup lit le
+journal public `CHANGELOG.md` sur GitHub pour signaler les mises à jour.
 
 ## Mettre à jour
 
@@ -88,3 +89,6 @@ Le script fait un `git pull`, réinstalle les dépendances si elles ont changé,
 compile, puis liste les nouveautés et les étapes de rechargement. Il s’arrête
 sans rien écraser si des fichiers ont été modifiés localement, et signale
 quand l’IA n’est pas configurée (pas de `.env.local`).
+
+La popup signale d’elle-même qu’une mise à jour est disponible, avec la liste
+des nouveautés, puis les présente une fois après la mise à jour.

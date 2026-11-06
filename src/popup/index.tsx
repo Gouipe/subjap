@@ -19,6 +19,7 @@ import type {
   SecondarySubtitleLanguage,
 } from "@/core/types";
 import { isOnboardingComplete } from "@/onboarding";
+import { ReleaseNotes } from "./release-notes";
 import {
   getJapaneseOffset,
   getLinkedOffsets,
@@ -720,6 +721,8 @@ const Popup: React.FC = () => {
           )}
         </div>
       </header>
+
+      <ReleaseNotes />
 
       {enabled === false && (
         <p style={styles.disabledNote}>
