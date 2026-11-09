@@ -10,6 +10,7 @@ elle serait annoncée à nouveau.
 ### Corrections
 
 - Sécurité renforcée : un site ou un fichier de sous-titres piégé ne peut plus glisser de code dans vos cartes Anki ni déclencher les actions réservées à la popup et aux Options.
+- Le plein écran occupe de nouveau tout l'écran sur les lecteurs intégrés (Re:ANIME) après une mise à jour de SubJap, sans recharger la page.
 
 ## 2026-11-06
 

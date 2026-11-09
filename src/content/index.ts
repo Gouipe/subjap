@@ -221,18 +221,25 @@ document.addEventListener("pointerdown", resumeTabAudio, true);
 document.addEventListener("keydown", resumeTabAudio, true);
 
 // While the tab is captured, Chrome keeps HTML5 fullscreen inside the tab.
-// The service worker then fullscreens the browser window too. Only the top
-// frame reports: a frame's fullscreen also sets its ancestors' element.
-if (isTopFrame) {
-  const reportFullscreen = (active: boolean): void => {
-    void sendMessage("fullscreen:page", { active }).catch(() => undefined);
-  };
-  document.addEventListener("fullscreenchange", () => {
-    reportFullscreen(document.fullscreenElement !== null);
-  });
-  // Leaving the page drops its fullscreen without any fullscreenchange.
-  window.addEventListener("pagehide", () => reportFullscreen(false));
-}
+// The service worker then fullscreens the browser window too. Every frame on
+// the fullscreen path reports, the player's frame and its ancestors: after an
+// extension reload the top frame keeps a dead script until the page reloads,
+// while a player frame loaded since has a live one. The worker tolerates the
+// duplicate reports.
+let frameInFullscreen = false;
+const reportFullscreen = (active: boolean): void => {
+  frameInFullscreen = active;
+  void sendMessage("fullscreen:page", { active }).catch(() => undefined);
+};
+document.addEventListener("fullscreenchange", () => {
+  reportFullscreen(document.fullscreenElement !== null);
+});
+// Leaving the page drops its fullscreen without any fullscreenchange. A frame
+// that was not fullscreen stays silent: an ad frame going away must not take
+// the window out of fullscreen.
+window.addEventListener("pagehide", () => {
+  if (frameInFullscreen) reportFullscreen(false);
+});
 
 /** Effective overlay options (loaded from storage, live-updated). */
 let overlayOptions: OverlayOptions = DEFAULT_OPTIONS;
