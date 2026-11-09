@@ -89,9 +89,6 @@ export function ReleaseNotes(): JSX.Element | null {
             </button>
           </div>
           <NoteGroups groups={installed} />
-          <p style={styles.footnote}>
-            Rechargez les onglets vidéo déjà ouverts pour y retrouver SubJap.
-          </p>
         </section>
       )}
 
@@ -331,13 +328,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   footerNote: {
     margin: 0,
-    color: "var(--sj-muted)",
-    fontSize: "var(--sj-size-small)",
-    lineHeight: 1.45,
-  },
-  footnote: {
-    margin: 0,
-    padding: "0 12px 12px",
     color: "var(--sj-muted)",
     fontSize: "var(--sj-size-small)",
     lineHeight: 1.45,
