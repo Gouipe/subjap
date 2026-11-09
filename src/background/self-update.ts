@@ -101,13 +101,13 @@ async function start(): Promise<void> {
 }
 
 export function registerSelfUpdate(): void {
-  onMessage("update:probe", async () => ({ available: await probe() }));
+  onMessage("update:probe", async () => ({ available: await probe() }), { extensionPagesOnly: true });
   onMessage("update:start", () => {
     void start().catch((err: unknown) => {
       activePort = null;
       void setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
     });
-  });
+  }, { extensionPagesOnly: true });
 
   // A reload, manual or after a successful run, starts from a clean state.
   chrome.runtime.onInstalled.addListener(() => void setState(null));

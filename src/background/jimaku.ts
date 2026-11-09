@@ -47,8 +47,17 @@ async function api<T>(path: string, key: string): Promise<T> {
 }
 
 async function download(url: string): Promise<Uint8Array> {
-  const response = await fetch(new URL(url, "https://jimaku.cc/"), { credentials: "omit" });
+  // A choice comes back from a message or from storage, both writable by a
+  // page's content script: the worker only ever downloads from Jimaku.
+  const target = new URL(url, "https://jimaku.cc/");
+  if (target.protocol !== "https:" || !/(?:^|\.)jimaku\.cc$/i.test(target.hostname)) {
+    throw new Error("Adresse de fichier Jimaku inattendue.");
+  }
+  const response = await fetch(target, { credentials: "omit" });
   if (!response.ok) throw new JimakuError(response.status, `Téléchargement Jimaku impossible (HTTP ${response.status}).`);
+  if (Number(response.headers.get("content-length")) > MAX_DOWNLOAD_SIZE) {
+    throw new Error("Fichier Jimaku trop volumineux.");
+  }
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (bytes.byteLength > MAX_DOWNLOAD_SIZE) throw new Error("Fichier Jimaku trop volumineux.");
   return bytes;

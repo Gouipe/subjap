@@ -26,9 +26,11 @@ Puis reconstruire l’extension :
 npm.cmd run build
 ```
 
-`ALLOWED_ORIGINS` vaut `*` pour permettre le premier démarrage. Une fois l’ID
-stable de l’extension connu, remplacer cette valeur dans
-`worker/wrangler.toml` par `chrome-extension://<extension-id>` puis redéployer.
+`ALLOWED_ORIGINS` (dans `worker/wrangler.toml`) vaut l’origine de l’extension,
+`chrome-extension://cahpadjckhokgbglcanpijmloignnecd` : le Worker répond 403 à
+toute autre origine. Un script hors navigateur peut falsifier cet en-tête ;
+pour borner la dépense, ajouter une règle de limitation de débit dans le
+tableau de bord Cloudflare.
 
 Le Worker limite les prompts à 20 000 caractères, applique une sortie JSON
 structurée et renvoie les erreurs Gemini sans exposer la clé.

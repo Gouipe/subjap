@@ -32,6 +32,7 @@ import {
   type AiNoteParagraph,
 } from "./ai-notes";
 import {
+  escapeAnkiHtml,
   formatMigakuDefinitions,
   formatMigakuNotes,
   formatMigakuSentence,
@@ -1233,9 +1234,11 @@ export class MiningModal {
           deckName,
           fields: {
             Mot: formatMigakuWord(targetWord, targetReading),
-            Lecture: targetReading,
+            // Anki renders fields as HTML and runs their scripts: the reading
+            // and the translation (text from the site's subtitles) are escaped.
+            Lecture: escapeAnkiHtml(targetReading),
             Phrase: phrase,
-            Traduction: state.translationText.trim(),
+            Traduction: escapeAnkiHtml(state.translationText.trim()),
             Définitions: formatMigakuDefinitions(editedDefinitions),
             Notes: formatMigakuNotes(notes),
             Image: "",

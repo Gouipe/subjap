@@ -3,6 +3,8 @@ const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/
 const MAX_PROMPT_LENGTH = 20_000;
 const MAX_SCHEMA_LENGTH = 20_000;
 const GEMINI_TIMEOUT_MS = 15_000;
+/** SubJap's extension ID is pinned by the key of its manifest. */
+const DEFAULT_ALLOWED_ORIGINS = "chrome-extension://cahpadjckhokgbglcanpijmloignnecd";
 
 interface Env {
   GEMINI_API_KEY: string;
@@ -26,7 +28,7 @@ interface GeminiResponse {
 function allowedOrigin(request: Request, env: Env): string {
   const origin = request.headers.get("Origin");
   if (!origin) return "";
-  const allowed = (env.ALLOWED_ORIGINS ?? "*")
+  const allowed = (env.ALLOWED_ORIGINS ?? DEFAULT_ALLOWED_ORIGINS)
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
@@ -120,6 +122,12 @@ async function generate(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // Without this, any site or script that knows the address spends the
+    // Gemini quota. A browser cannot forge Origin; a script outside one can:
+    // this is not authentication, a Cloudflare rate limit bounds the rest.
+    if (!allowedOrigin(request, env)) {
+      return json(request, env, { error: "Origine non autorisée." }, 403);
+    }
     if (request.method === "OPTIONS") return json(request, env, {});
     if (request.method !== "POST") {
       return json(request, env, { error: "Méthode non autorisée." }, 405);

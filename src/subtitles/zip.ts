@@ -28,7 +28,28 @@ function findEndOfCentralDirectory(view: DataView): number {
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([new Uint8Array(data)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  // The size announced by the archive is not trusted: a few kilobytes can
+  // inflate to gigabytes, so stop as soon as the entry outgrows the limit.
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    length += value.byteLength;
+    if (length > MAX_ENTRY_SIZE) {
+      await reader.cancel();
+      throw new Error("Fichier de l’archive trop volumineux.");
+    }
+    chunks.push(value);
+  }
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
 }
 
 /** Files of a ZIP archive, without folders; throws when it is not one. */

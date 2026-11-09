@@ -7,6 +7,20 @@ export interface NetflixTimedTextResponse extends NetflixTimedTextRequest {
   body: string;
 }
 
+/**
+ * The request carries the Netflix session: only a Netflix page may ask for it,
+ * not the content script of another site.
+ */
+export function isNetflixOrigin(origin: string | undefined): boolean {
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === "https:" && /(?:^|\.)netflix\.com$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function assertAllowedTimedTextUrl(url: string): void {
   let parsed: URL;
   try {

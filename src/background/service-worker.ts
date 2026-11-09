@@ -5,7 +5,7 @@
 import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY, AI_UNAVAILABLE_MESSAGE } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
-import { onMessage } from "@/core/messaging";
+import { isExtensionPageSender, onMessage } from "@/core/messaging";
 import { checkJimakuKey, installFromJimaku, pickSyncedJimakuFile } from "./jimaku";
 import {
   findJimakuEntryUrl,
@@ -15,7 +15,7 @@ import {
   type PageEpisode,
 } from "@/core/episode";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
-import { fetchJmdictTgz, JMDICT_DEFAULT_URL } from "@/dictionary/jmdict";
+import { fetchJmdictTgz, JMDICT_DEFAULT_URL, JMDICT_PACKS } from "@/dictionary/jmdict";
 import { entrySpellings, selectDictionaryEntry } from "@/dictionary/match";
 import { toHiragana } from "@/core/kana";
 import {
@@ -24,7 +24,7 @@ import {
   type FrequencyEntry,
 } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
-import { fetchNetflixTimedText } from "./netflix-timed-text";
+import { fetchNetflixTimedText, isNetflixOrigin } from "./netflix-timed-text";
 import {
   countAnkiWordPresenceChanges,
   extractAnkiWordPresences,
@@ -267,7 +267,12 @@ async function ensureFrequencyRanks(): Promise<void> {
 // Message handler registration
 // ---------------------------------------------------------------------------
 
-onMessage("netflix:timedTextFetch", fetchNetflixTimedText);
+onMessage("netflix:timedTextFetch", async (request, sender) => {
+  if (!isNetflixOrigin(sender.origin ?? sender.url)) {
+    throw new Error("Netflix timed text is only served to Netflix pages");
+  }
+  return fetchNetflixTimedText(request);
+});
 
 // ── dict:lookup ───────────────────────────────────────────────────────────
 
@@ -324,6 +329,10 @@ onMessage("dict:status", async () => {
 // ── dict:download ─────────────────────────────────────────────────────────
 
 onMessage("dict:download", async ({ url }) => {
+  // Only the packs SubJap offers: the worker does not fetch an arbitrary address.
+  if (url != null && !JMDICT_PACKS.some((pack) => pack.url === url)) {
+    throw new Error("Dictionnaire inconnu.");
+  }
   const [entries, frequencyRanks] = await Promise.all([
     fetchJmdictTgz(url ?? JMDICT_DEFAULT_URL),
     fetchJapaneseFrequencyRanks().catch((err: unknown) => {
@@ -349,7 +358,7 @@ onMessage("dict:download", async ({ url }) => {
   await markDictionaryLoaded();
 
   return { count: entries.length };
-});
+}, { extensionPagesOnly: true });
 
 // ── word:get ──────────────────────────────────────────────────────────────
 function chooseWordState(states: Array<WordState | undefined>): WordState | null {
@@ -478,13 +487,13 @@ onMessage("frequency:batch", async ({ terms }) => {
 onMessage("knownTriage:batch", async () => {
   await ensureFrequencyRanks();
   return nextKnownTriageBatch();
-});
+}, { extensionPagesOnly: true });
 
 onMessage("knownTriage:commit", async ({ keys, throughRank }) => {
   await commitKnownTriage(keys, throughRank);
   queueWordSync(keys.map(canonicalizeLexicalKey).filter(Boolean));
   queueTriageSync();
-});
+}, { extensionPagesOnly: true });
 
 // ── mine:create ───────────────────────────────────────────────────────────
 
@@ -656,9 +665,9 @@ onMessage("stats:get", async () => {
 onMessage("data:reset", async ({ scope }) => {
   await resetSyncedData(scope === "everywhere" ? "everywhere" : "device", wipeLocalData);
   refreshBadge();
-});
+}, { extensionPagesOnly: true });
 
-onMessage("sync:status", () => syncStatus());
+onMessage("sync:status", () => syncStatus(), { extensionPagesOnly: true });
 
 async function wipeLocalData(): Promise<void> {
   await db.ankiWords.clear();
@@ -718,8 +727,13 @@ async function jimakuUrl(episode: PageEpisode | null): Promise<string> {
   return jimakuSearchUrl(episode);
 }
 
+/** A content script only acts on its own tab; the popup names the video's tab. */
+function requestedTabId(tabId: number | undefined, sender: chrome.runtime.MessageSender): number | undefined {
+  return isExtensionPageSender(sender) ? tabId ?? sender.tab?.id : sender.tab?.id;
+}
+
 onMessage("jimaku:install", async ({ videoId, choice, tabId: popupTabId }, sender) => {
-  const tabId = popupTabId ?? sender.tab?.id;
+  const tabId = requestedTabId(popupTabId, sender);
   return installFromJimaku(videoId, tabId == null ? null : await readTabEpisode(tabId), choice);
 });
 
@@ -727,7 +741,9 @@ onMessage("jimaku:pickSynced", async ({ videoId, referenceStarts, currentAligns 
   switched: await pickSyncedJimakuFile(videoId, referenceStarts, currentAligns),
 }));
 
-onMessage("jimaku:check", async ({ key }) => ({ valid: await checkJimakuKey(key) }));
+onMessage("jimaku:check", async ({ key }) => ({ valid: await checkJimakuKey(key) }), {
+  extensionPagesOnly: true,
+});
 
 onMessage("options:open", async ({ section }) => {
   const url = chrome.runtime.getURL("src/options/index.html");
@@ -738,7 +754,7 @@ onMessage("options:open", async ({ section }) => {
 // Embedded players are often sandboxed without popups: a link in the frame
 // would silently do nothing, so the extension opens the tab itself.
 onMessage("jimaku:search", async ({ tabId }, sender) => {
-  const target = tabId ?? sender.tab?.id;
+  const target = requestedTabId(tabId, sender);
   if (target == null) throw new Error("Aucun onglet associé");
   const tab = await chrome.tabs.get(target);
   await chrome.tabs.create({
@@ -753,6 +769,9 @@ onMessage("jimaku:search", async ({ tabId }, sender) => {
 onMessage("screenshot:capture", async (_payload, sender) => {
   const windowId = sender.tab?.windowId;
   if (windowId == null) throw new Error("No browser window associated with the tab");
+  // The capture shows the window's active tab: never hand another tab's
+  // picture to a frame running in the background.
+  if (!sender.tab?.active) throw new Error("The tab asking for a screenshot is not visible");
 
   return {
     dataUrl: await chrome.tabs.captureVisibleTab(windowId, { format: "png" }),
@@ -794,7 +813,7 @@ onMessage("tabCapture:prepare", async ({ tabId }) => {
   const streamId = await getTabCaptureStreamId(tabId, tabId);
   await chrome.tabs.sendMessage(tabId, { type: "tabCapture:stream", streamId });
   return { ready: true };
-});
+}, { extensionPagesOnly: true });
 
 async function ensureAudioOffscreen(): Promise<void> {
   if (await chrome.offscreen.hasDocument()) return;
@@ -810,7 +829,7 @@ onMessage("tabCapture:offscreen", async ({ streamId }) => {
   await ensureAudioOffscreen();
   await chrome.runtime.sendMessage({ type: "tabCapture:offscreenStream", streamId });
   return { ready: true };
-});
+}, { extensionPagesOnly: true });
 
 onMessage("tabCapture:status", async (_payload, sender) => {
   const tabId = sender.tab?.id;
@@ -911,7 +930,7 @@ onMessage("anki:status", async () => {
     console.warn("[SubJap] AnkiConnect not reachable:", err);
     return { connected: false, deckNames: [] };
   }
-});
+}, { extensionPagesOnly: true });
 
 // ── anki:syncKnown ────────────────────────────────────────────────────────
 

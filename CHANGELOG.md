@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-09
+
+### Corrections
+
+- Sécurité renforcée : un site ou un fichier de sous-titres piégé ne peut plus glisser de code dans vos cartes Anki ni déclencher les actions réservées à la popup et aux Options.
+
 ## 2026-11-06
 
 ### Fonctionnalités

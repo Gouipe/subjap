@@ -7,5 +7,6 @@ workers_dev = true
 required = ["GEMINI_API_KEY"]
 
 [vars]
-# Tighten this to the extension origin once the extension has a stable ID.
-ALLOWED_ORIGINS = "*"
+# SubJap's extension ID is pinned by the key of its manifest. The Worker
+# refuses every other origin.
+ALLOWED_ORIGINS = "chrome-extension://cahpadjckhokgbglcanpijmloignnecd"

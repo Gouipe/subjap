@@ -47,8 +47,21 @@ export async function sendMessage<T extends MessageType>(
 }
 
 /**
+ * True for the popup, the options and the other pages of the extension; false
+ * for a content script, which runs inside a web page and is not trusted with
+ * privileged requests. Chrome fills the sender: a page cannot forge it.
+ */
+export function isExtensionPageSender(sender: chrome.runtime.MessageSender): boolean {
+  if (sender.id !== chrome.runtime.id) return false;
+  const extensionOrigin = `chrome-extension://${chrome.runtime.id}`;
+  if (sender.origin) return sender.origin === extensionOrigin;
+  return !!sender.url?.startsWith(`${extensionOrigin}/`);
+}
+
+/**
  * Register a typed message listener.
  * Only fires for messages matching `type` — returns the typed result.
+ * `extensionPagesOnly` refuses the message when a content script sends it.
  */
 export function onMessage<T extends MessageType>(
   type: T,
@@ -56,6 +69,7 @@ export function onMessage<T extends MessageType>(
     payload: MessagePayload<T>,
     sender: chrome.runtime.MessageSender,
   ) => MessageResult<T> | Promise<MessageResult<T>>,
+  options: { extensionPagesOnly?: boolean } = {},
 ): void {
   chrome.runtime.onMessage.addListener(
     (
@@ -64,6 +78,12 @@ export function onMessage<T extends MessageType>(
       sendResponse: (response?: unknown) => void,
     ) => {
       if (message.type !== type) return;
+
+      if (options.extensionPagesOnly && !isExtensionPageSender(sender)) {
+        console.warn(`[SubJap] ${String(type)} refusé : réservé aux pages de l’extension.`);
+        sendResponse({ [ERROR_KEY]: "Action réservée aux pages de SubJap." });
+        return undefined;
+      }
 
       const { type: _type, ...rest } = message;
       const payload = rest as unknown as MessagePayload<T>;
