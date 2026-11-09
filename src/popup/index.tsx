@@ -672,7 +672,7 @@ const Popup: React.FC = () => {
       // A tab can only have one active capture stream. Keep it in the
       // offscreen document for both playback and phrase recording.
       const offscreenStreamId = await getStreamId();
-      await sendMessage("tabCapture:offscreen", { streamId: offscreenStreamId });
+      await sendMessage("tabCapture:offscreen", { streamId: offscreenStreamId, tabId: tab.id });
       // Same badge as the service worker: the words set aside, else "ON".
       const { ids } = await sendMessage("mineLater:list", {});
       await chrome.action.setBadgeText({ tabId: tab.id, text: ids.length > 0 ? String(ids.length) : "ON" });

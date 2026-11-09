@@ -448,7 +448,7 @@ export interface MessageMap {
   "tabCapture:prepareResult": { ready: boolean };
   "tabCapture:stream": { streamId: string };
   "tabCapture:streamResult": Record<string, never>;
-  "tabCapture:offscreen": { streamId: string };
+  "tabCapture:offscreen": { streamId: string; tabId: number };
   "tabCapture:offscreenResult": { ready: boolean };
   "tabCapture:status": Record<string, never>;
   "tabCapture:statusResult": { active: boolean };
@@ -472,7 +472,7 @@ export interface MessageMap {
   "tabCapture:bufferStartResult": { fromMs: number | null };
   "tabCapture:offscreenBufferStart": Record<string, never>;
   "tabCapture:offscreenBufferStartResult": { fromMs: number | null };
-  /** The page entered or left HTML5 fullscreen (reported by each frame involved). */
+  /** The page entered or left HTML5 fullscreen (reported by the top frame). */
   "fullscreen:page": { active: boolean };
   "fullscreen:pageResult": Record<string, never>;
 

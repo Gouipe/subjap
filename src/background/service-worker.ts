@@ -5,6 +5,7 @@
 import { db } from "@/core/db";
 import { AI_SETTINGS_STORAGE_KEY, AI_UNAVAILABLE_MESSAGE } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
+import { installFullscreenReporter } from "@/core/fullscreen-report";
 import { isExtensionPageSender, onMessage } from "@/core/messaging";
 import { checkJimakuKey, installFromJimaku, pickSyncedJimakuFile } from "./jimaku";
 import {
@@ -825,9 +826,15 @@ async function ensureAudioOffscreen(): Promise<void> {
   });
 }
 
-onMessage("tabCapture:offscreen", async ({ streamId }) => {
+onMessage("tabCapture:offscreen", async ({ streamId, tabId }) => {
   await ensureAudioOffscreen();
   await chrome.runtime.sendMessage({ type: "tabCapture:offscreenStream", streamId });
+  // A page opened before the extension was reloaded has no live content
+  // script to report its fullscreen (see fullscreen:page).
+  await chrome.scripting.executeScript({
+    target: { tabId, frameIds: [0] },
+    func: installFullscreenReporter,
+  }).catch(() => undefined);
   return { ready: true };
 }, { extensionPagesOnly: true });
 
