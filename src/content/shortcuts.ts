@@ -161,6 +161,26 @@ export function installSecondarySubtitleRevealShortcut(
   return () => doc.removeEventListener("keydown", onKeydown, true);
 }
 
+/** Copy through a one-shot copy event: no selection, so the focus stays put. */
+function copyWithCommand(doc: Document, text: string): boolean {
+  let written = false;
+  const onCopy = (event: ClipboardEvent): void => {
+    if (!event.clipboardData) return;
+    event.clipboardData.setData("text/plain", text);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    written = true;
+  };
+  doc.addEventListener("copy", onCopy, true);
+  try {
+    return doc.execCommand("copy") && written;
+  } catch {
+    return false;
+  } finally {
+    doc.removeEventListener("copy", onCopy, true);
+  }
+}
+
 /** Install the plain-C copy shortcut and return its cleanup function. */
 export function installSubtitleCopyShortcut(
   doc: Document,
@@ -207,10 +227,16 @@ export function installSubtitleCopyShortcut(
 
   const writeText =
     options.writeText ??
-    ((text: string) => {
+    (async (text: string) => {
       const clipboard = doc.defaultView?.navigator.clipboard;
-      if (!clipboard) return Promise.reject(new Error("Clipboard API unavailable"));
-      return clipboard.writeText(text);
+      try {
+        if (!clipboard) throw new Error("Clipboard API unavailable");
+        await clipboard.writeText(text);
+      } catch (err: unknown) {
+        // A cross-origin player iframe (Re:ANIME) lacks the clipboard-write
+        // permission policy; the legacy copy command is not gated by it.
+        if (!copyWithCommand(doc, text)) throw err;
+      }
     });
 
   const onKeydown = (event: KeyboardEvent): void => {

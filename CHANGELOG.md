@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-10
+
+### Corrections
+
+- Sur Re:ANIME, la touche C copie de nouveau le sous-titre japonais.
+
 ## 2026-11-09
 
 ### Corrections
