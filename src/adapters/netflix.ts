@@ -629,11 +629,10 @@ export class NetflixAdapter implements PlatformAdapter {
   }
 
   private emitCues(capturedObservationTime: number | null = null): void {
-    this.autoSync.run(
-      this.currentWatchId(),
-      this.localPrimaryCues[0]?.source?.sessionId,
-      [this.nativeTranslationCues("fr"), this.nativeTranslationCues("en")],
-    );
+    const references = [this.nativeTranslationCues("fr"), this.nativeTranslationCues("en")];
+    if (this.localPrimaryCues.length && this.offsets.readyToMoveJapanese()) {
+      this.autoSync.run(this.currentWatchId(), this.localPrimaryCues[0]?.source?.sessionId, references);
+    }
     this.alignNativeTranslation();
     if (this.ensurePlaybackSession()) {
       // Do not attach a mutation timestamp captured for the previous title to

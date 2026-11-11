@@ -10,19 +10,20 @@ sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
 
 Les pistes japonaise et de traduction gardent leurs propres horaires. Chaque
 segment japonais est affiché avec sa propre traduction : celle qu’il recouvre
-le plus dans le temps. Les traductions commencent souvent un peu avant la voix,
-que suit le japonais : une fois par piste japonaise, l’avance de la
-traduction du lecteur (au plus 2 s) est mesurée sur l’épisode, tel qu’affiché,
-et devient son décalage, visible et modifiable dans le popup. Choisir un autre
-fichier japonais (import, autre fichier Jimaku) relance la mesure, depuis les
-horaires d’origine de la traduction. Un décalage de traduction
+le plus dans le temps. La traduction du lecteur sert de référence : un fichier
+japonais importé, comme la piste japonaise d’un lecteur Artplayer (Re:ANIME),
+est recalé sur elle dès 0,25 s d’écart, dans un sens comme dans l’autre, en
+comparant ses horaires à ceux de la traduction affichée, décalage compris. La
+piste Artplayer est synchronisée une fois par piste (fichier sans sa
+requête) ; ses parties sont mémorisées par vidéo et s’ajoutent à son décalage.
+Seule une piste japonaise que SubJap ne sait pas déplacer (Netflix, YouTube)
+fait bouger la traduction : une fois par piste japonaise, l’écart de la
+traduction du lecteur (au plus 2 s) est mesuré sur l’épisode, tel qu’affiché,
+et devient son décalage, visible et modifiable dans le popup. Un décalage de
+traduction posé ainsi sous un japonais déplaçable (règle précédente) est
+retiré une fois, et ce japonais mesuré à nouveau. Un décalage de traduction
 réglé par l’utilisateur n’est jamais remplacé ; une traduction importée garde
-ses horaires. La synchronisation d’un fichier japonais importé compare ses
-horaires à ceux de la traduction affichée, décalage compris. La piste
-japonaise d’un lecteur Artplayer (Re:ANIME) est synchronisée de même, une fois
-par piste (fichier sans sa requête) ; ses parties sont mémorisées par vidéo et
-s’ajoutent à son décalage. La mesure de l’avance de la traduction attend
-qu’elle soit enregistrée, puis se fait sur le japonais recalé. Une traduction
+ses horaires. Une traduction
 qui commence vers la fin d’un segment japonais précédent encore affiché (elle
 en couvre moins de la moitié), mais qui appartient à un segment à venir,
 attend le début de celui-ci ; la traduction précédente reste affichée en

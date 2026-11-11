@@ -546,12 +546,13 @@ export class GenericHtml5Adapter implements PlatformAdapter {
       // Shown by the player itself, never shifted.
       this.artplayer?.timing ?? [],
     ];
-    this.autoSync.run(this.videoId, this.localPrimaryCues[0]?.source?.sessionId, references);
+    if (this.localPrimaryCues.length && this.offsets.readyToMoveJapanese()) {
+      this.autoSync.run(this.videoId, this.localPrimaryCues[0]?.source?.sessionId, references);
+    }
+    // The Japanese, a file or the player's, moves onto the translation: the
+    // translation is never shifted to follow it.
     if (this.videoId && this.localLoadedFor === this.videoId && !this.localPrimaryCues.length) {
       this.offsets.syncPlayerJapanese(this.artplayer?.japanese ?? [], references);
-    }
-    if (!this.localSecondaryCues.length) {
-      this.offsets.alignTranslation(this.japaneseCues(), this.translationCues());
     }
     const video = this.getVideoElement();
     const time = video?.currentTime ?? 0;

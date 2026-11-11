@@ -211,11 +211,13 @@ valeur positive l’affiche plus tard, les boutons ajustent de 0,1 s et ↺ reme
 fichier, avec le fichier. Avec **Décaler les deux ensemble** coché (choix
 mémorisé pour toutes les vidéos), modifier une piste décale l’autre d’autant,
 par exemple quand toute la vidéo est en avance sur ses sous-titres ; ↺ ne
-remet à zéro que sa propre piste. La première fois qu’une vidéo est lue, le
+remet à zéro que sa propre piste. Sur Netflix et YouTube, quand le japonais
+vient du site, la première fois qu’une vidéo est lue, le
 décalage de la traduction du lecteur est réglé automatiquement pour que ses
 lignes commencent avec les lignes japonaises, sauf si tu l’as déjà modifié ;
 la mention « Traduction synchronisée automatiquement » l’indique jusqu’à ce
-que tu le changes toi-même. Sur
+que tu le changes toi-même. Dans les autres cas, c’est le japonais qui se cale
+sur la traduction (voir plus bas). Sur
 Netflix, le japonais lu seulement à l’écran (sans piste chargée) ne peut pas
 être décalé.
 
@@ -227,11 +229,9 @@ son rôle ; le choix **Aucune** masque la piste secondaire locale comme native.
 
 Un fichier japonais local (importé ou installé depuis Jimaku) est synchronisé une
 fois automatiquement sur la traduction native du lecteur (FR, sinon EN) : SubJap
-compare les débuts de répliques et applique le décalage trouvé, seulement s’il
-dépasse 1 s et ne fait aucun doute. Un écart plus petit est laissé tel quel
-quand le japonais suit la traduction (elle précède souvent la voix), mais
-corrigé dès 0,25 s quand le japonais la précède : il est alors en avance sur
-la voix. Quand le fichier vient d’un autre montage
+compare les débuts de répliques et applique le décalage trouvé dès 0,25 s,
+que le japonais soit en avance ou en retard, s’il ne fait aucun doute. La
+traduction n’est alors jamais décalée automatiquement. Quand le fichier vient d’un autre montage
 de l’épisode (générique d’une autre longueur, coupure), il est synchronisé par
 parties, chacune avec son décalage. Un bandeau l’indique, avec **Annuler la
 synchro** ; la popup le rappelle dans **Pistes et décalage** (« Synchronisé · Annuler ») et permet aussi de
@@ -245,6 +245,11 @@ parties, même bandeau avec **Annuler la synchro**, même rappel « Synchronisé
 Annuler » sous **Piste du lecteur**. Le décalage japonais réglé à la main
 s’y ajoute ; réglé avant toute synchronisation (y compris ↺), la piste du
 lecteur de cette vidéo n’est jamais synchronisée.
+
+Une vidéo déjà vue dont la traduction avait été décalée automatiquement pour
+suivre un japonais importé ou de Re:ANIME (règle précédente) est remesurée
+une fois : ce décalage de traduction est retiré et le japonais se recale sur
+la traduction.
 
 Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
 HTML5 visible, y compris dans un lecteur intégré depuis un autre site. Il ne

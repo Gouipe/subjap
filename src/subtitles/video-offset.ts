@@ -12,7 +12,7 @@
 
 import type { SubtitleCue } from "@/core/types";
 import { announceAutoSync, estimateSubtitleSync, estimateTranslationShift, syncReference } from "./auto-sync";
-import { syncSegmentOffset, type SyncSegment } from "./local-storage";
+import { getLocalSubtitle, saveLocalSubtitle, syncSegmentOffset, type SyncSegment } from "./local-storage";
 
 const TRANSLATION_PREFIX = "subjap_translation_offset_";
 const TRANSLATION_CHECKED_PREFIX = "subjap_translation_offset_checked_";
@@ -183,6 +183,40 @@ export async function markJapaneseOffsetSetByUser(videoId: string): Promise<void
   await chrome.storage.local.set({ [japaneseSyncStorageKey(videoId)]: { track: null, segments: [] } });
 }
 
+/**
+ * A Japanese track SubJap can shift (an imported file, an Artplayer track)
+ * moves onto the translation: the translation is never shifted to follow it.
+ */
+function isMovableJapanese(cues: SubtitleCue[]): boolean {
+  const trackId = cues[0]?.source?.trackId ?? "";
+  return trackId.startsWith("local-") || trackId.startsWith("artplayer-");
+}
+
+/**
+ * Removes the translation's offset set automatically to follow the Japanese
+ * (the former rule), and lets the automatic alignment measure the Japanese
+ * again on the translation's own timing. Offsets the user set stay.
+ */
+async function retireAutomaticTranslationOffset(videoId: string): Promise<void> {
+  const [stored, record, sync] = await Promise.all([
+    translationAlignment(videoId),
+    getLocalSubtitle(videoId, "primary"),
+    readPlayerJapaneseSync(videoId),
+  ]);
+  if (stored.origin !== "auto") return;
+  // The Japanese first, so that it is measured on the translation's own timing.
+  if (record?.syncChecked && record.offsetSeconds === 0) {
+    await saveLocalSubtitle(videoId, { ...record, syncChecked: false, syncSegments: undefined }, "primary");
+  }
+  if (sync?.track) await chrome.storage.local.remove(japaneseSyncStorageKey(videoId));
+  await chrome.storage.local.remove([
+    translationOffsetStorageKey(videoId),
+    translationOffsetCheckedStorageKey(videoId),
+    translationMeasuredTrackStorageKey(videoId),
+  ]);
+  console.info("[SubJap] Décalage automatique de la traduction retiré : le japonais se cale sur elle.");
+}
+
 export function isPlayerJapaneseSyncChange(
   changes: Record<string, chrome.storage.StorageChange>,
   videoId: string,
@@ -215,6 +249,7 @@ export class VideoOffsetWatcher {
   private japaneseSync: PlayerJapaneseSync | null | undefined;
   private japaneseSyncing = false;
   private japaneseSyncAttempt = "";
+  private retiring = false;
   private revision = 0;
   private listening = false;
   private readonly shifted = new WeakMap<
@@ -268,6 +303,26 @@ export class VideoOffsetWatcher {
   }
 
   /**
+   * Whether a Japanese track SubJap can shift may be aligned automatically on
+   * the translation now: once the offsets are known, and once a translation
+   * offset set automatically under the former rule is removed.
+   */
+  readyToMoveJapanese(): boolean {
+    const videoId = this.videoId;
+    const alignment = this.alignment;
+    if (!videoId || !alignment || this.retiring) return false;
+    if (alignment.origin !== "auto") return true;
+    this.retiring = true;
+    void retireAutomaticTranslationOffset(videoId).catch((error: unknown) => {
+      console.warn("[SubJap] Décalage de la traduction impossible à retirer:", error);
+    }).finally(() => {
+      this.retiring = false;
+      if (this.videoId === videoId) this.load();
+    });
+    return false;
+  }
+
+  /**
    * Once per track, aligns the player's Japanese track on the player's
    * translations, as shown (the first long enough). Raw Japanese cues: the
    * parts found are kept unless the user set the Japanese offset first.
@@ -276,10 +331,11 @@ export class VideoOffsetWatcher {
     const videoId = this.videoId;
     const sync = this.japaneseSync;
     if (!videoId || sync === undefined || sync?.track === null || this.japaneseSyncing || this.japanese !== 0) return;
+    if (!japanese.length || !this.readyToMoveJapanese()) return;
     const track = playerJapaneseTrack(japanese);
     const reference = syncReference(translations);
     if (!track || !reference || sync?.track === track) return;
-    const attempt = `${videoId}\u0000${track}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}`;
+    const attempt = `${videoId}\u0000${track}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}\u0000${reference[0]?.start ?? ""}`;
     if (attempt === this.japaneseSyncAttempt) return;
     this.japaneseSyncAttempt = attempt;
     const estimate = estimateSubtitleSync(japanese.map((cue) => cue.start), reference.map((cue) => cue.start));
@@ -311,13 +367,18 @@ export class VideoOffsetWatcher {
    * Once per Japanese track, sets the player's translation offset so that its
    * lines start with the Japanese ones. Both lists are the cues as shown,
    * offsets included; the measured gap adds to the current offset. An offset
-   * the user set on the translation is never replaced.
+   * the user set on the translation is never replaced. Only for a Japanese
+   * track SubJap cannot shift (Netflix, YouTube): any other moves onto the
+   * translation instead.
    */
   alignTranslation(japanese: SubtitleCue[], translation: SubtitleCue[]): void {
+    if (isMovableJapanese(japanese)) {
+      this.readyToMoveJapanese();
+      return;
+    }
     const videoId = this.videoId;
     const alignment = this.alignment;
-    // The Japanese track being aligned first gives the translation's lead.
-    if (!videoId || !alignment || alignment.origin === "user" || this.aligning || this.japaneseSyncing) return;
+    if (!videoId || !alignment || alignment.origin === "user" || this.aligning) return;
     const track = japaneseTrackIdentity(japanese);
     if (!track || (alignment.origin && alignment.track === track)) return;
     // Shifted copies are reused: the same tracks need no new measure.

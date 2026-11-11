@@ -41,15 +41,12 @@ const MIN_MATCHED_SHARE = 0.3;
 /** Several parts must explain the file better than a single offset would. */
 const MIN_MATCHED_SHARE_IN_PARTS = 0.4;
 /**
- * Smaller shifts are left alone: translations often start a little before
- * the voice, and the user finds such files already in time.
+ * Smaller shifts are a single offset, measured on the matching lines only:
+ * the file is the release the site streams, timed a little apart.
  */
 const MIN_SHIFT_SECONDS = 1;
-/**
- * A Japanese file starting before the reference is ahead of the voice too,
- * which translations lead or follow closely: shifted from this gap on.
- */
-const MIN_EARLY_SHIFT_SECONDS = 0.25;
+/** The translation is the reference: a Japanese track ahead or late from this gap on is shifted. */
+const MIN_SMALL_SHIFT_SECONDS = 0.25;
 
 function sorted(values: number[]): number[] {
   return values.filter(Number.isFinite).sort((left, right) => left - right);
@@ -195,13 +192,23 @@ export function estimateSubtitleSync(
   if (segments.every((segment) => Math.abs(segment.offset) < MIN_SHIFT_SECONDS)) {
     // One small offset, measured on the matching lines only: the unshifted
     // file matches almost as many within the tolerance.
-    const ahead = segments.length === 1 && (segments[0]?.offset ?? 0) >= MIN_EARLY_SHIFT_SECONDS;
-    return ahead ? segments : "synced";
+    const apart = segments.length === 1 && Math.abs(segments[0]?.offset ?? 0) >= MIN_SMALL_SHIFT_SECONDS;
+    return apart ? segments : "synced";
   }
   // The current alignment must be clearly worse than the shifted one.
   const unshifted = countTrue(matchesAt(japanese, reference, 0));
   if (matched < 1.5 * unshifted + 5) return "synced";
   return segments;
+}
+
+/**
+ * Whether a file whose alignment this is comes from the release the site
+ * streams: in time, or a single small offset away. Otherwise another file of
+ * the episode may fit better.
+ */
+export function isSameRelease(sync: SyncSegment[] | "synced" | null): boolean {
+  return sync === "synced" ||
+    (!!sync && sync.length === 1 && Math.abs(sync[0]?.offset ?? 0) < MIN_SHIFT_SECONDS);
 }
 
 /**
@@ -269,7 +276,8 @@ export class LocalSubtitleAutoSync {
   run(videoId: string | null, primarySession: string | undefined, translations: SubtitleCue[][]): void {
     const reference = syncReference(translations);
     if (!videoId || !primarySession || !reference) return;
-    const key = `${videoId}\u0000${primarySession}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}`;
+    // The start changes with the translation's offset.
+    const key = `${videoId}\u0000${primarySession}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}\u0000${reference[0]?.start ?? ""}`;
     if (key === this.attempted) return;
     this.attempted = key;
     void this.align(videoId, reference).catch((error: unknown) => {
@@ -292,7 +300,7 @@ export class LocalSubtitleAutoSync {
     // A file installed for the user that needs shifting, or matches
     // nothing: another file of the episode may be the version the site
     // streams. Shifting by parts stays approximate near the cuts.
-    if (segments !== "synced" && record.jimakuAutomatic && (record.jimakuChoices?.length ?? 0) > 1) {
+    if (!isSameRelease(segments) && record.jimakuAutomatic && (record.jimakuChoices?.length ?? 0) > 1) {
       const { switched } = await sendMessage("jimaku:pickSynced", {
         videoId,
         referenceStarts,

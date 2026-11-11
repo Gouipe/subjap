@@ -278,11 +278,15 @@ export class YouTubeAdapter implements PlatformAdapter {
   private publish(): void {
     if (!this.callback) return;
     this.offsets.setVideo(this.videoId ? `youtube:${this.videoId}` : null);
-    this.autoSync.run(
-      this.videoId ? `youtube:${this.videoId}` : null,
-      this.localPrimaryCues[0]?.source?.sessionId,
-      [this.catalog.cues("fr"), this.catalog.cues("en")].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
-    );
+    const references = [this.catalog.cues("fr"), this.catalog.cues("en")]
+      .map((cues) => this.offsets.shiftPlayerTranslation(cues));
+    if (this.localPrimaryCues.length && this.offsets.readyToMoveJapanese()) {
+      this.autoSync.run(
+        this.videoId ? `youtube:${this.videoId}` : null,
+        this.localPrimaryCues[0]?.source?.sessionId,
+        references,
+      );
+    }
     const usable = this.canUsePlayback();
     this.applyNativeVisibility();
     if (this.replay && usable) return;

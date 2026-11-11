@@ -5,7 +5,7 @@
 import type { PageEpisode } from "@/core/episode";
 import { parseSubtitleFile } from "@/subtitles/parse";
 import { getLocalSubtitle, saveLocalSubtitle } from "@/subtitles/local-storage";
-import { estimateSubtitleSync } from "@/subtitles/auto-sync";
+import { estimateSubtitleSync, isSameRelease } from "@/subtitles/auto-sync";
 import {
   getJimakuApiKey,
   jimakuArchives,
@@ -197,7 +197,8 @@ export async function pickSyncedJimakuFile(
       const content = await readChoice(choice, downloads);
       const cues = parseSubtitleFile(choice.name, content);
       const sync = estimateSubtitleSync(cues.map((cue) => cue.start), referenceStarts);
-      if (sync === "synced") {
+      // A small offset away, it is shifted once installed.
+      if (isSameRelease(sync)) {
         pick = { choice, content };
         break;
       }
