@@ -9,9 +9,11 @@ import { estimateSubtitleSync } from "@/subtitles/auto-sync";
 import {
   getJimakuApiKey,
   jimakuArchives,
+  pickJimakuEntry,
   rankJimakuFiles,
   rankSubtitleFiles,
   type JimakuChoice,
+  type JimakuEntry,
   type JimakuFile,
   type JimakuInstallResult,
 } from "@/subtitles/jimaku";
@@ -26,12 +28,6 @@ class JimakuError extends Error {
   constructor(readonly status: number, message: string) {
     super(message);
   }
-}
-
-interface JimakuEntry {
-  id: number;
-  name: string;
-  anilist_id?: number | null;
 }
 
 async function api<T>(path: string, key: string): Promise<T> {
@@ -81,9 +77,14 @@ async function findEntry(episode: PageEpisode, key: string): Promise<JimakuEntry
     if (entries[0]) return entries[0];
   }
   if (!episode.series) return null;
-  const entries = await api<JimakuEntry[]>(
-    `/entries/search?anime=true&query=${encodeURIComponent(episode.series)}`, key);
-  return entries[0] ?? null;
+  // Live-action entries (dramas, films) only for a site that is not anime only.
+  for (const anime of episode.liveActionToo ? [true, false] : [true]) {
+    const entries = await api<JimakuEntry[]>(
+      `/entries/search?anime=${anime}&query=${encodeURIComponent(episode.series)}`, key);
+    const entry = pickJimakuEntry(entries, episode.season);
+    if (entry) return entry;
+  }
+  return null;
 }
 
 /** Subtitles of the episode found in the entry's season archives. */
@@ -144,7 +145,7 @@ export async function installFromJimaku(
     const entry = await findEntry(episode, key);
     if (!entry) return { status: "not-found", entryUrl: null };
     const entryUrl = `https://jimaku.cc/entry/${entry.id}`;
-    const choices = await episodeChoices(entry.id, episode.episode, key);
+    const choices = await episodeChoices(entry.id, episode.movie ? null : episode.episode, key);
     const ordered = choice
       ? [choice, ...choices.filter((item) => item.url !== choice.url || item.inner !== choice.inner)]
       : choices;

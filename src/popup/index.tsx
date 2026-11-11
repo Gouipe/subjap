@@ -50,6 +50,13 @@ import {
 import type { SyncSegment } from "@/subtitles/local-storage";
 import { getJimakuApiKey, undeclineJimaku, type JimakuChoice } from "@/subtitles/jimaku";
 import {
+  getOpenSubtitlesApiKey,
+  undeclineOpenSubtitles,
+  type OpenSubtitlesChoice,
+  type OpenSubtitlesInstallResult,
+  type TranslationLanguage,
+} from "@/subtitles/opensubtitles";
+import {
   KNOWN_SENTENCE_CHOICES,
   PAUSE_AFTER_HIDDEN_SENTENCE_LABEL,
   PAUSE_MIN_WORDS_HINT,
@@ -82,6 +89,8 @@ const EMPTY_LOCAL_SUBTITLES: Record<LocalSubtitleRole, LocalSubtitleRecord | nul
   primary: null,
   secondary: null,
 };
+/** Players whose page names the anime, so that Jimaku can be searched. */
+const JIMAKU_PLAYERS = ["artplayer", "netflix"];
 const WORD_COLOR_GUIDE = [
   {
     word: "大切",
@@ -213,9 +222,19 @@ const Popup: React.FC = () => {
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
   const [hasJimakuKey, setHasJimakuKey] = useState(false);
+  /**
+   * The video under the popup has no French or English translation
+   * ("missing"), or only English while French is preferred.
+   */
+  const [translationNeed, setTranslationNeed] = useState<
+    { tabId: number; state: "missing" | "french-missing" } | null
+  >(null);
+  const [hasOpenSubtitlesKey, setHasOpenSubtitlesKey] = useState(false);
   const [tabId, setTabId] = useState<number | null>(null);
   /** The other Jimaku files of the episode are listed under the Japanese track. */
   const [jimakuListOpen, setJimakuListOpen] = useState(false);
+  /** The other OpenSubtitles files of the episode are listed under the translation. */
+  const [openSubtitlesListOpen, setOpenSubtitlesListOpen] = useState(false);
   /** Words set aside with « Plus tard », cards not created yet. */
   const [pendingMineCount, setPendingMineCount] = useState(0);
   const [pendingMineError, setPendingMineError] = useState<string | null>(null);
@@ -343,14 +362,19 @@ const Popup: React.FC = () => {
       setTabId(tab.id);
       if (!currentVideoId) return;
       void getJimakuApiKey().then((key) => setHasJimakuKey(!!key), () => undefined);
-      // Only the frame playing a video without Japanese subtitles answers.
+      void getOpenSubtitlesApiKey().then((key) => setHasOpenSubtitlesKey(!!key), () => undefined);
+      // Only the frame playing a video without Japanese subtitles or translation answers.
       void chrome.tabs.sendMessage(tab.id, { type: "subtitles:status" }).then((answer: unknown) => {
-        const status = answer as { missing?: unknown; player?: unknown } | undefined;
-        if (status?.missing === true && typeof status.player === "string" && tab.id != null) {
+        const status = answer as { missing?: unknown; player?: unknown; translation?: unknown } | undefined;
+        if (tab.id == null) return;
+        if (status?.missing === true && typeof status.player === "string") {
           setMissingJapanese({ tabId: tab.id, player: status.player });
         }
+        if (status?.translation === "missing" || status?.translation === "french-missing") {
+          setTranslationNeed({ tabId: tab.id, state: status.translation });
+        }
       }, () => {
-        // No frame answered: Japanese subtitles are available or still unknown.
+        // No frame answered: subtitles are available or still unknown.
       });
       const [primary, secondary, japaneseOffset, translationOffset, linked, automatic, japaneseSync] = await Promise.all([
         getLocalSubtitle(currentVideoId, "primary"),
@@ -393,6 +417,7 @@ const Popup: React.FC = () => {
         };
         await saveLocalSubtitle(videoId, record, role);
         if (role === "primary") setMissingJapanese(null);
+        else setTranslationNeed(null);
         setLocalSubtitles((current) => ({ ...current, [role]: record }));
         setOffsetInputs((current) => ({ ...current, [role]: "0.00" }));
       } catch (err: unknown) {
@@ -575,6 +600,53 @@ const Popup: React.FC = () => {
       setLocalSubtitleBusy(false);
     }
   }, [missingJapanese, videoId]);
+
+  /** Shown in the popup when an OpenSubtitles install does not end with a file. */
+  const openSubtitlesFailure = (result: OpenSubtitlesInstallResult): string =>
+    result.status === "error" || result.status === "quota" ? result.message
+      : result.status === "no-key" ? "Clé OpenSubtitles absente des options."
+      : result.status === "bad-key" ? "Clé OpenSubtitles refusée."
+      : "Introuvable sur OpenSubtitles pour cet épisode.";
+
+  /**
+   * Installs the episode's translation from OpenSubtitles, even after the
+   * user removed one; `choice` installs another file of the list instead.
+   */
+  const installOpenSubtitles = useCallback(async (
+    { choice, languages }: { choice?: OpenSubtitlesChoice; languages?: TranslationLanguage[] } = {},
+  ) => {
+    if (!videoId) return;
+    setLocalSubtitleBusy(true);
+    setLocalSubtitleError(null);
+    try {
+      if (!choice) await undeclineOpenSubtitles(videoId);
+      const result = await sendMessage("opensubtitles:install", {
+        videoId,
+        choice,
+        languages,
+        tabId: translationNeed?.tabId ?? tabId ?? undefined,
+      });
+      if (result.status !== "installed") throw new Error(openSubtitlesFailure(result));
+      const secondary = await getLocalSubtitle(videoId, "secondary");
+      setLocalSubtitles((current) => ({ ...current, secondary }));
+      setOffsetInputs((current) => ({
+        ...current,
+        secondary: (secondary?.offsetSeconds ?? 0).toFixed(2),
+      }));
+      setTranslationNeed(null);
+      setOpenSubtitlesListOpen(false);
+    } catch (err: unknown) {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLocalSubtitleBusy(false);
+    }
+  }, [tabId, translationNeed, videoId]);
+
+  const openOpenSubtitlesSettings = useCallback(() => {
+    void sendMessage("options:open", { section: "opensubtitles" }).catch((err: unknown) => {
+      setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+    });
+  }, []);
 
   const searchJimaku = useCallback(async () => {
     if (!missingJapanese) return;
@@ -853,7 +925,7 @@ const Popup: React.FC = () => {
           <div style={styles.missingJapanese}>
             <p style={styles.missingJapaneseText}>Pas de sous-titres japonais pour cette vidéo.</p>
             <div style={styles.missingJapaneseActions}>
-              {missingJapanese.player === "artplayer" && hasJimakuKey && (
+              {JIMAKU_PLAYERS.includes(missingJapanese.player) && hasJimakuKey && (
                 <button
                   style={styles.compactPrimary}
                   disabled={localSubtitleBusy}
@@ -862,7 +934,7 @@ const Popup: React.FC = () => {
                   Installer depuis Jimaku
                 </button>
               )}
-              {missingJapanese.player === "artplayer" && (
+              {JIMAKU_PLAYERS.includes(missingJapanese.player) && (
                 <button
                   style={hasJimakuKey ? styles.compactButton : styles.compactPrimary}
                   onClick={() => void searchJimaku()}
@@ -886,9 +958,53 @@ const Popup: React.FC = () => {
             </div>
           </div>
         )}
+        {translationNeed && videoId && (
+          <div style={{
+            ...styles.missingJapanese,
+            ...(missingJapanese ? styles.cardRowDivided : {}),
+          }}>
+            <p style={styles.missingJapaneseText}>
+              {translationNeed.state === "missing"
+                ? "Pas de traduction française ni anglaise pour cette vidéo."
+                : "Traduction du lecteur en anglais seulement."}
+            </p>
+            <div style={styles.missingJapaneseActions}>
+              {hasOpenSubtitlesKey ? (
+                <button
+                  style={styles.compactPrimary}
+                  disabled={localSubtitleBusy}
+                  onClick={() => void installOpenSubtitles(
+                    translationNeed.state === "missing" ? {} : { languages: ["fr"] },
+                  )}
+                >
+                  {translationNeed.state === "missing" ? "Installer depuis OpenSubtitles" : "Chercher en français"}
+                </button>
+              ) : (
+                <button style={styles.compactPrimary} onClick={openOpenSubtitlesSettings}>
+                  Configurer OpenSubtitles
+                </button>
+              )}
+              {translationNeed.state === "missing" && (
+                <label style={styles.compactButton}>
+                  {localSubtitleBusy ? "Chargement…" : "Importer un fichier"}
+                  <input
+                    type="file"
+                    accept=".srt,.vtt,.webvtt,.ass,.ssa"
+                    hidden
+                    disabled={localSubtitleBusy}
+                    onChange={(event) => {
+                      void importLocalSubtitle("secondary", event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+        )}
         <label style={{
           ...styles.cardRow,
-          ...(missingJapanese && videoId ? styles.cardRowDivided : {}),
+          ...((missingJapanese || translationNeed) && videoId ? styles.cardRowDivided : {}),
         }}>
           <span>Traduction</span>
           <select
@@ -1043,6 +1159,43 @@ const Popup: React.FC = () => {
                                 onClick={() => void chooseJimakuVersion(choice)}
                               >
                                 {current ? `✓ ${choice.name}` : choice.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      {role === "secondary" && localSubtitle?.openSubtitlesChoices &&
+                        localSubtitle.openSubtitlesChoices.length > 1 ? (
+                        <p style={styles.trackHint}>
+                          OpenSubtitles{" · "}
+                          <button
+                            style={styles.inlineLink}
+                            disabled={localSubtitleBusy}
+                            aria-expanded={openSubtitlesListOpen}
+                            title="Chaque fichier installé compte dans le quota quotidien d’OpenSubtitles."
+                            onClick={() => setOpenSubtitlesListOpen((open) => !open)}
+                          >
+                            {localSubtitle.openSubtitlesChoices.length - 1}{" "}
+                            {localSubtitle.openSubtitlesChoices.length > 2 ? "autres fichiers" : "autre fichier"}
+                          </button>
+                        </p>
+                      ) : null}
+                      {role === "secondary" && openSubtitlesListOpen && localSubtitle?.openSubtitlesChoices ? (
+                        <div style={styles.jimakuChoices}>
+                          {localSubtitle.openSubtitlesChoices.slice(0, 8).map((choice) => {
+                            const current = localSubtitle.fileName === choice.name ||
+                              localSubtitle.fileName === `${choice.name}.srt`;
+                            const label = `${choice.language.toUpperCase()} · ${choice.name}`;
+                            return (
+                              <button
+                                key={choice.fileId}
+                                style={current ? { ...styles.jimakuChoice, ...styles.jimakuChoiceCurrent } : styles.jimakuChoice}
+                                title={label}
+                                aria-current={current ? "true" : undefined}
+                                disabled={localSubtitleBusy || current}
+                                onClick={() => void installOpenSubtitles({ choice })}
+                              >
+                                {current ? `✓ ${label}` : label}
                               </button>
                             );
                           })}

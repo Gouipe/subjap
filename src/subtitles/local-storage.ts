@@ -2,6 +2,7 @@ import { youtubeVideoId } from "@/core/youtube";
 import type { SubtitleCue } from "@/core/types";
 import { parseSubtitleFile } from "@/subtitles/parse";
 import type { JimakuChoice } from "@/subtitles/jimaku";
+import type { OpenSubtitlesChoice } from "@/subtitles/opensubtitles";
 
 export type LocalSubtitleRole = "primary" | "secondary";
 
@@ -33,6 +34,8 @@ export interface LocalSubtitleRecord {
    * to the player's translation: another file of the episode may replace it.
    */
   jimakuAutomatic?: boolean;
+  /** Installed from OpenSubtitles: the episode's other translations, to pick another one. */
+  openSubtitlesChoices?: OpenSubtitlesChoice[];
 }
 
 /** Shift of a line starting at `start` in the file, from the automatic alignment. */

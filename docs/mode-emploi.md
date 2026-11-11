@@ -262,15 +262,17 @@ Quand un lecteur Artplayer ne propose pas de piste japonaise, un bandeau
 s’affiche une fois par vidéo en bas du lecteur pendant quelques secondes :
 **Chercher sur Jimaku** ouvre la page Jimaku de l’anime (ou sa recherche) dans
 un nouvel onglet, **Importer** charge directement un fichier japonais comme
-piste principale. Sur Netflix et YouTube, rien ne s’affiche sur la vidéo : la
-popup indique « Pas de sous-titres japonais » dans **Sous-titres**, avec
-**Importer un fichier** ; sur un lecteur Artplayer, elle propose aussi la
-recherche Jimaku.
+piste principale. Sur Netflix, le même bandeau s’affiche pour les titres dont
+la langue originale est le japonais (anime, dramas, films). Sur YouTube, rien
+ne s’affiche sur la vidéo : la popup indique « Pas de sous-titres japonais »
+dans **Sous-titres**, avec **Importer un fichier** ; sur un lecteur Artplayer
+et sur Netflix, elle propose aussi la recherche Jimaku.
 
 Avec une clé API Jimaku (compte gratuit sur jimaku.cc, clé copiée depuis la
 page de compte, puis collée dans les options SubJap, section **Sous-titres
 japonais (Jimaku)**), SubJap installe tout seul les sous-titres japonais de
-l’épisode sur les lecteurs Artplayer : il retrouve l’anime grâce à la page
+l’épisode sur les lecteurs Artplayer et sur Netflix. Sur Netflix, il retrouve
+le titre, la saison et l’épisode d’après Netflix ; ailleurs, il retrouve l’anime grâce à la page
 (identifiant AniList, sinon nom de la série ; l’épisode d’après l’adresse ou le
 titre de la page, qui suivent les changements d’épisode sans rechargement), choisit le fichier de l’épisode
 en préférant les sources web et en écartant les fichiers mêlant chinois et
@@ -294,6 +296,27 @@ des fichiers de l’épisode s’y déplie, l’actuel encadré, et un clic inst
 celui choisi. Supprimée depuis la
 popup, elle est réinstallée au prochain chargement de la page. Sans clé,
 le bandeau propose **Installer automatiquement**, qui ouvre ce réglage.
+
+### Vidéo Netflix sans traduction
+
+Quand un titre Netflix en japonais n’a ni sous-titres français ni anglais, un
+bandeau le signale. Avec une clé OpenSubtitles (compte gratuit sur
+opensubtitles.com, clé créée dans **API consumers**, puis collée dans les
+options SubJap, section **Traductions (OpenSubtitles)**), SubJap installe tout
+seul la traduction de l’épisode, en français sinon en anglais (l’ordre suit la
+préférence **Traduction**). Il préfère les fichiers tirés de Netflix ou d’une
+autre plateforme de streaming, et écarte les traductions automatiques. Le
+fichier devient la piste de traduction locale de la vidéo et se recale une
+fois sur le japonais ; le bandeau le dit, avec **Annuler la synchro** et
+**Désinstaller**. Une clé gratuite permet 5 téléchargements par jour : SubJap
+n’en télécharge qu’un par épisode. Les autres fichiers de l’épisode restent
+au choix dans **Pistes et décalage** (« OpenSubtitles · 3 autres fichiers »),
+chacun comptant pour un téléchargement. Une traduction désinstallée depuis le
+bandeau n’est plus réinstallée pour cette vidéo ; la popup propose alors
+**Installer depuis OpenSubtitles**.
+
+Quand Netflix n’a que l’anglais alors que le français est préféré, SubJap garde
+l’anglais de Netflix ; la popup propose **Chercher en français**.
 
 Quand un mot doit devenir disponible à l’oral, cliquer sur **Activer la
 production orale** au verso. Sa carte sœur rejoint les
@@ -327,7 +350,7 @@ avant cette fonction sont fusionnés ; en cas de désaccord, la décision la plu
 récente l’emporte. Un changement arrive sur l’autre PC en quelques secondes à
 quelques minutes. Les états venus d’Anki n’ont pas besoin d’être partagés :
 chaque PC les relit dans Anki (synchronisé par AnkiWeb). Les cartes « Plus
-tard », la clé Jimaku et les instructions IA restent propres à chaque PC.
+tard », les clés Jimaku et OpenSubtitles et les instructions IA restent propres à chaque PC.
 
 Options → **Données** → **Synchronisation entre PC** indique le nombre de mots
 partagés et l’espace utilisé (environ quelques milliers de mots au total).
