@@ -43,6 +43,7 @@ import type { OnboardingState } from "@/onboarding";
 import type { KnownTriageBatch, MessageResult, OverlayOptions } from "@/core/types";
 import { SYNC_ERROR_STORAGE_KEY, SYNC_QUOTA_WARNING_RATIO } from "@/core/cloud-sync";
 import { getJimakuApiKey, saveJimakuApiKey } from "@/subtitles/jimaku";
+import { getOpenSubtitlesApiKey, saveOpenSubtitlesApiKey } from "@/subtitles/opensubtitles";
 import {
   KNOWN_SENTENCE_CHOICES,
   PAUSE_AFTER_HIDDEN_SENTENCE_LABEL,
@@ -89,6 +90,7 @@ const SETTINGS_SECTIONS: ReadonlyArray<{ id: string; title: string }> = [
   { id: "mots-connus", title: "Mots déjà connus" },
   { id: "anki", title: "Anki" },
   { id: "jimaku", title: "Sous-titres japonais" },
+  { id: "opensubtitles", title: "Traductions" },
   { id: "dictionnaire", title: "Dictionnaire" },
   { id: "ia", title: "Intelligence artificielle" },
   { id: "donnees", title: "Données" },
@@ -210,10 +212,21 @@ function useVisibleSection(ids: ReadonlyArray<string>, ready: boolean): string |
 }
 
 /**
- * Jimaku API key: lets SubJap install the Japanese subtitles of anime
- * videos that have none. Opened from the video notice at #jimaku.
+ * API key of a subtitle site: lets SubJap install the files a video lacks.
+ * Opened from the video notice at #<id>.
  */
-function JimakuSettings(): JSX.Element {
+function ApiKeySettings(props: {
+  id: string;
+  title: string;
+  lead: React.ReactNode;
+  label: string;
+  load: () => Promise<string>;
+  store: (key: string) => Promise<void>;
+  check: (key: string) => Promise<boolean>;
+  refused: string;
+  enabledNote: string;
+}): JSX.Element {
+  const { id, load, store, check, refused, enabledNote } = props;
   const [key, setKey] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
@@ -221,54 +234,46 @@ function JimakuSettings(): JSX.Element {
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void getJimakuApiKey().then((value) => {
+    void load().then((value) => {
       setKey(value);
       setSaved(value);
       // Opened from the video notice: go straight to the field, once the
       // sections above have their final height.
-      if (location.hash === "#jimaku") {
+      if (location.hash === `#${id}`) {
         setTimeout(() => {
           input.current?.scrollIntoView({ block: "center" });
           input.current?.focus({ preventScroll: true });
         }, 300);
       }
     });
-  }, []);
+  }, [id, load]);
 
   const save = useCallback(async () => {
     setBusy(true);
     setNote(null);
     try {
       const trimmed = key.trim();
-      if (trimmed && !(await sendMessage("jimaku:check", { key: trimmed })).valid) {
-        setNote({ ok: false, text: "Clé refusée par Jimaku. Vérifiez-la sur votre page de compte." });
+      if (trimmed && !(await check(trimmed))) {
+        setNote({ ok: false, text: refused });
         return;
       }
-      await saveJimakuApiKey(trimmed);
+      await store(trimmed);
       setSaved(trimmed);
       setNote({
         ok: true,
-        text: trimmed
-          ? "Clé enregistrée : les sous-titres japonais manquants seront installés automatiquement."
-          : "Clé retirée : l’installation automatique est désactivée.",
+        text: trimmed ? enabledNote : "Clé retirée : l’installation automatique est désactivée.",
       });
     } catch (err) {
       setNote({ ok: false, text: err instanceof Error ? err.message : String(err) });
     } finally {
       setBusy(false);
     }
-  }, [key]);
+  }, [check, enabledNote, key, refused, store]);
 
   return (
-    <Section title="Sous-titres japonais (Jimaku)" id="jimaku">
-      <p style={s.sectionLead}>
-        Quand une vidéo d’anime (Re:ANIME…) n’a pas de sous-titres japonais, SubJap
-        peut les installer depuis Jimaku. Créez un compte gratuit sur{" "}
-        <a href="https://jimaku.cc/login" target="_blank" rel="noreferrer" style={s.link}>jimaku.cc</a>,
-        puis copiez la clé API depuis votre{" "}
-        <a href="https://jimaku.cc/account" target="_blank" rel="noreferrer" style={s.link}>page de compte</a>.
-      </p>
-      <Row label="Clé API Jimaku">
+    <Section title={props.title} id={id}>
+      <p style={s.sectionLead}>{props.lead}</p>
+      <Row label={props.label}>
         <input
           ref={input}
           type="password"
@@ -288,6 +293,57 @@ function JimakuSettings(): JSX.Element {
       </Row>
       {note && <p style={note.ok ? s.rowNoteBlock : s.errorNote}>{note.ok ? "✓ " : ""}{note.text}</p>}
     </Section>
+  );
+}
+
+const checkJimakuKey = async (key: string): Promise<boolean> =>
+  (await sendMessage("jimaku:check", { key })).valid;
+const checkOpenSubtitlesKey = async (key: string): Promise<boolean> =>
+  (await sendMessage("opensubtitles:check", { key })).valid;
+
+/** Jimaku: the Japanese subtitles of anime and Japanese titles that have none. */
+function JimakuSettings(): JSX.Element {
+  return (
+    <ApiKeySettings
+      id="jimaku"
+      title="Sous-titres japonais (Jimaku)"
+      label="Clé API Jimaku"
+      load={getJimakuApiKey}
+      store={saveJimakuApiKey}
+      check={checkJimakuKey}
+      refused="Clé refusée par Jimaku. Vérifiez-la sur votre page de compte."
+      enabledNote="Clé enregistrée : les sous-titres japonais manquants seront installés automatiquement."
+      lead={<>
+        Quand une vidéo d’anime (Re:ANIME…) ou une vidéo japonaise de Netflix n’a pas de
+        sous-titres japonais, SubJap peut les installer depuis Jimaku. Créez un compte gratuit sur{" "}
+        <a href="https://jimaku.cc/login" target="_blank" rel="noreferrer" style={s.link}>jimaku.cc</a>,
+        puis copiez la clé API depuis votre{" "}
+        <a href="https://jimaku.cc/account" target="_blank" rel="noreferrer" style={s.link}>page de compte</a>.
+      </>}
+    />
+  );
+}
+
+/** OpenSubtitles: the French or English translation of Japanese Netflix titles that have none. */
+function OpenSubtitlesSettings(): JSX.Element {
+  return (
+    <ApiKeySettings
+      id="opensubtitles"
+      title="Traductions (OpenSubtitles)"
+      label="Clé API OpenSubtitles"
+      load={getOpenSubtitlesApiKey}
+      store={saveOpenSubtitlesApiKey}
+      check={checkOpenSubtitlesKey}
+      refused="Clé refusée par OpenSubtitles. Vérifiez-la dans vos « API consumers »."
+      enabledNote="Clé enregistrée : les traductions manquantes seront installées automatiquement."
+      lead={<>
+        Quand une vidéo japonaise de Netflix n’a ni traduction française ni anglaise, SubJap
+        peut en installer une depuis OpenSubtitles (5 par jour). Créez un compte gratuit sur{" "}
+        <a href="https://www.opensubtitles.com/" target="_blank" rel="noreferrer" style={s.link}>opensubtitles.com</a>,
+        puis créez une clé dans vos{" "}
+        <a href="https://www.opensubtitles.com/consumers" target="_blank" rel="noreferrer" style={s.link}>API consumers</a>.
+      </>}
+    />
   );
 }
 
@@ -1858,6 +1914,8 @@ function SettingsPanel(props: { onStartOnboarding: () => void }): JSX.Element {
           </Section>
 
           <JimakuSettings />
+
+          <OpenSubtitlesSettings />
 
           <Section title="Dictionnaire" id="dictionnaire">
             <Row label="État">

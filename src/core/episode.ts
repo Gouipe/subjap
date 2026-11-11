@@ -8,6 +8,12 @@ export interface PageEpisode {
   episode: number | null;
   /** AniList id, when the page uses an AniList cover or link. */
   anilistId: number | null;
+  /** Season of a series that numbers episodes per season (Netflix). */
+  season?: number | null;
+  /** A film: every subtitle file of its entry is a candidate. */
+  movie?: boolean;
+  /** Not necessarily an anime: Japanese dramas and films too (Netflix). */
+  liveActionToo?: boolean;
 }
 
 /**
@@ -75,6 +81,41 @@ export function readPageEpisode(): PageEpisode {
     }
   }
   return result;
+}
+
+/**
+ * Read the playing Netflix title from Netflix's own metadata: series name in
+ * the profile's language, season and episode numbers. Runs in the tab's top
+ * frame through `chrome.scripting.executeScript`: it must stay
+ * self-contained (no imports, no closures).
+ */
+export async function readNetflixEpisode(): Promise<PageEpisode | null> {
+  const watchId = location.pathname.match(/^\/watch\/(\d+)/)?.[1];
+  if (!watchId) return null;
+  try {
+    const response = await fetch(`/nq/website/memberapi/release/metadata?movieid=${watchId}`, {
+      credentials: "include",
+    });
+    if (!response.ok) return null;
+    const video = ((await response.json()) as { video?: Record<string, unknown> }).video;
+    const title = typeof video?.title === "string" ? video.title.replace(/\s+/g, " ").trim() : "";
+    if (!video || !title) return null;
+    const result: PageEpisode = { series: title, episode: null, anilistId: null, season: null, liveActionToo: true };
+    if (video.type !== "show") return { ...result, movie: true };
+    const current = Number(video.currentEpisode ?? watchId);
+    const seasons = Array.isArray(video.seasons) ? video.seasons as Record<string, unknown>[] : [];
+    for (const season of seasons) {
+      const episodes = Array.isArray(season.episodes) ? season.episodes as Record<string, unknown>[] : [];
+      const episode = episodes.find((item) => Number(item.id ?? item.episodeId) === current);
+      if (!episode) continue;
+      result.season = Number(season.seq) || null;
+      result.episode = Number(episode.seq) || null;
+      break;
+    }
+    return result;
+  } catch {
+    return null;
+  }
 }
 
 export const JIMAKU_HOME_URL = "https://jimaku.cc/";

@@ -50,10 +50,20 @@ import {
   undeclineJimaku,
   type JimakuInstallResult,
 } from "@/subtitles/jimaku";
+import {
+  declineOpenSubtitles,
+  getOpenSubtitlesApiKey,
+  isOpenSubtitlesDeclined,
+  OPENSUBTITLES_API_KEY_STORAGE_KEY,
+  translationLanguageName,
+  undeclineOpenSubtitles,
+  type OpenSubtitlesInstallResult,
+  type TranslationLanguage,
+} from "@/subtitles/opensubtitles";
 import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
 import { onLocalSubtitleAutoSync, type AutoSyncEvent } from "@/subtitles/auto-sync";
 import { cancelPlayerJapaneseSync } from "@/subtitles/video-offset";
-import type { SyncSegment } from "@/subtitles/local-storage";
+import type { LocalSubtitleRole, SyncSegment } from "@/subtitles/local-storage";
 import { compactSubtitleText, primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
 import { LRUCache } from "@/tokenizer/lru-cache";
@@ -197,12 +207,24 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   if (visible) sendResponse({ hasVideo: true });
 });
 
-// The popup asks which frame plays a video without Japanese subtitles. Only
-// that frame answers, so the popup never mixes up an ad frame's answer.
+// The popup asks which frame plays a video without Japanese subtitles or
+// without a translation. Only that frame answers, so the popup never mixes up
+// an ad frame's answer.
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
   if ((message as { type?: unknown } | null)?.type !== "subtitles:status" || !enabled) return;
   const status = adapter.getJapaneseSubtitleStatus?.();
-  if (status?.availability === "missing") sendResponse({ missing: true, player: status.player });
+  const translation = adapter.getTranslationSubtitleStatus?.();
+  const missing = status?.availability === "missing";
+  // French preferred, the player has English only: a French file may exist.
+  const frenchMissing = translation?.availability === "available" && !translation.localFile &&
+    overlayOptions.secondarySubtitleLanguage === "fr" &&
+    translation.offered.length > 0 && !translation.offered.includes("fr");
+  const translationState = translation?.availability === "missing"
+    ? "missing"
+    : frenchMissing ? "french-missing" : null;
+  if (missing || translationState) {
+    sendResponse({ missing, player: status?.player ?? adapter.id, translation: translationState });
+  }
 });
 
 onMessage("tabCapture:stream", async ({ streamId }) => {
@@ -1880,11 +1902,16 @@ let jimakuInstalledActions: { videoId: string; actions: VideoNoticeAction[]; hin
 /** Videos already handled, so the notice appears once per video. */
 const missingJapaneseNotified = new Set<string>();
 
-/** Anime players only: elsewhere a video without Japanese is usually not Japanese. */
+/**
+ * Anime players, and Netflix titles whose original language is Japanese:
+ * elsewhere a video without Japanese is usually not Japanese.
+ */
 function checkMissingJapanese(): void {
   const status = adapter.getJapaneseSubtitleStatus?.();
   const video = adapter.getVideoElement();
-  if (!status || status.player !== "artplayer" || status.availability !== "missing" || !video) {
+  const japaneseVideo = status?.player === "artplayer" ||
+    (status?.player === "netflix" && status.originalLanguage === "ja");
+  if (!status || !japaneseVideo || status.availability !== "missing" || !video) {
     if (status?.availability === "available" && missingJapaneseNoticeReportsMissing) {
       missingJapaneseNotice?.close();
     }
@@ -1952,7 +1979,7 @@ function showMissingJapanese(
         ? [{ label: "Installer depuis Jimaku", primary: true, onClick: () => reinstallFromJimaku(notice, videoId) }]
         : []),
       { label: "Chercher sur Jimaku", primary: !offerSetup && !offerInstall, onClick: () => searchJimaku(notice) },
-      ...(videoId ? [{ label: "Importer", onClick: () => importJapaneseFile(videoId, notice) }] : []),
+      ...(videoId ? [{ label: "Importer", onClick: () => importSubtitleFile(videoId, notice, "primary") }] : []),
     ],
   });
 }
@@ -1999,7 +2026,7 @@ async function installFromJimaku(notice: VideoNotice, videoId: string): Promise<
         actions: [
           { label: "Vérifier la clé", primary: true, onClick: openJimakuSettings },
           { label: "Chercher sur Jimaku", onClick: () => searchJimaku(notice) },
-          { label: "Importer", onClick: () => importJapaneseFile(videoId, notice) },
+          { label: "Importer", onClick: () => importSubtitleFile(videoId, notice, "primary") },
         ],
       });
       return;
@@ -2030,6 +2057,207 @@ async function removeJimakuFile(notice: VideoNotice, videoId: string): Promise<v
 }
 
 // ---------------------------------------------------------------------------
+// Missing translation (Netflix)
+// ---------------------------------------------------------------------------
+
+let missingTranslationNotice: VideoNotice | null = null;
+/** The notice reports a missing translation: it goes away once one appears. */
+let missingTranslationNoticeReportsMissing = false;
+/** The "installed from OpenSubtitles" notice, kept when the file is then aligned. */
+let translationInstalledActions: {
+  videoId: string;
+  actions: VideoNoticeAction[];
+  hint: string;
+  language: TranslationLanguage;
+} | null = null;
+/** Videos already handled, so the notice appears once per video. */
+const missingTranslationNotified = new Set<string>();
+
+/**
+ * Japanese titles without a French or English translation: install one from
+ * OpenSubtitles. Elsewhere a missing translation is none of SubJap's business.
+ */
+function checkMissingTranslation(): void {
+  const status = adapter.getTranslationSubtitleStatus?.();
+  const video = adapter.getVideoElement();
+  if (!status || status.availability !== "missing" || status.originalLanguage !== "ja" ||
+    !status.videoId || !video) {
+    if (status?.availability === "available" && missingTranslationNoticeReportsMissing) {
+      missingTranslationNotice?.close();
+    }
+    return;
+  }
+  if (missingTranslationNotified.has(status.videoId)) return;
+  // One notice at a time: the Japanese subtitles speak first.
+  if (document.getElementById("subjap-video-notice")) return;
+  missingTranslationNotified.add(status.videoId);
+  void handleMissingTranslation(video, status.videoId);
+}
+
+/** Install from OpenSubtitles when a key is set, unless the user removed its file before. */
+async function handleMissingTranslation(video: HTMLVideoElement, videoId: string): Promise<void> {
+  const [apiKey, declined] = await Promise.all([getOpenSubtitlesApiKey(), isOpenSubtitlesDeclined(videoId)])
+    .catch(() => ["", false] as const);
+  if (!enabled || adapter.getVideoElement() !== video) return;
+  const notice = openMissingTranslationNotice(video);
+  if (!apiKey || declined) {
+    showMissingTranslation(notice, videoId, { offerSetup: !apiKey && !declined, offerInstall: !!apiKey && declined });
+    return;
+  }
+  void installTranslation(notice, videoId);
+}
+
+function openMissingTranslationNotice(video: HTMLVideoElement): VideoNotice {
+  missingTranslationNotice?.close();
+  translationInstalledActions = null;
+  const notice = new VideoNotice(video, {
+    text: "",
+    actions: [],
+    autoHideMs: null,
+    onClose: () => {
+      if (missingTranslationNotice !== notice) return;
+      missingTranslationNotice = null;
+      missingTranslationNoticeReportsMissing = false;
+      translationInstalledActions = null;
+    },
+  });
+  missingTranslationNotice = notice;
+  notice.show();
+  return notice;
+}
+
+function showMissingTranslation(
+  notice: VideoNotice,
+  videoId: string,
+  {
+    text = "Pas de traduction française ni anglaise pour cette vidéo.",
+    offerSetup = false,
+    /** The user removed this video's OpenSubtitles file before: offer it again. */
+    offerInstall = false,
+  } = {},
+): void {
+  missingTranslationNoticeReportsMissing = missingTranslationNotice === notice;
+  notice.update({
+    text,
+    autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+    actions: [
+      ...(offerSetup
+        ? [{ label: "Installer automatiquement", primary: true, onClick: openOpenSubtitlesSettings }]
+        : []),
+      ...(offerInstall
+        ? [{ label: "Installer depuis OpenSubtitles", primary: true, onClick: () => reinstallTranslation(notice, videoId) }]
+        : []),
+      {
+        label: "Importer",
+        primary: !offerSetup && !offerInstall,
+        onClick: () => importSubtitleFile(videoId, notice, "secondary"),
+      },
+    ],
+  });
+}
+
+function openOpenSubtitlesSettings(): void {
+  void sendMessage("options:open", { section: "opensubtitles" }).catch(handleRuntimeError);
+}
+
+async function installTranslation(notice: VideoNotice, videoId: string): Promise<void> {
+  if (missingTranslationNotice === notice) missingTranslationNoticeReportsMissing = false;
+  notice.update({
+    text: "Recherche d’une traduction sur OpenSubtitles…",
+    actions: [],
+    autoHideMs: null,
+  });
+  let result: OpenSubtitlesInstallResult;
+  try {
+    result = await sendMessage("opensubtitles:install", { videoId });
+  } catch (err: unknown) {
+    handleRuntimeError(err);
+    result = { status: "error", message: "OpenSubtitles injoignable." };
+  }
+  switch (result.status) {
+    case "installed": {
+      const actions = [{ label: "Désinstaller", onClick: () => void removeTranslationFile(notice, videoId) }];
+      // Picking another file is left to the popup: each one is a download.
+      const hint = result.choices.length > 1 ? "\nAutres fichiers au choix via l’icône SubJap." : "";
+      translationInstalledActions = { videoId, actions, hint, language: result.language };
+      notice.update({
+        text: `Traduction ${translationLanguageName(result.language)} installée depuis OpenSubtitles.${hint}`,
+        autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+        actions,
+      });
+      return;
+    }
+    case "no-key":
+      showMissingTranslation(notice, videoId, { offerSetup: true });
+      return;
+    case "bad-key":
+      missingTranslationNoticeReportsMissing = missingTranslationNotice === notice;
+      notice.update({
+        text: "Clé OpenSubtitles refusée.",
+        autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+        actions: [
+          { label: "Vérifier la clé", primary: true, onClick: openOpenSubtitlesSettings },
+          { label: "Importer", onClick: () => importSubtitleFile(videoId, notice, "secondary") },
+        ],
+      });
+      return;
+    case "not-found":
+      showMissingTranslation(notice, videoId, { text: "Introuvable sur OpenSubtitles pour cet épisode." });
+      return;
+    case "quota":
+    case "error":
+      showMissingTranslation(notice, videoId, { text: result.message });
+  }
+}
+
+function reinstallTranslation(notice: VideoNotice, videoId: string): void {
+  void undeclineOpenSubtitles(videoId).then(() => installTranslation(notice, videoId), (err: unknown) => {
+    handleRuntimeError(err);
+    notice.setText("Installation impossible. Réessayez via l’icône SubJap.");
+  });
+}
+
+/** Removed for good: the next visit of this video does not install it again. */
+async function removeTranslationFile(notice: VideoNotice, videoId: string): Promise<void> {
+  try {
+    await Promise.all([removeLocalSubtitle(videoId, "secondary"), declineOpenSubtitles(videoId)]);
+    showMissingTranslation(notice, videoId, { text: "Traduction OpenSubtitles désinstallée pour cette vidéo." });
+  } catch (err: unknown) {
+    handleRuntimeError(err);
+    notice.setText("Désinstallation impossible. Supprimez la piste via l’icône SubJap.");
+  }
+}
+
+/** The OpenSubtitles file was aligned on the Japanese: say it with the install, with a way back. */
+function showTranslationSyncNotice(video: HTMLVideoElement, videoId: string, segments: SyncSegment[]): void {
+  const installed = translationInstalledActions?.videoId === videoId && missingTranslationNotice
+    ? translationInstalledActions
+    : null;
+  const notice = installed && missingTranslationNotice ? missingTranslationNotice : openMissingTranslationNotice(video);
+  const undo = (): void => {
+    void (async () => {
+      const record = await getLocalSubtitle(videoId, "secondary");
+      if (record) {
+        await saveLocalSubtitle(videoId, { ...record, syncSegments: undefined, syncChecked: true }, "secondary");
+      }
+      notice.update({
+        text: "Synchronisation annulée. Le décalage reste réglable via l’icône SubJap.",
+        autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+        actions: [],
+      });
+    })().catch(handleRuntimeError);
+  };
+  missingTranslationNoticeReportsMissing = false;
+  notice.update({
+    text: installed
+      ? `Traduction ${translationLanguageName(installed.language)} installée depuis OpenSubtitles et synchronisée ${describeSync(segments)}.${installed.hint}`
+      : `Traduction synchronisée sur les sous-titres japonais ${describeSync(segments)}.`,
+    autoHideMs: MISSING_JAPANESE_NOTICE_MS,
+    actions: [...(installed?.actions ?? []), { label: "Annuler la synchro", onClick: undo }],
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Automatic alignment of a local Japanese file
 // ---------------------------------------------------------------------------
 
@@ -2047,9 +2275,13 @@ function describeSync(segments: SyncSegment[]): string {
   return `par parties (de ${formatOffset(low)} à ${formatOffset(high)})`;
 }
 
-function showAutoSyncNotice({ videoId, segments, track }: AutoSyncEvent): void {
+function showAutoSyncNotice({ videoId, segments, track, role }: AutoSyncEvent): void {
   const video = adapter.getVideoElement();
   if (!enabled || !video) return;
+  if (role === "secondary") {
+    showTranslationSyncNotice(video, videoId, segments);
+    return;
+  }
   const installed = track === "file" && jimakuInstalledActions?.videoId === videoId && missingJapaneseNotice
     ? jimakuInstalledActions
     : null;
@@ -2090,7 +2322,7 @@ function searchJimaku(notice: VideoNotice): void {
 }
 
 /** Same storage as the popup import: the adapter picks the file up by itself. */
-function importJapaneseFile(videoId: string, notice: VideoNotice): void {
+function importSubtitleFile(videoId: string, notice: VideoNotice, role: LocalSubtitleRole): void {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".srt,.vtt,.webvtt,.ass,.ssa";
@@ -2109,7 +2341,7 @@ function importJapaneseFile(videoId: string, notice: VideoNotice): void {
           content,
           offsetSeconds: 0,
           updatedAt: Date.now(),
-        }, "primary");
+        }, role);
         notice.close();
       } catch (err: unknown) {
         handleRuntimeError(err);
@@ -2168,7 +2400,10 @@ function enable(): void {
   adapter.subscribeCues((cues) => {
     enqueueCues(cues);
   });
-  missingJapaneseTimer = window.setInterval(checkMissingJapanese, 1_000);
+  missingJapaneseTimer = window.setInterval(() => {
+    checkMissingJapanese();
+    checkMissingTranslation();
+  }, 1_000);
   mineLaterReminderTimer = window.setInterval(checkMineLaterReminder, 1_000);
 }
 
@@ -2185,6 +2420,7 @@ function disable(): void {
   if (missingJapaneseTimer !== null) window.clearInterval(missingJapaneseTimer);
   missingJapaneseTimer = null;
   missingJapaneseNotice?.close();
+  missingTranslationNotice?.close();
   if (mineLaterReminderTimer !== null) window.clearInterval(mineLaterReminderTimer);
   mineLaterReminderTimer = null;
   mineLaterReminder?.close();
@@ -2233,6 +2469,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   // A key just saved from the options: try the video that was missing subtitles.
   if (changes[JIMAKU_API_KEY_STORAGE_KEY]?.newValue) missingJapaneseNotified.clear();
+  if (changes[OPENSUBTITLES_API_KEY_STORAGE_KEY]?.newValue) missingTranslationNotified.clear();
 
   // Decisions made on another PC arrived through the Google account.
   if (changes[WORD_STATES_REVISION_STORAGE_KEY]) reloadWordStates();

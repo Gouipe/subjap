@@ -8,13 +8,16 @@ import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/ena
 import { installFullscreenReporter } from "@/core/fullscreen-report";
 import { isExtensionPageSender, onMessage } from "@/core/messaging";
 import { checkJimakuKey, installFromJimaku, pickSyncedJimakuFile } from "./jimaku";
+import { checkOpenSubtitlesKey, installFromOpenSubtitles } from "./opensubtitles";
 import {
   findJimakuEntryUrl,
   JIMAKU_HOME_URL,
   jimakuSearchUrl,
+  readNetflixEpisode,
   readPageEpisode,
   type PageEpisode,
 } from "@/core/episode";
+import { netflixWatchId } from "@/subtitles/local-storage";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL, JMDICT_PACKS } from "@/dictionary/jmdict";
 import { entrySpellings, selectDictionaryEntry } from "@/dictionary/match";
@@ -701,6 +704,16 @@ onMessage("tab:url", (_payload, sender) => ({ url: sender.tab?.url ?? null }));
 /** Players embedded in a frame cannot read the page that names the episode. */
 async function readTabEpisode(tabId: number): Promise<PageEpisode | null> {
   try {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.url && netflixWatchId(tab.url)) {
+      // Netflix's metadata answers the page's own signed-in requests.
+      const [frame] = await chrome.scripting.executeScript({
+        target: { tabId, frameIds: [0] },
+        world: "MAIN",
+        func: readNetflixEpisode,
+      });
+      return frame?.result ?? null;
+    }
     const [frame] = await chrome.scripting.executeScript({
       target: { tabId, frameIds: [0] },
       func: readPageEpisode,
@@ -743,6 +756,26 @@ onMessage("jimaku:pickSynced", async ({ videoId, referenceStarts, currentAligns 
 }));
 
 onMessage("jimaku:check", async ({ key }) => ({ valid: await checkJimakuKey(key) }), {
+  extensionPagesOnly: true,
+});
+
+const TRANSLATION_LANGUAGES = ["fr", "en"] as const;
+
+onMessage("opensubtitles:install", async ({ videoId, choice, languages, tabId: popupTabId }, sender) => {
+  // Content scripts are writable by pages: keep only well-formed requests.
+  const validChoice = choice && Number.isInteger(choice.fileId) && typeof choice.name === "string" &&
+    TRANSLATION_LANGUAGES.includes(choice.language)
+    ? { name: choice.name, fileId: choice.fileId, language: choice.language }
+    : undefined;
+  const validLanguages = languages?.filter((language) => TRANSLATION_LANGUAGES.includes(language));
+  const tabId = requestedTabId(popupTabId, sender);
+  return installFromOpenSubtitles(videoId, tabId == null ? null : await readTabEpisode(tabId), {
+    choice: validChoice,
+    languages: validLanguages?.length ? validLanguages : undefined,
+  });
+});
+
+onMessage("opensubtitles:check", async ({ key }) => ({ valid: await checkOpenSubtitlesKey(key) }), {
   extensionPagesOnly: true,
 });
 

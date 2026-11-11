@@ -7,9 +7,16 @@ elle serait annoncée à nouveau.
 
 ## 2026-11-11
 
-### Améliorations
+### Fonctionnalités
+
+- Sur Netflix, une vidéo japonaise sans sous-titres japonais les installe depuis Jimaku, comme sur Re:ANIME.
+- Sur Netflix, une vidéo japonaise sans traduction française ni anglaise en installe une depuis OpenSubtitles, avec une clé gratuite à saisir dans Options › Traductions.
 
 - Sur Re:ANIME, les sous-titres japonais du site se recalent automatiquement sur la traduction, comme ceux de Jimaku, même quand l'épisode est monté différemment.
+
+### Corrections
+
+- Un japonais Jimaku ou Re:ANIME légèrement en retard sur la traduction est désormais avancé sur elle, au lieu de retarder la traduction ; une traduction OpenSubtitles légèrement en avance est de même recalée sur le japonais.
 
 ## 2026-11-10
 

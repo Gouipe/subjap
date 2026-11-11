@@ -134,6 +134,23 @@ identifiants de vidéo historiques ; les autres lecteurs sont indexés par une
 empreinte de leur URL canonique. Les anciennes traductions locales restent
 disponibles dans l’emplacement secondaire.
 
+Le bridge annonce aussi la langue originale du titre : la piste audio que
+Netflix marque `isNative` (« Japanese [Original] »). Pour un titre japonais
+sans piste japonaise, le content script ouvre le même bandeau Jimaku que sur
+Re:ANIME ; sans traduction FR ni EN, il installe une traduction depuis
+OpenSubtitles ([`background/opensubtitles.ts`](../src/background/opensubtitles.ts)).
+Pour ces deux recherches, le service worker lit dans le monde de la page les
+métadonnées Netflix (`/nq/website/memberapi/release/metadata?movieid=<id>`) :
+nom de la série dans la langue du profil, saison et épisode
+([`readNetflixEpisode`](../src/core/episode.ts)). Jimaku ayant une entrée par
+saison, l’entrée dont le nom annonce la saison est choisie ; les dramas et
+films japonais sont cherchés parmi ses entrées hors anime. OpenSubtitles
+trouve la série par son titre ou ses traductions (`/features`, `full_search`),
+puis la liste de l’épisode ; une seule traduction est téléchargée, car une clé
+gratuite en permet 5 par jour. Elle est recalée une fois sur le japonais
+(fichier local, sinon piste Netflix) ; un fichier de traduction importé par
+l’utilisatrice ne l’est jamais.
+
 Le masquage des sous-titres natifs est piloté par une classe sur `<html>` et
 une règle CSS document-level. Cette approche résiste à la recréation du DOM
 Netflix et aux styles `visibility` inline de ses descendants. Les pistes
@@ -426,7 +443,7 @@ content script via `chrome.storage.onChanged`.
 `chrome.storage.sync` les décisions manuelles (`source: "manual"` : Connu,
 Ignorer, « inconnu » imposé contre Anki), le rang atteint dans « Mots déjà
 connus » et `subjap_options`. Les états Anki ne sont pas partagés : chaque PC
-les reconstruit depuis son Anki. Le prompt IA, la clé Jimaku et « Plus tard »
+les reconstruit depuis son Anki. Le prompt IA, les clés Jimaku et OpenSubtitles et « Plus tard »
 restent locaux.
 
 - Format ([`src/core/cloud-sync.ts`](../src/core/cloud-sync.ts)) : 32 items

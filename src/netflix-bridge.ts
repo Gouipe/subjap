@@ -43,8 +43,14 @@ interface NetflixTimedTextTrackOption {
   trackId?: unknown;
 }
 
+interface NetflixAudioTrackOption {
+  bcp47?: unknown;
+  isNative?: unknown;
+}
+
 interface NetflixTimedTextSession extends NetflixPlayer {
   getMovieId?: () => unknown;
+  getAudioTrackList?: () => NetflixAudioTrackOption[];
   getTimedTextTrackList?: () => NetflixTimedTextTrackOption[];
   getTimedTextTrack?: () => NetflixTimedTextTrackOption | null | undefined;
   setTimedTextTrack?: (track: NetflixTimedTextTrackOption) => unknown;
@@ -439,10 +445,19 @@ function installTimedTextCapture(page: Window): void {
         !/forced|強制/i.test(String(track.displayName ?? "")))
       .map(readTimedTextLanguage)
       .filter(Boolean))];
-    const key = `${episodeId}:${languages.join(",")}`;
+    // The audio track Netflix flags as native is the title's original language.
+    let originalLanguage: string | null = null;
+    try {
+      const audio = session.getAudioTrackList?.() ?? [];
+      const native = Array.isArray(audio) ? audio.find((track) => track?.isNative === true) : undefined;
+      originalLanguage = typeof native?.bcp47 === "string" ? native.bcp47 : null;
+    } catch {
+      // Unknown: SubJap then only reports the missing subtitles in its popup.
+    }
+    const key = `${episodeId}:${languages.join(",")}:${originalLanguage ?? ""}`;
     if (key === lastTrackLanguages) return;
     lastTrackLanguages = key;
-    emit(NETFLIX_TRACK_LANGUAGES_EVENT, { episodeId, languages });
+    emit(NETFLIX_TRACK_LANGUAGES_EVENT, { episodeId, languages, originalLanguage });
   };
 
   const associateNextTrackRequest = (

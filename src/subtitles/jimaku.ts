@@ -2,10 +2,12 @@
 // SubJap — Jimaku: API key and choice of the episode's subtitle file
 // ---------------------------------------------------------------------------
 
+import { declinedVideos } from "./declined";
+
 export const JIMAKU_API_KEY_STORAGE_KEY = "subjap_jimaku_api_key";
 /** Videos whose Jimaku file the user removed: never installed again. */
 export const JIMAKU_DECLINED_STORAGE_KEY = "subjap_jimaku_declined";
-const MAX_DECLINED_VIDEOS = 300;
+const declined = declinedVideos(JIMAKU_DECLINED_STORAGE_KEY);
 
 export async function getJimakuApiKey(): Promise<string> {
   const stored = await chrome.storage.local.get(JIMAKU_API_KEY_STORAGE_KEY);
@@ -19,31 +21,59 @@ export async function saveJimakuApiKey(key: string): Promise<void> {
   else await chrome.storage.local.remove(JIMAKU_API_KEY_STORAGE_KEY);
 }
 
-async function getDeclinedVideos(): Promise<string[]> {
-  const stored = await chrome.storage.local.get(JIMAKU_DECLINED_STORAGE_KEY);
-  const value = stored[JIMAKU_DECLINED_STORAGE_KEY] as unknown;
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
-export async function isJimakuDeclined(videoId: string): Promise<boolean> {
-  return (await getDeclinedVideos()).includes(videoId);
+export function isJimakuDeclined(videoId: string): Promise<boolean> {
+  return declined.has(videoId);
 }
 
 /** The user asks for Jimaku again on a video whose file they removed. */
-export async function undeclineJimaku(videoId: string): Promise<void> {
-  const declined = await getDeclinedVideos();
-  if (!declined.includes(videoId)) return;
-  await chrome.storage.local.set({
-    [JIMAKU_DECLINED_STORAGE_KEY]: declined.filter((item) => item !== videoId),
-  });
+export function undeclineJimaku(videoId: string): Promise<void> {
+  return declined.remove(videoId);
 }
 
-export async function declineJimaku(videoId: string): Promise<void> {
-  const declined = (await getDeclinedVideos()).filter((item) => item !== videoId);
-  declined.push(videoId);
-  await chrome.storage.local.set({
-    [JIMAKU_DECLINED_STORAGE_KEY]: declined.slice(-MAX_DECLINED_VIDEOS),
-  });
+export function declineJimaku(videoId: string): Promise<void> {
+  return declined.add(videoId);
+}
+
+// ---------------------------------------------------------------------------
+// Entry choice
+// ---------------------------------------------------------------------------
+
+/** A Jimaku entry, as its search lists it. */
+export interface JimakuEntry {
+  id: number;
+  name: string;
+  english_name?: string | null;
+  japanese_name?: string | null;
+  anilist_id?: number | null;
+}
+
+const ROMAN_SEASONS = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+/** Season an entry's names announce: "Season 2", "2nd Season", "第2期", "II"; 1 when none. */
+export function entrySeason(entry: JimakuEntry): number {
+  for (const name of [entry.name, entry.english_name, entry.japanese_name]) {
+    const trimmed = name?.trim();
+    if (!trimmed) continue;
+    const match = /\bseason\s*(\d{1,2})\b/i.exec(trimmed) ??
+      /\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i.exec(trimmed) ??
+      /第(\d{1,2})期/.exec(trimmed) ??
+      /\sS(\d{1,2})$/i.exec(trimmed);
+    if (match) return Number(match[1]);
+    // "Mushoku Tensei II: …"; a bare number ("Kaiju No. 8") is part of the name.
+    const roman = /\s([IVX]{1,4})(?::|$)/.exec(trimmed)?.[1];
+    if (roman && ROMAN_SEASONS.includes(roman)) return ROMAN_SEASONS.indexOf(roman);
+  }
+  return 1;
+}
+
+/**
+ * Jimaku has one entry per season, like AniList: for a site that numbers
+ * episodes per season (Netflix), the entry of that season, otherwise the
+ * best match of the search.
+ */
+export function pickJimakuEntry(entries: JimakuEntry[], season: number | null | undefined): JimakuEntry | null {
+  if (!season || season === 1) return entries.find((entry) => entrySeason(entry) === 1) ?? entries[0] ?? null;
+  return entries.find((entry) => entrySeason(entry) === season) ?? null;
 }
 
 // ---------------------------------------------------------------------------

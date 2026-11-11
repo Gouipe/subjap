@@ -13,7 +13,13 @@
 
 import type { SubtitleCue } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
-import { getLocalSubtitle, saveLocalSubtitle, type SyncSegment } from "./local-storage";
+import {
+  getLocalSubtitle,
+  saveLocalSubtitle,
+  type LocalSubtitleRecord,
+  type LocalSubtitleRole,
+  type SyncSegment,
+} from "./local-storage";
 import { parseSubtitleFile } from "./parse";
 
 const MAX_GAP_SECONDS = 60;
@@ -243,11 +249,13 @@ export interface AutoSyncEvent {
   segments: SyncSegment[];
   /** A local file, or the player's own Japanese track. */
   track: "file" | "player";
+  /** The Japanese track, or a local translation file; Japanese when unsaid. */
+  role?: LocalSubtitleRole;
 }
 
 const listeners = new Set<(event: AutoSyncEvent) => void>();
 
-/** Told once each time a Japanese track is shifted automatically. */
+/** Told once each time a track is shifted automatically. */
 export function onLocalSubtitleAutoSync(listener: (event: AutoSyncEvent) => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -263,21 +271,28 @@ export function syncReference(translations: SubtitleCue[][]): SubtitleCue[] | un
 }
 
 /**
- * Shift a video's local Japanese file once, onto the player's translation.
+ * Shift a video's local Japanese file once, onto the player's translation;
+ * or, for the "secondary" role, a local translation file onto the Japanese.
  * Files whose offset the user set, or already shifted, are left alone.
  */
 export class LocalSubtitleAutoSync {
   private attempted = "";
 
+  constructor(
+    private readonly role: LocalSubtitleRole = "primary",
+    /** Files of this role that may be shifted; all by default. */
+    private readonly accepts: (record: LocalSubtitleRecord) => boolean = () => true,
+  ) {}
+
   /**
-   * Call whenever the local Japanese track or the native translations change;
-   * repeated calls with the same inputs do nothing.
+   * Call whenever the local track or the reference tracks change; repeated
+   * calls with the same inputs do nothing.
    */
-  run(videoId: string | null, primarySession: string | undefined, translations: SubtitleCue[][]): void {
-    const reference = syncReference(translations);
-    if (!videoId || !primarySession || !reference) return;
-    // The start changes with the translation's offset.
-    const key = `${videoId}\u0000${primarySession}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}\u0000${reference[0]?.start ?? ""}`;
+  run(videoId: string | null, localSession: string | undefined, references: SubtitleCue[][]): void {
+    const reference = syncReference(references);
+    if (!videoId || !localSession || !reference) return;
+    // The start changes with the reference's offset.
+    const key = `${videoId}\u0000${localSession}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}\u0000${reference[0]?.start ?? ""}`;
     if (key === this.attempted) return;
     this.attempted = key;
     void this.align(videoId, reference).catch((error: unknown) => {
@@ -290,17 +305,19 @@ export class LocalSubtitleAutoSync {
   }
 
   private async align(videoId: string, reference: SubtitleCue[]): Promise<void> {
-    const untouched = (record: Awaited<ReturnType<typeof getLocalSubtitle>>): boolean =>
+    const role = this.role;
+    const untouched = (record: LocalSubtitleRecord | null): boolean =>
       !!record && !record.syncChecked && record.offsetSeconds === 0 && !record.syncSegments?.length;
-    const record = await getLocalSubtitle(videoId, "primary");
-    if (!record || !untouched(record)) return;
-    const japanese = parseSubtitleFile(record.fileName, record.content).map((cue) => cue.start);
+    const record = await getLocalSubtitle(videoId, role);
+    if (!record || !untouched(record) || !this.accepts(record)) return;
+    const starts = parseSubtitleFile(record.fileName, record.content).map((cue) => cue.start);
     const referenceStarts = reference.map((cue) => cue.start);
-    const segments = estimateSubtitleSync(japanese, referenceStarts);
+    const segments = estimateSubtitleSync(starts, referenceStarts);
     // A file installed for the user that needs shifting, or matches
     // nothing: another file of the episode may be the version the site
     // streams. Shifting by parts stays approximate near the cuts.
-    if (!isSameRelease(segments) && record.jimakuAutomatic && (record.jimakuChoices?.length ?? 0) > 1) {
+    if (role === "primary" && !isSameRelease(segments) && record.jimakuAutomatic &&
+      (record.jimakuChoices?.length ?? 0) > 1) {
       const { switched } = await sendMessage("jimaku:pickSynced", {
         videoId,
         referenceStarts,
@@ -310,11 +327,16 @@ export class LocalSubtitleAutoSync {
     }
     if (!Array.isArray(segments)) return;
     // The user may have replaced the file or set an offset meanwhile.
-    const current = await getLocalSubtitle(videoId, "primary");
+    const current = await getLocalSubtitle(videoId, role);
     if (!current || current.updatedAt !== record.updatedAt || !untouched(current)) return;
     // The user's own offset stays at 0 and still adds to the parts.
-    await saveLocalSubtitle(videoId, { ...current, syncSegments: segments, syncChecked: true }, "primary");
-    console.info("[SubJap] Sous-titres japonais recalés sur la traduction:", segments);
-    announceAutoSync({ videoId, segments, track: "file" });
+    await saveLocalSubtitle(videoId, { ...current, syncSegments: segments, syncChecked: true }, role);
+    console.info(
+      role === "primary"
+        ? "[SubJap] Sous-titres japonais recalés sur la traduction:"
+        : "[SubJap] Traduction recalée sur les sous-titres japonais:",
+      segments,
+    );
+    announceAutoSync({ videoId, segments, track: "file", role });
   }
 }

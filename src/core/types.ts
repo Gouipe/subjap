@@ -3,6 +3,11 @@
 // ---------------------------------------------------------------------------
 
 import type { JimakuChoice, JimakuInstallResult } from "@/subtitles/jimaku";
+import type {
+  OpenSubtitlesChoice,
+  OpenSubtitlesInstallResult,
+  TranslationLanguage,
+} from "@/subtitles/opensubtitles";
 
 
 // ── Plateformes ───────────────────────────────────────────────────────────
@@ -67,6 +72,20 @@ export interface JapaneseSubtitleStatus {
   player: "artplayer" | "netflix" | "youtube" | "other";
   /** Key of this video's local subtitle imports. */
   videoId: string | null;
+  /** Original audio language, when the player says it (Netflix). */
+  originalLanguage?: string | null;
+}
+
+/** Whether the player offers a French or English translation of the video. */
+export interface TranslationSubtitleStatus {
+  /** "missing": neither French nor English, and no local translation file. */
+  availability: JapaneseSubtitleAvailability;
+  videoId: string | null;
+  originalLanguage: string | null;
+  /** Translations the player offers, French or English. */
+  offered: ("fr" | "en")[];
+  /** A local translation file replaces the player's. */
+  localFile: boolean;
 }
 
 export interface PlatformAdapter {
@@ -96,6 +115,8 @@ export interface PlatformAdapter {
   setSecondarySubtitleLanguage?(language: SecondarySubtitleLanguage): void;
   /** Japanese subtitles of the current video, once the player listed its tracks. */
   getJapaneseSubtitleStatus?(): JapaneseSubtitleStatus;
+  /** Players that list their tracks (Netflix): is a translation missing? */
+  getTranslationSubtitleStatus?(): TranslationSubtitleStatus;
   seekTo(timeSeconds: number, resume: boolean): Promise<boolean>;
   setNativeSubtitlesVisible(v: boolean): void;
   getEpisodeContext(): EpisodeContext | null;
@@ -432,6 +453,19 @@ export interface MessageMap {
   "jimaku:pickSyncedResult": { switched: boolean };
   "jimaku:check": { key: string };
   "jimaku:checkResult": { valid: boolean };
+  /**
+   * Install the episode's translation from OpenSubtitles as the video's local
+   * translation. `languages` narrows the search; `tabId` when the popup asks.
+   */
+  "opensubtitles:install": {
+    videoId: string;
+    choice?: OpenSubtitlesChoice;
+    languages?: TranslationLanguage[];
+    tabId?: number;
+  };
+  "opensubtitles:installResult": OpenSubtitlesInstallResult;
+  "opensubtitles:check": { key: string };
+  "opensubtitles:checkResult": { valid: boolean };
   /** Open the options page, scrolled to one of its sections. */
   "options:open": { section?: string };
   "options:openResult": Record<string, never>;

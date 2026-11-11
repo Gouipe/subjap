@@ -7,6 +7,7 @@ import type {
   PlatformId,
   SecondarySubtitleLanguage,
   SubtitleCue,
+  TranslationSubtitleStatus,
 } from "@/core/types";
 import { sendMessage } from "@/core/messaging";
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
@@ -224,8 +225,13 @@ export class NetflixAdapter implements PlatformAdapter {
   private domHistory: SubtitleCue[] = [];
   private nativeTrackId: string | null = null;
   /** Subtitle languages Netflix offers, for the episode that announced them. */
-  private trackLanguages: { episodeId: string; languages: string[] } | null = null;
+  private trackLanguages: { episodeId: string; languages: string[]; originalLanguage: string | null } | null = null;
   private readonly autoSync = new LocalSubtitleAutoSync();
+  /** Only a translation installed from OpenSubtitles: an imported file is the user's own. */
+  private readonly translationAutoSync = new LocalSubtitleAutoSync(
+    "secondary",
+    (record) => !!record.openSubtitlesChoices,
+  );
   private readonly offsets = new VideoOffsetWatcher(() => this.emitCues());
   private standardTrack: TextTrack | null = null;
   private standardTrackRevision = 0;
@@ -374,11 +380,14 @@ export class NetflixAdapter implements PlatformAdapter {
         return;
       }
       if (data.type === NETFLIX_TRACK_LANGUAGES_EVENT) {
-        const payload = data.payload as { episodeId?: unknown; languages?: unknown } | null;
+        const payload = data.payload as { episodeId?: unknown; languages?: unknown; originalLanguage?: unknown } | null;
         if (typeof payload?.episodeId !== "string" || !Array.isArray(payload.languages)) return;
         this.trackLanguages = {
           episodeId: payload.episodeId,
           languages: payload.languages.filter((language): language is string => typeof language === "string"),
+          originalLanguage: typeof payload.originalLanguage === "string"
+            ? normalizeTrackLanguage(payload.originalLanguage)
+            : null,
         };
         return;
       }
@@ -633,6 +642,11 @@ export class NetflixAdapter implements PlatformAdapter {
     if (this.localPrimaryCues.length && this.offsets.readyToMoveJapanese()) {
       this.autoSync.run(this.currentWatchId(), this.localPrimaryCues[0]?.source?.sessionId, references);
     }
+    this.translationAutoSync.run(
+      this.currentWatchId(),
+      this.localTranslationCues[0]?.source?.sessionId,
+      [this.localPrimaryCues, this.playerJapanese(this.tracks.cues("ja"))],
+    );
     this.alignNativeTranslation();
     if (this.ensurePlaybackSession()) {
       // Do not attach a mutation timestamp captured for the previous title to
@@ -1219,7 +1233,31 @@ export class NetflixAdapter implements PlatformAdapter {
           offered?.some((language) => normalizeTrackLanguage(language) === "ja")
         ? "available"
         : offered ? "missing" : "unknown";
-    return { availability, player: "netflix", videoId: watchId };
+    return {
+      availability,
+      player: "netflix",
+      videoId: watchId,
+      originalLanguage: this.trackLanguages?.episodeId === watchId ? this.trackLanguages.originalLanguage : null,
+    };
+  }
+
+  getTranslationSubtitleStatus(): TranslationSubtitleStatus {
+    const watchId = this.currentWatchId();
+    const listed = this.trackLanguages?.episodeId === watchId ? this.trackLanguages : null;
+    const offered = (["fr", "en"] as const).filter((language) =>
+      listed?.languages.some((item) => normalizeTrackLanguage(item) === language));
+    const availability = !watchId || !listed
+      ? "unknown"
+      : this.localTranslationCues.length || offered.length || this.preferredSecondaryLanguage === "none"
+        ? "available"
+        : "missing";
+    return {
+      availability,
+      videoId: watchId,
+      originalLanguage: listed?.originalLanguage ?? null,
+      offered,
+      localFile: this.localTranslationCues.length > 0,
+    };
   }
 
   getEpisodeContext(): EpisodeContext | null {
