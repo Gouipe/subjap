@@ -78,6 +78,8 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private callback: ((cues: SubtitleCue[]) => void) | null = null;
   private localPrimaryCues: SubtitleCue[] = [];
   private localSecondaryCues: SubtitleCue[] = [];
+  /** The video whose local files are loaded: until then, none is known to replace the player's. */
+  private localLoadedFor: string | null = null;
   private preferredSecondaryLanguage: SecondarySubtitleLanguage = "fr";
   private loadRevision = 0;
   private lastSignature = "";
@@ -346,6 +348,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
         getLocalSubtitle(videoId, "secondary"),
       ]);
       if (revision !== this.loadRevision || videoId !== this.videoId) return;
+      this.localLoadedFor = videoId;
       this.localPrimaryCues = parseLocalSubtitleCues(videoId, "primary", primary);
       this.localSecondaryCues = parseLocalSubtitleCues(videoId, "secondary", secondary);
       this.lastSignature = "";
@@ -538,15 +541,15 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.applyNativeVisibility();
     const translations = this.artplayer?.translations ?? {};
     this.offsets.setVideo(this.videoId);
-    this.autoSync.run(
-      this.videoId,
-      this.localPrimaryCues[0]?.source?.sessionId,
-      [
-        ...[translations.fr ?? [], translations.en ?? []].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
-        // Shown by the player itself, never shifted.
-        this.artplayer?.timing ?? [],
-      ],
-    );
+    const references = [
+      ...[translations.fr ?? [], translations.en ?? []].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
+      // Shown by the player itself, never shifted.
+      this.artplayer?.timing ?? [],
+    ];
+    this.autoSync.run(this.videoId, this.localPrimaryCues[0]?.source?.sessionId, references);
+    if (this.videoId && this.localLoadedFor === this.videoId && !this.localPrimaryCues.length) {
+      this.offsets.syncPlayerJapanese(this.artplayer?.japanese ?? [], references);
+    }
     if (!this.localSecondaryCues.length) {
       this.offsets.alignTranslation(this.japaneseCues(), this.translationCues());
     }

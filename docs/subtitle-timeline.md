@@ -18,7 +18,11 @@ fichier japonais (import, autre fichier Jimaku) relance la mesure, depuis les
 horaires d’origine de la traduction. Un décalage de traduction
 réglé par l’utilisateur n’est jamais remplacé ; une traduction importée garde
 ses horaires. La synchronisation d’un fichier japonais importé compare ses
-horaires à ceux de la traduction affichée, décalage compris. Une traduction
+horaires à ceux de la traduction affichée, décalage compris. La piste
+japonaise d’un lecteur Artplayer (Re:ANIME) est synchronisée de même, une fois
+par piste (fichier sans sa requête) ; ses parties sont mémorisées par vidéo et
+s’ajoutent à son décalage. La mesure de l’avance de la traduction attend
+qu’elle soit enregistrée, puis se fait sur le japonais recalé. Une traduction
 qui commence vers la fin d’un segment japonais précédent encore affiché (elle
 en couvre moins de la moitié), mais qui appartient à un segment à venir,
 attend le début de celui-ci ; la traduction précédente reste affichée en

@@ -23,11 +23,15 @@ import type {
 import { isOnboardingComplete } from "@/onboarding";
 import { ReleaseNotes } from "./release-notes";
 import {
+  cancelPlayerJapaneseSync,
   getJapaneseOffset,
   getLinkedOffsets,
+  getPlayerJapaneseSync,
   getTranslationOffset,
+  isPlayerJapaneseSyncChange,
   isTranslationOffsetAutomatic,
   isTranslationOffsetOriginChange,
+  markJapaneseOffsetSetByUser,
   markTranslationOffsetSetByUser,
   saveJapaneseOffset,
   saveLinkedOffsets,
@@ -43,6 +47,7 @@ import {
   type LocalSubtitleRecord,
   type LocalSubtitleRole,
 } from "@/subtitles";
+import type { SyncSegment } from "@/subtitles/local-storage";
 import { getJimakuApiKey, undeclineJimaku, type JimakuChoice } from "@/subtitles/jimaku";
 import {
   KNOWN_SENTENCE_CHOICES,
@@ -203,6 +208,8 @@ const Popup: React.FC = () => {
   const [linkedOffsets, setLinkedOffsets] = useState(false);
   /** The player's translation offset was set by the automatic alignment. */
   const [translationOffsetAutomatic, setTranslationOffsetAutomatic] = useState(false);
+  /** Parts of the player's Japanese track aligned automatically on its translation. */
+  const [playerJapaneseSync, setPlayerJapaneseSync] = useState<SyncSegment[]>([]);
   /** Player of the video under the popup when it has no Japanese subtitles. */
   const [missingJapanese, setMissingJapanese] = useState<{ tabId: number; player: string } | null>(null);
   const [hasJimakuKey, setHasJimakuKey] = useState(false);
@@ -257,6 +264,9 @@ const Popup: React.FC = () => {
       if (area !== "local") return;
       if (isTranslationOffsetOriginChange(changes, videoId)) {
         void isTranslationOffsetAutomatic(videoId).then(setTranslationOffsetAutomatic, () => undefined);
+      }
+      if (isPlayerJapaneseSyncChange(changes, videoId)) {
+        void getPlayerJapaneseSync(videoId).then(setPlayerJapaneseSync, () => undefined);
       }
       if (!changes[key]) return;
       const value = changes[key].newValue as unknown;
@@ -342,15 +352,17 @@ const Popup: React.FC = () => {
       }, () => {
         // No frame answered: Japanese subtitles are available or still unknown.
       });
-      const [primary, secondary, japaneseOffset, translationOffset, linked, automatic] = await Promise.all([
+      const [primary, secondary, japaneseOffset, translationOffset, linked, automatic, japaneseSync] = await Promise.all([
         getLocalSubtitle(currentVideoId, "primary"),
         getLocalSubtitle(currentVideoId, "secondary"),
         getJapaneseOffset(currentVideoId),
         getTranslationOffset(currentVideoId),
         getLinkedOffsets(),
         isTranslationOffsetAutomatic(currentVideoId),
+        getPlayerJapaneseSync(currentVideoId),
       ]);
       setTranslationOffsetAutomatic(automatic);
+      setPlayerJapaneseSync(japaneseSync);
       setLocalSubtitles({ primary, secondary });
       setPlayerOffsets({ primary: japaneseOffset, secondary: translationOffset });
       setLinkedOffsets(linked);
@@ -410,6 +422,8 @@ const Popup: React.FC = () => {
         await saveLocalSubtitle(videoId, next, role);
       } else {
         setPlayerOffsets((current) => ({ ...current, [role]: seconds }));
+        // Set before any alignment, the player's Japanese track is never aligned.
+        if (role === "primary") await markJapaneseOffsetSetByUser(videoId);
         await (role === "primary" ? saveJapaneseOffset : saveTranslationOffset)(videoId, seconds);
       }
     },
@@ -469,7 +483,18 @@ const Popup: React.FC = () => {
   /** Back to the file's own timing; the user's offset stays. */
   const removeAutoSync = useCallback(async (role: LocalSubtitleRole) => {
     const localSubtitle = localSubtitles[role];
-    if (!videoId || !localSubtitle) return;
+    if (!videoId) return;
+    if (!localSubtitle) {
+      if (role !== "primary") return;
+      setPlayerJapaneseSync([]);
+      setLocalSubtitleError(null);
+      try {
+        await cancelPlayerJapaneseSync(videoId);
+      } catch (err: unknown) {
+        setLocalSubtitleError(err instanceof Error ? err.message : String(err));
+      }
+      return;
+    }
     const next = { ...localSubtitle, syncSegments: undefined, syncChecked: true };
     setLocalSubtitles((current) => ({ ...current, [role]: next }));
     setLocalSubtitleError(null);
@@ -967,6 +992,9 @@ const Popup: React.FC = () => {
             <div style={styles.disclosureContent}>
               {LOCAL_SUBTITLE_ROLES.map((role) => {
                 const localSubtitle = localSubtitles[role];
+                const syncSegments = localSubtitle
+                  ? localSubtitle.syncSegments
+                  : role === "primary" ? playerJapaneseSync : undefined;
                 const playerTrack = role === "primary"
                   ? "Piste du lecteur"
                   : secondarySubtitleLanguage === "none" ? "Aucune" : "Traduction du lecteur";
@@ -1020,9 +1048,9 @@ const Popup: React.FC = () => {
                           })}
                         </div>
                       ) : null}
-                      {localSubtitle?.syncSegments?.length ? (
+                      {syncSegments?.length ? (
                         <p style={styles.trackHint}>
-                          Synchronisé{localSubtitle.syncSegments.length > 1 ? " par parties" : ""}
+                          Synchronisé{syncSegments.length > 1 ? " par parties" : ""}
                           {" · "}
                           <button
                             style={styles.inlineLink}

@@ -6,16 +6,20 @@
 // here. Whether the popup shifts both tracks together is a global choice.
 // The translation's offset is set automatically to start its lines with the
 // Japanese ones, once per Japanese track: choosing another Japanese file
-// measures it again.
+// measures it again. Like an imported file, the player's own Japanese track
+// is aligned once, by parts, on the player's translation.
 // ---------------------------------------------------------------------------
 
 import type { SubtitleCue } from "@/core/types";
-import { estimateTranslationShift } from "./auto-sync";
+import { announceAutoSync, estimateSubtitleSync, estimateTranslationShift, syncReference } from "./auto-sync";
+import { syncSegmentOffset, type SyncSegment } from "./local-storage";
 
 const TRANSLATION_PREFIX = "subjap_translation_offset_";
 const TRANSLATION_CHECKED_PREFIX = "subjap_translation_offset_checked_";
 const TRANSLATION_MEASURED_TRACK_PREFIX = "subjap_translation_offset_track_";
 const JAPANESE_PREFIX = "subjap_japanese_offset_";
+const JAPANESE_SYNC_PREFIX = "subjap_japanese_sync_";
+const NO_SEGMENTS: SyncSegment[] = [];
 const LINKED_KEY = "subjap_linked_offsets";
 /** Smaller automatic shifts are not worth changing the user's value. */
 const MIN_AUTOMATIC_SHIFT_SECONDS = 0.05;
@@ -124,6 +128,68 @@ export function saveJapaneseOffset(videoId: string, seconds: number): Promise<vo
   return writeOffset(japaneseOffsetStorageKey(videoId), seconds);
 }
 
+/**
+ * The automatic alignment of the player's Japanese track on its translation:
+ * the parts and their offset, none once checked, cancelled or when the user
+ * set the offset first (no track then: no track of the video is aligned).
+ */
+interface PlayerJapaneseSync {
+  track: string | null;
+  segments: SyncSegment[];
+}
+
+function japaneseSyncStorageKey(videoId: string): string {
+  return `${JAPANESE_SYNC_PREFIX}${videoId}`;
+}
+
+/** The track's file, without the query a site may renew at each visit. */
+function playerJapaneseTrack(cues: SubtitleCue[]): string | null {
+  const source = cues[0]?.source;
+  if (!source || source.trackId?.startsWith("local-")) return null;
+  return `${source.trackId ?? ""}\u0000${(source.resourceId ?? "").replace(/[?#].*$/, "")}`;
+}
+
+function asPlayerJapaneseSync(value: unknown): PlayerJapaneseSync | null {
+  if (!value || typeof value !== "object") return null;
+  const { track, segments } = value as Partial<PlayerJapaneseSync>;
+  if ((track !== null && typeof track !== "string") || !Array.isArray(segments)) return null;
+  return {
+    track,
+    segments: segments.filter((segment): segment is SyncSegment =>
+      Number.isFinite(segment?.from) && Number.isFinite(segment?.offset)),
+  };
+}
+
+async function readPlayerJapaneseSync(videoId: string): Promise<PlayerJapaneseSync | null> {
+  const key = japaneseSyncStorageKey(videoId);
+  return asPlayerJapaneseSync((await chrome.storage.local.get(key))[key]);
+}
+
+/** Parts of the player's Japanese track shifted automatically; empty when none. */
+export async function getPlayerJapaneseSync(videoId: string): Promise<SyncSegment[]> {
+  return (await readPlayerJapaneseSync(videoId))?.segments ?? [];
+}
+
+/** Back to the player's own timing; the user's offset stays. */
+export async function cancelPlayerJapaneseSync(videoId: string): Promise<void> {
+  const stored = await readPlayerJapaneseSync(videoId);
+  if (!stored?.segments.length) return;
+  await chrome.storage.local.set({ [japaneseSyncStorageKey(videoId)]: { track: stored.track, segments: [] } });
+}
+
+/** The user set the Japanese offset first: the player's track is never aligned. */
+export async function markJapaneseOffsetSetByUser(videoId: string): Promise<void> {
+  if (await readPlayerJapaneseSync(videoId)) return;
+  await chrome.storage.local.set({ [japaneseSyncStorageKey(videoId)]: { track: null, segments: [] } });
+}
+
+export function isPlayerJapaneseSyncChange(
+  changes: Record<string, chrome.storage.StorageChange>,
+  videoId: string,
+): boolean {
+  return !!changes[japaneseSyncStorageKey(videoId)];
+}
+
 /** True when changing one track's offset changes the other by as much. */
 export async function getLinkedOffsets(): Promise<boolean> {
   return (await chrome.storage.local.get(LINKED_KEY))[LINKED_KEY] === true;
@@ -145,9 +211,16 @@ export class VideoOffsetWatcher {
   private alignment: TranslationAlignment | undefined;
   private aligning = false;
   private lastMeasured: { japanese: SubtitleCue[]; translation: SubtitleCue[] } | null = null;
+  /** Undefined until known for the current video. */
+  private japaneseSync: PlayerJapaneseSync | null | undefined;
+  private japaneseSyncing = false;
+  private japaneseSyncAttempt = "";
   private revision = 0;
   private listening = false;
-  private readonly shifted = new WeakMap<SubtitleCue[], { offset: number; cues: SubtitleCue[] }>();
+  private readonly shifted = new WeakMap<
+    SubtitleCue[],
+    { offset: number; segments: SyncSegment[]; cues: SubtitleCue[] }
+  >();
 
   /** `onChange` runs when an offset of the current video changes. */
   constructor(private readonly onChange: () => void) {}
@@ -161,7 +234,8 @@ export class VideoOffsetWatcher {
       changes[translationOffsetStorageKey(this.videoId)] ||
       changes[japaneseOffsetStorageKey(this.videoId)] ||
       changes[translationOffsetCheckedStorageKey(this.videoId)] ||
-      changes[translationMeasuredTrackStorageKey(this.videoId)]
+      changes[translationMeasuredTrackStorageKey(this.videoId)] ||
+      changes[japaneseSyncStorageKey(this.videoId)]
     ) {
       this.load();
     }
@@ -176,7 +250,10 @@ export class VideoOffsetWatcher {
     this.videoId = videoId;
     this.alignment = undefined;
     this.lastMeasured = null;
-    if (this.japanese !== 0 || this.translation !== 0) {
+    const synced = !!this.japaneseSync?.segments.length;
+    this.japaneseSync = undefined;
+    this.japaneseSyncAttempt = "";
+    if (this.japanese !== 0 || this.translation !== 0 || synced) {
       this.japanese = 0;
       this.translation = 0;
       this.onChange();
@@ -185,7 +262,45 @@ export class VideoOffsetWatcher {
   }
 
   shiftPlayerJapanese(cues: SubtitleCue[]): SubtitleCue[] {
-    return this.shift(cues, this.japanese);
+    const sync = this.japaneseSync;
+    const segments = sync?.track && sync.track === playerJapaneseTrack(cues) ? sync.segments : NO_SEGMENTS;
+    return this.shift(cues, this.japanese, segments);
+  }
+
+  /**
+   * Once per track, aligns the player's Japanese track on the player's
+   * translations, as shown (the first long enough). Raw Japanese cues: the
+   * parts found are kept unless the user set the Japanese offset first.
+   */
+  syncPlayerJapanese(japanese: SubtitleCue[], translations: SubtitleCue[][]): void {
+    const videoId = this.videoId;
+    const sync = this.japaneseSync;
+    if (!videoId || sync === undefined || sync?.track === null || this.japaneseSyncing || this.japanese !== 0) return;
+    const track = playerJapaneseTrack(japanese);
+    const reference = syncReference(translations);
+    if (!track || !reference || sync?.track === track) return;
+    const attempt = `${videoId}\u0000${track}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}`;
+    if (attempt === this.japaneseSyncAttempt) return;
+    this.japaneseSyncAttempt = attempt;
+    const estimate = estimateSubtitleSync(japanese.map((cue) => cue.start), reference.map((cue) => cue.start));
+    // Without a clear answer, try again as the tracks complete.
+    if (estimate === null) return;
+    const segments = estimate === "synced" ? [] : estimate;
+    this.japaneseSyncing = true;
+    void (async () => {
+      const [stored, offset] = await Promise.all([readPlayerJapaneseSync(videoId), getJapaneseOffset(videoId)]);
+      if (stored && (stored.track === null || stored.track === track)) return;
+      if (offset !== 0) return;
+      await chrome.storage.local.set({ [japaneseSyncStorageKey(videoId)]: { track, segments } });
+      if (!segments.length) return;
+      console.info("[SubJap] Sous-titres japonais du lecteur recalés sur la traduction:", segments);
+      announceAutoSync({ videoId, segments, track: "player" });
+    })().catch((error: unknown) => {
+      console.warn("[SubJap] Synchronisation du japonais impossible:", error);
+    }).finally(() => {
+      this.japaneseSyncing = false;
+      if (this.videoId === videoId) this.load();
+    });
   }
 
   shiftPlayerTranslation(cues: SubtitleCue[]): SubtitleCue[] {
@@ -201,7 +316,8 @@ export class VideoOffsetWatcher {
   alignTranslation(japanese: SubtitleCue[], translation: SubtitleCue[]): void {
     const videoId = this.videoId;
     const alignment = this.alignment;
-    if (!videoId || !alignment || alignment.origin === "user" || this.aligning) return;
+    // The Japanese track being aligned first gives the translation's lead.
+    if (!videoId || !alignment || alignment.origin === "user" || this.aligning || this.japaneseSyncing) return;
     const track = japaneseTrackIdentity(japanese);
     if (!track || (alignment.origin && alignment.track === track)) return;
     // Shifted copies are reused: the same tracks need no new measure.
@@ -256,15 +372,21 @@ export class VideoOffsetWatcher {
     this.translation = 0;
     this.alignment = undefined;
     this.lastMeasured = null;
+    this.japaneseSync = undefined;
+    this.japaneseSyncAttempt = "";
     this.revision += 1;
   }
 
-  private shift(cues: SubtitleCue[], offset: number): SubtitleCue[] {
-    if (offset === 0 || cues.length === 0) return cues;
+  /** Offset plus each cue's part, the parts found on the cues' own timing. */
+  private shift(cues: SubtitleCue[], offset: number, segments = NO_SEGMENTS): SubtitleCue[] {
+    if ((offset === 0 && !segments.length) || cues.length === 0) return cues;
     const cached = this.shifted.get(cues);
-    if (cached?.offset === offset) return cached.cues;
-    const shifted = cues.map((cue) => ({ ...cue, start: cue.start + offset, end: cue.end + offset }));
-    this.shifted.set(cues, { offset, cues: shifted });
+    if (cached?.offset === offset && cached.segments === segments) return cached.cues;
+    const shifted = cues.map((cue) => {
+      const seconds = offset + syncSegmentOffset(segments, cue.start);
+      return { ...cue, start: cue.start + seconds, end: cue.end + seconds };
+    });
+    this.shifted.set(cues, { offset, segments, cues: shifted });
     return shifted;
   }
 
@@ -276,10 +398,15 @@ export class VideoOffsetWatcher {
       getJapaneseOffset(videoId),
       getTranslationOffset(videoId),
       translationAlignment(videoId),
-    ]).then(([japanese, translation, alignment]) => {
+      readPlayerJapaneseSync(videoId),
+    ]).then(([japanese, translation, alignment, sync]) => {
       if (revision !== this.revision) return;
       this.alignment = alignment;
-      if (japanese === this.japanese && translation === this.translation) return;
+      // The same parts keep their shifted copies.
+      const syncChanged = JSON.stringify(sync) !== JSON.stringify(this.japaneseSync ?? null);
+      if (syncChanged) this.japaneseSync = sync;
+      else if (this.japaneseSync === undefined) this.japaneseSync = null;
+      if (japanese === this.japanese && translation === this.translation && !syncChanged) return;
       this.japanese = japanese;
       this.translation = translation;
       this.onChange();

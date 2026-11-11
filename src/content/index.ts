@@ -52,6 +52,7 @@ import {
 } from "@/subtitles/jimaku";
 import { VideoNotice, type VideoNoticeAction } from "@/overlay/video-notice";
 import { onLocalSubtitleAutoSync, type AutoSyncEvent } from "@/subtitles/auto-sync";
+import { cancelPlayerJapaneseSync } from "@/subtitles/video-offset";
 import type { SyncSegment } from "@/subtitles/local-storage";
 import { compactSubtitleText, primarySubtitleCue, subtitleCueKey } from "@/subtitles/timeline";
 import { createTokenizer } from "@/tokenizer";
@@ -2046,17 +2047,21 @@ function describeSync(segments: SyncSegment[]): string {
   return `par parties (de ${formatOffset(low)} à ${formatOffset(high)})`;
 }
 
-function showAutoSyncNotice({ videoId, segments }: AutoSyncEvent): void {
+function showAutoSyncNotice({ videoId, segments, track }: AutoSyncEvent): void {
   const video = adapter.getVideoElement();
   if (!enabled || !video) return;
-  const installed = jimakuInstalledActions?.videoId === videoId && missingJapaneseNotice
+  const installed = track === "file" && jimakuInstalledActions?.videoId === videoId && missingJapaneseNotice
     ? jimakuInstalledActions
     : null;
   const notice = installed && missingJapaneseNotice ? missingJapaneseNotice : openMissingJapaneseNotice(video);
   const undo = (): void => {
     void (async () => {
-      const record = await getLocalSubtitle(videoId, "primary");
-      if (record) await saveLocalSubtitle(videoId, { ...record, syncSegments: undefined, syncChecked: true }, "primary");
+      if (track === "player") {
+        await cancelPlayerJapaneseSync(videoId);
+      } else {
+        const record = await getLocalSubtitle(videoId, "primary");
+        if (record) await saveLocalSubtitle(videoId, { ...record, syncSegments: undefined, syncChecked: true }, "primary");
+      }
       notice.update({
         text: "Synchronisation annulée. Le décalage reste réglable via l’icône SubJap.",
         autoHideMs: MISSING_JAPANESE_NOTICE_MS,

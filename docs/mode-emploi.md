@@ -239,6 +239,13 @@ l’annuler. Le décalage réglé à la main s’ajoute à cette synchronisation
 le décalage a été réglé à la main avant toute synchronisation (y compris
 ↺) n’est jamais synchronisé.
 
+Sur Re:ANIME, la piste japonaise du lecteur est synchronisée de la même façon
+sur sa traduction (FR, sinon EN), une fois par piste : même recalage par
+parties, même bandeau avec **Annuler la synchro**, même rappel « Synchronisé ·
+Annuler » sous **Piste du lecteur**. Le décalage japonais réglé à la main
+s’y ajoute ; réglé avant toute synchronisation (y compris ↺), la piste du
+lecteur de cette vidéo n’est jamais synchronisée.
+
 Sur les autres sites, SubJap suit les fichiers locaux avec l’horloge du lecteur
 HTML5 visible, y compris dans un lecteur intégré depuis un autre site. Il ne
 peut pas prendre en charge un lecteur qui n’expose pas d’élément `<video>`

@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-11
+
+### Améliorations
+
+- Sur Re:ANIME, les sous-titres japonais du site se recalent automatiquement sur la traduction, comme ceux de Jimaku, même quand l'épisode est monté différemment.
+
 ## 2026-11-10
 
 ### Corrections

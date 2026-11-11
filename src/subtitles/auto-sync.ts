@@ -234,14 +234,25 @@ export function estimateTranslationShift(japaneseStarts: number[], translationSt
 export interface AutoSyncEvent {
   videoId: string;
   segments: SyncSegment[];
+  /** A local file, or the player's own Japanese track. */
+  track: "file" | "player";
 }
 
 const listeners = new Set<(event: AutoSyncEvent) => void>();
 
-/** Told once each time a local Japanese track is shifted automatically. */
+/** Told once each time a Japanese track is shifted automatically. */
 export function onLocalSubtitleAutoSync(listener: (event: AutoSyncEvent) => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+export function announceAutoSync(event: AutoSyncEvent): void {
+  for (const listener of listeners) listener(event);
+}
+
+/** The first translation long enough to align a Japanese track on. */
+export function syncReference(translations: SubtitleCue[][]): SubtitleCue[] | undefined {
+  return translations.find((cues) => cues.length >= MIN_CUES);
 }
 
 /**
@@ -256,7 +267,7 @@ export class LocalSubtitleAutoSync {
    * repeated calls with the same inputs do nothing.
    */
   run(videoId: string | null, primarySession: string | undefined, translations: SubtitleCue[][]): void {
-    const reference = translations.find((cues) => cues.length >= MIN_CUES);
+    const reference = syncReference(translations);
     if (!videoId || !primarySession || !reference) return;
     const key = `${videoId}\u0000${primarySession}\u0000${reference.length}\u0000${reference[0]?.source?.sessionId ?? ""}`;
     if (key === this.attempted) return;
@@ -296,6 +307,6 @@ export class LocalSubtitleAutoSync {
     // The user's own offset stays at 0 and still adds to the parts.
     await saveLocalSubtitle(videoId, { ...current, syncSegments: segments, syncChecked: true }, "primary");
     console.info("[SubJap] Sous-titres japonais recalés sur la traduction:", segments);
-    for (const listener of listeners) listener({ videoId, segments });
+    announceAutoSync({ videoId, segments, track: "file" });
   }
 }
