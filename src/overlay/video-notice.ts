@@ -26,6 +26,11 @@ export interface VideoNoticeOptions extends VideoNoticeContent {
 
 const NOTICE_ID = "subjap-video-notice";
 const FONT = "IBM Plex Sans JP, Yu Gothic UI, Hiragino Kaku Gothic ProN, Meiryo, sans-serif";
+const SVG_NS = "http://www.w3.org/2000/svg";
+/** Close button side, and the life ring drawn just inside it. */
+const CLOSE_SIZE = 28;
+const RING_RADIUS = 12;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 /** Above the platform's bottom control bar, like the subtitle overlay. */
 function bottomInset(height: number): number {
@@ -36,9 +41,11 @@ export class VideoNotice {
   private readonly element: HTMLDivElement;
   private readonly message: HTMLSpanElement;
   private readonly actions: HTMLSpanElement;
-  private readonly closeButton: HTMLButtonElement;
-  /** Empties over the auto-hide delay, so the notice's remaining life shows. */
-  private readonly lifeBar: HTMLDivElement;
+  /** Holds the close button and its life ring. */
+  private readonly closeSlot: HTMLSpanElement;
+  /** Empties around the close button over the auto-hide delay, so the notice's remaining life shows. */
+  private readonly lifeRing: SVGSVGElement;
+  private readonly lifeArc: SVGCircleElement;
   private autoHideMs: number | null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   /** Life left when the countdown last (re)started, and when that was. */
@@ -75,35 +82,56 @@ export class VideoNotice {
       "border:1px solid #343842",
       "border-radius:8px",
       "box-shadow:0 6px 8px rgba(0,0,0,.38)",
-      // Clips the life bar to the rounded corners.
-      "overflow:hidden",
       "pointer-events:auto",
     ].join(";");
 
     this.message = document.createElement("span");
     this.actions = document.createElement("span");
-    this.closeButton = document.createElement("button");
-    this.closeButton.type = "button";
-    this.closeButton.textContent = "✕";
-    this.closeButton.setAttribute("aria-label", "Fermer");
-    this.closeButton.style.cssText = this.buttonStyle(false) + ";padding:6px 8px;background:transparent;border-color:transparent";
-    this.closeButton.addEventListener("click", () => this.close());
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.textContent = "✕";
+    closeButton.setAttribute("aria-label", "Fermer");
+    closeButton.style.cssText = this.buttonStyle(false) + [
+      "",
+      "position:relative",
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      `width:${CLOSE_SIZE}px`,
+      `height:${CLOSE_SIZE}px`,
+      "padding:0",
+      "border-radius:50%",
+      "background:transparent",
+      "border-color:transparent",
+    ].join(";");
+    closeButton.addEventListener("click", () => this.close());
+
+    this.lifeRing = document.createElementNS(SVG_NS, "svg");
+    this.lifeRing.setAttribute("aria-hidden", "true");
+    this.lifeRing.setAttribute("viewBox", `0 0 ${CLOSE_SIZE} ${CLOSE_SIZE}`);
+    // Starts at the top and drains clockwise.
+    this.lifeRing.style.cssText = `position:absolute;inset:0;width:${CLOSE_SIZE}px;height:${CLOSE_SIZE}px;` +
+      "transform:rotate(-90deg);pointer-events:none;display:none";
+    const ringCircle = (stroke: string): SVGCircleElement => {
+      const circle = document.createElementNS(SVG_NS, "circle");
+      circle.setAttribute("cx", String(CLOSE_SIZE / 2));
+      circle.setAttribute("cy", String(CLOSE_SIZE / 2));
+      circle.setAttribute("r", String(RING_RADIUS));
+      circle.setAttribute("fill", "none");
+      circle.setAttribute("stroke", stroke);
+      circle.setAttribute("stroke-width", "2");
+      return circle;
+    };
+    this.lifeArc = ringCircle("#ff624d");
+    this.lifeArc.setAttribute("stroke-dasharray", String(RING_LENGTH));
+    this.lifeRing.append(ringCircle("#343842"), this.lifeArc);
+
+    this.closeSlot = document.createElement("span");
+    this.closeSlot.style.cssText = `position:relative;display:inline-block;flex:none;width:${CLOSE_SIZE}px;height:${CLOSE_SIZE}px`;
+    this.closeSlot.append(closeButton, this.lifeRing);
     this.renderContent(options);
 
-    this.lifeBar = document.createElement("div");
-    this.lifeBar.setAttribute("aria-hidden", "true");
-    this.lifeBar.style.cssText = [
-      "position:absolute",
-      "left:0",
-      "right:0",
-      "bottom:0",
-      "height:2px",
-      "background:#ff624d",
-      "transform-origin:left center",
-      "display:none",
-    ].join(";");
-
-    this.element.append(this.message, this.actions, this.lifeBar);
+    this.element.append(this.message, this.actions);
     // Keyboard shortcuts of the player must not fire from the notice.
     for (const type of ["keydown", "keyup", "keypress"]) {
       this.element.addEventListener(type, (event) => event.stopPropagation());
@@ -141,7 +169,7 @@ export class VideoNotice {
       : "flex:1 1 180px;min-width:0;white-space:pre-line;text-wrap:pretty";
     this.message.textContent = content.text;
     this.actions.style.cssText = "display:flex;align-items:center;gap:6px;flex:none";
-    this.actions.replaceChildren(...content.actions.map((action) => this.buildAction(action)), this.closeButton);
+    this.actions.replaceChildren(...content.actions.map((action) => this.buildAction(action)), this.closeSlot);
   }
 
   close(): void {
@@ -194,7 +222,7 @@ export class VideoNotice {
   private scheduleHide(): void {
     this.clearHideTimer();
     if (this.autoHideMs === null) {
-      this.setLifeBar(1);
+      this.setLife(1);
       return;
     }
     this.remainingMs = this.autoHideMs;
@@ -204,14 +232,14 @@ export class VideoNotice {
   private startCountdown(autoHideMs: number): void {
     this.countdownStartedAt = performance.now();
     this.hideTimer = setTimeout(() => this.close(), this.remainingMs);
-    this.setLifeBar(this.remainingMs / autoHideMs, this.remainingMs);
+    this.setLife(this.remainingMs / autoHideMs, this.remainingMs);
   }
 
   private pauseHide(): void {
     if (this.hideTimer === null || this.autoHideMs === null) return;
     this.clearHideTimer();
     this.remainingMs = Math.max(0, this.remainingMs - (performance.now() - this.countdownStartedAt));
-    this.setLifeBar(this.remainingMs / this.autoHideMs);
+    this.setLife(this.remainingMs / this.autoHideMs);
   }
 
   private resumeHide(): void {
@@ -225,17 +253,17 @@ export class VideoNotice {
   }
 
   /** Show the life left (0–1), then drain it over `drainMs` when given. */
-  private setLifeBar(fraction: number, drainMs?: number): void {
-    const bar = this.lifeBar;
+  private setLife(fraction: number, drainMs?: number): void {
+    const arc = this.lifeArc;
     const visible = this.autoHideMs !== null &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    bar.style.display = visible ? "block" : "none";
-    bar.style.transition = "none";
-    bar.style.transform = `scaleX(${Math.max(0, Math.min(1, fraction))})`;
+    this.lifeRing.style.display = visible ? "block" : "none";
+    arc.style.transition = "none";
+    arc.style.strokeDashoffset = String(-RING_LENGTH * (1 - Math.max(0, Math.min(1, fraction))));
     if (!visible || drainMs === undefined) return;
-    // Commit the starting width before animating to empty.
-    void bar.offsetWidth;
-    bar.style.transition = `transform ${drainMs}ms linear`;
-    bar.style.transform = "scaleX(0)";
+    // Commit the starting length before animating to empty.
+    void arc.getBoundingClientRect();
+    arc.style.transition = `stroke-dashoffset ${drainMs}ms linear`;
+    arc.style.strokeDashoffset = String(-RING_LENGTH);
   }
 }
