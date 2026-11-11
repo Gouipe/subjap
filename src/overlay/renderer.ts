@@ -269,13 +269,21 @@ function injectStyles(opts: OverlayOptions): HTMLStyleElement {
        discreet dotted underline so the word gets noticed in context. A solid
        coloured underline stays reserved for words to mine. */
     #${CONTAINER_ID} .subjap-known.subjap-young {
-      border-bottom-style: dotted;
-      border-bottom-color: rgba(255, 255, 255, 0.9);
-      /* Dots read lighter than a solid line: thicken them, and pull the
-         extra width back with a negative margin so the text stays on the
-         same baseline as its neighbours. */
-      border-bottom-width: max(3px, 0.12em);
-      margin-bottom: calc(max(2px, 0.08em) - max(3px, 0.12em));
+      position: relative;
+    }
+    /* The dots are drawn on their own layer so they get the same dark halo
+       as the text: white dots alone vanish on a bright scene. Positioned out
+       of flow, they leave the text on its neighbours' baseline. */
+    #${CONTAINER_ID} .subjap-known.subjap-young::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      height: 0;
+      border-bottom: max(3px, 0.14em) dotted #fff;
+      filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+      pointer-events: none;
     }
     /* A coloured word is a word to mine now: the only unknown of an i+1
        sentence. Every other word that cannot be read yet, including words

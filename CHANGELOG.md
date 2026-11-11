@@ -16,6 +16,7 @@ elle serait annoncée à nouveau.
 
 ### Corrections
 
+- Le pointillé sous les mots en cours d'apprentissage reste visible sur une image claire.
 - Un japonais Jimaku ou Re:ANIME légèrement en retard sur la traduction est désormais avancé sur elle, au lieu de retarder la traduction ; une traduction OpenSubtitles légèrement en avance est de même recalée sur le japonais.
 
 ## 2026-11-10
