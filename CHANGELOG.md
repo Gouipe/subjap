@@ -9,6 +9,7 @@ elle serait annoncée à nouveau.
 
 ### Corrections
 
+- La fréquence des mots vient d'une liste fiable (JPDB) : les verbes et adjectifs courants comme 見る, 起こす ou いい sont enfin classés parmi les mots fréquents. Le tri des mots déjà connus repart du début pour les proposer.
 - Les messages affichés sur la vidéo disparaissent au bout de 6 secondes au lieu de 12.
 
 ## 2026-11-11

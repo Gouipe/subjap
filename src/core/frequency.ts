@@ -27,6 +27,18 @@ export function isNonLexicalToken(
 }
 
 /**
+ * Lone particles and auxiliaries (の, は, だ, です) are grammar, not words to
+ * learn: they get no frequency rank, even though the list ranks them first.
+ * A grouped verb (食べた) also carries 助動詞, but alongside its own head.
+ */
+export function isFunctionWordToken(token: Pick<Token, "partOfSpeech">): boolean {
+  return (
+    token.partOfSpeech.length > 0 &&
+    token.partOfSpeech.every((pos) => pos === "助詞" || pos === "助動詞")
+  );
+}
+
+/**
  * Interjections and fillers (んっ, えっ, ああ, えー) and grammar expressions
  * without a lexical head (じゃないです, なんだ) are not vocabulary to track.
  */

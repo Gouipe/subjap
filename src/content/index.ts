@@ -29,6 +29,7 @@ import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import {
   effectiveWordState,
   isDefaultIgnoredToken,
+  isFunctionWordToken,
 } from "@/core/frequency";
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { captureCleanFrame } from "@/mining/capture";
@@ -770,10 +771,11 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
           isParenthetical: parentheticalFlags[tokenIndex],
           ankiNoteCount,
           minedLater,
-          frequencyRank:
-            frequencyRanks[lexicalKey] ??
-            frequencyRanks[tokenDictionaryForm(token)] ??
-            frequencyRanks[token.surface],
+          frequencyRank: isFunctionWordToken(token)
+            ? undefined
+            : (frequencyRanks[lexicalKey] ??
+              frequencyRanks[tokenDictionaryForm(token)] ??
+              frequencyRanks[token.surface]),
         };
       });
       rendered.push({ cue, spans });

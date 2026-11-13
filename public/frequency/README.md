@@ -1,17 +1,14 @@
 # Japanese frequency data
 
-`opensubtitles-ja-jmdict-top8598.tsv` is a compact derivative of the Japanese
-subtitle frequency data from OpenSubtitles 2018. The upstream data is matched
-against JMdict vocabulary before being packaged, which removes punctuation,
-subtitle noise and raw morphological fragments. Regenerate it with
-`npm.cmd run frequency:update`.
+`jpdb-v2.2-top10000.tsv` holds the 10,000 first ranks of the JPDB v2.2
+frequency list (`word<TAB>rank`). JPDB ranks dictionary forms (起こす, not
+起こして) over a large corpus of Japanese anime, dramas, light novels and visual
+novels. A spelling listed under several readings keeps its best rank.
+Regenerate it with `npm.cmd run frequency:update`.
 
 Sources:
 
-- <https://github.com/jkindrix/japanese-language-data>
-- <https://github.com/hermitdave/FrequencyWords>
-- <https://www.opensubtitles.org/>
+- <https://jpdb.io/>
+- <https://github.com/Kuuuube/yomitan-dictionaries> (JPDB v2.2, 2024-10-13)
 
-The frequency data is distributed under CC-BY-SA 4.0. It is derived from
-FrequencyWords/OpenSubtitles and matched against JMdict; see the upstream
-notices for attribution details.
+JPDB publishes no explicit license for this list.

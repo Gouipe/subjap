@@ -12,8 +12,8 @@ import type { WordState, WordStatus } from "@/core/types";
 
 export const SYNC_BUCKET_COUNT = 32;
 export const SYNC_BUCKET_PREFIX = "sjw_";
-/** Highest frequency rank already sorted in « Mots déjà connus ». */
-export const SYNC_TRIAGE_KEY = "sj_triage";
+/** Highest JPDB frequency rank already sorted in « Mots déjà connus ». */
+export const SYNC_TRIAGE_KEY = "sj_triage_jpdb";
 /** Overlay display options (`OverlayOptions`). */
 export const SYNC_OPTIONS_KEY = "sj_options";
 

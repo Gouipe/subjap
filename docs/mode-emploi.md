@@ -109,8 +109,7 @@ proposent les mots les plus fréquents des sous-titres par lots de 20, un par
 ligne, tous cochés. Décocher ceux qu’on ne connaît pas (le sens apparaît au
 survol), puis **Valider et passer au lot suivant** : les mots cochés deviennent connus
 comme avec **Connu**, les décochés restent à miner et ne sont plus
-proposés. Un radical de la liste est présenté sous son verbe (受け取 →
-受け取る) ; les deux sont marqués connus. Les mots qui ont déjà un état ou une
+proposés. Particules, auxiliaires et interjections ne sont pas proposés. Les mots qui ont déjà un état ou une
 carte Anki sont sautés, après une synchronisation Anki si Anki est ouvert.
 SubJap reprend là où on s’était arrêté. Tant que
 le compteur est sous 100 mots connus, la popup affiche un lien vers cette

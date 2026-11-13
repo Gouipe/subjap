@@ -1,14 +1,14 @@
 /**
  * Practical Japanese frequency data for subtitle-based learning.
  *
- * The shipped list is derived from OpenSubtitles 2018 and matched against
- * JMdict vocabulary before it reaches SubJap. This keeps the spoken/media
- * register while avoiding raw morphological fragments and subtitle noise.
+ * The shipped list is JPDB v2.2: dictionary forms (起こす, not 起こして)
+ * ranked over Japanese anime, dramas, novels and visual novels. Particles and
+ * auxiliaries keep their rank here; callers set them aside where their part
+ * of speech is known.
  */
-export const FREQUENCY_DATA_VERSION = "opensubtitles-jmdict-202604-v1";
+export const FREQUENCY_DATA_VERSION = "jpdb-v2.2-20241013-v1";
 
-export const SUBTITLE_FREQUENCY_PATH =
-  "frequency/opensubtitles-ja-jmdict-top8598.tsv";
+export const SUBTITLE_FREQUENCY_PATH = "frequency/jpdb-v2.2-top10000.tsv";
 
 export interface FrequencyEntry {
   key: string;

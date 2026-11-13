@@ -291,10 +291,10 @@ Le chemin principal est le suivant :
    enregistré ni carte Anki sont ignorés par défaut au rendu ; cet état dérivé n'est jamais persisté et un choix
    manuel (Connu, Ignorer, ou leur retrait) le remplace.
 8. Le content script récupère le nombre de mots connus et un rang pratique par
-   lemme. Ce rang vient d’une liste de fréquence issue de sous-titres
-   OpenSubtitles (films, séries et anime), préalablement recroisée avec le
-   vocabulaire JMdict afin de conserver des mots lexicaux plutôt que des
-   fragments morphologiques. La liste compacte est livrée avec SubJap et les
+   lemme. Ce rang vient de la liste de fréquence JPDB v2.2, classée par forme
+   du dictionnaire sur un large corpus de médias japonais (anime, dramas,
+   romans, visual novels) ; les particules et auxiliaires isolés (の, だ) n’en
+   reçoivent pas. La liste compacte est livrée avec SubJap et les
    couples lemme/rang sont conservés dans IndexedDB. Le renderer construit des
    spans par token, ajoute éventuellement le furigana ; les mots connus restent
    blancs, les inconnus jusqu’au rang connu sont verts et les 300 rangs suivants
