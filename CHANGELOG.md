@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-13
+
+### Corrections
+
+- Les messages affichés sur la vidéo disparaissent au bout de 6 secondes au lieu de 12.
+
 ## 2026-11-11
 
 ### Fonctionnalités

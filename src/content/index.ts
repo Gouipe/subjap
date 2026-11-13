@@ -1405,7 +1405,7 @@ const MINE_LATER_AUDIO_CUT_RETRY_MS = 10_000;
 /** Hole accepted before the line's start, as a cut does. */
 const MINE_LATER_BUFFER_TOLERANCE_MS = 200;
 const MINE_LATER_FEEDBACK_MS = 1_800;
-const MINE_LATER_REMINDER_MS = 12_000;
+const MINE_LATER_REMINDER_MS = 6_000;
 /** Lets the video start before reminding: the Jimaku notice comes first. */
 const MINE_LATER_REMINDER_DELAY_SECONDS = 3;
 
@@ -1892,7 +1892,7 @@ function installShortcuts(): () => void {
 // Missing Japanese subtitles
 // ---------------------------------------------------------------------------
 
-const MISSING_JAPANESE_NOTICE_MS = 12_000;
+const MISSING_JAPANESE_NOTICE_MS = 6_000;
 let missingJapaneseTimer: number | null = null;
 let missingJapaneseNotice: VideoNotice | null = null;
 /** The notice reports missing subtitles: it goes away once some appear. */
