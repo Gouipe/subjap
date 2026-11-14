@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-14
+
+### Fonctionnalités
+
+- AniZone (anizone.to, lecteur Vidstack) fonctionne comme Re:ANIME : japonais et traduction du site chargés tout seuls, sous-titres du lecteur masqués, et japonais installé depuis Jimaku quand le site n'en propose pas.
+
 ## 2026-11-13
 
 ### Corrections

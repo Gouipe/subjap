@@ -255,14 +255,16 @@ HTML5 visible, y compris dans un lecteur intégré depuis un autre site. Il ne
 peut pas prendre en charge un lecteur qui n’expose pas d’élément `<video>`
 accessible.
 
-Les lecteurs Artplayer (par exemple sur reanime.to) fournissent leurs propres
+Les lecteurs Artplayer (par exemple sur reanime.to) et Vidstack (par exemple
+sur anizone.to) fournissent leurs propres
 pistes : SubJap charge automatiquement le japonais (sans annotations pour
 malentendants si possible) et la traduction FR, sinon EN, sans import. Les
 raccourcis clavier fonctionnent après un clic dans le lecteur.
 
 ### Vidéo sans sous-titres japonais
 
-Quand un lecteur Artplayer ne propose pas de piste japonaise, un bandeau
+Quand un lecteur Artplayer ne propose pas de piste japonaise, ou qu’un lecteur
+Vidstack propose des sous-titres mais aucun en japonais, un bandeau
 s’affiche une fois par vidéo en bas du lecteur pendant quelques secondes :
 **Chercher sur Jimaku** ouvre la page Jimaku de l’anime (ou sa recherche) dans
 un nouvel onglet, **Importer** charge directement un fichier japonais comme
@@ -270,12 +272,12 @@ piste principale. Sur Netflix, le même bandeau s’affiche pour les titres dont
 la langue originale est le japonais (anime, dramas, films). Sur YouTube, rien
 ne s’affiche sur la vidéo : la popup indique « Pas de sous-titres japonais »
 dans **Sous-titres**, avec **Importer un fichier** ; sur un lecteur Artplayer
-et sur Netflix, elle propose aussi la recherche Jimaku.
+ou Vidstack et sur Netflix, elle propose aussi la recherche Jimaku.
 
 Avec une clé API Jimaku (compte gratuit sur jimaku.cc, clé copiée depuis la
 page de compte, puis collée dans les options SubJap, section **Sous-titres
 japonais (Jimaku)**), SubJap installe tout seul les sous-titres japonais de
-l’épisode sur les lecteurs Artplayer et sur Netflix. Sur Netflix, il retrouve
+l’épisode sur les lecteurs Artplayer et Vidstack et sur Netflix. Sur Netflix, il retrouve
 le titre, la saison et l’épisode d’après Netflix ; ailleurs, il retrouve l’anime grâce à la page
 (identifiant AniList, sinon nom de la série ; l’épisode d’après l’adresse ou le
 titre de la page, qui suivent les changements d’épisode sans rechargement), choisit le fichier de l’épisode

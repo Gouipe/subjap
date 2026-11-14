@@ -90,7 +90,7 @@ const EMPTY_LOCAL_SUBTITLES: Record<LocalSubtitleRole, LocalSubtitleRecord | nul
   secondary: null,
 };
 /** Players whose page names the anime, so that Jimaku can be searched. */
-const JIMAKU_PLAYERS = ["artplayer", "netflix"];
+const JIMAKU_PLAYERS = ["artplayer", "vidstack", "netflix"];
 const WORD_COLOR_GUIDE = [
   {
     word: "大切",

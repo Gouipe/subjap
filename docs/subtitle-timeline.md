@@ -11,10 +11,10 @@ sous-titres ; SubJap ne reconstruit pas automatiquement une phrase complète.
 Les pistes japonaise et de traduction gardent leurs propres horaires. Chaque
 segment japonais est affiché avec sa propre traduction : celle qu’il recouvre
 le plus dans le temps. La traduction du lecteur sert de référence : un fichier
-japonais importé, comme la piste japonaise d’un lecteur Artplayer (Re:ANIME),
+japonais importé, comme la piste japonaise d’un lecteur Artplayer (Re:ANIME) ou Vidstack (AniZone),
 est recalé sur elle dès 0,25 s d’écart, dans un sens comme dans l’autre, en
 comparant ses horaires à ceux de la traduction affichée, décalage compris. La
-piste Artplayer est synchronisée une fois par piste (fichier sans sa
+piste du lecteur est synchronisée une fois par piste (fichier sans sa
 requête) ; ses parties sont mémorisées par vidéo et s’ajoutent à son décalage.
 Seule une piste japonaise que SubJap ne sait pas déplacer (Netflix, YouTube)
 fait bouger la traduction : une fois par piste japonaise, l’écart de la

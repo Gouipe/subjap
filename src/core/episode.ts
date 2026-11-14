@@ -71,6 +71,13 @@ export function readPageEpisode(): PageEpisode {
   if (title) {
     result.series ??= text(title[1]);
     result.episode = Number(title[2]);
+  } else {
+    // "Episode 2 - Series — Site" (AniZone).
+    const reversed = document.title.match(/^Episode\s+(\d+)\s+-\s+(.*?)(?:\s+[—–|]\s+[^—–|]*)?$/i);
+    if (reversed) {
+      result.series ??= text(reversed[2]);
+      result.episode = Number(reversed[1]);
+    }
   }
   const fromUrl = Number(new URLSearchParams(location.search).get("ep") ?? NaN);
   if (Number.isInteger(fromUrl) && fromUrl > 0) result.episode = fromUrl;

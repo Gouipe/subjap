@@ -11,12 +11,12 @@ import type {
   SubtitleCue,
 } from "@/core/types";
 import {
-  artplayerSubtitleFileName,
-  selectArtplayerSubtitleTracks,
-  selectArtplayerTimingTrack,
-  type ArtplayerSubtitleCandidate,
-  type ArtplayerSubtitleTrack,
-} from "@/core/artplayer";
+  playerSubtitleFileName,
+  selectPlayerSubtitleTracks,
+  selectPlayerTimingTrack,
+  type PlayerSubtitleCandidate,
+  type PlayerSubtitleTrack,
+} from "@/core/player-subtitles";
 import { sendMessage } from "@/core/messaging";
 import { cleanJapaneseSubtitleCues } from "@/subtitles/japanese-cleanup";
 import {
@@ -31,8 +31,11 @@ import { activeSubtitleCues, cuesOverlapping, firstCueStartingIn } from "@/subti
 import { LocalSubtitleAutoSync } from "@/subtitles/auto-sync";
 import { VideoOffsetWatcher } from "@/subtitles/video-offset";
 
-const ARTPLAYER_HIDE_CLASS = "subjap-artplayer-hide-native";
-const ARTPLAYER_REQUEST_INTERVAL_MS = 2_000;
+/** Players whose own subtitle files the page bridge can list. */
+const PLAYER_SELECTORS = { artplayer: ".art-video-player", vidstack: "media-player" } as const;
+type PlayerKind = keyof typeof PLAYER_SELECTORS;
+const HIDE_PLAYER_SUBTITLES_CLASS = "subjap-hide-player-subtitles";
+const PLAYER_TRACKS_REQUEST_INTERVAL_MS = 2_000;
 /** Sites change episode without reloading the player frame: follow the tab URL. */
 const TOP_URL_REFRESH_MS = 2_000;
 /** Fansub ASS files with heavy typesetting reach a dozen megabytes. */
@@ -40,15 +43,18 @@ const MAX_SUBTITLE_FILE_LENGTH = 20_000_000;
 /** Subtitles in pictures weigh about 10 MB an episode. */
 const MAX_IMAGE_SUBTITLE_BYTES = 60_000_000;
 /** A player answering with no usable file this long has no subtitle menu at all. */
-const ARTPLAYER_NO_TRACKS_AFTER_MS = 15_000;
+const PLAYER_NO_TRACKS_AFTER_MS = 15_000;
 
-/** Subtitle files offered by an Artplayer instance for the current video source. */
-interface ArtplayerSubtitles {
+/** Subtitle files offered by an Artplayer or Vidstack player for the current video source. */
+interface PlayerSubtitles {
+  kind: PlayerKind;
   session: string;
   source: string;
   startedAt: number;
-  /** True once the page bridge answered from a page that runs Artplayer. */
+  /** True once the page bridge answered from a page that runs the player. */
   found: boolean;
+  /** True once the page bridge listed a subtitle file, in any language. */
+  offersSubtitles: boolean;
   /** True once the page bridge listed at least one usable file. */
   listed: boolean;
   /** Whether the listed files include a Japanese one. */
@@ -87,8 +93,8 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private readonly watchedVideos = new Set<HTMLVideoElement>();
   /** Tab URL for players embedded in a frame: local imports are keyed on it. */
   private topUrl: string | null = null;
-  private artplayer: ArtplayerSubtitles | null = null;
-  private lastArtplayerRequestAt = 0;
+  private playerSubtitles: PlayerSubtitles | null = null;
+  private lastTracksRequestAt = 0;
   private lastTopUrlRequestAt = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
   private hideNative = false;
@@ -139,12 +145,20 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.observer.observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener("popstate", this.onPageNavigation);
     window.addEventListener("hashchange", this.onPageNavigation);
-    window.addEventListener("message", this.onArtplayerMessage);
+    window.addEventListener("message", this.onPlayerTracksMessage);
     chrome.storage.onChanged.addListener(this.onStorageChange);
     this.style = document.createElement("style");
-    this.style.textContent = `html.${ARTPLAYER_HIDE_CLASS} .art-subtitle,
-      html.${ARTPLAYER_HIDE_CLASS} .libassjs-canvas-parent,
-      html.${ARTPLAYER_HIDE_CLASS} .libassjs-canvas { visibility: hidden !important; }`;
+    // Artplayer: its text layer and the libass canvas. Vidstack: its captions
+    // (default and Plyr layouts) and the JASSUB canvas of ASS tracks.
+    this.style.textContent = [
+      ".art-subtitle",
+      ".libassjs-canvas-parent",
+      ".libassjs-canvas",
+      "media-player media-captions",
+      "media-player .plyr__captions",
+      "media-player .JASSUB",
+    ].map((selector) => `html.${HIDE_PLAYER_SUBTITLES_CLASS} ${selector}`).join(",") +
+      " { visibility: hidden !important; }";
     (document.head ?? document.documentElement).appendChild(this.style);
     this.timer = setInterval(this.tick, 1_000);
     this.refreshTopUrl();
@@ -166,8 +180,8 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   }
 
   getPlayerSubtitleRoom(): number {
-    if (document.documentElement.classList.contains(ARTPLAYER_HIDE_CLASS)) return 0;
-    return this.artplayer?.pictureRoom ?? 0;
+    if (document.documentElement.classList.contains(HIDE_PLAYER_SUBTITLES_CLASS)) return 0;
+    return this.playerSubtitles?.pictureRoom ?? 0;
   }
 
   getNavigationCues(): SubtitleCue[] {
@@ -186,7 +200,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
 
   getNavigationSessionId(): string {
     return this.localPrimaryCues[0]?.source?.sessionId ??
-      this.artplayer?.japanese[0]?.source?.sessionId ??
+      this.playerSubtitles?.japanese[0]?.source?.sessionId ??
       `${this.videoId ?? "page"}:local-primary`;
   }
 
@@ -210,21 +224,25 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   }
 
   setNativeSubtitlesVisible(visible: boolean): void {
-    // Only Artplayer's own subtitle layers are known; other players keep theirs.
+    // Only Artplayer's and Vidstack's subtitle layers are known; other players keep theirs.
     this.hideNative = !visible;
     this.applyNativeVisibility();
   }
 
   getJapaneseSubtitleStatus(): JapaneseSubtitleStatus {
-    const artplayer = this.artplayer;
-    const player = artplayer ? "artplayer" : "other";
+    const offered = this.playerSubtitles;
+    const player = offered?.kind ?? "other";
     const status = (availability: JapaneseSubtitleStatus["availability"]): JapaneseSubtitleStatus =>
       ({ availability, player, videoId: this.videoId });
     if (this.localPrimaryCues.length) return status("available");
-    if (!artplayer) return status("unknown");
-    if (artplayer.listed) return status(artplayer.offersJapanese ? "available" : "missing");
+    if (!offered) return status("unknown");
+    if (offered.listed) return status(offered.offersJapanese ? "available" : "missing");
+    // Artplayer is an anime player: without a subtitle menu, the Japanese is
+    // missing. Vidstack plays any kind of video: only one that comes with
+    // subtitles, none of them usable, is taken for a video missing Japanese.
+    const expectsSubtitles = offered.kind === "artplayer" || offered.offersSubtitles;
     return status(
-      artplayer.found && Date.now() - artplayer.startedAt > ARTPLAYER_NO_TRACKS_AFTER_MS
+      offered.found && expectsSubtitles && Date.now() - offered.startedAt > PLAYER_NO_TRACKS_AFTER_MS
         ? "missing"
         : "unknown",
     );
@@ -246,15 +264,15 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.observer = null;
     window.removeEventListener("popstate", this.onPageNavigation);
     window.removeEventListener("hashchange", this.onPageNavigation);
-    window.removeEventListener("message", this.onArtplayerMessage);
+    window.removeEventListener("message", this.onPlayerTracksMessage);
     chrome.storage.onChanged.removeListener(this.onStorageChange);
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    this.artplayer = null;
-    this.lastArtplayerRequestAt = 0;
+    this.playerSubtitles = null;
+    this.lastTracksRequestAt = 0;
     this.lastTopUrlRequestAt = 0;
     this.hideNative = false;
-    document.documentElement.classList.remove(ARTPLAYER_HIDE_CLASS);
+    document.documentElement.classList.remove(HIDE_PLAYER_SUBTITLES_CLASS);
     this.style?.remove();
     this.style = null;
     this.topUrl = null;
@@ -363,14 +381,14 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     this.offsets.setVideo(this.videoId);
     return this.localPrimaryCues.length
       ? this.localPrimaryCues
-      : this.offsets.shiftPlayerJapanese(this.artplayer?.japanese ?? []);
+      : this.offsets.shiftPlayerJapanese(this.playerSubtitles?.japanese ?? []);
   }
 
   private translationCues(): SubtitleCue[] {
     if (this.preferredSecondaryLanguage === "none") return [];
     if (this.localSecondaryCues.length) return this.localSecondaryCues;
     this.offsets.setVideo(this.videoId);
-    const translations = this.artplayer?.translations ?? {};
+    const translations = this.playerSubtitles?.translations ?? {};
     const fallback = this.preferredSecondaryLanguage === "fr" ? "en" : "fr";
     return this.offsets.shiftPlayerTranslation(
       translations[this.preferredSecondaryLanguage] ?? translations[fallback] ?? [],
@@ -393,15 +411,18 @@ export class GenericHtml5Adapter implements PlatformAdapter {
   private readonly tick = (): void => {
     if (Date.now() - this.lastTopUrlRequestAt >= TOP_URL_REFRESH_MS) this.refreshTopUrl();
     const video = this.getVideoElement();
-    if (!video || !document.querySelector(".art-video-player")) return;
+    const kind = this.playerKind();
+    if (!video || !kind) return;
     const source = video.currentSrc || video.src;
     if (!source) return;
-    if (this.artplayer?.source !== source) {
-      this.artplayer = {
-        session: `artplayer:${crypto.randomUUID()}`,
+    if (this.playerSubtitles?.source !== source) {
+      this.playerSubtitles = {
+        kind,
+        session: `${kind}:${crypto.randomUUID()}`,
         source,
         startedAt: Date.now(),
         found: false,
+        offersSubtitles: false,
         listed: false,
         offersJapanese: false,
         japanese: [],
@@ -409,47 +430,49 @@ export class GenericHtml5Adapter implements PlatformAdapter {
         timing: [],
         pictureRoom: 0,
       };
-      this.lastArtplayerRequestAt = 0;
+      this.lastTracksRequestAt = 0;
       this.lastSignature = "";
       this.publish();
     }
-    if (this.artplayer.listed || Date.now() - this.lastArtplayerRequestAt < ARTPLAYER_REQUEST_INTERVAL_MS) return;
-    this.lastArtplayerRequestAt = Date.now();
+    if (this.playerSubtitles.listed || Date.now() - this.lastTracksRequestAt < PLAYER_TRACKS_REQUEST_INTERVAL_MS) return;
+    this.lastTracksRequestAt = Date.now();
     window.postMessage({
       source: "subjap",
-      type: "subjap:artplayer-request",
-      payload: { session: this.artplayer.session },
+      type: "subjap:player-tracks-request",
+      payload: { session: this.playerSubtitles.session },
     }, location.origin);
   };
 
-  private readonly onArtplayerMessage = (event: MessageEvent<unknown>): void => {
+  private readonly onPlayerTracksMessage = (event: MessageEvent<unknown>): void => {
     if (event.source !== window || event.origin !== location.origin) return;
     const data = event.data as { source?: unknown; type?: unknown; payload?: unknown } | null;
-    if (data?.source !== "subjap-artplayer" || data.type !== "tracks") return;
+    if (data?.source !== "subjap-player-bridge" || data.type !== "tracks") return;
     const payload = data.payload as { session?: unknown; candidates?: unknown } | null;
-    const artplayer = this.artplayer;
-    if (!artplayer || artplayer.listed || payload?.session !== artplayer.session ||
+    const offered = this.playerSubtitles;
+    if (!offered || offered.listed || payload?.session !== offered.session ||
       !Array.isArray(payload.candidates)) return;
-    if ((payload as { found?: unknown }).found === true) artplayer.found = true;
+    if ((payload as { found?: unknown }).found === true) offered.found = true;
     const candidates = (payload.candidates as unknown[]).filter(
-      (candidate): candidate is ArtplayerSubtitleCandidate => {
-        const value = candidate as Partial<ArtplayerSubtitleCandidate> | null;
-        return typeof value?.label === "string" && typeof value.url === "string";
+      (candidate): candidate is PlayerSubtitleCandidate => {
+        const value = candidate as Partial<PlayerSubtitleCandidate> | null;
+        return typeof value?.label === "string" && typeof value.url === "string" &&
+          (value.language === undefined || typeof value.language === "string");
       },
     );
-    const tracks = selectArtplayerSubtitleTracks(candidates);
-    const timing = tracks.fr || tracks.en ? null : selectArtplayerTimingTrack(candidates);
+    if (candidates.length) offered.offersSubtitles = true;
+    const tracks = selectPlayerSubtitleTracks(candidates);
+    const timing = tracks.fr || tracks.en ? null : selectPlayerTimingTrack(candidates);
     // The subtitle menu can be built after the player: keep asking until it lists a file.
     if (!tracks.ja && !tracks.fr && !tracks.en && !timing) return;
-    artplayer.listed = true;
-    artplayer.offersJapanese = !!tracks.ja;
-    for (const track of Object.values(tracks)) void this.loadArtplayerTrack(artplayer, track);
-    if (timing) void this.loadArtplayerTiming(artplayer, timing);
+    offered.listed = true;
+    offered.offersJapanese = !!tracks.ja;
+    for (const track of Object.values(tracks)) void this.loadPlayerTrack(offered, track);
+    if (timing) void this.loadPlayerTiming(offered, timing);
   };
 
-  private async loadArtplayerTiming(
-    artplayer: ArtplayerSubtitles,
-    track: ArtplayerSubtitleTrack,
+  private async loadPlayerTiming(
+    offered: PlayerSubtitles,
+    track: PlayerSubtitleTrack,
   ): Promise<void> {
     try {
       const response = await fetch(track.url, { credentials: "omit" });
@@ -458,11 +481,11 @@ export class GenericHtml5Adapter implements PlatformAdapter {
       if (length > MAX_IMAGE_SUBTITLE_BYTES) throw new Error("fichier trop volumineux");
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (bytes.byteLength > MAX_IMAGE_SUBTITLE_BYTES) throw new Error("fichier trop volumineux");
-      if (this.artplayer !== artplayer) return;
-      const sessionId = `${artplayer.session}:timing`;
+      if (this.playerSubtitles !== offered) return;
+      const sessionId = `${offered.session}:timing`;
       const displays = parsePgsDisplays(bytes);
-      artplayer.pictureRoom = pgsDialogueRoom(displays);
-      artplayer.timing = displays.map((display, index): SubtitleCue => ({
+      offered.pictureRoom = pgsDialogueRoom(displays);
+      offered.timing = displays.map((display, index): SubtitleCue => ({
         id: `${sessionId}:${index}`,
         start: display.start,
         end: display.end,
@@ -471,7 +494,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
         source: {
           kind: "track",
           sessionId,
-          trackId: "artplayer-timing",
+          trackId: `${offered.kind}-timing`,
           resourceId: track.url,
           segmentId: String(index),
           startPrecision: "exact",
@@ -484,18 +507,18 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     }
   }
 
-  private async loadArtplayerTrack(
-    artplayer: ArtplayerSubtitles,
-    track: ArtplayerSubtitleTrack,
+  private async loadPlayerTrack(
+    offered: PlayerSubtitles,
+    track: PlayerSubtitleTrack,
   ): Promise<void> {
     try {
       const response = await fetch(track.url, { credentials: "omit" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const body = await response.text();
       if (body.length > MAX_SUBTITLE_FILE_LENGTH) throw new Error("fichier trop volumineux");
-      if (this.artplayer !== artplayer) return;
-      const sessionId = `${artplayer.session}:${track.language}`;
-      const parsed = parseSubtitleFile(artplayerSubtitleFileName(track.url), body);
+      if (this.playerSubtitles !== offered) return;
+      const sessionId = `${offered.session}:${track.language}`;
+      const parsed = parseSubtitleFile(playerSubtitleFileName(track.url), body);
       const cues = (track.language === "ja" ? cleanJapaneseSubtitleCues(parsed, track.sdh) : parsed)
         .map((cue, index): SubtitleCue => ({
           ...cue,
@@ -504,19 +527,27 @@ export class GenericHtml5Adapter implements PlatformAdapter {
           source: {
             kind: "track",
             sessionId,
-            trackId: `artplayer-${track.language}`,
+            trackId: `${offered.kind}-${track.language}`,
             resourceId: track.url,
             segmentId: cue.id,
             startPrecision: "exact",
           },
         }));
-      if (track.language === "ja") artplayer.japanese = cues;
-      else artplayer.translations[track.language] = cues;
+      if (track.language === "ja") offered.japanese = cues;
+      else offered.translations[track.language] = cues;
       this.lastSignature = "";
       this.publish();
     } catch (error) {
-      console.warn(`[SubJap] Sous-titres Artplayer (${track.language}) indisponibles:`, error);
+      console.warn(`[SubJap] Sous-titres du lecteur (${track.language}) indisponibles:`, error);
     }
+  }
+
+  /** The known player of this page, if any. */
+  private playerKind(): PlayerKind | null {
+    for (const kind of Object.keys(PLAYER_SELECTORS) as PlayerKind[]) {
+      if (document.querySelector(PLAYER_SELECTORS[kind])) return kind;
+    }
+    return null;
   }
 
   private applyNativeVisibility(): void {
@@ -524,27 +555,27 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     // shows no translation although one is wanted, and the player has no
     // Japanese track, they are a translation SubJap cannot read (AI dub
     // transcript, pictures): left visible, or the user would get none.
-    const repeated = !!this.artplayer?.offersJapanese ||
+    const repeated = !!this.playerSubtitles?.offersJapanese ||
       this.preferredSecondaryLanguage === "none" ||
       this.translationCues().length > 0;
     document.documentElement.classList.toggle(
-      ARTPLAYER_HIDE_CLASS,
+      HIDE_PLAYER_SUBTITLES_CLASS,
       this.hideNative &&
         repeated &&
         this.japaneseCues().length > 0 &&
-        !!document.querySelector(".art-video-player"),
+        !!this.playerKind(),
     );
   }
 
   private publish(): void {
     if (!this.callback) return;
     this.applyNativeVisibility();
-    const translations = this.artplayer?.translations ?? {};
+    const translations = this.playerSubtitles?.translations ?? {};
     this.offsets.setVideo(this.videoId);
     const references = [
       ...[translations.fr ?? [], translations.en ?? []].map((cues) => this.offsets.shiftPlayerTranslation(cues)),
       // Shown by the player itself, never shifted.
-      this.artplayer?.timing ?? [],
+      this.playerSubtitles?.timing ?? [],
     ];
     if (this.localPrimaryCues.length && this.offsets.readyToMoveJapanese()) {
       this.autoSync.run(this.videoId, this.localPrimaryCues[0]?.source?.sessionId, references);
@@ -552,7 +583,7 @@ export class GenericHtml5Adapter implements PlatformAdapter {
     // The Japanese, a file or the player's, moves onto the translation: the
     // translation is never shifted to follow it.
     if (this.videoId && this.localLoadedFor === this.videoId && !this.localPrimaryCues.length) {
-      this.offsets.syncPlayerJapanese(this.artplayer?.japanese ?? [], references);
+      this.offsets.syncPlayerJapanese(this.playerSubtitles?.japanese ?? [], references);
     }
     const video = this.getVideoElement();
     const time = video?.currentTime ?? 0;

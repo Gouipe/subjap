@@ -184,12 +184,12 @@ export async function markJapaneseOffsetSetByUser(videoId: string): Promise<void
 }
 
 /**
- * A Japanese track SubJap can shift (an imported file, an Artplayer track)
+ * A Japanese track SubJap can shift (an imported file, an Artplayer or Vidstack track)
  * moves onto the translation: the translation is never shifted to follow it.
  */
 function isMovableJapanese(cues: SubtitleCue[]): boolean {
   const trackId = cues[0]?.source?.trackId ?? "";
-  return trackId.startsWith("local-") || trackId.startsWith("artplayer-");
+  return trackId.startsWith("local-") || trackId.startsWith("artplayer-") || trackId.startsWith("vidstack-");
 }
 
 /**

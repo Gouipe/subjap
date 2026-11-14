@@ -69,7 +69,7 @@ export type JapaneseSubtitleAvailability = "available" | "missing" | "unknown";
 export interface JapaneseSubtitleStatus {
   availability: JapaneseSubtitleAvailability;
   /** Player whose track list was read; "other" players expose none. */
-  player: "artplayer" | "netflix" | "youtube" | "other";
+  player: "artplayer" | "vidstack" | "netflix" | "youtube" | "other";
   /** Key of this video's local subtitle imports. */
   videoId: string | null;
   /** Original audio language, when the player says it (Netflix). */

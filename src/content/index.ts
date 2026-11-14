@@ -110,7 +110,7 @@ import type {
 
 // Keep platform bridges scoped to their site. Other sites and embedded frames
 // use the generic HTML5 adapter, which renders imported local subtitle tracks
-// and the tracks offered by Artplayer.
+// and the tracks offered by Artplayer and Vidstack.
 const isTopFrame = window.top === window;
 if (isTopFrame && /(^|\.)youtube\.com$/i.test(location.hostname)) {
   adapterRegistry.register(new YouTubeAdapter());
@@ -1911,7 +1911,7 @@ const missingJapaneseNotified = new Set<string>();
 function checkMissingJapanese(): void {
   const status = adapter.getJapaneseSubtitleStatus?.();
   const video = adapter.getVideoElement();
-  const japaneseVideo = status?.player === "artplayer" ||
+  const japaneseVideo = status?.player === "artplayer" || status?.player === "vidstack" ||
     (status?.player === "netflix" && status.originalLanguage === "ja");
   if (!status || !japaneseVideo || status.availability !== "missing" || !video) {
     if (status?.availability === "available" && missingJapaneseNoticeReportsMissing) {

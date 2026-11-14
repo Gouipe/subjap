@@ -219,11 +219,14 @@ imports locaux comme la popup, qui sonde toutes les frames. La capture d’image
 d’une frame hors plein écran passe par le canvas, car le recadrage de
 `captureVisibleTab` serait relatif à la frame.
 
-Pour les lecteurs [Artplayer](https://artplayer.org), le script MAIN
-[`artplayer-bridge-entry.ts`](../src/artplayer-bridge-entry.ts) liste, à la
+Pour les lecteurs [Artplayer](https://artplayer.org) et
+[Vidstack](https://vidstack.io), le script MAIN
+[`player-bridge-entry.ts`](../src/player-bridge-entry.ts) liste, à la
 demande de l’adaptateur de sa frame, les fichiers SRT/VTT/ASS présents dans les
-réglages des instances `Artplayer.instances`. L’adaptateur choisit
-([`core/artplayer.ts`](../src/core/artplayer.ts)) une piste japonaise sans
+réglages des instances `Artplayer.instances`, ou les pistes `subtitles` /
+`captions` de `media-player.textTracks` (Vidstack, dont les `<track>` laissés
+dans la page n’ont pas de fichier), avec leur code de langue. L’adaptateur choisit
+([`core/player-subtitles.ts`](../src/core/player-subtitles.ts)) une piste japonaise sans
 SDH, puis SDH en repli, et des pistes FR/EN selon la préférence habituelle ;
 les pistes partielles (Forced, signes, chansons, doublage IA) sont écartées.
 Sans traduction FR/EN en texte, une traduction en images (PGS `.sup` des

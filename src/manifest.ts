@@ -67,7 +67,7 @@ const manifest: ManifestV3Export = {
       // answers requests from the generic adapter of its own frame.
       matches: ["*://*/*"],
       exclude_matches: ["*://*.netflix.com/*", "*://*.youtube.com/*"],
-      js: ["src/artplayer-bridge-entry.ts"],
+      js: ["src/player-bridge-entry.ts"],
       run_at: "document_idle",
       all_frames: true,
       world: "MAIN",
