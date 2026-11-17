@@ -1,6 +1,7 @@
 import type { GrammarAnnotation, Token } from "@/core/types";
 import { tokenCanonicalKey, tokenDictionaryForm, tokenLookupTerms } from "@/core/types";
 import { isNonLexicalToken } from "@/core/frequency";
+import { mergeWaAdverbs } from "./wa-adverbs";
 
 const isAuxiliary = (token: Token): boolean => token.partOfSpeech.includes("助動詞");
 const isExplanatoryN = (token: Token): boolean =>
@@ -730,7 +731,9 @@ function mergeExclamations(tokens: Token[]): Token[] {
 }
 
 /** Convert morphological tokens into conservative display/interaction units. */
-export function groupTokens(tokens: Token[]): Token[] {
+export function groupTokens(morphemes: Token[]): Token[] {
+  // Before the copula rules, which would otherwise read 今では as で + は.
+  const tokens = mergeWaAdverbs(morphemes);
   const result: Token[] = [];
 
   for (let index = 0; index < tokens.length;) {

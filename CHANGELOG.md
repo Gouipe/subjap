@@ -10,6 +10,7 @@ elle serait annoncée à nouveau.
 ### Fonctionnalités
 
 - Les expressions courantes comme 空気を読む, 気にする ou 手を出す sont reconnues dans les sous-titres, même conjuguées (空気を読めない) ou sans leur particule (空気読めない) : un seul mot cliquable avec sa propre définition, son statut et sa carte Anki, quel que soit le dictionnaire installé.
+- 実は, 要は, 実際は, まずは, 恐らくは, 時には, 今では et いつかは forment un seul mot avec leur définition, au lieu de 実 + は.
 
 ### Corrections
 

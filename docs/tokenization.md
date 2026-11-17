@@ -87,6 +87,16 @@ leur fin polie ou passée, elle devient un bloc d'obligation (話さなければ
 son sens (てしまう : action accomplie, ている : en cours / état…), suivi de la
 négation, de la politesse ou du passé portés par sa fin.
 
+Avant ces règles, une courte liste tenue à la main
+([`wa-adverbs.ts`](../src/tokenizer/wa-adverbs.ts) : 実は, 要は, 実際は,
+まずは, 恐らくは, 時には, 今では, いつかは) recolle les adverbes qu'UniDic coupe
+avant は (実 + は, 時 + に + は). Une règle tirée de JMdict fusionnerait aussi
+それは ou 上は (机の上は). La lecture du premier morphème doit correspondre
+(木の実は, 要 lu かなめ restent séparés) et le mot ne doit pas être déterminé :
+après の, ん, un verbe, un adjectif, un auxiliaire ou un 連体詞, 時には reste
+« au moment où » (子供の時には). Leurs définitions sont dans la liste embarquée
+des expressions, quel que soit le pack.
+
 `components` conserve les morphèmes. `segments`, quand il existe, regroupe ces
 morphèmes en blocs lisibles (話さ + なければいけない) pour la décomposition
 affichée. `grammar` décrit négation, passé/accompli, politesse, souhait,

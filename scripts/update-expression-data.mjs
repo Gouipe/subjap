@@ -2,7 +2,8 @@
 //
 // The default « Courant » pack holds only a few dozen idioms such as
 // 空気を読む: SubJap ships the full dictionary's noun + particle + verb
-// expressions so that every installation recognizes them in subtitles.
+// expressions so that every installation recognizes them in subtitles,
+// plus the adverbs and conjunctions ending in は (先ずは, 何時かは).
 // Entries keep the DictionaryEntry shape built by convertJmdictWord().
 
 import { mkdir, writeFile } from "node:fs/promises";
@@ -43,9 +44,16 @@ const { words } = JSON.parse(json.toString("utf8"));
 const entries = [];
 for (const word of words) {
   const partOfSpeech = [...new Set(word.sense.flatMap((sense) => sense.partOfSpeech ?? []))];
-  if (!partOfSpeech.includes("exp") || !partOfSpeech.some((pos) => /^v[15krsz]/u.test(pos))) continue;
-  const spellings = (word.kanji ?? []).map((form) => form.text).filter((text) => EXPRESSION_SPELLING.test(text));
-  if (spellings.length === 0) continue;
+  const kanjiForms = (word.kanji ?? []).map((form) => form.text);
+  const verbalExpression =
+    partOfSpeech.includes("exp") &&
+    partOfSpeech.some((pos) => /^v[15krsz]/u.test(pos)) &&
+    kanjiForms.some((text) => EXPRESSION_SPELLING.test(text));
+  // Adverbs split before は (実は, 先ずは): src/tokenizer/wa-adverbs.ts.
+  const waAdverb =
+    partOfSpeech.some((pos) => pos === "adv" || pos === "conj") &&
+    kanjiForms.some((text) => text.length > 1 && text.endsWith("は"));
+  if (!verbalExpression && !waAdverb) continue;
   const senses = word.sense
     .filter((sense) => !(sense.misc ?? []).some((tag) => OUTDATED.has(tag)))
     .map((sense) => ({
