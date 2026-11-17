@@ -13,7 +13,7 @@ import { entryReadings, entrySpellings } from "./match";
 
 export const EXPRESSION_LIST_PATH = "expressions/jmdict-expressions.json";
 
-interface ExpressionIndex {
+export interface ExpressionIndex {
   bySpelling: Map<string, DictionaryEntry[]>;
   byReading: Map<string, DictionaryEntry[]>;
 }
@@ -27,7 +27,8 @@ function extensionUrl(path: string): string {
 
 const normalizeReading = (text: string): string => toHiragana(text.normalize("NFKC"));
 
-function buildIndex(entries: DictionaryEntry[]): ExpressionIndex {
+/** Index the bundled entries by spelling and by reading. */
+export function buildExpressionIndex(entries: DictionaryEntry[]): ExpressionIndex {
   const bySpelling = new Map<string, DictionaryEntry[]>();
   const byReading = new Map<string, DictionaryEntry[]>();
   const add = (
@@ -53,7 +54,7 @@ function loadExpressionIndex(): Promise<ExpressionIndex> {
         throw new Error(`Expression list HTTP ${response.status}: ${response.statusText}`);
       }
       const data = (await response.json()) as { entries: DictionaryEntry[] };
-      return buildIndex(data.entries);
+      return buildExpressionIndex(data.entries);
     })
     .catch((err: unknown) => {
       // Retry on the next lookup rather than keep a failed load forever.
@@ -64,10 +65,10 @@ function loadExpressionIndex(): Promise<ExpressionIndex> {
 }
 
 /** Expressions written exactly as `term`, or read as `term` when it is kana. */
-export async function lookupExpressions(
+export function findExpressions(
+  index: ExpressionIndex,
   terms: string[],
-): Promise<Record<string, DictionaryEntry[]>> {
-  const index = await loadExpressionIndex();
+): Record<string, DictionaryEntry[]> {
   return Object.fromEntries(
     terms.map((term) => [
       term,
@@ -79,6 +80,12 @@ export async function lookupExpressions(
       ],
     ]),
   );
+}
+
+export async function lookupExpressions(
+  terms: string[],
+): Promise<Record<string, DictionaryEntry[]>> {
+  return findExpressions(await loadExpressionIndex(), terms);
 }
 
 /** Spelling matches only, merged into ordinary dictionary lookups. */

@@ -69,6 +69,14 @@ annulation) : ne pas modifier le journal juste pour satisfaire le hook. Le hook
 lit l’état des fichiers avant la commande : modifier `CHANGELOG.md` dans une
 commande séparée, avant `git commit`.
 
+## Découpage des sous-titres
+
+Toute modification de la tokenisation (`src/tokenizer/`,
+`src/dictionary/expression*.ts`, liste d'expressions) se vérifie avec
+`npm.cmd test -- segmentation` et ajoute ses phrases au corpus
+[`src/tokenizer/segmentation-corpus.txt`](src/tokenizer/segmentation-corpus.txt) :
+voir [`docs/testing.md`](docs/testing.md#corpus-de-découpage).
+
 ## Correction de bugs
 
 Ne pas se contenter de corriger le cas remonté : comprendre la vraie source du

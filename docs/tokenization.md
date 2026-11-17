@@ -61,9 +61,9 @@ ensuite fusionnées d'après une liste embarquée
 (`public/expressions/jmdict-expressions.json`, régénérée par
 `npm run expressions:update`) : les expressions verbales `exp` du JMdict complet,
 car le pack Courant n'en contient que quelques dizaines, ainsi que les adverbes
-et conjonctions terminés par は (先ずは, 何時かは) que recolle `split-words.ts`. Le service worker la
-charge au premier besoin, quel que soit le pack installé, et `dict:lookup` y
-cherche aussi les graphies exactes. Le nom (éventuellement un composé déjà
+et conjonctions terminés par は (先ずは, 何時かは) que recolle `split-words.ts`.
+Le service worker la charge au premier besoin, quel que soit le pack installé,
+et `dict:lookup` y cherche aussi les graphies exactes. Le nom (éventuellement un composé déjà
 fusionné), la particule `を` / `が` / `に` / `で` / `と` / `へ` et le verbe doivent
 être contigus ; le verbe garde sa conjugaison et ses annotations
 (空気を読めない). `を` et `が` peuvent manquer (空気読めない), sauf devant
@@ -84,8 +84,8 @@ littéral, le plus courant à l'oral : 目を見て話して (« regarde-moi dan
 yeux ») n'est pas 目を見る (« vivre une expérience »), ni 後になって (« plus
 tard ») 後になる (« prendre du retard »). L'unité porte la tête JMdict comme
 identité, montre la décomposition dans la popover et signale la particule
-omise. Le tri des mots
-connus trouve aussi ces définitions dans la liste embarquée.
+omise. Le tri des mots connus trouve aussi ces définitions dans la liste
+embarquée.
 
 Le `ば` conditionnel reste attaché à la forme en `仮定形` qui le précède
 (話せば, 高ければ). La condition négative (なければ, ねば, なけりゃ, なきゃ,
