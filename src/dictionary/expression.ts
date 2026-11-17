@@ -70,7 +70,6 @@ function potentialBase(form: string): string | null {
 interface VerbBase {
   form: string;
   reading: string;
-  potential: boolean;
 }
 
 /** Dictionary forms the verb may take inside an expression, exact ones first. */
@@ -78,12 +77,12 @@ function verbBases(verb: Token): VerbBase[] {
   const head = verb.components?.[0] ?? verb;
   const reading = normalizeReading(lexicalHead(verb).dictionaryReading ?? verb.dictionaryReading ?? "");
   const forms = [...new Set([tokenDictionaryForm(verb), tokenCanonicalKey(verb)].filter(Boolean))];
-  const bases: VerbBase[] = forms.map((form) => ({ form, reading, potential: false }));
+  const bases: VerbBase[] = forms.map((form) => ({ form, reading }));
   if (head.conjugationType?.includes("下一段")) {
     const potentialReading = potentialBase(reading) ?? "";
     for (const form of forms) {
       const base = potentialBase(form);
-      if (base) bases.push({ form: base, reading: potentialReading, potential: true });
+      if (base) bases.push({ form: base, reading: potentialReading });
     }
   }
   return bases;
@@ -172,16 +171,14 @@ function matchingEntry(
   return byReading.find((entry) => entry.common) ?? byReading[0] ?? null;
 }
 
+/** No « potentiel » label: UniDic also files misparsed forms (席に着け) under
+ * 下一段 lemmas, so the godan fallback does not prove a potential verb. */
 function expressionGrammar(candidate: ExpressionCandidate): GrammarAnnotation[] {
-  const { particle, particleText, verb, verbBase } = candidate;
-  const verbHead = verb.components?.[0] ?? verb;
+  const { particle, particleText, verb } = candidate;
   return [
     ...(particle
       ? []
       : [{ surface: particleText, kind: "other" as const, label: "particule omise (oral)" }]),
-    ...(verbBase.potential
-      ? [{ surface: plain(verbHead.surface), kind: "inflection" as const, label: "potentiel" }]
-      : []),
     ...(verb.grammar ?? []),
   ];
 }
