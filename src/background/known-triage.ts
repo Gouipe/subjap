@@ -12,6 +12,7 @@ import { db } from "@/core/db";
 import { toHiragana } from "@/core/kana";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { selectDictionaryEntry } from "@/dictionary/match";
+import { lookupExpressionSpellings } from "@/dictionary/expression-list";
 import type { DictionaryEntry, KnownTriageBatch, KnownTriageItem } from "@/core/types";
 
 export const KNOWN_TRIAGE_BATCH_SIZE = 20;
@@ -45,12 +46,21 @@ function shortMeaning(entry: DictionaryEntry): string {
 
 async function dictionaryEntries(terms: string[]): Promise<DictionaryEntry[]> {
   const unique = [...new Set(terms)];
-  const matches = await Promise.all([
-    db.dictionaryEntries.where("headword").anyOf(unique).toArray(),
-    db.dictionaryEntries.where("aliases").anyOf(unique).toArray(),
-    db.dictionaryEntries.where("reading").anyOf(unique).toArray(),
+  const [matches, bundled] = await Promise.all([
+    Promise.all([
+      db.dictionaryEntries.where("headword").anyOf(unique).toArray(),
+      db.dictionaryEntries.where("aliases").anyOf(unique).toArray(),
+      db.dictionaryEntries.where("reading").anyOf(unique).toArray(),
+    ]),
+    // Expressions (手を出す) and は adverbs (先ずは) are bundled, whatever the pack.
+    lookupExpressionSpellings(unique).catch((err: unknown) => {
+      console.warn("[SubJap] Expression list unavailable:", err);
+      return [];
+    }),
   ]);
-  return [...new Set(matches.flat())];
+  const installed = [...new Set(matches.flat())];
+  const headwords = new Set(installed.map((entry) => entry.headword));
+  return [...installed, ...bundled.filter((entry) => !headwords.has(entry.headword))];
 }
 
 /** The next frequent words without any state, after the last triaged rank. */

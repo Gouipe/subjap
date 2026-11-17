@@ -41,8 +41,9 @@ const normalizeReading = (text: string): string => toHiragana(text.normalize("NF
 const plain = (text: string): string => text.replace(/\n/gu, "");
 
 /** Formal nouns build grammar patterns (ことができる, ことにする), not idioms:
- * こと and できる stay two words the learner already knows. */
-const FORMAL_NOUNS = new Set(["こと", "事", "もの", "物", "ところ", "所"]);
+ * こと and できる stay two words the learner already knows. 君のためにする is
+ * « do it for you », not 為にする (« act with an ulterior motive »). */
+const FORMAL_NOUNS = new Set(["こと", "事", "もの", "物", "ところ", "所", "ため", "為"]);
 
 function isExpressionNoun(token: Token): boolean {
   if (
@@ -193,8 +194,15 @@ function matchingEntry(
   const spelled = bySpelling.find((entry) => entry.common) ?? bySpelling[0];
   if (spelled) return spelled;
   if (!matchesByReading(candidate)) return null;
+  // UniDic's lexeme must be the entry's word: そこ (其処, « there ») is not
+  // 底 (« bottom ») in 底をつく. A kana lexeme (ムキ → むき) cannot object.
+  const lexeme = tokenCanonicalKey(candidate.noun);
+  const lexemePrefix = isKana(lexeme) ? null : `${lexeme}${candidate.particleText}`;
   const byReading = (entriesByTerm[candidate.reading] ?? []).filter(
-    (entry) => matchingReading(entry, candidate) !== null,
+    (entry) =>
+      matchingReading(entry, candidate) !== null &&
+      (lexemePrefix === null ||
+        entrySpellings(entry).some((spelling) => spelling.startsWith(lexemePrefix))),
   );
   return byReading.find((entry) => entry.common) ?? byReading[0] ?? null;
 }

@@ -70,10 +70,14 @@ fusionné), la particule `を` / `が` / `に` / `で` / `と` / `へ` et le ver
 UniDic (読める), est rapproché de sa base godan (読む) après échec de la forme
 exacte. La lecture concaténée doit correspondre à une lecture de l'entrée ; un
 nom écrit en kana (むき) peut rejoindre une entrée en kanji (向きになる) par sa
-seule lecture, à condition que sa particule soit écrite. Les noms formels こと, もの et ところ (et 事, 物, 所) n'ouvrent
-pas d'expression : ことができる ou ことにする sont des tournures de grammaire
-dont l'apprenant connaît déjà les mots. L'unité porte la tête JMdict comme identité, montre la
-décomposition dans la popover et signale la particule omise.
+lecture, à condition que sa particule soit écrite et que le lexème UniDic, s'il
+est en kanji, ouvre une graphie de l'entrée (そこ, lexème 其処, ne devient pas
+底をつく). Les noms formels こと, もの, ところ et ため (et 事, 物, 所, 為)
+n'ouvrent pas d'expression : ことができる ou ことにする sont des tournures de
+grammaire dont l'apprenant connaît déjà les mots, et 君のためにする n'est pas
+為にする. L'unité porte la tête JMdict comme identité, montre la
+décomposition dans la popover et signale la particule omise. Le tri des mots
+connus trouve aussi ces définitions dans la liste embarquée.
 
 Le `ば` conditionnel reste attaché à la forme en `仮定形` qui le précède
 (話せば, 高ければ). La condition négative (なければ, ねば, なけりゃ, なきゃ,
