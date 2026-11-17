@@ -282,7 +282,10 @@ Le chemin principal est le suivant :
    morphologiques restent dans le token, et l'identité lexicale utilise la tête
    de l'entrée JMdict. La recherche s'arrête à quatre composants et retient la
    plus longue correspondance depuis la gauche ; sans dictionnaire ou
-   correspondance exacte, UniDic reste inchangé.
+   correspondance exacte, UniDic reste inchangé. Les expressions nom +
+   particule + verbe (空気を読む), conjugaison comprise, sont ensuite fusionnées
+   d'après la liste embarquée `public/expressions/` via `dict:expressionBatch`
+   (voir [`tokenization.md`](tokenization.md)).
 7. Les états de mots (`known`, `unknown`, `learning` ou `ignored`) sont
    demandés au service worker, avec déduplication des requêtes en vol. Ils sont
    partagés entre les écritures d'une même identité lexicale reconnue par

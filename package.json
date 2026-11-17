@@ -10,6 +10,7 @@
     "lint": "eslint src/ --ext .ts,.tsx",
     "format": "prettier --write src/",
     "frequency:update": "node scripts/update-frequency-data.mjs",
+    "expressions:update": "node scripts/update-expression-data.mjs",
     "benchmark:unidic": "node scripts/benchmark-unidic.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

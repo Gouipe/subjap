@@ -22,6 +22,7 @@ import { getOptions, DEFAULT_OPTIONS } from "@/core/options";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { lookupCandidates } from "@/dictionary";
 import { dictionaryCompoundLookupTerms, mergeDictionaryCompounds } from "@/dictionary/compound";
+import { dictionaryExpressionLookupTerms, mergeDictionaryExpressions } from "@/dictionary/expression";
 import { DICTIONARY_REVISION_STORAGE_KEY } from "@/dictionary/revision";
 import { WORD_STATES_REVISION_STORAGE_KEY } from "@/core/cloud-sync";
 import { dictionaryReadingForToken } from "@/dictionary/match";
@@ -333,6 +334,8 @@ const frequencyRankByTerm = new LRUCache<string, number | null>(2_000);
 /** Successful compound matches are reused when subtitle cues repeat. */
 const dictionaryCompoundByTerm = new LRUCache<string, DictionaryEntry[]>(1_000);
 const DICTIONARY_COMPOUND_LOOKUP_BATCH_SIZE = 512;
+/** Bundled expression matches (and misses) for noun + particle + verb candidates. */
+const dictionaryExpressionByTerm = new LRUCache<string, DictionaryEntry[]>(2_000);
 
 /** Cached learner vocabulary size used by the frequency colour bands. */
 let knownWordCount = 0;
@@ -500,7 +503,51 @@ async function getFrequencyRanks(
   );
 }
 
+/** Nominal compounds (日本語学校), then expressions built on them (空気を読む). */
 async function resolveDictionaryCompounds(
+  cues: Array<{ cue: SubtitleCue; tokens: Token[] }>,
+): Promise<Array<{ cue: SubtitleCue; tokens: Token[] }>> {
+  return resolveDictionaryExpressions(await resolveNominalCompounds(cues));
+}
+
+async function resolveDictionaryExpressions(
+  cues: Array<{ cue: SubtitleCue; tokens: Token[] }>,
+): Promise<Array<{ cue: SubtitleCue; tokens: Token[] }>> {
+  const candidateTerms = [
+    ...new Set(cues.flatMap(({ tokens }) => dictionaryExpressionLookupTerms(tokens))),
+  ];
+  if (candidateTerms.length === 0) return cues;
+  const uncachedTerms = candidateTerms.filter((term) => !dictionaryExpressionByTerm.has(term));
+  if (uncachedTerms.length > 0) {
+    try {
+      for (
+        let offset = 0;
+        offset < uncachedTerms.length;
+        offset += DICTIONARY_COMPOUND_LOOKUP_BATCH_SIZE
+      ) {
+        const terms = uncachedTerms.slice(offset, offset + DICTIONARY_COMPOUND_LOOKUP_BATCH_SIZE);
+        const response = await sendMessage("dict:expressionBatch", { terms });
+        // The list is bundled: misses are final, unlike an installable pack.
+        for (const term of terms) dictionaryExpressionByTerm.set(term, response.entriesByTerm[term] ?? []);
+      }
+    } catch (err: unknown) {
+      console.warn("[SubJap] dict:expressionBatch failed:", err);
+      handleRuntimeError(err);
+      return cues;
+    }
+  }
+
+  return cues.map(({ cue, tokens }) => {
+    const entriesByTerm: Record<string, DictionaryEntry[]> = {};
+    for (const term of dictionaryExpressionLookupTerms(tokens)) {
+      const entries = dictionaryExpressionByTerm.get(term);
+      if (entries?.length) entriesByTerm[term] = entries;
+    }
+    return { cue, tokens: mergeDictionaryExpressions(tokens, entriesByTerm) };
+  });
+}
+
+async function resolveNominalCompounds(
   cues: Array<{ cue: SubtitleCue; tokens: Token[] }>,
 ): Promise<Array<{ cue: SubtitleCue; tokens: Token[] }>> {
   const candidateTerms = [

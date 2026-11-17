@@ -56,6 +56,23 @@ restent séparés. Les correspondances trouvées sont conservées en cache dans 
 content script. Ce cache est invalidé et la cue réaffichée lorsqu'un nouveau
 pack est installé.
 
+Les expressions nom + particule + verbe (空気を読む, 気にする, 手を出す) sont
+ensuite fusionnées d'après une liste embarquée
+(`public/expressions/jmdict-expressions.json`, régénérée par
+`npm run expressions:update`) : les expressions verbales `exp` du JMdict complet,
+car le pack Courant n'en contient que quelques dizaines. Le service worker la
+charge au premier besoin, quel que soit le pack installé, et `dict:lookup` y
+cherche aussi les graphies exactes. Le nom (éventuellement un composé déjà
+fusionné), la particule `を` / `が` / `に` / `で` / `と` / `へ` et le verbe doivent
+être contigus ; le verbe garde sa conjugaison et ses annotations
+(空気を読めない). `を` et `が` peuvent manquer (空気読めない), sauf devant
+`する`, qui reste un verbe en する. Un verbe potentiel, lemme distinct pour
+UniDic (読める), est rapproché de sa base godan (読む) après échec de la forme
+exacte. La lecture concaténée doit correspondre à une lecture de l'entrée ; un
+nom écrit en kana (こと) peut rejoindre une entrée en kanji (事がある) par sa
+seule lecture. L'unité porte la tête JMdict comme identité, montre la
+décomposition dans la popover et signale la particule omise.
+
 Le `ば` conditionnel reste attaché à la forme en `仮定形` qui le précède
 (話せば, 高ければ). La condition négative (なければ, ねば, なけりゃ, なきゃ,
 なくては, なくちゃ) forme un bloc ; suivie de いけない / ならない / だめ, avec
@@ -118,6 +135,8 @@ explicite l'ambiguïté passif, potentiel ou honorifique. Les noms propres, form
 orales inhabituelles et changements de locuteur non marqués peuvent rester
 ambigus. Le regroupement des composés ne considère que les suites nominales
 contiguës de quatre morphèmes au maximum et ne désambiguïse pas le sens de la phrase.
+Une expression n'est pas reconnue si un mot s'intercale (空気を全然読めない) ou si
+sa particule change (空気も読めない).
 Le classement JMdict n'applique pas non plus les restrictions entre chaque
 écriture, lecture et sens. Le tokenizer Lindera reste synchrone ; les éventuels
 composés candidats ajoutent une recherche JMdict groupée et asynchrone par cue.

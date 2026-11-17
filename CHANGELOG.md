@@ -7,6 +7,10 @@ elle serait annoncée à nouveau.
 
 ## 2026-11-17
 
+### Fonctionnalités
+
+- Les expressions courantes comme 空気を読む, 気にする ou 手を出す sont reconnues dans les sous-titres, même conjuguées (空気を読めない) ou sans leur particule (空気読めない) : un seul mot cliquable avec sa propre définition, son statut et sa carte Anki, quel que soit le dictionnaire installé.
+
 ### Corrections
 
 - Les mots courants écrits en kana gardent leur vraie fréquence : いる, ある, こと, できる ou いい n'apparaissent plus comme des mots rares, et le tri des mots déjà connus ne les propose plus une seconde fois sous leur forme en kanji (居る, 事, 出来る).

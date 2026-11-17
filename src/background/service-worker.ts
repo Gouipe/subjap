@@ -21,6 +21,7 @@ import { netflixWatchId } from "@/subtitles/local-storage";
 import { canonicalizeLexicalKey, lexicalKeyCandidates } from "@/core/lexical-key";
 import { fetchJmdictTgz, JMDICT_DEFAULT_URL, JMDICT_PACKS } from "@/dictionary/jmdict";
 import { entrySpellings, selectDictionaryEntry } from "@/dictionary/match";
+import { lookupExpressions, lookupExpressionSpellings } from "@/dictionary/expression-list";
 import { toHiragana } from "@/core/kana";
 import {
   fetchJapaneseFrequencyRanks,
@@ -293,6 +294,17 @@ onMessage("dict:lookup", async ({ lemma, mode }) => {
     db.dictionaryEntries.where("reading").anyOf(terms).toArray(),
   ]);
   const entries = matches.flat();
+  // Bundled expressions (空気を読む) are found whatever pack is installed.
+  if (mode !== "reading") {
+    try {
+      const known = new Set(entries.map((entry) => entry.headword));
+      for (const expression of await lookupExpressionSpellings([lemma])) {
+        if (!known.has(expression.headword)) entries.push(expression);
+      }
+    } catch (err: unknown) {
+      console.warn("[SubJap] Expression list unavailable:", err);
+    }
+  }
   const entry = mode
     ? selectDictionaryEntry(entries, [lemma], mode)
     : selectDictionaryEntry(entries, [lemma], "orthography") ??
@@ -321,6 +333,12 @@ onMessage("dict:lookupBatch", async ({ terms }) => {
   }
 
   return { entriesByTerm };
+});
+
+onMessage("dict:expressionBatch", async ({ terms }) => {
+  const uniqueTerms = [...new Set(terms.filter(Boolean))].slice(0, 512);
+  if (uniqueTerms.length === 0) return { entriesByTerm: {} };
+  return { entriesByTerm: await lookupExpressions(uniqueTerms) };
 });
 
 // ── dict:status ───────────────────────────────────────────────────────────
