@@ -30,6 +30,13 @@
 いい天気 → いい=33|天気=4830
 なれる → なれる=16
 家に帰る → 家=136|に=-|帰る=177
+# … et la forme kana prend le rang de sa graphie kanji principale, UniDic
+# rangeant parfois le mot sous une graphie rare (奇麗, 見付ける, 気付く).
+きれいだ → きれいだ=1407
+綺麗だ → 綺麗だ=1407
+みつけた → みつけた=342
+きづいた → きづいた=571
+いまから → いま=67|から=-
 
 # ── Seule la graphie kanji principale hérite du rang de sa forme kana ───────
 行ってきます → 行ってきます=44

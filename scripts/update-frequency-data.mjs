@@ -26,9 +26,13 @@ if (!response.ok) {
 // better of the two and shares the kana form's rank. Only the most common
 // kanji spelling of that kana form does, and only when it is common on its
 // own: archaic, ateji or homophone spellings (一寸 for ちょっと, 此れ for これ,
-// 挙げる for あげる) would rank among the first words.
+// 挙げる for あげる) would rank among the first words. The other way round,
+// that kana form shares its kanji spelling's rank when better (きれい: 1774th,
+// 綺麗: 1407th), since UniDic may file it under a rarer spelling (奇麗).
 const HAS_KANJI = /\p{Script=Han}/u;
 const rows = new Map();
+// Kana rank → kana form: a word's kana rank is the rank of its kana row.
+const kanaForms = new Map();
 for (const line of (await response.text()).split(/\r?\n/).slice(1)) {
   const [rawTerm, rawReading, rawRank, rawKanaRank] = line.split("\t");
   const term = (rawTerm ?? "").trim().normalize("NFKC");
@@ -36,6 +40,7 @@ for (const line of (await response.text()).split(/\r?\n/).slice(1)) {
   const rank = Number.parseInt(rawRank ?? "", 10);
   if (!term || !Number.isInteger(rank) || rank < 1) continue;
   const kanaRank = Number.parseInt(rawKanaRank ?? "", 10);
+  if (!reading) kanaForms.set(rank, term);
   const key = `${term}\t${reading}`;
   const current = rows.get(key);
   if (!current || rank < current.rank) {
@@ -53,11 +58,24 @@ for (const [key, { rank, kanaRank }] of rows) {
   if (!heir || rank < rows.get(heir).rank) kanaHeirs.set(kanaRank, key);
 }
 
+// Kana form → the best rank of the kanji spellings it is the heir's kana of.
+const kanaFormRanks = new Map();
+for (const [kanaRank, heir] of kanaHeirs) {
+  const kana = kanaForms.get(kanaRank);
+  const { reading, rank } = rows.get(heir);
+  if (kana !== reading || rank >= kanaRank) continue;
+  kanaFormRanks.set(kana, Math.min(kanaFormRanks.get(kana) ?? Infinity, rank));
+}
+
 const ranked = [...rows]
   .map(([key, { term, reading, rank, kanaRank }]) => ({
     term,
     reading,
-    rank: kanaHeirs.get(kanaRank) === key ? Math.min(rank, kanaRank) : rank,
+    rank: Math.min(
+      kanaHeirs.get(kanaRank) === key ? kanaRank : rank,
+      rank,
+      reading ? Infinity : (kanaFormRanks.get(term) ?? Infinity),
+    ),
   }))
   .filter(({ rank }) => rank <= MAX_RANK);
 

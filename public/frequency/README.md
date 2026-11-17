@@ -8,7 +8,9 @@ anime, dramas, light novels and visual novels. SubJap ranks a subtitle word
 under the reading UniDic gives it. The most common kanji spelling of a kana
 form also takes that form's rank when better, provided it ranks within the
 10,000 on its own (居る read いる shares いる's 18th rank, as UniDic files いる
-under 居る; 一寸 does not take ちょっと's).
+under 居る; 一寸 does not take ちょっと's). The kana form likewise takes that
+spelling's rank when better (きれい shares 綺麗's 1407th rank, as UniDic files
+きれい under 奇麗), which brings in kana forms ranked beyond the 10,000.
 Regenerate it with `npm.cmd run frequency:update`.
 
 Sources:

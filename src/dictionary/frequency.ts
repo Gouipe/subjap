@@ -6,7 +6,7 @@
  * auxiliaries keep their rank here; callers set them aside where their part
  * of speech is known.
  */
-export const FREQUENCY_DATA_VERSION = "jpdb-v2.2-20241013-v5";
+export const FREQUENCY_DATA_VERSION = "jpdb-v2.2-20241013-v6";
 
 export const SUBTITLE_FREQUENCY_PATH = "frequency/jpdb-v2.2-top10000.tsv";
 

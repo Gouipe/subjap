@@ -19,6 +19,7 @@ elle serait annoncée à nouveau.
 - 信じる, 感じる et 存じる ont enfin une fréquence : conjugués (信じられない, 感じさせる), ils apparaissaient comme des mots rares.
 - La fréquence d'un mot en kanji dépend de sa lecture : 未だ lu いまだ n'est plus classé comme まだ (90ᵉ mot), et 中 dans 世界中 (ちゅう) ou 後 dans その後 (ご) ne prennent plus le rang de なか ou あと.
 - Les mots d'emprunt comme テレビ, コーヒー ou バイト, et 君, marqués connus pendant une vidéo ne sont plus proposés à nouveau par le tri des mots connus, ni comptés deux fois parmi les mots connus.
+- Un mot écrit en kana a la même fréquence que sous sa forme en kanji : きれい est classé comme 綺麗, et みつける, きづく ou いま ne passent plus pour des mots rares ou moins fréquents que 見つける, 気づく ou 今.
 
 ## 2026-11-14
 
