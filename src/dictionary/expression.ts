@@ -112,8 +112,29 @@ interface ExpressionCandidate {
   particleText: string;
   verb: Token;
   verbBase: VerbBase;
+  /** As written in the subtitle, verb in its dictionary form. */
   spelling: string;
+  /** What the entry is looked up and checked by, verb included. */
   reading: string;
+  /** How an entry spelling must start (空気を), or null for a kana lexeme. */
+  spellingStarts: string[] | null;
+}
+
+/**
+ * The noun pins the start of the spelling: as written, or by its UniDic
+ * lexeme (はら → 腹; そこ → 其処, not 底). A noun whose lexeme is in kana
+ * (ムキ → むき) may also meet a kanji spelling (向きになる) by its reading
+ * alone, but only with its particle written: without it, too little is checked.
+ */
+function nounSpellingStarts(
+  noun: Token,
+  particle: Token | null,
+  particleText: string,
+): string[] | null {
+  const lexeme = tokenCanonicalKey(noun);
+  if (particle && isKana(lexeme)) return null;
+  const forms = [plain(noun.surface), ...(isKana(lexeme) ? [] : [lexeme])];
+  return [...new Set(forms)].map((form) => `${form}${particleText}`);
 }
 
 /** Candidates starting at `start`, in order of preference. */
@@ -128,17 +149,22 @@ function candidatesAt(tokens: Token[], start: number): ExpressionCandidate[] {
     particle: Token | null,
     particleText: string,
     verb: Token,
-  ): ExpressionCandidate[] =>
-    verbBases(verb).map((verbBase) => ({
-      noun,
-      particle,
-      particleText,
-      verb,
-      verbBase,
-      spelling: `${nounSurface}${particleText}${verbBase.form}`,
-      reading:
-        nounReading && verbBase.reading ? `${nounReading}${particleText}${verbBase.reading}` : "",
-    }));
+  ): ExpressionCandidate[] => {
+    if (!nounReading) return [];
+    const spellingStarts = nounSpellingStarts(noun, particle, particleText);
+    return verbBases(verb)
+      .filter((verbBase) => verbBase.reading)
+      .map((verbBase) => ({
+        noun,
+        particle,
+        particleText,
+        verb,
+        verbBase,
+        spelling: `${nounSurface}${particleText}${verbBase.form}`,
+        reading: `${nounReading}${particleText}${verbBase.reading}`,
+        spellingStarts,
+      }));
+  };
 
   const verb = tokens[start + 2];
   if (isExpressionParticle(next) && verb && isExpressionVerb(verb) && areAdjacent(next, verb)) {
@@ -150,27 +176,11 @@ function candidatesAt(tokens: Token[], start: number): ExpressionCandidate[] {
   return [];
 }
 
-/** A noun written in kana (むき) may meet a kanji headword (向きになる) by
- * reading, but only with its particle: without it, too little is checked. */
-function matchesByReading(candidate: ExpressionCandidate): boolean {
-  return (
-    candidate.particle !== null && isKana(plain(candidate.noun.surface)) && !!candidate.reading
-  );
-}
-
-function candidateTerms(candidate: ExpressionCandidate): string[] {
-  return matchesByReading(candidate)
-    ? [candidate.spelling, candidate.reading]
-    : [candidate.spelling];
-}
-
-/** Terms to look up in the bundled expression list, batched per cue. */
+/** Readings to look up in the bundled expression list, batched per cue. */
 export function dictionaryExpressionLookupTerms(tokens: Token[]): string[] {
   const terms = new Set<string>();
   for (let start = 0; start < tokens.length; start += 1) {
-    for (const candidate of candidatesAt(tokens, start)) {
-      for (const term of candidateTerms(candidate)) terms.add(term);
-    }
+    for (const candidate of candidatesAt(tokens, start)) terms.add(candidate.reading);
   }
   return [...terms];
 }
@@ -181,30 +191,30 @@ function matchingReading(entry: DictionaryEntry, candidate: ExpressionCandidate)
   );
 }
 
+/**
+ * The reading checks the whole expression, so a kana verb that UniDic takes
+ * for a homophone still counts (腹がたつ: 経つ for 立つ), and the noun's
+ * spelling keeps homophones apart (手: て, not しゅ; そこ: 其処, not 底).
+ */
 function matchingEntry(
   candidate: ExpressionCandidate,
   entriesByTerm: Record<string, DictionaryEntry[]>,
 ): DictionaryEntry | null {
-  const bySpelling = (entriesByTerm[candidate.spelling] ?? []).filter(
-    (entry) =>
-      entrySpellings(entry).includes(candidate.spelling) &&
-      // The reading tells 手 (て) from 手 (しゅ) when UniDic gives one.
-      (!candidate.reading || matchingReading(entry, candidate) !== null),
-  );
-  const spelled = bySpelling.find((entry) => entry.common) ?? bySpelling[0];
-  if (spelled) return spelled;
-  if (!matchesByReading(candidate)) return null;
-  // UniDic's lexeme must be the entry's word: そこ (其処, « there ») is not
-  // 底 (« bottom ») in 底をつく. A kana lexeme (ムキ → むき) cannot object.
-  const lexeme = tokenCanonicalKey(candidate.noun);
-  const lexemePrefix = isKana(lexeme) ? null : `${lexeme}${candidate.particleText}`;
-  const byReading = (entriesByTerm[candidate.reading] ?? []).filter(
+  const { spellingStarts } = candidate;
+  const matches = (entriesByTerm[candidate.reading] ?? []).filter(
     (entry) =>
       matchingReading(entry, candidate) !== null &&
-      (lexemePrefix === null ||
-        entrySpellings(entry).some((spelling) => spelling.startsWith(lexemePrefix))),
+      (spellingStarts === null ||
+        entrySpellings(entry).some((spelling) =>
+          spellingStarts.some((start) => spelling.startsWith(start)),
+        )),
   );
-  return byReading.find((entry) => entry.common) ?? byReading[0] ?? null;
+  return (
+    matches.find((entry) => entrySpellings(entry).includes(candidate.spelling)) ??
+    matches.find((entry) => entry.common) ??
+    matches[0] ??
+    null
+  );
 }
 
 /** No « potentiel » label: UniDic also files misparsed forms (席に着け) under

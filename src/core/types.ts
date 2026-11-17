@@ -366,7 +366,7 @@ export interface MessageMap {
   "dict:lookupResult": { entry: DictionaryEntry | null; entries?: DictionaryEntry[] };
   "dict:lookupBatch": { terms: string[] };
   "dict:lookupBatchResult": { entriesByTerm: Record<string, DictionaryEntry[]> };
-  /** Bundled expressions (空気を読む) by spelling, or by reading for kana terms. */
+  /** Bundled expressions (空気を読む) by reading (くうきをよむ) or spelling. */
   "dict:expressionBatch": { terms: string[] };
   "dict:expressionBatchResult": { entriesByTerm: Record<string, DictionaryEntry[]> };
   "dict:status": Record<string, never>;

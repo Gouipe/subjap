@@ -68,11 +68,13 @@ fusionné), la particule `を` / `が` / `に` / `で` / `と` / `へ` et le ver
 (空気を読めない). `を` et `が` peuvent manquer (空気読めない), sauf devant
 `する`, qui reste un verbe en する. Un verbe potentiel, lemme distinct pour
 UniDic (読める), est rapproché de sa base godan (読む) après échec de la forme
-exacte. La lecture concaténée doit correspondre à une lecture de l'entrée ; un
-nom écrit en kana (むき) peut rejoindre une entrée en kanji (向きになる) par sa
-lecture, à condition que sa particule soit écrite et que le lexème UniDic, s'il
-est en kanji, ouvre une graphie de l'entrée (そこ, lexème 其処, ne devient pas
-底をつく). Les noms formels こと, もの, ところ et ため (et 事, 物, 所, 為)
+exacte. Une seule règle décide : l'entrée est cherchée par la lecture
+concaténée, qui vérifie toute l'expression, verbe compris, et une de ses
+graphies doit commencer par le nom suivi de la particule, tel qu'écrit ou sous
+son lexème UniDic (はらがたつ et 腹がたつ donnent 腹が立つ, même si UniDic
+prend たつ pour 経つ ; そこ, lexème 其処, ne devient pas 底をつく). Un nom dont
+le lexème est lui-même en kana (ムキ) rejoint une entrée en kanji (向きになる)
+par sa seule lecture, à condition que sa particule soit écrite. Les noms formels こと, もの, ところ et ため (et 事, 物, 所, 為)
 n'ouvrent pas d'expression : ことができる ou ことにする sont des tournures de
 grammaire dont l'apprenant connaît déjà les mots, et 君のためにする n'est pas
 為にする. L'unité porte la tête JMdict comme identité, montre la
