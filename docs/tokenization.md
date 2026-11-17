@@ -92,14 +92,24 @@ son sens (てしまう : action accomplie, ている : en cours / état…), sui
 négation, de la politesse ou du passé portés par sa fin.
 
 Avant ces règles, une courte liste tenue à la main
-([`wa-adverbs.ts`](../src/tokenizer/wa-adverbs.ts) : 実は, 要は, 実際は,
-まずは, 恐らくは, 時には, 今では, いつかは) recolle les adverbes qu'UniDic coupe
-avant は (実 + は, 時 + に + は). Une règle tirée de JMdict fusionnerait aussi
-それは ou 上は (机の上は). La lecture du premier morphème doit correspondre
-(木の実は, 要 lu かなめ restent séparés) et le mot ne doit pas être déterminé :
-après の, ん, un verbe, un adjectif, un auxiliaire ou un 連体詞, 時には reste
-« au moment où » (子供の時には). Leurs définitions sont dans la liste embarquée
-des expressions, quel que soit le pack.
+([`split-words.ts`](../src/tokenizer/split-words.ts)) recolle les mots
+courants qu'UniDic coupe en deux. Une règle tirée de JMdict fusionnerait aussi
+それは ou 上は (机の上は). Dans les deux familles, la lecture du premier
+morphème doit correspondre (木の実は, 要 lu かなめ restent séparés).
+
+- Adverbes et conjonctions terminés par des particules : 実は, 要は, 実際は,
+  まずは, 恐らくは, 時には, 今では, いつかは, ちなみに, とっくに, 一気に,
+  さっさと (実 + は, 時 + に + は). Le mot ne doit pas être déterminé : après
+  の, ん, un verbe, un adjectif, un auxiliaire ou un 連体詞, 時には reste
+  « au moment où » (子供の時には).
+- Adjectifs en ない : 申し訳ない, もったいない, とんでもない. Le morphème
+  fusionné reprend la morphologie de ない, si bien que le regroupement des
+  prédicats ajoute sa flexion (申し訳なかった). 申し訳 et とんでも suivis de
+  ある / ござる + ませ + ん (申し訳ありません, とんでもございません) sont le
+  même mot, avec la politesse et la négation en annotation.
+
+Les définitions sont dans tous les packs JMdict ou dans la liste embarquée
+des expressions.
 
 `components` conserve les morphèmes. `segments`, quand il existe, regroupe ces
 morphèmes en blocs lisibles (話さ + なければいけない) pour la décomposition

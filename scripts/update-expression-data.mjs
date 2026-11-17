@@ -49,7 +49,7 @@ for (const word of words) {
     partOfSpeech.includes("exp") &&
     partOfSpeech.some((pos) => /^v[15krsz]/u.test(pos)) &&
     kanjiForms.some((text) => EXPRESSION_SPELLING.test(text));
-  // Adverbs split before は (実は, 先ずは): src/tokenizer/wa-adverbs.ts.
+  // Adverbs split before は (実は, 先ずは): src/tokenizer/split-words.ts.
   const waAdverb =
     partOfSpeech.some((pos) => pos === "adv" || pos === "conj") &&
     kanjiForms.some((text) => text.length > 1 && text.endsWith("は"));
