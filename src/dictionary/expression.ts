@@ -143,21 +143,22 @@ function candidatesAt(tokens: Token[], start: number): ExpressionCandidate[] {
   if (isExpressionParticle(next) && verb && isExpressionVerb(verb) && areAdjacent(next, verb)) {
     return build(next, next.surface, verb);
   }
-  // A kana noun only meets its entry by reading: without the particle as well,
-  // too little is left to check.
-  if (
-    isExpressionVerb(next) &&
-    !NO_OMISSION_VERBS.has(tokenDictionaryForm(next)) &&
-    !isKana(nounSurface)
-  ) {
+  if (isExpressionVerb(next) && !NO_OMISSION_VERBS.has(tokenDictionaryForm(next))) {
     return OMISSIBLE_PARTICLES.flatMap((particle) => build(null, particle, next));
   }
   return [];
 }
 
+/** A noun written in kana (むき) may meet a kanji headword (向きになる) by
+ * reading, but only with its particle: without it, too little is checked. */
+function matchesByReading(candidate: ExpressionCandidate): boolean {
+  return (
+    candidate.particle !== null && isKana(plain(candidate.noun.surface)) && !!candidate.reading
+  );
+}
+
 function candidateTerms(candidate: ExpressionCandidate): string[] {
-  // A noun written in kana (こと) can only meet a kanji headword (事がある) by reading.
-  return isKana(plain(candidate.noun.surface)) && candidate.reading
+  return matchesByReading(candidate)
     ? [candidate.spelling, candidate.reading]
     : [candidate.spelling];
 }
@@ -191,7 +192,7 @@ function matchingEntry(
   );
   const spelled = bySpelling.find((entry) => entry.common) ?? bySpelling[0];
   if (spelled) return spelled;
-  if (!isKana(plain(candidate.noun.surface)) || !candidate.reading) return null;
+  if (!matchesByReading(candidate)) return null;
   const byReading = (entriesByTerm[candidate.reading] ?? []).filter(
     (entry) => matchingReading(entry, candidate) !== null,
   );
