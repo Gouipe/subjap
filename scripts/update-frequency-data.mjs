@@ -39,10 +39,12 @@ for (const line of (await response.text()).split(/\r?\n/).slice(1)) {
   }
 }
 
-// Kana rank → its most common kanji spelling, when common on its own.
+// Kana rank → its most common kanji spelling, when common on its own. A
+// spelling already ranked better (行く: 44th, いく: 65th) still claims it, so
+// a rarer homophone (逝く, « to die ») does not inherit いく's rank.
 const kanaHeirs = new Map();
 for (const [term, { rank, kanaRank }] of mainReadings) {
-  if (rank > MAX_RANK || kanaRank < 1 || kanaRank >= rank) continue;
+  if (rank > MAX_RANK || kanaRank < 1) continue;
   const heir = kanaHeirs.get(kanaRank);
   if (!heir || rank < mainReadings.get(heir).rank) kanaHeirs.set(kanaRank, term);
 }
@@ -50,7 +52,7 @@ for (const [term, { rank, kanaRank }] of mainReadings) {
 const bestRanks = [...mainReadings]
   .map(([term, { rank, kanaRank }]) => [
     term,
-    kanaHeirs.get(kanaRank) === term ? kanaRank : rank,
+    kanaHeirs.get(kanaRank) === term ? Math.min(rank, kanaRank) : rank,
   ])
   .filter(([, rank]) => rank <= MAX_RANK);
 

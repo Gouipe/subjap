@@ -29,7 +29,11 @@ const normalizeReading = (text: string): string => toHiragana(text.normalize("NF
 function buildIndex(entries: DictionaryEntry[]): ExpressionIndex {
   const bySpelling = new Map<string, DictionaryEntry[]>();
   const byReading = new Map<string, DictionaryEntry[]>();
-  const add = (index: Map<string, DictionaryEntry[]>, key: string, entry: DictionaryEntry): void => {
+  const add = (
+    index: Map<string, DictionaryEntry[]>,
+    key: string,
+    entry: DictionaryEntry,
+  ): void => {
     const matches = index.get(key) ?? [];
     if (!matches.includes(entry)) matches.push(entry);
     index.set(key, matches);
@@ -59,7 +63,9 @@ function loadExpressionIndex(): Promise<ExpressionIndex> {
 }
 
 /** Expressions written exactly as `term`, or read as `term` when it is kana. */
-export async function lookupExpressions(terms: string[]): Promise<Record<string, DictionaryEntry[]>> {
+export async function lookupExpressions(
+  terms: string[],
+): Promise<Record<string, DictionaryEntry[]>> {
   const index = await loadExpressionIndex();
   return Object.fromEntries(
     terms.map((term) => [

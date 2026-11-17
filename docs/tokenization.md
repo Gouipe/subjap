@@ -74,8 +74,8 @@ graphies doit commencer par le nom suivi de la particule, tel qu'écrit ou sous
 son lexème UniDic (はらがたつ et 腹がたつ donnent 腹が立つ, même si UniDic
 prend たつ pour 経つ ; そこ, lexème 其処, ne devient pas 底をつく). Un nom dont
 le lexème est lui-même en kana (ムキ) rejoint une entrée en kanji (向きになる)
-par sa seule lecture, à condition que sa particule soit écrite. Les noms formels こと, もの, ところ et ため (et 事, 物, 所, 為)
-n'ouvrent pas d'expression : ことができる ou ことにする sont des tournures de
+par sa seule lecture, à condition que sa particule soit écrite. Les noms
+formels こと, もの, ところ et ため (et 事, 物, 所, 為) n'ouvrent pas d'expression : ことができる ou ことにする sont des tournures de
 grammaire dont l'apprenant connaît déjà les mots, et 君のためにする n'est pas
 為にする. L'unité porte la tête JMdict comme identité, montre la
 décomposition dans la popover et signale la particule omise. Le tri des mots
