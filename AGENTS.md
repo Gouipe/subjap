@@ -75,7 +75,11 @@ Toute modification de la tokenisation (`src/tokenizer/`,
 `src/dictionary/expression*.ts`, liste d'expressions) se vérifie avec
 `npm.cmd test -- segmentation` et ajoute ses phrases au corpus
 [`src/tokenizer/segmentation-corpus.txt`](src/tokenizer/segmentation-corpus.txt) :
-voir [`docs/testing.md`](docs/testing.md#corpus-de-découpage).
+voir [`docs/testing.md`](docs/testing.md#corpus-de-découpage). De même, toute
+modification du rang de fréquence (`src/core/frequency.ts`,
+`src/dictionary/frequency.ts`, liste de fréquence) se vérifie avec
+`npm.cmd test -- frequency-corpus` et ajoute ses mots au corpus
+[`src/dictionary/frequency-corpus.txt`](src/dictionary/frequency-corpus.txt).
 
 ## Correction de bugs
 

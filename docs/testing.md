@@ -30,6 +30,23 @@ découpage y ajoute la phrase qui l'a révélé, ainsi que les cas proches qui
 doivent rester séparés. Une ligne ne se modifie que si le nouveau découpage est
 voulu, jamais pour faire passer le test.
 
+## Corpus de fréquence
+
+[`src/dictionary/frequency-corpus.txt`](../src/dictionary/frequency-corpus.txt)
+donne, sur le même format, le rang JPDB affiché pour chaque mot d'un sous-titre
+(`未だ分からない → 未だ=2419|分からない=455`, `-` pour aucun rang). Le test
+découpe la phrase comme le corpus de découpage, puis cherche les rangs dans la
+liste embarquée comme le content script et le service worker.
+
+```powershell
+npm.cmd test -- frequency-corpus
+```
+
+Le lancer après toute modification de `src/core/frequency.ts`,
+`src/dictionary/frequency.ts` ou de la liste de fréquence, et après un
+changement de découpage. Mêmes règles d'ajout et de modification que pour le
+découpage.
+
 ## Fixture navigateur
 
 La fixture ([`tests/fixture/`](../tests/fixture/)) utilise les vrais modules

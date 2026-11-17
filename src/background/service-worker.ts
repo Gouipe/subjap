@@ -28,7 +28,7 @@ import {
   fetchJapaneseFrequencyRanks,
   FREQUENCY_DATA_VERSION,
   FREQUENCY_READING_SEPARATOR,
-  rankForReading,
+  rankFrequencyTerm,
   type FrequencyEntry,
 } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
@@ -503,11 +503,10 @@ onMessage("frequency:batch", async ({ terms }) => {
   const entryByKey = new Map(keys.map((key, index) => [key, stored[index]]));
   const ranks: Record<string, number> = {};
 
-  uniqueTerms.forEach((term, index) => {
-    const [spelling = "", reading = ""] = parts[index] ?? [];
-    const rank = rankForReading(entryByKey.get(spelling), reading, entryByKey.get(reading));
+  for (const term of uniqueTerms) {
+    const rank = rankFrequencyTerm(term, (key) => entryByKey.get(key));
     if (rank != null) ranks[term] = rank;
-  });
+  }
 
   return { ranks };
 });

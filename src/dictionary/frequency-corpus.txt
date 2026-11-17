@@ -1,0 +1,72 @@
+# Rang de fréquence attendu des mots d'un sous-titre (public/frequency/README.md).
+#
+# Une ligne : sous-titre → unités séparées par « | ». « unité=rang » vérifie le
+# rang JPDB affiché pour ce mot, « unité=- » qu'il n'en a aucun (mot rare ou
+# mot grammatical) ; sans « = », seule la surface est vérifiée. Tout correctif
+# de fréquence ajoute ici le mot qui l'a révélé, et les mots proches qui ne
+# doivent pas bouger.
+# Lancer : npm.cmd test -- frequency-corpus
+
+# ── Mots grammaticaux : pas de rang, même en tête de liste ──────────────────
+猫がいる → 猫=1509|が=-|いる=18
+後で → 後=186|で=-
+
+# ── Forme conjuguée → forme du dictionnaire ─────────────────────────────────
+食べたい → 食べたい=184
+頑張って → 頑張って=549
+見られる → 見られる=36
+上手だ → 上手だ=2499
+気にしないで → 気にしないで=710
+
+# ── Mot kana rangé par UniDic sous un kanji : le rang de la forme kana ──────
+時間がある → 時間=152|が=-|ある=14
+そんなこと → そんな=48|こと=15
+料理ができる → 料理=764|が=-|できる=94
+ちょっと待って → ちょっと=92|待って=102
+これは何 → これ=34|は=-|何=101
+いくよ → いく=44|よ=-
+まだだ → まだ=90|だ=-
+みんな来た → みんな=178|来た=38
+いい天気 → いい=33|天気=4830
+なれる → なれる=16
+家に帰る → 家=136|に=-|帰る=177
+
+# ── Seule la graphie kanji principale hérite du rang de sa forme kana ───────
+行ってきます → 行ってきます=44
+逝ってしまった → 逝ってしまった=9328
+出来る → 出来る=94
+一寸待って → 一寸=-|待って=102
+此れは → 此れ=-|は=-
+# Une variante prend le rang de la graphie principale de son lexème.
+観る → 観る=36
+云う → 云う=27
+恐い → 恐い=514
+
+# ── Verbes en ずる cherchés sous leur forme en じる ───────────────────────────
+信じられない → 信じられない=242
+感じさせる → 感じさせる=161
+存じます → 存じます=4777
+
+# ── Graphie kanji classée sous la lecture du sous-titre ──────────────────────
+未だ分からない → 未だ=2419|分からない=455
+未だに → 未だ=2419|に=-
+部屋の中 → 部屋=153|の=-|中=75
+世界中 → 世界=190|中=303
+その後 → その=25|後=186
+# Lecture absente de la liste et forme kana trop courte : meilleur rang du kanji.
+明日行く → 明日=547|行く=44
+皆来た → 皆=178|来た=38
+# 私 : UniDic lit toujours わたくし, le rang reste celui de わたし.
+私は → 私=32|は=-
+わたしは → わたし=32|は=-
+
+# ── Identité sans la glose d'UniDic ─────────────────────────────────────────
+テレビ → テレビ=1995
+コーヒー → コーヒー=3296
+君が好き → 君=471|が=-|好き=175
+
+# ── Unités fusionnées par SubJap ────────────────────────────────────────────
+実は → 実は=595
+申し訳ない → 申し訳ない=1724
+手を上げる → 手を上げる=6318
+空気を読む → 空気を読む=-

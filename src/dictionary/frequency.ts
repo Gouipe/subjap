@@ -18,7 +18,9 @@ export interface FrequencyEntry {
   readings?: Record<string, number>;
 }
 
-export { FREQUENCY_READING_SEPARATOR } from "@/core/frequency";
+import { FREQUENCY_READING_SEPARATOR } from "@/core/frequency";
+
+export { FREQUENCY_READING_SEPARATOR };
 
 function normalizeKey(value: string): string {
   return value.trim().normalize("NFKC");
@@ -83,6 +85,15 @@ export function rankForReading(
   return [...reading].length >= 3 && kanaEntry && !kanaEntry.readings
     ? kanaEntry.rank
     : entry.rank;
+}
+
+/** A `frequency:batch` term's rank: a spelling, or a spelling and its reading. */
+export function rankFrequencyTerm(
+  term: string,
+  entryOf: (key: string) => FrequencyEntry | undefined,
+): number | undefined {
+  const [spelling = "", reading = ""] = term.split(FREQUENCY_READING_SEPARATOR);
+  return rankForReading(entryOf(spelling), reading, reading ? entryOf(reading) : undefined);
 }
 
 /** Keep the best rank observed in any supplied practical-language corpus. */
