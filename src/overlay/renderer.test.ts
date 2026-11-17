@@ -416,7 +416,7 @@ describe("OverlayRenderer", () => {
 
     const styles = document.getElementById("subjap-overlay-styles");
     expect(styles?.textContent).toContain("vertical-align: bottom");
-    expect(styles?.textContent).toContain("font-size: 13px");
+    expect(styles?.textContent).toContain("font-size: calc(var(--sj-font-size, 28px) * 0.45)");
     expect(styles?.textContent).toContain("margin-bottom: 0.08em");
     expect(
       document.querySelector(".subjap-token--punctuation"),
