@@ -118,6 +118,17 @@ function isModifier(token: Token | undefined): boolean {
   return ["動詞", "形容詞", "助動詞", "連体詞"].some((pos) => token.partOfSpeech.includes(pos));
 }
 
+/** で + は + ない / ありません is the negated copula: 今ではなく明日 is « not now ». */
+function isNegatedCopula(surface: string, next: Token | undefined): boolean {
+  if (!next || !surface.endsWith("では")) return false;
+  const forms = formsOf(next);
+  return (
+    (next.partOfSpeech.includes("形容詞") &&
+      forms.some((form) => ["ない", "無い"].includes(form))) ||
+    (next.partOfSpeech.includes("動詞") && forms.some((form) => POLITE_VERBS.has(form)))
+  );
+}
+
 function findParticleWord(tokens: Token[], start: number): { token: Token; length: number } | null {
   const head = tokens[start];
   if (!head || isModifier(tokens[start - 1])) return null;
@@ -134,7 +145,7 @@ function findParticleWord(tokens: Token[], start: number): { token: Token; lengt
     const word = PARTICLE_WORDS.find(
       (candidate) => candidate.headReading === headReading && candidate.spellings.includes(surface),
     );
-    if (!word) continue;
+    if (!word || isNegatedCopula(surface, tokens[start + length])) continue;
     const reading = `${word.headReading}${surface.slice(head.surface.length)}`;
     return {
       length,

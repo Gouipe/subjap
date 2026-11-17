@@ -45,6 +45,19 @@ const plain = (text: string): string => text.replace(/\n/gu, "");
  * « do it for you », not 為にする (« act with an ulterior motive »). */
 const FORMAL_NOUNS = new Set(["こと", "事", "もの", "物", "ところ", "所", "ため", "為"]);
 
+/** Idioms whose JMdict entry lacks the literal sense that speech mostly means:
+ * 目を見て話して is « look me in the eye », not « to experience »; 後になって
+ * is « later on ». The words then stay apart, each with its own definition. */
+const LITERAL_FIRST = new Set([
+  "目を見る",
+  "後になる",
+  "手が上がる",
+  "上を行く",
+  "下に見る",
+  "時を見る",
+  "口でやる",
+]);
+
 function isExpressionNoun(token: Token): boolean {
   if (
     [plain(token.surface), tokenDictionaryForm(token), tokenCanonicalKey(token)].some((form) =>
@@ -203,6 +216,7 @@ function matchingEntry(
   const { spellingStarts } = candidate;
   const matches = (entriesByTerm[candidate.reading] ?? []).filter(
     (entry) =>
+      !LITERAL_FIRST.has(entry.headword) &&
       matchingReading(entry, candidate) !== null &&
       (spellingStarts === null ||
         entrySpellings(entry).some((spelling) =>

@@ -78,8 +78,13 @@ le lexème est lui-même en kana (ムキ) rejoint une entrée en kanji (向き�
 par sa seule lecture, à condition que sa particule soit écrite. Les noms
 formels こと, もの, ところ et ため (et 事, 物, 所, 為) n'ouvrent pas
 d'expression : ことができる ou ことにする sont des tournures de grammaire dont
-l'apprenant connaît déjà les mots, et 君のためにする n'est pas 為にする. L'unité porte la tête JMdict comme identité, montre la
-décomposition dans la popover et signale la particule omise. Le tri des mots
+l'apprenant connaît déjà les mots, et 君のためにする n'est pas 為にする. Une
+courte liste écarte aussi les idiomes dont l'entrée JMdict n'a pas le sens
+littéral, le plus courant à l'oral : 目を見て話して (« regarde-moi dans les
+yeux ») n'est pas 目を見る (« vivre une expérience »), ni 後になって (« plus
+tard ») 後になる (« prendre du retard »). L'unité porte la tête JMdict comme
+identité, montre la décomposition dans la popover et signale la particule
+omise. Le tri des mots
 connus trouve aussi ces définitions dans la liste embarquée.
 
 Le `ば` conditionnel reste attaché à la forme en `仮定形` qui le précède
@@ -108,7 +113,8 @@ morphème doit correspondre (木の実は, 要 lu かなめ restent séparés).
   まずは, 恐らくは, 時には, 今では, いつかは, ちなみに, とっくに, 一気に,
   さっさと (実 + は, 時 + に + は). Le mot ne doit pas être déterminé : après
   の, ん, un verbe, un adjectif, un auxiliaire ou un 連体詞, 時には reste
-  « au moment où » (子供の時には).
+  « au moment où » (子供の時には). Devant ない ou ありません, で + は est la
+  copule niée : 今ではなく明日 (« pas maintenant, demain ») reste séparé.
 - Adjectifs en ない : 申し訳ない, もったいない, とんでもない. Le morphème
   fusionné reprend la morphologie de ない, si bien que le regroupement des
   prédicats ajoute sa flexion (申し訳なかった). 申し訳 et とんでも suivis de
