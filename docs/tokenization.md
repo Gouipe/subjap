@@ -66,7 +66,8 @@ cherche aussi les graphies exactes. Le nom (éventuellement un composé déjà
 fusionné), la particule `を` / `が` / `に` / `で` / `と` / `へ` et le verbe doivent
 être contigus ; le verbe garde sa conjugaison et ses annotations
 (空気を読めない). `を` et `が` peuvent manquer (空気読めない), sauf devant
-`する`, qui reste un verbe en する. Un verbe potentiel, lemme distinct pour
+`する`, qui reste un verbe en する, et après un nom écrit en kana, que seule sa
+lecture rattache à l'entrée (ことあるごとに n'est pas 事がある). Un verbe potentiel, lemme distinct pour
 UniDic (読める), est rapproché de sa base godan (読む) après échec de la forme
 exacte. La lecture concaténée doit correspondre à une lecture de l'entrée ; un
 nom écrit en kana (こと) peut rejoindre une entrée en kanji (事がある) par sa

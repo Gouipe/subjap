@@ -122,7 +122,13 @@ function candidatesAt(tokens: Token[], start: number): ExpressionCandidate[] {
   if (isExpressionParticle(next) && verb && isExpressionVerb(verb) && areAdjacent(next, verb)) {
     return build(next, next.surface, verb);
   }
-  if (isExpressionVerb(next) && !NO_OMISSION_VERBS.has(tokenDictionaryForm(next))) {
+  // A kana noun only meets its entry by reading: without the particle as well,
+  // too little is checked (ことあるごとに is not 事がある).
+  if (
+    isExpressionVerb(next) &&
+    !NO_OMISSION_VERBS.has(tokenDictionaryForm(next)) &&
+    !isKana(nounSurface)
+  ) {
     return OMISSIBLE_PARTICLES.flatMap((particle) => build(null, particle, next));
   }
   return [];
