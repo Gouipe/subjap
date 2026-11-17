@@ -6,14 +6,19 @@
  * auxiliaries keep their rank here; callers set them aside where their part
  * of speech is known.
  */
-export const FREQUENCY_DATA_VERSION = "jpdb-v2.2-20241013-v4";
+export const FREQUENCY_DATA_VERSION = "jpdb-v2.2-20241013-v5";
 
 export const SUBTITLE_FREQUENCY_PATH = "frequency/jpdb-v2.2-top10000.tsv";
 
 export interface FrequencyEntry {
   key: string;
+  /** Best rank of the spelling, whatever its reading. */
   rank: number;
+  /** A kanji spelling's rank per reading (未だ: まだ 90th; いまだ unranked). */
+  readings?: Record<string, number>;
 }
+
+export { FREQUENCY_READING_SEPARATOR } from "@/core/frequency";
 
 function normalizeKey(value: string): string {
   return value.trim().normalize("NFKC");
@@ -29,20 +34,55 @@ function entriesFromBestRanks(bestRanks: Map<string, number>): FrequencyEntry[] 
     .sort((a, b) => a.rank - b.rank || a.key.localeCompare(b.key));
 }
 
-/** Parse the compact `word<TAB>rank` subtitle asset bundled with SubJap. */
+/**
+ * Parse the compact subtitle asset bundled with SubJap: `word<TAB>rank`, plus
+ * `<TAB>reading` on each reading of a kanji spelling.
+ */
 export function parseFrequencyList(text: string): FrequencyEntry[] {
   const bestRanks = new Map<string, number>();
+  const readingRanks = new Map<string, Record<string, number>>();
 
   for (const line of text.split(/\r?\n/)) {
-    const [rawKey, rawRank] = line.split("\t");
+    const [rawKey, rawRank, rawReading] = line.split("\t");
     const key = normalizeKey(rawKey ?? "");
     const rank = Number.parseInt(rawRank ?? "", 10);
     if (!isLearningEntry(key) || !Number.isFinite(rank) || rank < 1) continue;
 
     bestRanks.set(key, Math.min(bestRanks.get(key) ?? Infinity, rank));
+    const reading = normalizeKey(rawReading ?? "");
+    if (reading) {
+      const readings = readingRanks.get(key) ?? {};
+      readings[reading] = Math.min(readings[reading] ?? Infinity, rank);
+      readingRanks.set(key, readings);
+    }
   }
 
-  return entriesFromBestRanks(bestRanks);
+  return entriesFromBestRanks(bestRanks).map((entry) => {
+    const readings = readingRanks.get(entry.key);
+    return readings ? { ...entry, readings } : entry;
+  });
+}
+
+/**
+ * A spelling's rank under the reading it is read with (中 read ちゅう: 303rd,
+ * read なか: 75th). A reading the list does not rank under that spelling
+ * (未だ read いまだ, ranked under まだ) takes the rank of its kana form
+ * (いまだ). A kana form shorter than three kana is too ambiguous (明日 read
+ * あす, 家 read か, a suffix, not the particle): the spelling's best rank then
+ * stands, as when the reading is unknown.
+ */
+export function rankForReading(
+  entry: FrequencyEntry | undefined,
+  reading: string,
+  kanaEntry: FrequencyEntry | undefined,
+): number | undefined {
+  if (!entry) return undefined;
+  if (!entry.readings || !reading) return entry.rank;
+  const ranked = entry.readings[reading];
+  if (ranked !== undefined) return ranked;
+  return [...reading].length >= 3 && kanaEntry && !kanaEntry.readings
+    ? kanaEntry.rank
+    : entry.rank;
 }
 
 /** Keep the best rank observed in any supplied practical-language corpus. */

@@ -26,34 +26,77 @@ export function isNonLexicalToken(
   );
 }
 
+/** Separates a kanji spelling from its reading in a `frequency:batch` term. */
+export const FREQUENCY_READING_SEPARATOR = "\t";
+
+const HAS_KANJI = /\p{Script=Han}/u;
+
 /**
- * The forms a token's rank is looked up under: its lexeme and its written
- * dictionary form, plus the じる form of a ずる verb. UniDic gives 信ずる for
- * 信じられない and 感ずる for 感じる, while the list ranks 信じる and 感じる.
+ * Spellings whose UniDic reading is a fixed guess, not read from context:
+ * 私 always comes out わたくし (3050th), though mostly heard わたし (32nd).
  */
-export function frequencyLookupForms(lexeme: string, dictionaryForm: string): string[] {
-  const forms = [lexeme, dictionaryForm];
-  const jiruForms = forms
-    .filter((form) => form.length > 2 && form.endsWith("ずる"))
-    .map((form) => `${form.slice(0, -2)}じる`);
-  return [...new Set([...forms, ...jiruForms])];
+const CONTEXT_FREE_READINGS = new Set(["私"]);
+
+/** A kanji spelling is ranked under its reading: 未だ read いまだ is not まだ. */
+function withReading(form: string, reading: string): string {
+  return reading && HAS_KANJI.test(form) && !CONTEXT_FREE_READINGS.has(form)
+    ? `${form}${FREQUENCY_READING_SEPARATOR}${reading}`
+    : form;
+}
+
+/** ずる verb → its じる form (信ずる → 信じる, しんずる → しんじる). */
+function jiruForm(form: string): string | null {
+  return form.length > 2 && form.endsWith("ずる") ? `${form.slice(0, -2)}じる` : null;
+}
+
+type FrequencyToken = Pick<
+  Token,
+  "surface" | "reading" | "dictionaryReading" | "dictionaryForm" | "canonicalKey" | "lemma"
+>;
+
+/**
+ * The terms a token's rank is looked up under. Lexical terms: its lexeme and
+ * its written dictionary form, the latter with its reading, plus the じる form
+ * of a ずる verb (UniDic gives 信ずる for 信じられない, the list ranks 信じる).
+ * The reading belongs to the written form, so the lexeme goes without it
+ * (UniDic files なれる under 成る). The surface form only stands in when no
+ * lexical term is ranked.
+ */
+export function frequencyLookupTerms(token: FrequencyToken): {
+  lexical: string[];
+  surface: string;
+} {
+  const lexeme = token.canonicalKey ?? token.lemma;
+  const dictionaryForm = token.dictionaryForm ?? token.lemma;
+  // An uninflected word keeps the reading heard in the subtitle: UniDic's
+  // dictionary reading of 私 is わたくし (3050th), not わたし (32nd).
+  const reading =
+    (token.surface === dictionaryForm ? token.reading : "") || token.dictionaryReading || "";
+  const formTerm = withReading(dictionaryForm, reading);
+  const lexical = lexeme === dictionaryForm ? [formTerm] : [lexeme, formTerm];
+  for (const form of [lexeme, dictionaryForm]) {
+    const jiru = jiruForm(form);
+    if (jiru) lexical.push(withReading(jiru, jiruForm(reading) ?? reading));
+  }
+  return {
+    lexical: [...new Set(lexical)],
+    surface: withReading(token.surface, token.reading ?? ""),
+  };
 }
 
 /**
- * A token's rank: the best of its lookup forms, since UniDic files a kana word
- * under kanji (いい → 良い: 139th, いい: 33rd). The surface form only stands in
- * when none is ranked.
+ * A token's rank: the best of its lexical terms, since UniDic files a kana word
+ * under kanji (いい → 良い: 139th, いい: 33rd), else its surface form's.
  */
 export function bestFrequencyRank(
   ranks: Readonly<Record<string, number>>,
-  lexeme: string,
-  dictionaryForm: string,
-  surface: string,
+  token: FrequencyToken,
 ): number | undefined {
-  const lexical = frequencyLookupForms(lexeme, dictionaryForm)
-    .map((form) => ranks[form])
+  const { lexical, surface } = frequencyLookupTerms(token);
+  const found = lexical
+    .map((term) => ranks[term])
     .filter((rank): rank is number => typeof rank === "number");
-  return lexical.length > 0 ? Math.min(...lexical) : ranks[surface];
+  return found.length > 0 ? Math.min(...found) : ranks[surface];
 }
 
 /**

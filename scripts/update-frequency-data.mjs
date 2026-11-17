@@ -19,23 +19,27 @@ if (!response.ok) {
   throw new Error(`JPDB frequency source HTTP ${response.status}: ${response.statusText}`);
 }
 
-// One line per spelling and reading. A spelling takes the rank of its most
-// frequent reading. When that word is mostly written in kana, JPDB also gives
-// the kana form's rank (居る: 3021st, いる: 18th). UniDic files いる under 居る,
-// so the spelling keeps the better of the two and shares the kana form's rank.
-// Only the most common kanji spelling of that kana form does, and only when it
-// is common on its own: archaic, ateji or homophone spellings (一寸 for
-// ちょっと, 此れ for これ, 挙げる for あげる) would rank among the first words.
-const mainReadings = new Map();
+// One line per spelling and reading, and a kanji spelling keeps its readings
+// apart: 未だ is 90th read まだ, while いまだ ranks 2419th. When a word is
+// mostly written in kana, JPDB also gives the kana form's rank (居る read いる:
+// 3021st, いる: 18th). UniDic files いる under 居る, so that reading keeps the
+// better of the two and shares the kana form's rank. Only the most common
+// kanji spelling of that kana form does, and only when it is common on its
+// own: archaic, ateji or homophone spellings (一寸 for ちょっと, 此れ for これ,
+// 挙げる for あげる) would rank among the first words.
+const HAS_KANJI = /\p{Script=Han}/u;
+const rows = new Map();
 for (const line of (await response.text()).split(/\r?\n/).slice(1)) {
-  const [rawTerm, , rawRank, rawKanaRank] = line.split("\t");
+  const [rawTerm, rawReading, rawRank, rawKanaRank] = line.split("\t");
   const term = (rawTerm ?? "").trim().normalize("NFKC");
+  const reading = HAS_KANJI.test(term) ? (rawReading ?? "").trim().normalize("NFKC") : "";
   const rank = Number.parseInt(rawRank ?? "", 10);
   if (!term || !Number.isInteger(rank) || rank < 1) continue;
   const kanaRank = Number.parseInt(rawKanaRank ?? "", 10);
-  const current = mainReadings.get(term);
+  const key = `${term}\t${reading}`;
+  const current = rows.get(key);
   if (!current || rank < current.rank) {
-    mainReadings.set(term, { rank, kanaRank: Number.isInteger(kanaRank) ? kanaRank : 0 });
+    rows.set(key, { term, reading, rank, kanaRank: Number.isInteger(kanaRank) ? kanaRank : 0 });
   }
 }
 
@@ -43,23 +47,26 @@ for (const line of (await response.text()).split(/\r?\n/).slice(1)) {
 // spelling already ranked better (行く: 44th, いく: 65th) still claims it, so
 // a rarer homophone (逝く, « to die ») does not inherit いく's rank.
 const kanaHeirs = new Map();
-for (const [term, { rank, kanaRank }] of mainReadings) {
+for (const [key, { rank, kanaRank }] of rows) {
   if (rank > MAX_RANK || kanaRank < 1) continue;
   const heir = kanaHeirs.get(kanaRank);
-  if (!heir || rank < mainReadings.get(heir).rank) kanaHeirs.set(kanaRank, term);
+  if (!heir || rank < rows.get(heir).rank) kanaHeirs.set(kanaRank, key);
 }
 
-const bestRanks = [...mainReadings]
-  .map(([term, { rank, kanaRank }]) => [
+const ranked = [...rows]
+  .map(([key, { term, reading, rank, kanaRank }]) => ({
     term,
-    kanaHeirs.get(kanaRank) === term ? Math.min(rank, kanaRank) : rank,
-  ])
-  .filter(([, rank]) => rank <= MAX_RANK);
+    reading,
+    rank: kanaHeirs.get(kanaRank) === key ? Math.min(rank, kanaRank) : rank,
+  }))
+  .filter(({ rank }) => rank <= MAX_RANK);
 
-// Kana first within a shared rank (いる before 居る): the triage shows it.
-const lines = bestRanks
-  .sort(([termA, a], [termB, b]) => a - b || (termA < termB ? -1 : termA > termB ? 1 : 0))
-  .map(([term, rank]) => `${term}\t${rank}`);
+// `word<TAB>rank`, plus `<TAB>reading` for a kanji spelling. Kana first within
+// a shared rank (いる before 居る): the triage shows it.
+const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const lines = ranked
+  .sort((a, b) => a.rank - b.rank || compare(a.term, b.term) || compare(a.reading, b.reading))
+  .map(({ term, reading, rank }) => (reading ? `${term}\t${rank}\t${reading}` : `${term}\t${rank}`));
 
 await mkdir(dirname(OUTPUT_PATH), { recursive: true });
 await writeFile(OUTPUT_PATH, `${lines.join("\n")}\n`, "utf8");

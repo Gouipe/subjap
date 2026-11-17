@@ -26,6 +26,8 @@ import { toHiragana } from "@/core/kana";
 import {
   fetchJapaneseFrequencyRanks,
   FREQUENCY_DATA_VERSION,
+  FREQUENCY_READING_SEPARATOR,
+  rankForReading,
   type FrequencyEntry,
 } from "@/dictionary/frequency";
 import { markDictionaryLoaded } from "@/onboarding";
@@ -493,11 +495,16 @@ onMessage("word:batch", async (payload) => {
 onMessage("frequency:batch", async ({ terms }) => {
   await ensureFrequencyRanks();
   const uniqueTerms = [...new Set(terms.filter((term) => term.length > 0))];
-  const entries = await db.frequencyEntries.bulkGet(uniqueTerms);
+  // A term is a spelling, or a spelling and the reading it is read with.
+  const parts = uniqueTerms.map((term) => term.split(FREQUENCY_READING_SEPARATOR));
+  const keys = [...new Set(parts.flat().filter(Boolean))];
+  const stored = await db.frequencyEntries.bulkGet(keys);
+  const entryByKey = new Map(keys.map((key, index) => [key, stored[index]]));
   const ranks: Record<string, number> = {};
 
   uniqueTerms.forEach((term, index) => {
-    const rank = entries[index]?.rank;
+    const [spelling = "", reading = ""] = parts[index] ?? [];
+    const rank = rankForReading(entryByKey.get(spelling), reading, entryByKey.get(reading));
     if (rank != null) ranks[term] = rank;
   });
 

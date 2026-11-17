@@ -30,7 +30,7 @@ import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import {
   bestFrequencyRank,
   effectiveWordState,
-  frequencyLookupForms,
+  frequencyLookupTerms,
   isDefaultIgnoredToken,
   isFunctionWordToken,
 } from "@/core/frequency";
@@ -822,7 +822,7 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
           minedLater,
           frequencyRank: isFunctionWordToken(token)
             ? undefined
-            : bestFrequencyRank(frequencyRanks, lexicalKey, tokenDictionaryForm(token), token.surface),
+            : bestFrequencyRank(frequencyRanks, token),
         };
       });
       rendered.push({ cue, spans });
@@ -910,10 +910,10 @@ async function loadVocabularyMetadata(
 ): Promise<[Record<string, number>, number]> {
   const frequencyTerms = [
     ...new Set(
-      tokens.flatMap((token) => [
-        ...frequencyLookupForms(tokenCanonicalKey(token), tokenDictionaryForm(token)),
-        token.surface,
-      ]),
+      tokens.flatMap((token) => {
+        const { lexical, surface } = frequencyLookupTerms(token);
+        return [...lexical, surface];
+      }),
     ),
   ];
   const wordLookups = tokens.map((token) => ({
