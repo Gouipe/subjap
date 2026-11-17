@@ -14,6 +14,7 @@ elle serait annoncée à nouveau.
 ### Corrections
 
 - Les mots courants écrits en kana gardent leur vraie fréquence : いる, ある, こと, できる ou いい n'apparaissent plus comme des mots rares, et le tri des mots déjà connus ne les propose plus une seconde fois sous leur forme en kanji (居る, 事, 出来る).
+- 信じる, 感じる et 存じる ont enfin une fréquence : conjugués (信じられない, 感じさせる), ils apparaissaient comme des mots rares.
 
 ## 2026-11-14
 

@@ -30,6 +30,7 @@ import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import {
   bestFrequencyRank,
   effectiveWordState,
+  frequencyLookupForms,
   isDefaultIgnoredToken,
   isFunctionWordToken,
 } from "@/core/frequency";
@@ -910,8 +911,7 @@ async function loadVocabularyMetadata(
   const frequencyTerms = [
     ...new Set(
       tokens.flatMap((token) => [
-        tokenCanonicalKey(token),
-        tokenDictionaryForm(token),
+        ...frequencyLookupForms(tokenCanonicalKey(token), tokenDictionaryForm(token)),
         token.surface,
       ]),
     ),

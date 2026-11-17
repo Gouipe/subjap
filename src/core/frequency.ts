@@ -27,9 +27,22 @@ export function isNonLexicalToken(
 }
 
 /**
- * A token's rank: the better of its lexeme and its written dictionary form,
- * since UniDic files a kana word under kanji (いい → 良い: 139th, いい: 33rd).
- * The surface form only stands in when neither is ranked.
+ * The forms a token's rank is looked up under: its lexeme and its written
+ * dictionary form, plus the じる form of a ずる verb. UniDic gives 信ずる for
+ * 信じられない and 感ずる for 感じる, while the list ranks 信じる and 感じる.
+ */
+export function frequencyLookupForms(lexeme: string, dictionaryForm: string): string[] {
+  const forms = [lexeme, dictionaryForm];
+  const jiruForms = forms
+    .filter((form) => form.length > 2 && form.endsWith("ずる"))
+    .map((form) => `${form.slice(0, -2)}じる`);
+  return [...new Set([...forms, ...jiruForms])];
+}
+
+/**
+ * A token's rank: the best of its lookup forms, since UniDic files a kana word
+ * under kanji (いい → 良い: 139th, いい: 33rd). The surface form only stands in
+ * when none is ranked.
  */
 export function bestFrequencyRank(
   ranks: Readonly<Record<string, number>>,
@@ -37,9 +50,9 @@ export function bestFrequencyRank(
   dictionaryForm: string,
   surface: string,
 ): number | undefined {
-  const lexical = [ranks[lexeme], ranks[dictionaryForm]].filter(
-    (rank): rank is number => typeof rank === "number",
-  );
+  const lexical = frequencyLookupForms(lexeme, dictionaryForm)
+    .map((form) => ranks[form])
+    .filter((rank): rank is number => typeof rank === "number");
   return lexical.length > 0 ? Math.min(...lexical) : ranks[surface];
 }
 
