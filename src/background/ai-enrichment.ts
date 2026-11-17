@@ -82,6 +82,8 @@ async function buildFrequentCandidates(
     if (canonicalizeLexicalKey(key) === targetKey) continue;
     const entry = await lookupDictionaryEntry(key);
     if (!entry) continue;
+    // Usually written in kana (事, 出来る, 居る): a poor example of the kanji.
+    if (entry.senses[0]?.tags?.includes("uk")) continue;
     excluded.add(key);
     candidates.push({
       word: key,
