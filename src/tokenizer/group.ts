@@ -457,6 +457,40 @@ function teExpression(tokens: Token[], headIndex: number, end: number): Predicat
   return null;
 }
 
+const NASARU = new Set(["なさる", "為さる"]);
+
+/**
+ * An order on the verb stem: 従い + なさい (or polite なさいませ), and its
+ * spoken short form 食べ + な. UniDic makes なさい a verb of its own, and that
+ * な a sentence-final particle; after a 連用形 they give an order.
+ */
+function imperativeExpression(tokens: Token[], end: number): PredicateExpression | null {
+  const stem = tokens[end - 1];
+  const next = tokens[end];
+  if (!stem || !next || stem.conjugationForm?.includes("連用") !== true) return null;
+  if (
+    next.surface === "なさい" &&
+    next.partOfSpeech.includes("動詞") &&
+    [tokenDictionaryForm(next), tokenCanonicalKey(next)].some((form) => NASARU.has(form))
+  ) {
+    const tailEnd = consumeInflectionalTail(tokens, end + 1);
+    return {
+      start: end,
+      end: tailEnd,
+      label: ["ordre (なさい)", ...tailQualifiers(tokens.slice(end + 1, tailEnd))].join(", "),
+    };
+  }
+  if (
+    next.surface === "な" &&
+    next.partOfSpeech.includes("助詞") &&
+    stem.conjugationForm.includes("一般") &&
+    (stem.partOfSpeech.includes("動詞") || isInflectionalAuxiliary(stem))
+  ) {
+    return { start: end, end: end + 1, label: "ordre familier (な, pour なさい)" };
+  }
+  return null;
+}
+
 interface PredicateSpan {
   end: number;
   blocks: PredicateExpression[];
@@ -475,7 +509,10 @@ function inflectedPredicateSpan(tokens: Token[], start: number): PredicateSpan |
     return null;
 
   let end = consumeInflectionalTail(tokens, start + 1);
-  const expression = conditionalExpression(tokens, start, end) ?? teExpression(tokens, start, end);
+  const expression =
+    (isIndependentVerb(head) ? imperativeExpression(tokens, end) : null) ??
+    conditionalExpression(tokens, start, end) ??
+    teExpression(tokens, start, end);
   if (expression) return { end: expression.end, blocks: [expression] };
   if (canTakeNegativeAdjective(tokens[end - 1])) end = negativeAruEnd(tokens, end);
   // A na-adjective keeps its lexical identity while its copula is inflected.

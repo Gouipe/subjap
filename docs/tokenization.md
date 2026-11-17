@@ -91,7 +91,11 @@ leur fin polie ou passée, elle devient un bloc d'obligation (話さなければ
 ちゃ / じゃ isolé reste attaché au verbe comme ては contracté. Chaque maillon
 て + auxiliaire (ou contraction ちゃう, てる, とく…) forme un bloc expliqué par
 son sens (てしまう : action accomplie, ている : en cours / état…), suivi de la
-négation, de la politesse ou du passé portés par sa fin.
+négation, de la politesse ou du passé portés par sa fin. L'ordre sur le radical
+(連用形) reste aussi au verbe : `なさい`, verbe à part pour UniDic, ou sa forme
+polie `なさいませ` (従いなさい, 休みなさいませ), et sa forme orale `な`, particule
+finale pour UniDic (食べな). Après la forme du dictionnaire, `な` est une
+défense (食べるな) et reste séparé.
 
 Avant ces règles, une courte liste tenue à la main
 ([`split-words.ts`](../src/tokenizer/split-words.ts)) recolle les mots

@@ -15,6 +15,7 @@ elle serait annoncée à nouveau.
 ### Corrections
 
 - Les mots courants écrits en kana gardent leur vraie fréquence : いる, ある, こと, できる ou いい n'apparaissent plus comme des mots rares, et le tri des mots déjà connus ne les propose plus une seconde fois sous leur forme en kanji (居る, 事, 出来る).
+- Les ordres en なさい restent attachés à leur verbe : 従いなさい, 休みなさいませ ou la forme orale 食べな forment un seul mot, rattaché à 従う, 休む ou 食べる, avec l'ordre expliqué dans la décomposition.
 - 信じる, 感じる et 存じる ont enfin une fréquence : conjugués (信じられない, 感じさせる), ils apparaissaient comme des mots rares.
 
 ## 2026-11-14
