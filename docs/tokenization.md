@@ -139,7 +139,10 @@ par défaut sans affecter le mot de base ; la recherche passe par la lecture
 pour privilégier une entrée d'interjection. Toutes les graphies d'un
 même lexème (すごい, 凄い, スゴイ) partagent un statut : la recherche réunit
 leurs formes, si bien qu'un mot importé d'Anki sous l'une d'elles vaut pour
-toutes.
+toutes. L'identité est le lexème UniDic sans la glose qu'il porte parfois
+après un tiret : origine d'un emprunt (テレビ-television → テレビ) ou sens d'un
+homographe (君-代名詞 → 君). Comme 中 (なか, ちゅう), 君 lu きみ ou くん
+partage donc un seul statut.
 
 `reading` décrit la surface ; `dictionaryReading` conserve la prononciation de
 base fournie par UniDic. Le champ `reading` de Lindera est la lecture du

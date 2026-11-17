@@ -2,7 +2,8 @@
 // SubJap — Background service worker
 // ---------------------------------------------------------------------------
 
-import { db } from "@/core/db";
+import { db, LEXEME_KEY_MIGRATION_SETTING_KEY } from "@/core/db";
+import { WORD_STATES_REVISION_STORAGE_KEY } from "@/core/cloud-sync";
 import { AI_SETTINGS_STORAGE_KEY, AI_UNAVAILABLE_MESSAGE } from "@/core/ai-settings";
 import { ENABLED_STORAGE_KEY, isEnabledValue, isSubJapEnabled } from "@/core/enabled";
 import { installFullscreenReporter } from "@/core/fullscreen-report";
@@ -1763,3 +1764,20 @@ onMessage("anki:dueCount", async () => {
 // ---------------------------------------------------------------------------
 
 console.log("[SubJap] Background service worker initialized.");
+
+/** Send the word keys renamed by the database upgrade (テレビ-television → テレビ). */
+async function syncRenamedWordKeys(): Promise<void> {
+  const setting = await db.settings.get(LEXEME_KEY_MIGRATION_SETTING_KEY);
+  if (!setting) return;
+  const keys = Array.isArray(setting.value)
+    ? setting.value.filter((key): key is string => typeof key === "string")
+    : [];
+  queueWordSync(keys);
+  await db.settings.delete(LEXEME_KEY_MIGRATION_SETTING_KEY);
+  // Open subtitles drop their cached states, read under the old keys.
+  await chrome.storage.local.set({ [WORD_STATES_REVISION_STORAGE_KEY]: Date.now() });
+}
+
+void syncRenamedWordKeys().catch((err: unknown) => {
+  console.warn("[SubJap] Renamed word keys not synced:", err);
+});

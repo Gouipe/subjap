@@ -18,6 +18,7 @@ elle serait annoncée à nouveau.
 - Les ordres en なさい restent attachés à leur verbe : 従いなさい, 休みなさいませ ou la forme orale 食べな forment un seul mot, rattaché à 従う, 休む ou 食べる, avec l'ordre expliqué dans la décomposition.
 - 信じる, 感じる et 存じる ont enfin une fréquence : conjugués (信じられない, 感じさせる), ils apparaissaient comme des mots rares.
 - La fréquence d'un mot en kanji dépend de sa lecture : 未だ lu いまだ n'est plus classé comme まだ (90ᵉ mot), et 中 dans 世界中 (ちゅう) ou 後 dans その後 (ご) ne prennent plus le rang de なか ou あと.
+- Les mots d'emprunt comme テレビ, コーヒー ou バイト, et 君, marqués connus pendant une vidéo ne sont plus proposés à nouveau par le tri des mots connus, ni comptés deux fois parmi les mots connus.
 
 ## 2026-11-14
 

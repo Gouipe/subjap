@@ -1,5 +1,6 @@
 import type { Token } from "@/core/types";
 import { toHiragana } from "@/core/kana";
+import { stripLexemeGloss } from "@/core/lexical-key";
 
 /** Stable subset of Lindera UniDic's JSON token shape. */
 export interface RawLinderaToken {
@@ -102,7 +103,8 @@ function kanaReading(written: string, pronunciation: string, lexemeReading: stri
 export function toLinderaToken(input: RawLinderaToken): Token {
   const raw = normalizeRawToken(input);
   const dictionaryForm = nonStar(raw.orthographicBaseForm, raw.surface);
-  const canonicalKey = nonStar(raw.lexeme, dictionaryForm);
+  // テレビ-television → テレビ: SubJap's identity is the word, not UniDic's gloss.
+  const canonicalKey = stripLexemeGloss(nonStar(raw.lexeme, dictionaryForm));
   const lexemeReading = nonStar(raw.reading, "");
   const reading = kanaReading(raw.surface, nonStar(raw.phonologicalSurfaceForm, ""), lexemeReading);
   const phonologicalBaseForm = nonStar(raw.phonologicalBaseForm, "");

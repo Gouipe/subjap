@@ -8,9 +8,23 @@ const KNOWN_VARIANT_KEYS = new Map([
   ["此奴", "此奴"],
 ]);
 
+/**
+ * UniDic glosses some lexemes after a hyphen: a loanword's origin
+ * (テレビ-television, バイト-Arbeit) or the sense a homograph stands for
+ * (君-代名詞, 中-中学校). The word itself is the identity, as for any
+ * homograph (中 read なか or ちゅう). A Latin word (Wi-Fi) keeps its hyphen.
+ */
+const LEXEME_GLOSS = /^(.+?)-(?:\p{Script=Latin}[\p{Script=Latin}\p{N} .'&-]*|\p{Script=Han}+)$/u;
+const LATIN_WORD = /^[\p{Script=Latin}\p{N} .'&-]+$/u;
+
+export function stripLexemeGloss(lexeme: string): string {
+  const word = LEXEME_GLOSS.exec(lexeme)?.[1];
+  return word && !LATIN_WORD.test(word) ? word : lexeme;
+}
+
 /** Normalize user/imported vocabulary to the same identity as UniDic. */
 export function canonicalizeLexicalKey(value: string): string {
-  const normalized = value.normalize("NFC").trim();
+  const normalized = stripLexemeGloss(value.normalize("NFC").trim());
   if (!normalized) return normalized;
   const hiragana = toHiragana(normalized.normalize("NFKC"));
   return KNOWN_VARIANT_KEYS.get(normalized) ?? KNOWN_VARIANT_KEYS.get(hiragana) ?? normalized;

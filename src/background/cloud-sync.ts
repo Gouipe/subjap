@@ -31,6 +31,7 @@ import {
   WORD_STATES_REVISION_STORAGE_KEY,
   type SyncedWord,
 } from "@/core/cloud-sync";
+import { canonicalizeLexicalKey } from "@/core/lexical-key";
 import { OPTIONS_STORAGE_KEY } from "@/core/options";
 import type { MessageResult, WordState } from "@/core/types";
 import { setTriagedRank, triagedRank } from "./known-triage";
@@ -61,7 +62,9 @@ async function readPending(): Promise<PendingSync> {
     SYNC_PENDING_STORAGE_KEY
   ] as Partial<PendingSync> | undefined;
   return {
-    words: Array.isArray(stored?.words) ? stored.words.filter((key) => typeof key === "string") : [],
+    words: Array.isArray(stored?.words)
+      ? stored.words.filter((key) => typeof key === "string")
+      : [],
     triage: stored?.triage === true,
     options: stored?.options === true,
   };
@@ -77,7 +80,9 @@ async function writePending(pending: PendingSync): Promise<void> {
 }
 
 async function isMerged(): Promise<boolean> {
-  return (await chrome.storage.local.get(SYNC_MERGED_STORAGE_KEY))[SYNC_MERGED_STORAGE_KEY] === true;
+  return (
+    (await chrome.storage.local.get(SYNC_MERGED_STORAGE_KEY))[SYNC_MERGED_STORAGE_KEY] === true
+  );
 }
 
 async function readLocalOptions(): Promise<unknown> {
@@ -96,6 +101,26 @@ function scheduleFlush(delay = FLUSH_DELAY_MS): void {
     flushTimer = null;
     void serial(flush);
   }, delay);
+}
+
+/**
+ * Account words under their canonical key. A PC not yet updated may still
+ * send a glossed UniDic key (テレビ-television): it is read as テレビ, and
+ * both keys are queued so the account copy moves to the canonical one.
+ */
+function readAccountWords(buckets: unknown[]): Map<string, SyncedWord> {
+  const remote = new Map<string, SyncedWord>();
+  const renamed: string[] = [];
+  for (const bucket of buckets) {
+    for (const [key, word] of decodeBucket(bucket)) {
+      const canonical = canonicalizeLexicalKey(key);
+      if (canonical !== key) renamed.push(key, canonical);
+      const known = remote.get(canonical);
+      if (!known || word.day > known.day) remote.set(canonical, word);
+    }
+  }
+  if (renamed.length > 0) enqueue({ words: renamed });
+  return remote;
 }
 
 function manualFromAccount(key: string, word: SyncedWord, local?: WordState): WordState {
@@ -138,10 +163,11 @@ export function queueTriageSync(): void {
 
 async function mergeIntoAccount(): Promise<void> {
   const account: Record<string, unknown> = await chrome.storage.sync.get(null);
-  const remote = new Map<string, SyncedWord>();
-  for (const [key, value] of Object.entries(account)) {
-    if (isBucketKey(key)) for (const [word, state] of decodeBucket(value)) remote.set(word, state);
-  }
+  const remote = readAccountWords(
+    Object.entries(account)
+      .filter(([key]) => isBucketKey(key))
+      .map(([, value]) => value),
+  );
 
   const manual = await db.wordStates.where("source").equals("manual").toArray();
   const manualByKey = new Map(manual.map((state) => [state.key, state]));
@@ -210,7 +236,8 @@ async function flush(): Promise<void> {
     for (const key of pending.words) {
       if (bucketOf(key) !== bucket) continue;
       const local = localByKey.get(key);
-      if (local?.source === "manual") words.set(key, { status: local.status, day: stateDay(local) });
+      if (local?.source === "manual")
+        words.set(key, { status: local.status, day: stateDay(local) });
       else words.delete(key);
     }
     const encoded = encodeBucket(words);
@@ -266,10 +293,9 @@ async function applyAccountChanges(
   const changedBuckets = Object.keys(changes).filter(isBucketKey);
   if (changedBuckets.length > 0) {
     const bucketSet = new Set(changedBuckets);
-    const remote = new Map<string, SyncedWord>();
-    for (const bucket of changedBuckets) {
-      for (const [key, word] of decodeBucket(changes[bucket]?.newValue)) remote.set(key, word);
-    }
+    const remote = readAccountWords(
+      changedBuckets.map((bucket): unknown => changes[bucket]?.newValue),
+    );
     const manual = (await db.wordStates.where("source").equals("manual").toArray()).filter(
       (state) => bucketSet.has(bucketOf(state.key)) && !pending.has(state.key),
     );
