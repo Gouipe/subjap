@@ -9,17 +9,14 @@ elle serait annoncée à nouveau.
 
 ### Fonctionnalités
 
-- Les expressions courantes comme 空気を読む, 気にする ou 手を出す sont reconnues dans les sous-titres, même conjuguées (空気を読めない) ou sans leur particule (空気読めない) : un seul mot cliquable avec sa propre définition, son statut et sa carte Anki, quel que soit le dictionnaire installé.
-- Des mots courants que le découpage coupait en deux forment enfin un seul mot avec leur définition : 実は, 要は, 実際は, まずは, 恐らくは, 時には, 今では, いつかは, ちなみに, とっくに, 一気に, ainsi que 申し訳ない, もったいない et とんでもない, même conjugués (申し訳なかった) ou polis (申し訳ありません, とんでもございません).
+- Les expressions courantes comme 空気を読む, 気にする ou 手を出す sont reconnues dans les sous-titres, même conjuguées (空気を読めない) ou sans leur particule (空気読めない) : un seul mot cliquable avec sa définition, son statut et sa carte Anki, quel que soit le dictionnaire installé.
+- Des mots courants que le découpage coupait en deux forment un seul mot avec leur définition : 実は, まずは, 時には, ちなみに, 一気に ou 申し訳ない, même conjugués (申し訳なかった) ou polis (申し訳ありません).
 
 ### Corrections
 
-- Les mots courants écrits en kana gardent leur vraie fréquence : いる, ある, こと, できる ou いい n'apparaissent plus comme des mots rares, et le tri des mots déjà connus ne les propose plus une seconde fois sous leur forme en kanji (居る, 事, 出来る).
-- Les ordres en なさい restent attachés à leur verbe : 従いなさい, 休みなさいませ ou la forme orale 食べな forment un seul mot, rattaché à 従う, 休む ou 食べる, avec l'ordre expliqué dans la décomposition.
-- 信じる, 感じる et 存じる ont enfin une fréquence : conjugués (信じられない, 感じさせる), ils apparaissaient comme des mots rares.
-- La fréquence d'un mot en kanji dépend de sa lecture : 未だ lu いまだ n'est plus classé comme まだ (90ᵉ mot), et 中 dans 世界中 (ちゅう) ou 後 dans その後 (ご) ne prennent plus le rang de なか ou あと.
-- Les mots d'emprunt comme テレビ, コーヒー ou バイト, et 君, marqués connus pendant une vidéo ne sont plus proposés à nouveau par le tri des mots connus, ni comptés deux fois parmi les mots connus.
-- Un mot écrit en kana a la même fréquence que sous sa forme en kanji : きれい est classé comme 綺麗, et みつける, きづく ou いま ne passent plus pour des mots rares ou moins fréquents que 見つける, 気づく ou 今.
+- Les ordres en なさい restent attachés à leur verbe : 従いなさい ou la forme orale 食べな forment un seul mot, rattaché à 従う ou 食べる.
+- La fréquence des mots est plus juste : les mots courants écrits en kana (いる, こと, できる, きれい, みつける) ne passent plus pour rares ni pour moins fréquents qu'en kanji, 信じる et 感じる conjugués ont enfin un rang, et un mot en kanji est classé selon sa lecture (未だ lu いまだ n'est plus classé comme まだ).
+- Le tri des mots déjà connus ne propose plus un mot une seconde fois sous une autre forme : 居る après いる, ou テレビ, コーヒー et 君 déjà marqués connus pendant une vidéo.
 
 ## 2026-11-14
 
