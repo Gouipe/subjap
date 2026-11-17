@@ -104,7 +104,14 @@ export async function nextKnownTriageBatch(): Promise<KnownTriageBatch> {
       let end = start;
       while (end < chunk.length && chunk[end]!.rank === rank) end += 1;
       const groupKeys = keys.slice(start, end);
-      const entry = lookups[start] ?? null;
+      // The kanji spelling pins the meaning: いる alone may find 要る or 射る.
+      const kanaHead = toHiragana(groupKeys[0]!.normalize("NFKC"));
+      const entry =
+        lookups
+          .slice(start + 1, end)
+          .find((candidate) => candidate && toHiragana(candidate.reading) === kanaHead) ??
+        lookups[start] ??
+        null;
       start = end;
       scannedRank = rank;
 
