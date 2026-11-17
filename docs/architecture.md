@@ -300,8 +300,10 @@ Le chemin principal est le suivant :
    lemme. Ce rang vient de la liste de fréquence JPDB v2.2, classée par forme
    du dictionnaire sur un large corpus de médias japonais (anime, dramas,
    romans, visual novels) ; les particules et auxiliaires isolés (の, だ) n’en
-   reçoivent pas. La liste compacte est livrée avec SubJap et les
-   couples lemme/rang sont conservés dans IndexedDB. Le renderer construit des
+   reçoivent pas. Une graphie en kanji est classée sous la lecture que lui
+   donne UniDic (中 : 75ᵉ lu なか, 303ᵉ lu ちゅう). La liste compacte est
+   livrée avec SubJap et les couples lemme/rang, avec les rangs par lecture,
+   sont conservés dans IndexedDB. Le renderer construit des
    spans par token, ajoute éventuellement le furigana ; les mots connus restent
    blancs, les inconnus jusqu’au rang connu sont verts et les 300 rangs suivants
    sont bleus.

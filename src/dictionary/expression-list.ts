@@ -4,7 +4,8 @@
 //
 // The default « Courant » pack holds only a few dozen of them, so SubJap ships
 // the full dictionary's list (scripts/update-expression-data.mjs) and loads it
-// in the service worker on first use, whatever pack is installed.
+// in the service worker on first use, whatever pack is installed. The list
+// also holds the adverbs ending in は (先ずは) that split-words.ts merges.
 
 import type { DictionaryEntry } from "@/core/types";
 import { toHiragana } from "@/core/kana";

@@ -60,7 +60,8 @@ Les expressions nom + particule + verbe (空気を読む, 気にする, 手を�
 ensuite fusionnées d'après une liste embarquée
 (`public/expressions/jmdict-expressions.json`, régénérée par
 `npm run expressions:update`) : les expressions verbales `exp` du JMdict complet,
-car le pack Courant n'en contient que quelques dizaines. Le service worker la
+car le pack Courant n'en contient que quelques dizaines, ainsi que les adverbes
+et conjonctions terminés par は (先ずは, 何時かは) que recolle `split-words.ts`. Le service worker la
 charge au premier besoin, quel que soit le pack installé, et `dict:lookup` y
 cherche aussi les graphies exactes. Le nom (éventuellement un composé déjà
 fusionné), la particule `を` / `が` / `に` / `で` / `と` / `へ` et le verbe doivent
@@ -75,9 +76,9 @@ son lexème UniDic (はらがたつ et 腹がたつ donnent 腹が立つ, même 
 prend たつ pour 経つ ; そこ, lexème 其処, ne devient pas 底をつく). Un nom dont
 le lexème est lui-même en kana (ムキ) rejoint une entrée en kanji (向きになる)
 par sa seule lecture, à condition que sa particule soit écrite. Les noms
-formels こと, もの, ところ et ため (et 事, 物, 所, 為) n'ouvrent pas d'expression : ことができる ou ことにする sont des tournures de
-grammaire dont l'apprenant connaît déjà les mots, et 君のためにする n'est pas
-為にする. L'unité porte la tête JMdict comme identité, montre la
+formels こと, もの, ところ et ため (et 事, 物, 所, 為) n'ouvrent pas
+d'expression : ことができる ou ことにする sont des tournures de grammaire dont
+l'apprenant connaît déjà les mots, et 君のためにする n'est pas 為にする. L'unité porte la tête JMdict comme identité, montre la
 décomposition dans la popover et signale la particule omise. Le tri des mots
 connus trouve aussi ces définitions dans la liste embarquée.
 
