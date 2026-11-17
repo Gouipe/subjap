@@ -27,6 +27,7 @@ import { WORD_STATES_REVISION_STORAGE_KEY } from "@/core/cloud-sync";
 import { dictionaryReadingForToken } from "@/dictionary/match";
 import { lookupTokenDictionaryEntry } from "@/dictionary/token-lookup";
 import {
+  bestFrequencyRank,
   effectiveWordState,
   isDefaultIgnoredToken,
   isFunctionWordToken,
@@ -773,9 +774,7 @@ async function handleCues(cues: SubtitleCue[], revision: number): Promise<void> 
           minedLater,
           frequencyRank: isFunctionWordToken(token)
             ? undefined
-            : (frequencyRanks[lexicalKey] ??
-              frequencyRanks[tokenDictionaryForm(token)] ??
-              frequencyRanks[token.surface]),
+            : bestFrequencyRank(frequencyRanks, lexicalKey, tokenDictionaryForm(token), token.surface),
         };
       });
       rendered.push({ cue, spans });

@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-17
+
+### Corrections
+
+- Les mots courants écrits en kana gardent leur vraie fréquence : いる, ある, こと, できる ou いい n'apparaissent plus comme des mots rares, et le tri des mots déjà connus ne les propose plus une seconde fois sous leur forme en kanji (居る, 事, 出来る).
+
 ## 2026-11-14
 
 ### Fonctionnalités

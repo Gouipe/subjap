@@ -27,6 +27,23 @@ export function isNonLexicalToken(
 }
 
 /**
+ * A token's rank: the better of its lexeme and its written dictionary form,
+ * since UniDic files a kana word under kanji (いい → 良い: 139th, いい: 33rd).
+ * The surface form only stands in when neither is ranked.
+ */
+export function bestFrequencyRank(
+  ranks: Readonly<Record<string, number>>,
+  lexeme: string,
+  dictionaryForm: string,
+  surface: string,
+): number | undefined {
+  const lexical = [ranks[lexeme], ranks[dictionaryForm]].filter(
+    (rank): rank is number => typeof rank === "number",
+  );
+  return lexical.length > 0 ? Math.min(...lexical) : ranks[surface];
+}
+
+/**
  * Lone particles and auxiliaries (の, は, だ, です) are grammar, not words to
  * learn: they get no frequency rank, even though the list ranks them first.
  * A grouped verb (食べた) also carries 助動詞, but alongside its own head.

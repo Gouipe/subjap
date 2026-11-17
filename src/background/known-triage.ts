@@ -63,12 +63,18 @@ export async function nextKnownTriageBatch(): Promise<KnownTriageBatch> {
   let scannedRank = fromRank;
 
   while (items.length < KNOWN_TRIAGE_BATCH_SIZE && scannedRank < totalRanks) {
-    const chunk = await db.frequencyEntries
+    const head = await db.frequencyEntries
       .where("rank")
       .above(scannedRank)
       .limit(SCAN_CHUNK)
-      .sortBy("rank");
-    if (chunk.length === 0) break;
+      .toArray();
+    if (head.length === 0) break;
+    // Complete the last rank: its other spellings must not be cut off.
+    const lastRank = Math.max(...head.map((entry) => entry.rank));
+    const tail = await db.frequencyEntries.where("rank").equals(lastRank).toArray();
+    const chunk = [...new Map([...head, ...tail].map((entry) => [entry.key, entry])).values()].sort(
+      (a, b) => a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+    );
 
     const keys = chunk.map((entry) => entry.key);
     const entries = await dictionaryEntries([
@@ -92,20 +98,34 @@ export async function nextKnownTriageBatch(): Promise<KnownTriageBatch> {
       ),
     );
 
-    for (const [index, frequencyEntry] of chunk.entries()) {
-      scannedRank = frequencyEntry.rank;
-      const key = frequencyEntry.key;
-      if (offered.has(key) || lexicalKeyCandidates(key).some((identity) => tracked.has(identity)))
+    // Spellings sharing a rank are one word (いる, 居る): kana first, it is shown.
+    for (let start = 0; start < chunk.length; ) {
+      const rank = chunk[start]!.rank;
+      let end = start;
+      while (end < chunk.length && chunk[end]!.rank === rank) end += 1;
+      const groupKeys = keys.slice(start, end);
+      const entry = lookups[start] ?? null;
+      start = end;
+      scannedRank = rank;
+
+      const key = groupKeys[0]!;
+      if (
+        offered.has(key) ||
+        groupKeys.some((groupKey) =>
+          lexicalKeyCandidates(groupKey).some((identity) => tracked.has(identity)),
+        )
+      )
         continue;
-      const entry = lookups[index] ?? null;
       if (entry && isNotVocabulary(entry)) continue;
 
       const reading = entry && HAS_KANJI.test(key) ? toHiragana(entry.reading) : "";
       const meaning = entry ? shortMeaning(entry) : "";
+      const alsoKeys = groupKeys.slice(1);
       offered.add(key);
       items.push({
         key,
-        rank: frequencyEntry.rank,
+        rank,
+        ...(alsoKeys.length > 0 ? { alsoKeys } : {}),
         ...(reading && reading !== key ? { reading } : {}),
         ...(meaning ? { meaning } : {}),
       });
