@@ -35,11 +35,23 @@ const POTENTIAL_TO_GODAN = new Map([
   ["れ", "る"],
 ]);
 
-const isKana = (text: string): boolean => /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(text);
+const isKana = (text: string): boolean =>
+  /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(text);
 const normalizeReading = (text: string): string => toHiragana(text.normalize("NFKC"));
 const plain = (text: string): string => text.replace(/\n/gu, "");
 
+/** Formal nouns build grammar patterns (ことができる, ことにする), not idioms:
+ * こと and できる stay two words the learner already knows. */
+const FORMAL_NOUNS = new Set(["こと", "事", "もの", "物", "ところ", "所"]);
+
 function isExpressionNoun(token: Token): boolean {
+  if (
+    [plain(token.surface), tokenDictionaryForm(token), tokenCanonicalKey(token)].some((form) =>
+      FORMAL_NOUNS.has(form),
+    )
+  ) {
+    return false;
+  }
   return (
     (token.partOfSpeech.includes("名詞") || token.partOfSpeech.includes("代名詞")) &&
     !token.partOfSpeech.includes("接尾辞") &&
@@ -64,7 +76,9 @@ function potentialBase(form: string): string | null {
   const chars = Array.from(form);
   const ending = chars[chars.length - 2];
   const godan = ending ? POTENTIAL_TO_GODAN.get(ending) : undefined;
-  return chars[chars.length - 1] === "る" && godan ? `${chars.slice(0, -2).join("")}${godan}` : null;
+  return chars[chars.length - 1] === "る" && godan
+    ? `${chars.slice(0, -2).join("")}${godan}`
+    : null;
 }
 
 interface VerbBase {
@@ -75,7 +89,9 @@ interface VerbBase {
 /** Dictionary forms the verb may take inside an expression, exact ones first. */
 function verbBases(verb: Token): VerbBase[] {
   const head = verb.components?.[0] ?? verb;
-  const reading = normalizeReading(lexicalHead(verb).dictionaryReading ?? verb.dictionaryReading ?? "");
+  const reading = normalizeReading(
+    lexicalHead(verb).dictionaryReading ?? verb.dictionaryReading ?? "",
+  );
   const forms = [...new Set([tokenDictionaryForm(verb), tokenCanonicalKey(verb)].filter(Boolean))];
   const bases: VerbBase[] = forms.map((form) => ({ form, reading }));
   if (head.conjugationType?.includes("下一段")) {
@@ -107,7 +123,11 @@ function candidatesAt(tokens: Token[], start: number): ExpressionCandidate[] {
 
   const nounSurface = plain(noun.surface);
   const nounReading = normalizeReading(noun.reading);
-  const build = (particle: Token | null, particleText: string, verb: Token): ExpressionCandidate[] =>
+  const build = (
+    particle: Token | null,
+    particleText: string,
+    verb: Token,
+  ): ExpressionCandidate[] =>
     verbBases(verb).map((verbBase) => ({
       noun,
       particle,
@@ -115,7 +135,8 @@ function candidatesAt(tokens: Token[], start: number): ExpressionCandidate[] {
       verb,
       verbBase,
       spelling: `${nounSurface}${particleText}${verbBase.form}`,
-      reading: nounReading && verbBase.reading ? `${nounReading}${particleText}${verbBase.reading}` : "",
+      reading:
+        nounReading && verbBase.reading ? `${nounReading}${particleText}${verbBase.reading}` : "",
     }));
 
   const verb = tokens[start + 2];
@@ -123,7 +144,7 @@ function candidatesAt(tokens: Token[], start: number): ExpressionCandidate[] {
     return build(next, next.surface, verb);
   }
   // A kana noun only meets its entry by reading: without the particle as well,
-  // too little is checked (ことあるごとに is not 事がある).
+  // too little is left to check.
   if (
     isExpressionVerb(next) &&
     !NO_OMISSION_VERBS.has(tokenDictionaryForm(next)) &&
@@ -196,8 +217,8 @@ function createExpressionToken(candidate: ExpressionCandidate, entry: Dictionary
   const dictionaryForm = entrySpellings(entry).includes(candidate.spelling)
     ? candidate.spelling
     : entry.headword;
-  const verbSegments =
-    verb.segments ?? verb.components?.map((component) => component.surface) ?? [verb.surface];
+  const verbSegments = verb.segments ??
+    verb.components?.map((component) => component.surface) ?? [verb.surface];
 
   return {
     surface: parts.map((part) => part.surface).join(""),
@@ -229,7 +250,10 @@ export function mergeDictionaryExpressions(
     for (const candidate of candidatesAt(tokens, start)) {
       const entry = matchingEntry(candidate, entriesByTerm);
       if (!entry) continue;
-      merged = { token: createExpressionToken(candidate, entry), length: candidate.particle ? 3 : 2 };
+      merged = {
+        token: createExpressionToken(candidate, entry),
+        length: candidate.particle ? 3 : 2,
+      };
       break;
     }
     if (merged) {

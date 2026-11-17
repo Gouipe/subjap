@@ -67,11 +67,13 @@ fusionné), la particule `を` / `が` / `に` / `で` / `と` / `へ` et le ver
 être contigus ; le verbe garde sa conjugaison et ses annotations
 (空気を読めない). `を` et `が` peuvent manquer (空気読めない), sauf devant
 `する`, qui reste un verbe en する, et après un nom écrit en kana, que seule sa
-lecture rattache à l'entrée (ことあるごとに n'est pas 事がある). Un verbe potentiel, lemme distinct pour
+lecture rattache à l'entrée. Un verbe potentiel, lemme distinct pour
 UniDic (読める), est rapproché de sa base godan (読む) après échec de la forme
 exacte. La lecture concaténée doit correspondre à une lecture de l'entrée ; un
-nom écrit en kana (こと) peut rejoindre une entrée en kanji (事がある) par sa
-seule lecture. L'unité porte la tête JMdict comme identité, montre la
+nom écrit en kana (むき) peut rejoindre une entrée en kanji (向きになる) par sa
+seule lecture. Les noms formels こと, もの et ところ (et 事, 物, 所) n'ouvrent
+pas d'expression : ことができる ou ことにする sont des tournures de grammaire
+dont l'apprenant connaît déjà les mots. L'unité porte la tête JMdict comme identité, montre la
 décomposition dans la popover et signale la particule omise.
 
 Le `ば` conditionnel reste attaché à la forme en `仮定形` qui le précède
