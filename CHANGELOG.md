@@ -9,7 +9,7 @@ elle serait annoncée à nouveau.
 
 ### Fonctionnalités
 
-- « Miner » et « Plus tard » passent en gris tant que l’audio de l’onglet n’est pas activé. Le raccourci Alt+Maj+A l’active depuis la vidéo, même en plein écran, et ouvre aussitôt le minage du mot cliqué.
+- « Miner » et « Plus tard » passent en gris tant que l’audio de l’onglet n’est pas activé. Le raccourci Alt+Maj+A l’active depuis la vidéo, même en plein écran, et ouvre aussitôt le minage du mot cliqué. Si SubJap était déjà installé, choisis ce raccourci une fois depuis la fenêtre qui demande d’activer l’audio.
 
 ### Corrections
 

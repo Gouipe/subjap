@@ -933,6 +933,13 @@ async function activateTabAudioShortcut(): Promise<string> {
   return commands.find((command) => command.name === ACTIVATE_TAB_AUDIO_COMMAND)?.shortcut ?? "";
 }
 
+// Chrome assigns a suggested key only when the extension is installed: an
+// update that adds the command leaves it without a key.
+onMessage("tabCapture:openShortcuts", async () => {
+  await chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+  return {};
+});
+
 onMessage("tabCapture:status", async (_payload, sender) => {
   const tabId = sender.tab?.id;
   if (tabId == null) throw new Error("No tab available for tab capture");

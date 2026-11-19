@@ -1463,7 +1463,19 @@ function showMiningCaptureWarning(): void {
     fallback.textContent = "Ou via l’icône SubJap.";
     body.append(lead, shortcutKeycaps(shortcut), after, fallback);
   } else if (body) {
-    body.textContent = "Active d’abord « Audio de l’onglet » via l’icône SubJap pour pouvoir miner une phrase avec son audio.";
+    const intro = document.createElement("div");
+    intro.textContent = "Choisis un raccourci clavier pour activer « Audio de l’onglet » depuis la vidéo : clique sur le crayon à côté de SubJap, puis appuie sur Alt+Maj+A.";
+    const choose = document.createElement("button");
+    choose.dataset.action = "shortcuts";
+    choose.style.cssText = "display:block;margin:16px auto;padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer";
+    choose.textContent = "Choisir un raccourci";
+    choose.addEventListener("click", () => {
+      void sendMessage("tabCapture:openShortcuts", {}).catch(handleRuntimeError);
+    });
+    const fallback = document.createElement("div");
+    fallback.style.cssText = "font-size:13px;text-align:center";
+    fallback.textContent = "Ou active-le via l’icône SubJap.";
+    body.append(intro, choose, fallback);
   }
   warning.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener("click", () => {
     pendingMining = null;
@@ -1471,6 +1483,16 @@ function showMiningCaptureWarning(): void {
   });
   mountVideoSurface(warning);
 }
+
+// Back from Chrome's shortcuts page: show the key just chosen.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !document.getElementById(MINING_CAPTURE_WARNING_ID)) return;
+  const before = miningCaptureShortcut;
+  void isMiningCaptureActive().then((active) => {
+    if (active) resumePendingMining();
+    else if (miningCaptureShortcut !== before) showMiningCaptureWarning();
+  });
+});
 
 /** The capture just started: finish the « Miner » click that asked for it. */
 function resumePendingMining(): void {

@@ -493,6 +493,9 @@ export interface MessageMap {
   /** Sent to the tab when its audio capture starts or stops. */
   "tabCapture:changed": { active: boolean };
   "tabCapture:changedResult": Record<string, never>;
+  /** Opens Chrome's page where the shortcut is chosen. */
+  "tabCapture:openShortcuts": Record<string, never>;
+  "tabCapture:openShortcutsResult": Record<string, never>;
   "tabCapture:offscreenStream": { streamId: string };
   "tabCapture:offscreenStreamResult": Record<string, never>;
   "tabCapture:phraseStart": Record<string, never>;
