@@ -60,7 +60,9 @@ Résumer brièvement :
 - les lignes exactes que la popup annoncera, par catégorie ;
 - les avertissements éventuels (pas d'annonce, ligne corrigée…).
 
-Puis demander avec AskUserQuestion, une seule question :
+Puis demander avec AskUserQuestion, une seule question. La fenêtre de la
+question cache le texte écrit avant : le texte de la question reprend les
+lignes exactes annoncées et le nombre de commits.
 
 - **Pousser maintenant** — les personnes qui ont l'extension
   verront la mise à jour dans les 10 minutes environ.
