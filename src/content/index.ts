@@ -1467,11 +1467,11 @@ function showMiningCaptureWarning(): void {
   } else if (body) {
     const intro = document.createElement("div");
     intro.style.cssText = "text-align:center";
-    intro.textContent = "Choisis un raccourci clavier pour activer « Audio de l’onglet » depuis la vidéo : clique sur le crayon à côté de SubJap, puis appuie sur";
+    intro.textContent = "Paramètre un raccourci clavier pour activer « Audio de l’onglet » depuis la vidéo : clique sur le crayon à côté de SubJap, puis appuie sur";
     const choose = document.createElement("button");
     choose.dataset.action = "shortcuts";
     choose.style.cssText = "display:block;margin:0 auto 16px;padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer";
-    choose.textContent = "Choisir un raccourci";
+    choose.textContent = "Paramétrer le raccourci";
     choose.addEventListener("click", () => {
       void sendMessage("tabCapture:openShortcuts", {}).catch(handleRuntimeError);
     });
