@@ -1356,6 +1356,8 @@ let miningCaptureShortcut = "";
 let pendingMining: { token: Token; entry: DictionaryEntry | null; later: boolean } | null = null;
 
 const MINING_CAPTURE_WARNING_ID = "subjap-mining-capture-warning";
+/** Same as the manifest's `activate-tab-audio` suggested key. */
+const SUGGESTED_TAB_AUDIO_SHORTCUT = "Alt+Shift+A";
 
 /** Chrome writes "Alt+Shift+A"; French keyboards say « Maj ». */
 function shortcutLabel(shortcut: string): string {
@@ -1464,10 +1466,11 @@ function showMiningCaptureWarning(): void {
     body.append(lead, shortcutKeycaps(shortcut), after, fallback);
   } else if (body) {
     const intro = document.createElement("div");
-    intro.textContent = "Choisis un raccourci clavier pour activer « Audio de l’onglet » depuis la vidéo : clique sur le crayon à côté de SubJap, puis appuie sur Alt+Maj+A.";
+    intro.style.cssText = "text-align:center";
+    intro.textContent = "Choisis un raccourci clavier pour activer « Audio de l’onglet » depuis la vidéo : clique sur le crayon à côté de SubJap, puis appuie sur";
     const choose = document.createElement("button");
     choose.dataset.action = "shortcuts";
-    choose.style.cssText = "display:block;margin:16px auto;padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer";
+    choose.style.cssText = "display:block;margin:0 auto 16px;padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer";
     choose.textContent = "Choisir un raccourci";
     choose.addEventListener("click", () => {
       void sendMessage("tabCapture:openShortcuts", {}).catch(handleRuntimeError);
@@ -1475,7 +1478,8 @@ function showMiningCaptureWarning(): void {
     const fallback = document.createElement("div");
     fallback.style.cssText = "font-size:13px;text-align:center";
     fallback.textContent = "Ou active-le via l’icône SubJap.";
-    body.append(intro, choose, fallback);
+    // The key the manifest suggests: the one the warning shows once chosen.
+    body.append(intro, shortcutKeycaps(shortcutLabel(SUGGESTED_TAB_AUDIO_SHORTCUT)), choose, fallback);
   }
   warning.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener("click", () => {
     pendingMining = null;
