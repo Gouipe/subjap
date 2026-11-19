@@ -1391,12 +1391,42 @@ function closeMiningCaptureWarning(): void {
   warning.remove();
 }
 
+const KEYCAP_STYLE = [
+  "display:inline-block",
+  "min-width:44px",
+  "padding:10px 14px",
+  "border:1px solid #ff624d",
+  "border-bottom-width:4px",
+  "border-radius:8px",
+  "background:#1b1e24",
+  "color:#f4f1ea",
+  "font:600 24px/1 IBM Plex Sans JP,Yu Gothic UI,sans-serif",
+  "text-align:center",
+  "box-sizing:border-box",
+].join(";");
+
+/** The shortcut as large keycaps: the one thing to do from the warning. */
+function shortcutKeycaps(shortcut: string): HTMLElement {
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;align-items:center;justify-content:center;gap:10px;margin:20px 0";
+  shortcut.split("+").forEach((key, index) => {
+    if (index > 0) {
+      const plus = document.createElement("span");
+      plus.style.cssText = "color:#b2b6bf;font-size:20px";
+      plus.textContent = "+";
+      row.append(plus);
+    }
+    const cap = document.createElement("kbd");
+    cap.style.cssText = KEYCAP_STYLE;
+    cap.textContent = key;
+    row.append(cap);
+  });
+  return row;
+}
+
 function showMiningCaptureWarning(): void {
   closeMiningCaptureWarning();
   const shortcut = shortcutLabel(miningCaptureShortcut);
-  const how = shortcut
-    ? `Appuie sur <kbd style="padding:1px 6px;border:1px solid #343842;border-radius:4px;background:#1b1e24;color:#f4f1ea;font-family:inherit"></kbd> pour activer « Audio de l’onglet » : le minage s’ouvrira aussitôt. Tu peux aussi passer par l’icône SubJap.`
-    : "Active d’abord « Audio de l’onglet » via l’icône SubJap pour pouvoir miner une phrase avec son audio.";
   const warning = document.createElement("div");
   warning.id = MINING_CAPTURE_WARNING_ID;
   warning.style.cssText = [
@@ -1414,18 +1444,31 @@ function showMiningCaptureWarning(): void {
   warning.innerHTML = `
     <div style="max-width:420px;padding:24px;border-radius:12px;background:#14161b;color:#f4f1ea;box-shadow:0 8px 8px rgba(0,0,0,.42)">
       <div style="font-size:17px;font-weight:600;margin-bottom:12px">Enregistrement audio désactivé</div>
-      <div style="line-height:1.5;color:#b2b6bf">${how}</div>
+      <div data-role="body" style="line-height:1.5;color:#b2b6bf"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:20px">
-        <button data-action="close" style="padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer">Fermer</button>
+        <button data-action="close" style="padding:9px 14px;border:1px solid #343842;border-radius:6px;background:transparent;color:#b2b6bf;font-weight:600;cursor:pointer">Fermer</button>
       </div>
     </div>
   `;
+  const body = warning.querySelector<HTMLElement>('[data-role="body"]');
+  if (body && shortcut) {
+    const lead = document.createElement("div");
+    lead.style.cssText = "color:#f4f1ea;text-align:center";
+    lead.textContent = "Appuie sur";
+    const after = document.createElement("div");
+    after.style.cssText = "text-align:center";
+    after.textContent = "pour activer « Audio de l’onglet » : le minage s’ouvrira aussitôt.";
+    const fallback = document.createElement("div");
+    fallback.style.cssText = "margin-top:12px;font-size:13px;text-align:center";
+    fallback.textContent = "Ou via l’icône SubJap.";
+    body.append(lead, shortcutKeycaps(shortcut), after, fallback);
+  } else if (body) {
+    body.textContent = "Active d’abord « Audio de l’onglet » via l’icône SubJap pour pouvoir miner une phrase avec son audio.";
+  }
   warning.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener("click", () => {
     pendingMining = null;
     closeMiningCaptureWarning();
   });
-  const kbd = warning.querySelector("kbd");
-  if (kbd) kbd.textContent = shortcut;
   mountVideoSurface(warning);
 }
 
