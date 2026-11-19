@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-19
+
+### Corrections
+
+- Un mot passe en gris dès que sa carte est créée dans Anki, sans attendre la synchronisation suivante.
+
 ## 2026-11-17
 
 ### Fonctionnalités

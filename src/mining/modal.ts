@@ -104,6 +104,8 @@ interface MiningState {
   /** False for a line of another video: never capture from the player then. */
   liveVideo: boolean;
   batch: MiningBatch | null;
+  /** The card reached Anki. */
+  onCreated: (() => void) | null;
 }
 
 interface ActiveEdit {
@@ -234,6 +236,8 @@ export class MiningModal {
     senses: string[][];
     media?: MiningMedia;
     batch?: MiningBatch;
+    /** The card reached Anki. */
+    onCreated?: () => void;
   }): void {
     const media = state.media;
     const audio = media?.phraseAudioDataUrl ?? null;
@@ -267,6 +271,7 @@ export class MiningModal {
       sending: false,
       liveVideo: media?.canRecapture ?? true,
       batch: state.batch ?? null,
+      onCreated: state.onCreated ?? null,
     };
     const modalState = this.state;
     this.activeEdit = null;
@@ -1260,6 +1265,7 @@ export class MiningModal {
         return;
       }
 
+      state.onCreated?.();
       if (state.batch) state.batch.onCreated();
       else this.close();
     } catch (err) {

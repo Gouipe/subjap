@@ -1425,6 +1425,13 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
     translation: miningTranslationText(rendered.cue),
     episodeContext: source,
     senses: entry?.senses.map((sense) => sense.glosses).filter((glosses) => glosses.length > 0) ?? [],
+    onCreated: () => {
+      // Grey at once, as for a word set aside, then confirm with Anki.
+      const key = tokenCanonicalKey(targetSpan.token);
+      ankiNoteCountByLemma.set(key, (ankiNoteCountByLemma.get(key) ?? 0) + 1);
+      refreshWordStates();
+      void syncKnownWordsFromAnki(true);
+    },
   });
 }
 
