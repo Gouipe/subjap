@@ -488,7 +488,11 @@ export interface MessageMap {
   "tabCapture:offscreen": { streamId: string; tabId: number };
   "tabCapture:offscreenResult": { ready: boolean };
   "tabCapture:status": Record<string, never>;
-  "tabCapture:statusResult": { active: boolean };
+  /** `shortcut`: the key that starts the capture, "" when none is set. */
+  "tabCapture:statusResult": { active: boolean; shortcut: string };
+  /** Sent to the tab when its audio capture starts or stops. */
+  "tabCapture:changed": { active: boolean };
+  "tabCapture:changedResult": Record<string, never>;
   "tabCapture:offscreenStream": { streamId: string };
   "tabCapture:offscreenStreamResult": Record<string, never>;
   "tabCapture:phraseStart": Record<string, never>;

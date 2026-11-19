@@ -884,7 +884,7 @@ async function ensureAudioOffscreen(): Promise<void> {
   });
 }
 
-onMessage("tabCapture:offscreen", async ({ streamId, tabId }) => {
+async function startOffscreenCapture(streamId: string, tabId: number): Promise<void> {
   await ensureAudioOffscreen();
   await chrome.runtime.sendMessage({ type: "tabCapture:offscreenStream", streamId });
   // A page opened before the extension was reloaded has no live content
@@ -893,21 +893,55 @@ onMessage("tabCapture:offscreen", async ({ streamId, tabId }) => {
     target: { tabId, frameIds: [0] },
     func: installFullscreenReporter,
   }).catch(() => undefined);
+  notifyTabCaptureChanged(tabId, true);
+}
+
+/** Lets the tab's frames update « Miner » and resume a pending mining. */
+function notifyTabCaptureChanged(tabId: number, active: boolean): void {
+  void chrome.tabs.sendMessage(tabId, { type: "tabCapture:changed", active }).catch(() => undefined);
+}
+
+onMessage("tabCapture:offscreen", async ({ streamId, tabId }) => {
+  await startOffscreenCapture(streamId, tabId);
   return { ready: true };
 }, { extensionPagesOnly: true });
+
+const ACTIVATE_TAB_AUDIO_COMMAND = "activate-tab-audio";
+
+// The keyboard shortcut invokes the extension like its icon does, which
+// tabCapture requires. It only starts the capture: stopping stays in the popup
+// so a stray key never cuts a scene being recorded.
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command !== ACTIVATE_TAB_AUDIO_COMMAND || tab?.id == null) return;
+  const tabId = tab.id;
+  void (async () => {
+    if (await isTabCaptured(tabId)) return;
+    await startOffscreenCapture(await getTabCaptureStreamId(tabId), tabId);
+    refreshBadge();
+  })().catch((err: unknown) => {
+    console.warn("[SubJap] Tab audio activation failed:", err);
+  });
+});
+
+chrome.tabCapture.onStatusChanged.addListener(({ tabId, status }) => {
+  if (status === "pending") return;
+  notifyTabCaptureChanged(tabId, status === "active");
+});
+
+async function activateTabAudioShortcut(): Promise<string> {
+  const commands = await chrome.commands.getAll();
+  return commands.find((command) => command.name === ACTIVATE_TAB_AUDIO_COMMAND)?.shortcut ?? "";
+}
 
 onMessage("tabCapture:status", async (_payload, sender) => {
   const tabId = sender.tab?.id;
   if (tabId == null) throw new Error("No tab available for tab capture");
 
-  const capturedTabs = await new Promise<chrome.tabCapture.CaptureInfo[]>((resolve) => {
-    chrome.tabCapture.getCapturedTabs(resolve);
-  });
-  return {
-    active: capturedTabs.some(
-      (capture) => capture.tabId === tabId && capture.status === "active",
-    ),
-  };
+  const [active, shortcut] = await Promise.all([
+    isTabCaptured(tabId),
+    activateTabAudioShortcut().catch(() => ""),
+  ]);
+  return { active, shortcut };
 });
 
 // ── fullscreen:page ───────────────────────────────────────────────────────

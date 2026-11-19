@@ -97,6 +97,14 @@ const manifest: ManifestV3Export = {
       32: "icons/icon-32.png",
     },
   },
+  commands: {
+    // Counts as invoking the extension, so tabCapture may start from the
+    // video, even in fullscreen, without opening the popup.
+    "activate-tab-audio": {
+      suggested_key: { default: "Alt+Shift+A" },
+      description: "Activer l’audio de l’onglet (pour miner)",
+    },
+  },
   options_page: "src/options/index.html",
   web_accessible_resources: [
     {

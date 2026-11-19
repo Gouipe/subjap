@@ -37,7 +37,7 @@ import {
 import { MiningModal, VideoAudioCapture } from "@/mining";
 import { captureCleanFrame } from "@/mining/capture";
 import { PlaybackClock } from "@/mining/playback-clock";
-import { OverlayRenderer, getPopover, showPopover, hidePopover } from "@/overlay";
+import { OverlayRenderer, getPopover, showPopover, hidePopover, setPopoverMiningUnready } from "@/overlay";
 import {
   markParentheticalTokens,
   normalizeCueText,
@@ -229,6 +229,12 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   if (missing || translationState) {
     sendResponse({ missing, player: status?.player ?? adapter.id, translation: translationState });
   }
+});
+
+onMessage("tabCapture:changed", ({ active }) => {
+  applyMiningCaptureState(active);
+  if (active) resumePendingMining();
+  return {};
 });
 
 onMessage("tabCapture:stream", async ({ streamId }) => {
@@ -1337,20 +1343,62 @@ async function showPopoverForToken(anchor: HTMLElement, token: Token): Promise<v
     ankiYoung: wordState?.young === true,
     minedLater: minedLaterByLemma.get(tokenCanonicalKey(token)) === true,
   });
+  // The capture may have stopped since: correct « Miner » while it shows.
+  void isMiningCaptureActive();
+}
+
+/** Key that starts the tab audio from the video, "" when none is set. */
+let miningCaptureShortcut = "";
+/**
+ * The word whose « Miner » or « Plus tard » met a disabled capture: the
+ * action resumes once the capture starts.
+ */
+let pendingMining: { token: Token; entry: DictionaryEntry | null; later: boolean } | null = null;
+
+const MINING_CAPTURE_WARNING_ID = "subjap-mining-capture-warning";
+
+/** Chrome writes "Alt+Shift+A"; French keyboards say « Maj ». */
+function shortcutLabel(shortcut: string): string {
+  return shortcut.replace(/\bShift\b/g, "Maj");
+}
+
+/** Grey « Miner » while the tab audio is not captured. */
+function applyMiningCaptureState(active: boolean): void {
+  const shortcut = shortcutLabel(miningCaptureShortcut);
+  setPopoverMiningUnready(active
+    ? null
+    : shortcut
+      ? `Audio de l’onglet désactivé : appuie sur ${shortcut} pour pouvoir miner`
+      : "Audio de l’onglet désactivé : active-le via l’icône SubJap pour pouvoir miner");
 }
 
 async function isMiningCaptureActive(): Promise<boolean> {
   try {
-    return (await sendMessage("tabCapture:status", {})).active;
+    const status = await sendMessage("tabCapture:status", {});
+    miningCaptureShortcut = status.shortcut;
+    applyMiningCaptureState(status.active);
+    return status.active;
   } catch (err: unknown) {
     handleRuntimeError(err);
     return false;
   }
 }
 
+function closeMiningCaptureWarning(): void {
+  const warning = document.getElementById(MINING_CAPTURE_WARNING_ID);
+  if (!warning) return;
+  forgetVideoSurface(warning);
+  warning.remove();
+}
+
 function showMiningCaptureWarning(): void {
+  closeMiningCaptureWarning();
+  const shortcut = shortcutLabel(miningCaptureShortcut);
+  const how = shortcut
+    ? `Appuie sur <kbd style="padding:1px 6px;border:1px solid #343842;border-radius:4px;background:#1b1e24;color:#f4f1ea;font-family:inherit"></kbd> pour activer « Audio de l’onglet » : le minage s’ouvrira aussitôt. Tu peux aussi passer par l’icône SubJap.`
+    : "Active d’abord « Audio de l’onglet » via l’icône SubJap pour pouvoir miner une phrase avec son audio.";
   const warning = document.createElement("div");
-  warning.id = "subjap-mining-capture-warning";
+  warning.id = MINING_CAPTURE_WARNING_ID;
   warning.style.cssText = [
     "position:fixed",
     "inset:0",
@@ -1366,23 +1414,40 @@ function showMiningCaptureWarning(): void {
   warning.innerHTML = `
     <div style="max-width:420px;padding:24px;border-radius:12px;background:#14161b;color:#f4f1ea;box-shadow:0 8px 8px rgba(0,0,0,.42)">
       <div style="font-size:17px;font-weight:600;margin-bottom:12px">Enregistrement audio désactivé</div>
-      <div style="line-height:1.5;color:#b2b6bf">
-        Active d’abord « Audio de l’onglet » via l’icône SubJap pour pouvoir miner une phrase avec son audio.
-      </div>
+      <div style="line-height:1.5;color:#b2b6bf">${how}</div>
       <div style="display:flex;justify-content:flex-end;margin-top:20px">
         <button data-action="close" style="padding:9px 14px;border:0;border-radius:6px;background:#ff624d;color:#0c0d10;font-weight:600;cursor:pointer">Fermer</button>
       </div>
     </div>
   `;
   warning.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener("click", () => {
-    forgetVideoSurface(warning);
-    warning.remove();
+    pendingMining = null;
+    closeMiningCaptureWarning();
   });
+  const kbd = warning.querySelector("kbd");
+  if (kbd) kbd.textContent = shortcut;
   mountVideoSurface(warning);
 }
 
-async function ensureMiningCaptureReady(): Promise<boolean> {
+/** The capture just started: finish the « Miner » click that asked for it. */
+function resumePendingMining(): void {
+  const pending = pendingMining;
+  pendingMining = null;
+  if (!pending || !document.getElementById(MINING_CAPTURE_WARNING_ID)) return;
+  closeMiningCaptureWarning();
+  if (pending.later) void mineLater(pending.token, pending.entry);
+  else void openMiningModal(pending.token, pending.entry);
+}
+
+async function ensureMiningCaptureReady(
+  token: Token,
+  entry: DictionaryEntry | null,
+  later = false,
+): Promise<boolean> {
   if (await isMiningCaptureActive()) return true;
+  pendingMining = { token, entry, later };
+  // Keep the line on screen: the action resumes on it once the audio is on.
+  adapter.getVideoElement()?.pause();
   showMiningCaptureWarning();
   return false;
 }
@@ -1402,7 +1467,7 @@ async function openMiningModal(token: Token, entry: DictionaryEntry | null): Pro
 
   // Do not start mining without an active tab capture. The warning explains
   // how to enable it and is dismissed explicitly by the user.
-  if (!(await ensureMiningCaptureReady())) return;
+  if (!(await ensureMiningCaptureReady(token, entry))) return;
 
   // Opening the mining flow is a user gesture. Start capture only when it is
   // actually needed, then use the gesture to unlock the audio context.
@@ -1533,7 +1598,7 @@ async function mineLater(token: Token, entry: DictionaryEntry | null): Promise<v
   const rendered = lastRenderedCues.find((rc) => rc.spans.some((st) => st.token === token));
   const targetIndex = rendered?.spans.findIndex((st) => st.token === token) ?? -1;
   if (!rendered || targetIndex < 0) return;
-  if (!(await ensureMiningCaptureReady())) return;
+  if (!(await ensureMiningCaptureReady(token, entry, true))) return;
 
   const lemma = tokenCanonicalKey(token);
   // Grey at once: the word cannot be set aside twice.
@@ -2450,6 +2515,7 @@ function enable(): void {
       void mineLater(token, entry);
     },
   });
+  void isMiningCaptureActive();
   removeShortcuts = installShortcuts();
   adapter.setSecondarySubtitleLanguage?.(overlayOptions.secondarySubtitleLanguage);
   adapter.subscribeCues((cues) => {

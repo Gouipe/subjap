@@ -1436,7 +1436,7 @@ const Popup: React.FC = () => {
               </dd>
               <dt style={styles.guideTerm}>Audio de l’onglet</dt>
               <dd style={styles.guideDefinition}>
-                à activer une fois par onglet vidéo pour enregistrer les phrases minées.
+                à activer une fois par onglet vidéo pour enregistrer les phrases minées, ici ou avec Alt+Maj+A depuis la vidéo.
               </dd>
             </dl>
           </section>

@@ -9,4 +9,5 @@ export {
   showPopover,
   hidePopover,
   destroyPopover,
+  setPopoverMiningUnready,
 } from "./popover";

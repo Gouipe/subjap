@@ -17,6 +17,7 @@ import { forgetVideoSurface, mountVideoSurface } from "./mount";
 // ── Constants ─────────────────────────────────────────────────────────────
 
 const POPOVER_ID = "subjap-popover";
+const LATER_TITLE = "Créer la carte plus tard, sans interrompre la vidéo";
 const POPOVER_WIDTH = 306;
 const POPOVER_HEIGHT = 422;
 const VIEWPORT_MARGIN = 8;
@@ -65,6 +66,7 @@ export class WordPopover {
   private currentMinedLater = false;
   private currentToken: Token | null = null;
   private currentEntry: DictionaryEntry | null = null;
+  private miningUnreadyHint: string | null = null;
   private boundOnKeydown: (e: KeyboardEvent) => void;
   private boundOnClickOutside: (e: MouseEvent) => void;
 
@@ -146,6 +148,27 @@ export class WordPopover {
     this.el.remove();
   }
 
+  /**
+   * Grey « Miner » and « Plus tard » while the tab audio is not captured.
+   * They stay clickable: the click explains how to turn the capture on.
+   * `hint` is their tooltip, null once mining is ready.
+   */
+  setMiningUnready(hint: string | null): void {
+    this.miningUnreadyHint = hint;
+    this.renderMineButton();
+  }
+
+  private renderMineButton(): void {
+    const unready = this.miningUnreadyHint !== null;
+    const mineBtn = this.el.querySelector(".subjap-btn--mine") as HTMLButtonElement;
+    mineBtn.classList.toggle("subjap-btn--unready", unready);
+    if (unready) mineBtn.title = this.miningUnreadyHint!;
+    else mineBtn.removeAttribute("title");
+    const laterBtn = this.el.querySelector(".subjap-btn--later") as HTMLButtonElement;
+    laterBtn.classList.toggle("subjap-btn--unready", unready);
+    laterBtn.title = this.miningUnreadyHint ?? LATER_TITLE;
+  }
+
   /** Returns the root element (for mounting). */
   getElement(): HTMLDivElement {
     return this.el;
@@ -174,7 +197,7 @@ export class WordPopover {
       </div>
       <div class="subjap-popover__actions">
         <button class="subjap-btn subjap-btn--mine">Miner</button>
-        <button class="subjap-btn subjap-btn--later" title="Créer la carte plus tard, sans interrompre la vidéo">Plus tard</button>
+        <button class="subjap-btn subjap-btn--later" title="${LATER_TITLE}">Plus tard</button>
         <button class="subjap-btn subjap-btn--state subjap-btn--toggle-known" aria-pressed="false"></button>
         <button class="subjap-btn subjap-btn--state subjap-btn--toggle-ignored" aria-pressed="false"></button>
       </div>
@@ -376,6 +399,20 @@ export class WordPopover {
       .subjap-btn--mine:hover {
         background: #ff7966;
       }
+      /* Tab audio not captured: mining cannot start yet. */
+      .subjap-btn--mine.subjap-btn--unready {
+        background: #252932;
+        border-color: #343842;
+        color: #b2b6bf;
+        font-weight: 500;
+      }
+      .subjap-btn--mine.subjap-btn--unready:hover {
+        background: #2c3039;
+        color: #f4f1ea;
+      }
+      .subjap-btn--later.subjap-btn--unready:not(:disabled) {
+        color: #b2b6bf;
+      }
       @media (prefers-reduced-motion: reduce) {
         .subjap-popover {
           transition: none;
@@ -467,6 +504,8 @@ export class WordPopover {
     } else {
       pitchEl.textContent = "";
     }
+
+    this.renderMineButton();
 
     const laterBtn = this.el.querySelector(".subjap-btn--later") as HTMLButtonElement;
     laterBtn.hidden = !this.callbacks.onMineLater;
@@ -615,6 +654,11 @@ export function getPopover(callbacks: PopoverCallbacks): WordPopover {
 export function showPopover(params: Parameters<WordPopover["show"]>[0]): void {
   if (!singleton) return;
   singleton.show(params);
+}
+
+/** See {@link WordPopover.setMiningUnready}. */
+export function setPopoverMiningUnready(hint: string | null): void {
+  singleton?.setMiningUnready(hint);
 }
 
 /** Hide the singleton popover (if it exists). */

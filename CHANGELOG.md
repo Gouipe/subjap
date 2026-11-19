@@ -7,6 +7,10 @@ elle serait annoncée à nouveau.
 
 ## 2026-11-19
 
+### Fonctionnalités
+
+- « Miner » et « Plus tard » passent en gris tant que l’audio de l’onglet n’est pas activé. Le raccourci Alt+Maj+A l’active depuis la vidéo, même en plein écran, et ouvre aussitôt le minage du mot cliqué.
+
 ### Corrections
 
 - Un mot passe en gris dès que sa carte est créée dans Anki, sans attendre la synchronisation suivante.
