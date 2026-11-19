@@ -42,6 +42,11 @@ corrigent librement, voir `AGENTS.md` › Journal des nouveautés) :
   `### Refonte`, courte, en français, écrite pour l'utilisatrice.
 - **Les lignes décrivent l'état final** : pas de ligne pour un essai annulé,
   pas deux lignes pour le même changement retouché.
+- **Les lignes sont condensées** : une phrase courte par changement, qui dit
+  ce que l'utilisatrice gagne. Retirer les détails (cas particuliers comme le
+  plein écran, marche à suivre, précisions pour les installations
+  existantes) : la popup et l'interface les donnent déjà. Condenser sans
+  demander, avant la confirmation.
 - **Aucune ligne nouvelle** (que des commits `[sans changelog]`) : la mise à
   jour ne sera pas annoncée dans la popup. Le dire.
 
