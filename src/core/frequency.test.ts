@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getFrequencyHighlight,
+  isDefaultIgnoredToken,
   isNonLexicalToken,
   isSingleMiningCandidate,
   NEAR_FREQUENCY_WINDOW,
@@ -96,5 +97,26 @@ describe("getFrequencyHighlight", () => {
       false,
     );
     expect(isSingleMiningCandidate(["known", "relevant", "near"])).toBe(false);
+  });
+});
+
+describe("isDefaultIgnoredToken", () => {
+  it("ignore les cris en kana qu’UniDic classe en adverbe ou en nom (ううっ, おっ)", () => {
+    const cries: [string, string][] = [
+      ["ううっ", "副詞"],
+      ["ぐうっ", "副詞"],
+      ["おっ", "名詞"],
+      ["ちょっ", "副詞"],
+      ["フッ", "副詞"],
+    ];
+    for (const [surface, pos] of cries) {
+      expect(isDefaultIgnoredToken({ surface, partOfSpeech: [pos] }), surface).toBe(true);
+    }
+  });
+
+  it("garde les mots qui ne finissent pas par っ", () => {
+    for (const surface of ["ちょっと", "やっぱり", "ったく", "行っ"]) {
+      expect(isDefaultIgnoredToken({ surface, partOfSpeech: ["副詞"] }), surface).toBe(false);
+    }
   });
 });

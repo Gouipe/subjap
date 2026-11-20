@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Token } from "@/core/types";
 import { groupTokens } from "@/tokenizer/group";
+import { toLinderaToken } from "@/tokenizer/convert";
+import { unidic } from "@/tokenizer/unidic-fixture";
 
 function token(
   surface: string,
@@ -312,5 +314,43 @@ describe("groupTokens", () => {
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ surface: "思っ", lemma: "思う" });
     expect(result[1]).toMatchObject({ surface: "て", lemma: "て" });
+  });
+
+  it("fait de いけない un mot à part (mal, il ne faut pas), pas le négatif de 行く", () => {
+    const ike = toLinderaToken(
+      unidic({
+        surface: "いけ",
+        lexeme: "行く",
+        orthographicBaseForm: "いける",
+        phonologicalBaseForm: "イケル",
+        phonologicalSurfaceForm: "イケ",
+        reading: "イク",
+        partOfSpeech: "動詞",
+        partOfSpeechSubcategory1: "非自立可能",
+        conjugationType: "下一段-カ行",
+      }),
+    );
+    const nai = toLinderaToken(
+      unidic({
+        surface: "ない",
+        lexeme: "ない",
+        orthographicBaseForm: "ない",
+        phonologicalBaseForm: "ナイ",
+        phonologicalSurfaceForm: "ナイ",
+        reading: "ナイ",
+        partOfSpeech: "助動詞",
+        conjugationType: "助動詞-ナイ",
+      }),
+    );
+
+    expect(groupTokens([ike, nai])).toEqual([
+      expect.objectContaining({
+        surface: "いけない",
+        dictionaryForm: "いけない",
+        canonicalKey: "行けない",
+        dictionaryReading: "いけない",
+      }),
+    ]);
+    expect(groupTokens([ike])[0]).toMatchObject({ dictionaryForm: "いける", canonicalKey: "行ける" });
   });
 });

@@ -37,4 +37,22 @@ describe("token dictionary lookup", () => {
     expect(remoteLookup).toHaveBeenCalledWith("ケンカ", { mode: "orthography" });
     expect(remoteLookup).toHaveBeenCalledWith("けんか", { mode: "reading" });
   });
+
+  it("cherche un cri sous sa seule graphie, ni son lexème (おっ → 伯父) ni sa lecture", async () => {
+    const cry: Token = {
+      surface: "おっ",
+      dictionaryForm: "おっ",
+      canonicalKey: "伯父",
+      lemma: "伯父",
+      reading: "おっ",
+      dictionaryReading: "おじ",
+      partOfSpeech: ["名詞"],
+    };
+    const uncle: DictionaryEntry = { ...entry, headword: "伯父", reading: "おじ" };
+    const lookup = vi.fn((term: string) => (term === "伯父" || term === "おじ" ? uncle : null));
+
+    await expect(lookupTokenDictionaryEntry(cry, lookup, lookup)).resolves.toBeNull();
+    expect(lookup).toHaveBeenCalledWith("おっ", { mode: "orthography" });
+    expect(lookup).not.toHaveBeenCalledWith("伯父", expect.anything());
+  });
 });
