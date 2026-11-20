@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-20
+
+### Corrections
+
+- Les verbes comme 信じろ ou 感じた affichent et minent 信じる et 感じる, et non plus leur forme littéraire 信ずる et 感ずる.
+
 ## 2026-11-19
 
 ### Fonctionnalités

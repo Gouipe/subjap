@@ -99,10 +99,29 @@ function kanaReading(written: string, pronunciation: string, lexemeReading: stri
   return spelled;
 }
 
+/**
+ * UniDic conjugates 信じろ, 信じられない, 感じた as the literary サ変 verbs
+ * 信ずる, 感ずる. A じ form is the modern 上一段 verb (信じる): its base form is
+ * the one heard, shown and mined. A ず/ぜ surface (信ずる, 信ぜよ) keeps ずる.
+ */
+function modernJiruForm(form: string, surface: string, conjugationType: string): string {
+  if (!conjugationType.startsWith("サ行変格") || form.length <= 2 || !form.endsWith("ずる"))
+    return form;
+  const stem = form.slice(0, -2);
+  return surface.startsWith(`${stem}じ`) ? `${stem}じる` : form;
+}
+
+/** しんずる → しんじる, alongside {@link modernJiruForm}. */
+function jiruReading(reading: string, jiruVerb: boolean): string {
+  return jiruVerb && reading.endsWith("ずる") ? `${reading.slice(0, -2)}じる` : reading;
+}
+
 /** Convert one Lindera/UniDic token to the shared SubJap contract. */
 export function toLinderaToken(input: RawLinderaToken): Token {
   const raw = normalizeRawToken(input);
-  const dictionaryForm = nonStar(raw.orthographicBaseForm, raw.surface);
+  const unidicBaseForm = nonStar(raw.orthographicBaseForm, raw.surface);
+  const dictionaryForm = modernJiruForm(unidicBaseForm, raw.surface, raw.conjugationType ?? "");
+  const jiruVerb = dictionaryForm !== unidicBaseForm;
   // テレビ-television → テレビ: SubJap's identity is the word, not UniDic's gloss.
   const canonicalKey = stripLexemeGloss(nonStar(raw.lexeme, dictionaryForm));
   const lexemeReading = nonStar(raw.reading, "");
@@ -131,7 +150,7 @@ export function toLinderaToken(input: RawLinderaToken): Token {
     lemma: canonicalKey,
     reading,
     dictionaryReading: phonologicalBaseForm
-      ? kanaReading(dictionaryForm, phonologicalBaseForm, lexemeReading)
+      ? jiruReading(kanaReading(unidicBaseForm, phonologicalBaseForm, lexemeReading), jiruVerb)
       : "",
     partOfSpeech: raw.partOfSpeech && raw.partOfSpeech !== "*" ? [raw.partOfSpeech] : [],
     ...(details.length > 0 ? { partOfSpeechDetails: details } : undefined),
