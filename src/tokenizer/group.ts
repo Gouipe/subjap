@@ -1,5 +1,6 @@
 import type { GrammarAnnotation, Token } from "@/core/types";
 import { tokenCanonicalKey, tokenDictionaryForm, tokenLookupTerms } from "@/core/types";
+import { IKERU } from "./convert";
 import { isNonLexicalToken } from "@/core/frequency";
 import { mergeSplitWords } from "./split-words";
 
@@ -579,6 +580,18 @@ function predicateLayout(
   return { segments, grammar };
 }
 
+/** いけない, いけません: a word of its own (bad, must not), not the negative of いける. */
+function ikenaiFields(verb: Token, tokens: Token[]): Partial<Token> {
+  if (tokenCanonicalKey(verb) !== IKERU || !tokens.slice(1).some(isNegative)) return {};
+  return {
+    dictionaryForm: "いけない",
+    canonicalKey: "行けない",
+    lemma: "行けない",
+    lookupTerms: ["いけない", "行けない"],
+    dictionaryReading: "いけない",
+  };
+}
+
 /** `blocks` use indexes relative to `tokens`. */
 function createInflectedPredicateGroup(tokens: Token[], blocks: PredicateExpression[]): Token {
   const verb = tokens[0];
@@ -591,6 +604,7 @@ function createInflectedPredicateGroup(tokens: Token[], blocks: PredicateExpress
     surface: tokens.map((token) => token.surface).join(""),
     ...derivedLexicalFields(verb),
     lemma: tokenCanonicalKey(verb),
+    ...ikenaiFields(verb, tokens),
     reading: tokens.map((token) => token.reading).join(""),
     partOfSpeech: behavesAsIAdjective
       ? [...new Set([...verb.partOfSpeech, "形容詞"])]

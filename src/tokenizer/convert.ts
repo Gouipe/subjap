@@ -136,6 +136,9 @@ function modernEnding(
   return null;
 }
 
+/** The lexical identity of kana いける, as JMdict spells it. */
+export const IKERU = "行ける";
+
 function rewriteEnding(text: string, ending: [string, string] | null): string {
   return ending && text.endsWith(ending[0]) ? text.slice(0, -ending[0].length) + ending[1] : text;
 }
@@ -152,7 +155,9 @@ export function toLinderaToken(input: RawLinderaToken): Token {
   const ending = modernEnding(unidicBaseForm, unidicBaseReading, raw);
   const dictionaryForm = rewriteEnding(unidicBaseForm, ending);
   // テレビ-television → テレビ: SubJap's identity is the word, not UniDic's gloss.
-  const canonicalKey = stripLexemeGloss(nonStar(raw.lexeme, dictionaryForm));
+  const lexeme = stripLexemeGloss(nonStar(raw.lexeme, dictionaryForm));
+  // Kana いける (it works, いけない: must not) is not 行く: JMdict spells it 行ける.
+  const canonicalKey = dictionaryForm === "いける" && lexeme === "行く" ? IKERU : lexeme;
   const reading = kanaReading(raw.surface, nonStar(raw.phonologicalSurfaceForm, ""), lexemeReading);
   const details = unique([
     raw.partOfSpeechSubcategory1,
