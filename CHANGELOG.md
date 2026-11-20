@@ -10,6 +10,9 @@ elle serait annoncée à nouveau.
 ### Corrections
 
 - Les verbes comme 信じろ ou 感じた affichent et minent 信じる et 感じる, et non plus leur forme littéraire 信ずる et 感ずる.
+- Un verbe au potentiel (動けない, 勝てる) affiche et mine son verbe de base (動く, 勝つ), avec sa lecture et ses définitions.
+- Les adjectifs littéraires comme 弱き ou 強き affichent leur forme moderne 弱い et 強い.
+- Les cris comme ううっ, ぐうっ ou おっ sont ignorés par défaut, comme えっ, et n’affichent plus la définition d’un autre mot (植う, 伯父).
 
 ## 2026-11-19
 

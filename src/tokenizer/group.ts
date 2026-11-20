@@ -298,8 +298,9 @@ function obligationEnd(tokens: Token[], start: number): number {
   if (OBLIGATION_ADJECTIVES.has(head.surface)) {
     return start + 1 + copularLength(tokens, start + 1);
   }
-  if (!head.partOfSpeech.includes("動詞") || !OBLIGATION_VERBS.has(tokenDictionaryForm(head)))
-    return start;
+  // 行けない is shown as 行く (potential of 行く): its surface still says いけない.
+  const verb = head.surface.startsWith("行け") ? "行ける" : tokenDictionaryForm(head);
+  if (!head.partOfSpeech.includes("動詞") || !OBLIGATION_VERBS.has(verb)) return start;
   const end = consumeInflectionalTail(tokens, start + 1);
   return tokens.slice(start + 1, end).some(isNegative) ? end : start;
 }

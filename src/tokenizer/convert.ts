@@ -99,34 +99,61 @@ function kanaReading(written: string, pronunciation: string, lexemeReading: stri
   return spelled;
 }
 
+const POTENTIAL_ENDINGS: Record<string, string> = {
+  え: "う", け: "く", げ: "ぐ", せ: "す", て: "つ", ね: "ぬ", べ: "ぶ", め: "む", れ: "る",
+};
+
 /**
- * UniDic conjugates 信じろ, 信じられない, 感じた as the literary サ変 verbs
- * 信ずる, 感ずる. A じ form is the modern 上一段 verb (信じる): its base form is
- * the one heard, shown and mined. A ず/ぜ surface (信ずる, 信ぜよ) keeps ずる.
+ * The ending to rewrite so a UniDic base form becomes the word a learner looks
+ * up, shown and mined (form and reading alike), or null to keep it:
+ * - 信じろ, 感じた: UniDic conjugates the literary サ変 信ずる; a じ surface is
+ *   the modern 信じる (a ず/ぜ surface, 信ずる or 信ぜよ, keeps ずる);
+ * - 弱き, 悪しき: the literary adjective 弱し, 悪し is the modern 弱い, 悪しい;
+ * - 動けない, 行けない: the potential 動ける of the lexeme 動く is the verb 動く;
+ *   いける in kana is its own word (いけない: must not, いける: it works).
  */
-function modernJiruForm(form: string, surface: string, conjugationType: string): string {
-  if (!conjugationType.startsWith("サ行変格") || form.length <= 2 || !form.endsWith("ずる"))
-    return form;
-  const stem = form.slice(0, -2);
-  return surface.startsWith(`${stem}じ`) ? `${stem}じる` : form;
+function modernEnding(
+  form: string,
+  reading: string,
+  raw: RawLinderaToken,
+): [from: string, to: string] | null {
+  const type = raw.conjugationType ?? "";
+  if (type.startsWith("サ行変格") && form.length > 2 && form.endsWith("ずる"))
+    return raw.surface.startsWith(`${form.slice(0, -2)}じ`) ? ["ずる", "じる"] : null;
+  if (type.startsWith("文語形容詞") && form.length > 1 && form.endsWith("し"))
+    return type.includes("シク") ? ["し", "しい"] : ["し", "い"];
+  const vowel = form.at(-2) ?? "";
+  const base = POTENTIAL_ENDINGS[vowel];
+  if (
+    base &&
+    form !== "いける" &&
+    type.startsWith("下一段") &&
+    form.endsWith(`${vowel}る`) &&
+    reading.endsWith(`${vowel}る`) &&
+    toHiragana(nonStar(raw.reading, "")) === `${reading.slice(0, -2)}${base}`
+  )
+    return [`${vowel}る`, base];
+  return null;
 }
 
-/** しんずる → しんじる, alongside {@link modernJiruForm}. */
-function jiruReading(reading: string, jiruVerb: boolean): string {
-  return jiruVerb && reading.endsWith("ずる") ? `${reading.slice(0, -2)}じる` : reading;
+function rewriteEnding(text: string, ending: [string, string] | null): string {
+  return ending && text.endsWith(ending[0]) ? text.slice(0, -ending[0].length) + ending[1] : text;
 }
 
 /** Convert one Lindera/UniDic token to the shared SubJap contract. */
 export function toLinderaToken(input: RawLinderaToken): Token {
   const raw = normalizeRawToken(input);
   const unidicBaseForm = nonStar(raw.orthographicBaseForm, raw.surface);
-  const dictionaryForm = modernJiruForm(unidicBaseForm, raw.surface, raw.conjugationType ?? "");
-  const jiruVerb = dictionaryForm !== unidicBaseForm;
+  const lexemeReading = nonStar(raw.reading, "");
+  const phonologicalBaseForm = nonStar(raw.phonologicalBaseForm, "");
+  const unidicBaseReading = phonologicalBaseForm
+    ? kanaReading(unidicBaseForm, phonologicalBaseForm, lexemeReading)
+    : "";
+  const ending = modernEnding(unidicBaseForm, unidicBaseReading, raw);
+  const dictionaryForm = rewriteEnding(unidicBaseForm, ending);
   // テレビ-television → テレビ: SubJap's identity is the word, not UniDic's gloss.
   const canonicalKey = stripLexemeGloss(nonStar(raw.lexeme, dictionaryForm));
-  const lexemeReading = nonStar(raw.reading, "");
   const reading = kanaReading(raw.surface, nonStar(raw.phonologicalSurfaceForm, ""), lexemeReading);
-  const phonologicalBaseForm = nonStar(raw.phonologicalBaseForm, "");
   const details = unique([
     raw.partOfSpeechSubcategory1,
     raw.partOfSpeechSubcategory2,
@@ -149,9 +176,7 @@ export function toLinderaToken(input: RawLinderaToken): Token {
     // explicit dictionaryForm/canonicalKey fields above.
     lemma: canonicalKey,
     reading,
-    dictionaryReading: phonologicalBaseForm
-      ? jiruReading(kanaReading(unidicBaseForm, phonologicalBaseForm, lexemeReading), jiruVerb)
-      : "",
+    dictionaryReading: rewriteEnding(unidicBaseReading, ending),
     partOfSpeech: raw.partOfSpeech && raw.partOfSpeech !== "*" ? [raw.partOfSpeech] : [],
     ...(details.length > 0 ? { partOfSpeechDetails: details } : undefined),
     ...(raw.conjugationType && raw.conjugationType !== "*"

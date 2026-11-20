@@ -4,6 +4,7 @@
 
 import { tokenLookupTerms, type DictionaryEntry, type Token } from "@/core/types";
 import { toHiragana } from "@/core/kana";
+import { isKanaExclamation } from "@/core/frequency";
 import { lexicalHead, selectDictionaryEntry, type DictionaryLookupOptions } from "./match";
 
 export type DictionaryLookup = (
@@ -30,6 +31,18 @@ export async function lookupTokenDictionaryEntry(
   localLookup: DictionaryLookup,
   remoteLookup: DictionaryLookup,
 ): Promise<DictionaryEntry | null> {
+  // A cry is defined by its own spelling only: its lexeme (おっ → 伯父) or
+  // reading (ううっ → 植う) would name an unrelated word.
+  if (isKanaExclamation(token)) {
+    for (const lookup of [localLookup, remoteLookup]) {
+      const result = await lookup(token.surface, { mode: "orthography" });
+      const entries = result == null ? [] : Array.isArray(result) ? result : [result];
+      const entry = selectDictionaryEntry(entries, [token.surface], "orthography", token);
+      if (entry) return entry;
+    }
+    return null;
+  }
+
   const head = lexicalHead(token);
   // lookupTerms can contain phonetic fallbacks: these must not compete as
   // spellings against the dictionary form and canonical lexical identity.

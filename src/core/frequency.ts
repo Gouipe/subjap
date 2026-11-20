@@ -111,15 +111,27 @@ export function isFunctionWordToken(token: Pick<Token, "partOfSpeech">): boolean
   );
 }
 
+const KANA_EXCLAMATION = /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+[っッ]$/u;
+
 /**
- * Interjections and fillers (んっ, えっ, ああ, えー) and grammar expressions
- * without a lexical head (じゃないです, なんだ) are not vocabulary to track.
+ * A cry or a cut-off word in kana (ううっ, ぐうっ, おっ, ちょっ): UniDic files
+ * some under adverbs or nouns (おっ → 伯父), yet they are exclamations.
+ */
+export function isKanaExclamation(token: Pick<Token, "surface">): boolean {
+  return KANA_EXCLAMATION.test(token.surface);
+}
+
+/**
+ * Interjections and fillers (んっ, えっ, ああ, えー, ううっ) and grammar
+ * expressions without a lexical head (じゃないです, なんだ) are not vocabulary
+ * to track.
  */
 export function isDefaultIgnoredToken(
-  token: Pick<Token, "partOfSpeech" | "grammarOnly">,
+  token: Pick<Token, "surface" | "partOfSpeech" | "grammarOnly">,
 ): boolean {
   return (
     token.grammarOnly === true ||
+    isKanaExclamation(token) ||
     token.partOfSpeech.includes("感動詞") ||
     token.partOfSpeech.includes("フィラー")
   );
@@ -130,7 +142,7 @@ export function isDefaultIgnoredToken(
  * (including an explicit « Ne plus ignorer ») or an existing Anki card takes precedence.
  */
 export function effectiveWordState(
-  token: Pick<Token, "partOfSpeech" | "grammarOnly" | "canonicalKey" | "lemma">,
+  token: Pick<Token, "surface" | "partOfSpeech" | "grammarOnly" | "canonicalKey" | "lemma">,
   stored: WordState | null,
   ankiNoteCount: number,
 ): WordState | null {
