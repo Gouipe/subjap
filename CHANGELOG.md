@@ -5,18 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
-## 2026-11-21
-
-### Corrections
-
-- Un verbe au potentiel (眠れない) indique « 眠れ — potentiel (pouvoir …) » dans la popup, en plus de la négation.
-
 ## 2026-11-20
 
 ### Corrections
 
 - Les verbes comme 信じろ ou 感じた affichent et minent 信じる et 感じる, et non plus leur forme littéraire 信ずる et 感ずる.
-- Un verbe au potentiel (動けない, 勝てる) affiche et mine son verbe de base (動く, 勝つ), avec sa lecture et ses définitions.
+- Un verbe au potentiel (動けない, 勝てる) affiche et mine son verbe de base (動く, 勝つ), avec sa lecture et ses définitions, et la popup précise qu’il s’agit du potentiel.
 - Les adjectifs littéraires comme 弱き ou 強き affichent leur forme moderne 弱い et 強い.
 - Les cris comme ううっ, ぐうっ ou おっ sont ignorés par défaut, comme えっ, et n’affichent plus la définition d’un autre mot (植う, 伯父).
 - いけない affiche sa propre définition (« mal, il ne faut pas ») au lieu de celle de 行く, et いける seul celle de « ça marche ».
