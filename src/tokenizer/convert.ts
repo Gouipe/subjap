@@ -136,6 +136,8 @@ function modernEnding(
   return null;
 }
 
+const POTENTIAL_LABEL = "potentiel (pouvoir …)";
+
 /** The lexical identity of kana いける, as JMdict spells it. */
 export const IKERU = "行ける";
 
@@ -154,6 +156,8 @@ export function toLinderaToken(input: RawLinderaToken): Token {
     : "";
   const ending = modernEnding(unidicBaseForm, unidicBaseReading, raw);
   const dictionaryForm = rewriteEnding(unidicBaseForm, ending);
+  // 眠れ(ない) shown as 眠る: say that the stem heard is its potential.
+  const potential = ending !== null && (raw.conjugationType ?? "").startsWith("下一段");
   // テレビ-television → テレビ: SubJap's identity is the word, not UniDic's gloss.
   const lexeme = stripLexemeGloss(nonStar(raw.lexeme, dictionaryForm));
   // Kana いける (it works, いけない: must not) is not 行く: JMdict spells it 行ける.
@@ -189,6 +193,9 @@ export function toLinderaToken(input: RawLinderaToken): Token {
       : undefined),
     ...(raw.conjugationForm && raw.conjugationForm !== "*"
       ? { conjugationForm: raw.conjugationForm }
+      : undefined),
+    ...(potential
+      ? { grammar: [{ surface: raw.surface, kind: "inflection" as const, label: POTENTIAL_LABEL }] }
       : undefined),
   };
 }

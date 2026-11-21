@@ -272,6 +272,35 @@ describe("groupTokens", () => {
     });
   });
 
+  it("signale le potentiel d’un verbe en う avant sa négation (眠れない)", () => {
+    const input = [
+      toLinderaToken(
+        unidic({
+          surface: "眠れ",
+          lexeme: "眠る",
+          orthographicBaseForm: "眠れる",
+          phonologicalBaseForm: "ネムレル",
+          phonologicalSurfaceForm: "ネムレ",
+          reading: "ネムル",
+          partOfSpeech: "動詞",
+          partOfSpeechSubcategory1: "一般",
+          conjugationType: "下一段-ラ行",
+          conjugationForm: "未然形-一般",
+        }),
+      ),
+      auxiliary("ない", "ない", "助動詞-ナイ"),
+    ];
+
+    expect(groupTokens(input)[0]).toMatchObject({
+      surface: "眠れない",
+      dictionaryForm: "眠る",
+      grammar: [
+        { surface: "眠れ", kind: "inflection", label: "potentiel (pouvoir …)" },
+        { surface: "ない", kind: "inflection", label: "négation" },
+      ],
+    });
+  });
+
   it("s'arrête devant un nouveau verbe lexical après la forme en て", () => {
     const sleep = independentVerb("寝る", "寝る");
     const result = groupTokens([

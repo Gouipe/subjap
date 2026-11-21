@@ -5,6 +5,12 @@ une catégorie est une nouveauté. Une ligne par changement, écrite pour la
 personne qui utilise l'extension. Ne pas reformuler une ligne déjà publiée :
 elle serait annoncée à nouveau.
 
+## 2026-11-21
+
+### Corrections
+
+- Un verbe au potentiel (眠れない) indique « 眠れ — potentiel (pouvoir …) » dans la popup, en plus de la négation.
+
 ## 2026-11-20
 
 ### Corrections

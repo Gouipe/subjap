@@ -77,6 +77,7 @@ describe("toLinderaToken", () => {
         dictionaryForm: "動く",
         dictionaryReading: "うごく",
         canonicalKey: "動く",
+        grammar: [{ surface: "動け", kind: "inflection", label: "potentiel (pouvoir …)" }],
       });
     });
 

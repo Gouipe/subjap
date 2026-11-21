@@ -560,9 +560,14 @@ function predicateLayout(
   tokens: Token[],
   blocks: PredicateExpression[],
 ): Pick<Token, "segments" | "grammar"> {
-  if (blocks.length === 0) return { grammar: describeInflections(tokens.slice(1)) };
+  // The head's own annotation (眠れ — potentiel) comes before its tail.
+  const headGrammar = tokens[0]?.grammar ?? [];
+  if (blocks.length === 0)
+    return { grammar: [...headGrammar, ...describeInflections(tokens.slice(1))] };
   const segments: string[] = [];
-  const grammar: GrammarAnnotation[] = [];
+  const grammar: GrammarAnnotation[] = blocks.some((block) => block.start === 0)
+    ? []
+    : [...headGrammar];
   for (let index = 0; index < tokens.length;) {
     const block = blocks.find((candidate) => candidate.start === index);
     if (block) {
